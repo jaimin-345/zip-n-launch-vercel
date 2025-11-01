@@ -246,7 +246,7 @@ export default defineConfig(({ mode }) => ({
 		port: 8080,
 		cors: true,
 		headers: {
-			'Cross-Origin-Embedder-Policy': 'credentialless',
+			'X-Frame-Options': 'SAMEORIGIN',
 		},
 		allowedHosts: true,
 	},
