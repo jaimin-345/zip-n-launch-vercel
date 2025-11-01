@@ -53,8 +53,8 @@ const Footer = () => {
              <p className="font-semibold text-foreground">Supported Associations</p>
             <div className="flex flex-wrap gap-4 mt-4">
               {associations.map(assoc => (
-                <div key={assoc.name} title={assoc.name} className="h-10 w-10 flex items-center justify-center bg-secondary rounded-full">
-                  <img-replace class="h-6 w-6" alt={assoc.image} />
+                <div key={assoc.name} title={assoc.name} className="h-10 w-10 flex items-center justify-center bg-secondary rounded-full text-xs text-muted-foreground">
+                  {assoc.name}
                 </div>
               ))}
             </div>

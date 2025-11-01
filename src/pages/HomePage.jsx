@@ -81,7 +81,11 @@ const HomePage = () => {
 
   const backgroundImageUrl = mediaConfig.home_page?.url;
   
-  return <div style={{ backgroundImage: `url(${backgroundImageUrl})` }} className="bg-cover bg-fixed bg-center min-h-screen">
+  return (
+    <div 
+      style={backgroundImageUrl ? { backgroundImage: `url(${backgroundImageUrl})` } : undefined} 
+      className="bg-cover bg-fixed bg-center min-h-screen"
+    >
       <Navigation />
 
       <main className="bg-background/80 backdrop-blur-sm">
@@ -229,6 +233,8 @@ const HomePage = () => {
       </main>
       
       <Footer />
-    </div>;
+    </div>
+  );
 };
+
 export default HomePage;

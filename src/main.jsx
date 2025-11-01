@@ -4,7 +4,6 @@ import App from '@/App';
 import '@/index.css';
 import { CartProvider } from '@/hooks/useCart';
 import { AuthProvider } from '@/contexts/SupabaseAuthContext';
-import { ThemeProvider } from '@/components/ThemeProvider';
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter } from 'react-router-dom';
 
@@ -13,11 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <HelmetProvider>
       <BrowserRouter>
         <AuthProvider>
-          <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-            <CartProvider>
-              <App />
-            </CartProvider>
-          </ThemeProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
         </AuthProvider>
       </BrowserRouter>
     </HelmetProvider>

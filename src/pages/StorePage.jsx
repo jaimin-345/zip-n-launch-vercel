@@ -96,7 +96,9 @@ const StorePage = () => {
       <Card className="bg-secondary border-border hover:border-primary/50 transition-all duration-300 group h-full flex flex-col w-full">
         <CardHeader className="pb-4">
           <div className="aspect-video bg-background rounded-lg mb-4 flex items-center justify-center pattern-grid overflow-hidden relative">
-            <img-replace alt={product.title} className="w-full h-full object-cover rounded-lg opacity-80 group-hover:scale-105 transition-transform duration-300" />
+            <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center p-4 text-center">
+              <span className="text-muted-foreground text-sm">{product.title}</span>
+            </div>
             <Badge variant="secondary" className="absolute top-2 left-2">
               {product.type === 'Pattern' ? <FileText className="h-4 w-4 mr-1.5" /> : <BookOpen className="h-4 w-4 mr-1.5" />}
               {product.type}
