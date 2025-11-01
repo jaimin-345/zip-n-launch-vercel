@@ -166,7 +166,7 @@ const HomePage = () => {
             <div className="mt-8 flow-root">
               <div className="-mt-4 -ml-8 flex flex-wrap justify-center">
                 {sponsors.map(sponsor => <div key={sponsor.name} className="mt-4 ml-8 flex flex-grow flex-shrink-0 items-center justify-center lg:flex-grow-0">
-                    <img-replace className="h-12" alt={sponsor.logo} />
+                    <div className="h-12 w-32 bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground">{sponsor.name}</div>
                   </div>)}
               </div>
             </div>
@@ -201,8 +201,8 @@ const HomePage = () => {
             }}>
                   <Card className="bg-card/90 border-border hover:border-primary/50 transition-all duration-300 flex flex-col h-full">
                     <CardHeader>
-                      <div className="aspect-video relative mb-4">
-                        <img-replace className="rounded-lg object-cover w-full h-full" alt={show.image} />
+                      <div className="aspect-video relative mb-4 bg-muted rounded-lg flex items-center justify-center">
+                        <span className="text-muted-foreground text-sm px-4 text-center">{show.image}</span>
                         <Badge className={`absolute top-2 right-2 ${show.status === 'live' ? 'bg-red-600 text-white' : 'bg-primary/80 text-primary-foreground'}`}>
                           {show.status.toUpperCase()}
                         </Badge>
