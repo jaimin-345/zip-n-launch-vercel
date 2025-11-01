@@ -1,0 +1,139 @@
+import React, { useState, useEffect } from 'react';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+    import { Button } from '@/components/ui/button';
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
+    import { Textarea } from '@/components/ui/textarea';
+    import { useToast } from '@/components/ui/use-toast';
+    import { supabase } from '@/lib/supabaseClient';
+    import { Loader2, Send, Paperclip } from 'lucide-react';
+
+    const defaultSubject = (setName) => `Information Regarding Your Pattern Set: ${setName}`;
+    const defaultBody = (setName, userName, eventLink, showBookLink) => `Hello ${userName || 'Contributor'},
+
+    Thank you for your submission of the pattern set "${setName}".
+
+    Here are some details regarding the upcoming event:
+    Event Page Link: ${eventLink}
+    Show Book Link: ${showBookLink}
+
+    The patterns you submitted are attached to this email for your reference.
+
+    Best regards,
+    The EquiPatterns Team`;
+
+    export const EmailSenderModal = ({ isOpen, onClose, patternSet }) => {
+        const { toast } = useToast();
+        const [to, setTo] = useState('');
+        const [subject, setSubject] = useState('');
+        const [body, setBody] = useState('');
+        const [isSending, setIsSending] = useState(false);
+        const [eventLink, setEventLink] = useState('');
+        const [showBookLink, setShowBookLink] = useState('');
+
+        useEffect(() => {
+            if (patternSet) {
+                const projectId = patternSet.patterns[0]?.project_id;
+                const baseUrl = window.location.origin;
+                const generatedEventLink = projectId ? `${baseUrl}/show/${projectId}` : '[INSERT EVENT PAGE LINK HERE]';
+                const generatedShowBookLink = '[INSERT SHOW BOOK LINK HERE]'; // Placeholder for now
+
+                setEventLink(generatedEventLink);
+                setShowBookLink(generatedShowBookLink);
+
+                setTo(patternSet.user?.email || '');
+                setSubject(defaultSubject(patternSet.setName));
+                setBody(defaultBody(patternSet.setName, patternSet.user?.full_name, generatedEventLink, generatedShowBookLink));
+            }
+        }, [patternSet]);
+
+        const handleSendEmail = async () => {
+            if (!to) {
+                toast({ title: 'Error', description: 'Recipient email address cannot be empty.', variant: 'destructive' });
+                return;
+            }
+
+            setIsSending(true);
+            const recipients = to.split(',').map(email => email.trim()).filter(email => email);
+
+            if (recipients.length === 0) {
+                toast({ title: 'Error', description: 'Please provide at least one valid email address.', variant: 'destructive' });
+                setIsSending(false);
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.functions.invoke('send-email-with-attachments', {
+                    body: {
+                        to: recipients,
+                        subject,
+                        body,
+                        patternIds: patternSet.patterns.map(p => p.id),
+                    },
+                });
+
+                if (error) throw new Error(`Function invocation failed: ${error.message}`);
+
+                if (data.error) {
+                     toast({ title: 'Failed to Send Email', description: `The server responded with: ${data.error}`, variant: 'destructive' });
+                } else {
+                    toast({ title: 'Email Sent!', description: `An email has been sent to ${recipients.join(', ')}.` });
+                    onClose();
+                }
+
+            } catch (error) {
+                toast({ title: 'Error Sending Email', description: error.message, variant: 'destructive' });
+            } finally {
+                setIsSending(false);
+            }
+        };
+
+        if (!patternSet) return null;
+
+        return (
+            <Dialog open={isOpen} onOpenChange={onClose}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Send Email to Contributor(s)</DialogTitle>
+                        <DialogDescription>
+                            Compose and send an email regarding the pattern set: "{patternSet.setName}".
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="to">To</Label>
+                            <Input id="to" value={to} onChange={(e) => setTo(e.target.value)} placeholder="contributor@example.com, another@example.com" />
+                            <p className="text-sm text-muted-foreground">Separate multiple email addresses with a comma.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="subject">Subject</Label>
+                            <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="body">Body</Label>
+                            <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} rows={12} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Attachments</Label>
+                            <div className="p-3 border rounded-md bg-secondary/50 space-y-2">
+                                {patternSet.patterns.map(p => (
+                                    <div key={p.id} className="flex items-center gap-2 text-sm">
+                                        <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                        <span className="font-medium">{p.name}.pdf</span>
+                                        <span className="text-muted-foreground"> (Auto-attached)</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={onClose} disabled={isSending}>Cancel</Button>
+                        <Button onClick={handleSendEmail} disabled={isSending}>
+                            {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                            Send Email
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        );
+    };
