@@ -1,7 +1,7 @@
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as pdfjs from "https://esm.sh/pdfjs-dist@3.11.174";
-import * as xlsx from "https://cdn.sheetjs.com/xlsx-latest/package/xlsx.mjs";
+import * as xlsx from "https://esm.sh/xlsx@0.18.5";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
