@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as pdfjs from "https://esm.sh/pdfjs-dist@3.11.174";

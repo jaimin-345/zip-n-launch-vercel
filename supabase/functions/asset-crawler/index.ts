@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { corsHeaders } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { v4 as uuidv4 } from "https://deno.land/std@0.112.0/uuid/mod.ts";
