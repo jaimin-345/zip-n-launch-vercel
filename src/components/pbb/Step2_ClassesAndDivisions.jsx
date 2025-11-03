@@ -36,7 +36,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineNames, onDisciplineToggle, subAssociationType }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineNames, onDisciplineToggle, subAssociationType, groupKey }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -48,7 +48,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
     }, [disciplines]);
 
     return (
-        <AccordionItem value={association.id} className="border rounded-lg overflow-hidden">
+        <AccordionItem value={groupKey} className="border rounded-lg overflow-hidden">
             <AccordionTrigger className="text-lg font-semibold hover:no-underline px-4 py-3 bg-muted/50">
                 <div className="flex items-center gap-3">
                     {logoUrl ? (
@@ -56,9 +56,13 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                     ) : (
                         <Icon className="h-8 w-8 text-muted-foreground" />
                     )}
-                    <div>
+                    <div className="flex flex-col items-start">
                         <span className="block">{association.name}</span>
-                        {subAssociationType && <span className="text-sm font-normal text-muted-foreground">{subAssociationType.name}</span>}
+                        {subAssociationType && (
+                            <span className="text-sm font-normal text-muted-foreground bg-primary/10 px-2 py-0.5 rounded">
+                                {subAssociationType.name}
+                            </span>
+                        )}
                     </div>
                 </div>
             </AccordionTrigger>
@@ -96,27 +100,59 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
 
         const subSelections = formData.subAssociationSelections || {};
 
-        const groups = relevantAssociationIds.map(assocId => {
+        const groups = [];
+
+        relevantAssociationIds.forEach(assocId => {
             const association = associationsData.find(a => a.id === assocId);
-            if (!association) return null;
+            if (!association) return;
 
-            const subAssocTypeId = subSelections[assocId]?.type;
-            const subAssociationType = association.sub_association_info?.types.find(t => t.id === subAssocTypeId);
+            const selectedSubTypes = subSelections[assocId]?.types || [];
+            
+            // If association has sub-types and they are selected, create a group for each
+            if (association.sub_association_info && selectedSubTypes.length > 0) {
+                selectedSubTypes.forEach(subTypeId => {
+                    const subAssociationType = association.sub_association_info.types.find(t => t.id === subTypeId);
+                    
+                    let disciplines = disciplineLibrary.filter(d => {
+                        const matchesAssoc = d.association_id === assocId;
+                        const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
+                        const matchesSubType = d.sub_association_type === subTypeId;
+                        return matchesAssoc && matchesSearch && matchesSubType;
+                    });
 
-            let disciplines = disciplineLibrary.filter(d => {
-                const matchesAssoc = d.association_id === assocId;
-                const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
-                
-                if (subAssocTypeId) {
-                    return matchesAssoc && matchesSearch && d.sub_association_type === subAssocTypeId;
+                    disciplines.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || a.name.localeCompare(b.name));
+
+                    if (disciplines.length > 0 || !searchTerm) {
+                        groups.push({ 
+                            association, 
+                            disciplines, 
+                            subAssociationType,
+                            groupKey: `${assocId}-${subTypeId}`
+                        });
+                    }
+                });
+            } else {
+                // No sub-types or none selected - show all disciplines for this association
+                let disciplines = disciplineLibrary.filter(d => {
+                    const matchesAssoc = d.association_id === assocId;
+                    const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
+                    // Only include disciplines without sub-type requirement, or if no sub-types are defined
+                    const matchesSubType = !d.sub_association_type || !association.sub_association_info;
+                    return matchesAssoc && matchesSearch && matchesSubType;
+                });
+
+                disciplines.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || a.name.localeCompare(b.name));
+
+                if (disciplines.length > 0 || !searchTerm) {
+                    groups.push({ 
+                        association, 
+                        disciplines, 
+                        subAssociationType: null,
+                        groupKey: assocId
+                    });
                 }
-                return matchesAssoc && matchesSearch;
-            });
-
-            disciplines.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || a.name.localeCompare(b.name));
-
-            return { association, disciplines, subAssociationType };
-        }).filter(Boolean);
+            }
+        });
 
         return groups;
 
@@ -143,6 +179,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                         divisions: {},
                         customDivisions: [],
                         patternGroups: [],
+                        sub_association_type: disc.sub_association_type, // Preserve sub-type
                     };
                     
                     if (newDiscipline.pattern) {
@@ -235,10 +272,11 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                         )}
                     </div>
                     
-                    <Accordion type="multiple" defaultValue={groupedDisciplines.map(g => g.association.id)} className="w-full space-y-4">
+                    <Accordion type="multiple" defaultValue={groupedDisciplines.map(g => g.groupKey)} className="w-full space-y-4">
                         {groupedDisciplines.map(group => (
                             <AssociationDisciplineGroup
-                                key={group.association.id}
+                                key={group.groupKey}
+                                groupKey={group.groupKey}
                                 association={group.association}
                                 disciplines={group.disciplines}
                                 selectedDisciplineNames={selectedDisciplineNames}

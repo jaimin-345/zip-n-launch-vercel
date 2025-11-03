@@ -112,21 +112,49 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
     
     if (association.sub_association_info) {
       const info = association.sub_association_info;
+      const selectedTypes = subSelections[association.id]?.types || [];
+      
+      const handleSubTypeToggle = (typeId, checked) => {
+        const currentTypes = selectedTypes;
+        const newTypes = checked 
+          ? [...currentTypes, typeId]
+          : currentTypes.filter(t => t !== typeId);
+        handleSubAssociationChange(association.id, 'types', newTypes);
+      };
+      
       return (
         <div className="mt-4 space-y-4 px-4 pb-4">
           <div>
-            <Label className="text-xs text-muted-foreground">{info.label}</Label>
-            <Select 
-              value={subSelections[association.id]?.type || ''} 
-              onValueChange={(value) => handleSubAssociationChange(association.id, 'type', value)}
-            >
-              <SelectTrigger><SelectValue placeholder={`Select ${info.label}...`} /></SelectTrigger>
-              <SelectContent>
-                {info.types.map(type => (
-                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium mb-2 block">{info.label}</Label>
+            <div className="space-y-2">
+              {info.types.map(type => (
+                <div key={type.id} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`sub-type-${association.id}-${type.id}`}
+                    checked={selectedTypes.includes(type.id)}
+                    onCheckedChange={(checked) => handleSubTypeToggle(type.id, checked)}
+                  />
+                  <Label 
+                    htmlFor={`sub-type-${association.id}-${type.id}`}
+                    className="font-normal cursor-pointer"
+                  >
+                    {type.name}
+                    {type.info && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="inline-block ml-1 h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>{type.info}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </Label>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       );

@@ -200,9 +200,20 @@ import React, { useMemo } from 'react';
                 if (assocData && divisionsData[assocId]) {
                     let divisions = divisionsData[assocId];
         
-                    const subSelectionType = formData.subAssociationSelections?.[assocId]?.type;
-                    if (subSelectionType) {
-                        divisions = divisions.filter(d => d.sub_association_type === subSelectionType || !d.sub_association_type);
+                    // Support multiple sub-association types
+                    const selectedSubTypes = formData.subAssociationSelections?.[assocId]?.types || [];
+                    
+                    // Filter divisions based on the discipline's sub_association_type
+                    // If the discipline has a sub_association_type, only show divisions for that type
+                    if (pbbDiscipline.sub_association_type) {
+                        divisions = divisions.filter(d => 
+                            d.sub_association_type === pbbDiscipline.sub_association_type || 
+                            !d.sub_association_type
+                        );
+                    } else if (selectedSubTypes.length > 0) {
+                        // If no specific sub-type on discipline but association has selected sub-types,
+                        // show divisions without sub-type restrictions
+                        divisions = divisions.filter(d => !d.sub_association_type);
                     }
                     
                     divisionMap[assocId] = divisions.filter(d => {
@@ -249,49 +260,62 @@ import React, { useMemo } from 'react';
                         <CustomDivisionManager pbbDiscipline={pbbDiscipline} setFormData={setFormData} />
                     ) : (
                         <div className="space-y-4">
-                            {Object.entries(getDivisionsForDiscipline).map(([assocId, divisionGroups]) => (
-                                <div key={assocId} className="p-3 border rounded-md">
-                                    <div className="flex items-center space-x-2 mb-2">
-                                        <Badge variant={associationsData.find(a => a.id === assocId)?.color || 'secondary'}>{associationsData.find(a => a.id === assocId)?.name || assocId}</Badge>
-                                        {pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
-                                        {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
-                                    </div>
-                                    {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => (
-                                        <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                            <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
-                                                {group.levels.map(level => {
-                                                    const key = `${group.group} - ${level}`;
-                                                    return (
-                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
+                            {Object.entries(getDivisionsForDiscipline).map(([assocId, divisionGroups]) => {
+                                const assoc = associationsData.find(a => a.id === assocId);
+                                const subTypeId = pbbDiscipline.sub_association_type;
+                                const subTypeName = subTypeId && assoc?.sub_association_info?.types.find(t => t.id === subTypeId)?.name;
+                                
+                                return (
+                                    <div key={assocId} className="p-3 border rounded-md">
+                                        <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                                            <Badge variant={assoc?.color || 'secondary'}>
+                                                {assoc?.name || assocId}
+                                            </Badge>
+                                            {subTypeName && (
+                                                <Badge variant="outline" className="bg-primary/10">
+                                                    {subTypeName}
+                                                </Badge>
+                                            )}
+                                            {pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
+                                            {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
-                                    )) : <p className="text-xs text-muted-foreground pl-2">No divisions found for this association.</p>}
-    
-                                    <div className="mt-2 pl-2">
-                                        <p className="text-sm font-medium text-muted-foreground">Custom Divisions</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
-                                            {(pbbDiscipline.customDivisions || []).filter(d => d.assocId === assocId).map(customDiv => (
-                                                <div key={customDiv.name} className="flex items-center space-x-2 bg-muted/50 p-1 rounded-md">
-                                                    <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${customDiv.name}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][`custom-${customDiv.name}`])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, customDiv.name, '', c, true)} />
-                                                    <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${customDiv.name}`} className="font-normal text-xs flex-grow">{customDiv.name}</Label>
-                                                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveCustomDivision(pbbDiscipline.id, customDiv.name, assocId)}>
-                                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                                    </Button>
+                                        {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => (
+                                            <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
+                                                <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                                                    {group.levels.map(level => {
+                                                        const key = `${group.group} - ${level}`;
+                                                        return (
+                                                            <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                            </div>
+                                                        )
+                                                    })}
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div >
-                                    <Button variant="outline" size="sm" className="mt-2" onClick={() => { setCustomDivisionAssocId(assocId); setIsCustomDivisionModalOpen(true); }}>
-                                        <PlusCircle className="h-4 w-4 mr-2" />Add Custom Division
-                                    </Button>
-                                </div>
-                            ))}
+                                            </div>
+                                        )) : <p className="text-xs text-muted-foreground pl-2">No divisions found for this association.</p>}
+     
+                                        <div className="mt-2 pl-2">
+                                            <p className="text-sm font-medium text-muted-foreground">Custom Divisions</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                                                {(pbbDiscipline.customDivisions || []).filter(d => d.assocId === assocId).map(customDiv => (
+                                                    <div key={customDiv.name} className="flex items-center space-x-2 bg-muted/50 p-1 rounded-md">
+                                                        <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${customDiv.name}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][`custom-${customDiv.name}`])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, customDiv.name, '', c, true)} />
+                                                        <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${customDiv.name}`} className="font-normal text-xs flex-grow">{customDiv.name}</Label>
+                                                        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleRemoveCustomDivision(pbbDiscipline.id, customDiv.name, assocId)}>
+                                                            <Trash2 className="h-3 w-3 text-destructive" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div >
+                                        <Button variant="outline" size="sm" className="mt-2" onClick={() => { setCustomDivisionAssocId(assocId); setIsCustomDivisionModalOpen(true); }}>
+                                            <PlusCircle className="h-4 w-4 mr-2" />Add Custom Division
+                                        </Button>
+                                    </div>
+                                );
+                            })}
                              <Dialog open={isCustomDivisionModalOpen} onOpenChange={setIsCustomDivisionModalOpen}>
                                 <DialogContent>
                                     <DialogHeader>
