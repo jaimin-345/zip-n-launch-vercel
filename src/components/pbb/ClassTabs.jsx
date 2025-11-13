@@ -194,6 +194,9 @@ import React, { useMemo } from 'react';
         
             const divisionMap = {};
             const noOpenDisciplines = ['Showmanship at Halter', 'Hunt Seat Equitation', 'Western Horsemanship'];
+            // Also hide open categories for disciplines containing "Amateur"
+            const shouldHideOpenCategories = noOpenDisciplines.includes(pbbDiscipline.name) || 
+                                            (pbbDiscipline.name && pbbDiscipline.name.toLowerCase().includes('amateur'));
         
             relevantAssocIds.forEach(assocId => {
                 const assocData = associationsData.find(a => a.id === assocId);
@@ -217,7 +220,7 @@ import React, { useMemo } from 'react';
                     }
                     
                     divisionMap[assocId] = divisions.filter(d => {
-                        if (noOpenDisciplines.includes(pbbDiscipline.name)) {
+                        if (shouldHideOpenCategories) {
                             return d.group.toLowerCase() !== 'open';
                         }
                         return true;
