@@ -316,7 +316,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         if (formData.usageType === 'educational') return "Topic / Lesson Name";
         return "Purchase Name";
     }
-    if (context === 'pbb') return "Pattern Book Name";
+    if (context === 'pbb') return "Horse Show Name";
     return "Horse Show Name";
   };
 
@@ -347,10 +347,10 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   const allAssociations = associationsData || [];
   const leftAssociations = allAssociations
     .filter(a => a.position === 'left')
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const rightAssociations = allAssociations
     .filter(a => a.position === 'right')
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   return (
     <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -374,7 +374,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         <div className="space-y-4">
           <Label className="font-semibold">Select all hosted associations:</Label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2 border-l-4 border-red-500 pl-4">
               {leftAssociations.map(assoc => (
                 <AssociationCheckbox
                   key={assoc.id}
@@ -387,7 +387,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                 />
               ))}
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 border-l-4 border-blue-500 pl-4">
               {rightAssociations.map(assoc => (
                 <AssociationCheckbox
                   key={assoc.id}

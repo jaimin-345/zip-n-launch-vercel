@@ -169,6 +169,7 @@ export type Database = {
           logo: string | null
           name: string
           position: string
+          sort_order: number | null
           sub_association_info: Json | null
         }
         Insert: {
@@ -181,6 +182,7 @@ export type Database = {
           logo?: string | null
           name: string
           position?: string
+          sort_order?: number | null
           sub_association_info?: Json | null
         }
         Update: {
@@ -193,6 +195,7 @@ export type Database = {
           logo?: string | null
           name?: string
           position?: string
+          sort_order?: number | null
           sub_association_info?: Json | null
         }
         Relationships: []

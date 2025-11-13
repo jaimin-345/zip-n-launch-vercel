@@ -16,7 +16,7 @@ export const pageConfig = [
             },
             {
                 targetId: 'store_page',
-                label: 'Store / Pattern Hub Page',
+                label: 'Store / Pattern Selector Page',
                 description: 'The main e-commerce page for patterns and services.',
                 defaultImage: 'https://horizons-cdn.hostinger.com/98164c1e-4c27-4908-9138-3f9e0f113695/f0a4f52bf9b889d1f56b5711c1e54807.jpg'
             },

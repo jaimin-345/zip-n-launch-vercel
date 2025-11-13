@@ -32,7 +32,7 @@ const Footer = () => {
           <div>
             <p className="font-semibold text-foreground">Quick Links</p>
             <ul className="mt-4 space-y-2">
-              <li><Link to="/pattern-hub" className="text-muted-foreground hover:text-primary text-sm">Pattern Hub</Link></li>
+              <li><Link to="/pattern-hub" className="text-muted-foreground hover:text-primary text-sm">Pattern Selector</Link></li>
               <li><Link to="/pattern-book-builder" className="text-muted-foreground hover:text-primary text-sm">Pattern Book Builder</Link></li>
               <li><Link to="/events" className="text-muted-foreground hover:text-primary text-sm">Events</Link></li>
               <li><Link to="/events/past" className="text-muted-foreground hover:text-primary text-sm">Past Events</Link></li>

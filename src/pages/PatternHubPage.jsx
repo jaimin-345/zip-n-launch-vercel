@@ -7,9 +7,9 @@ import React from 'react';
       return (
         <HelmetProvider>
           <Helmet>
-            <title>Pattern & Scoresheet Hub - EquiPatterns</title>
+            <title>Pattern & Scoresheet Selector - EquiPatterns</title>
             <meta name="description" content="Search and discover individual horse show patterns and score sheets. Filter by association, class, and division to find exactly what you need." />
-            <meta property="og:title" content="Pattern Hub - Find Equestrian Patterns & Score Sheets" />
+            <meta property="og:title" content="Pattern Selector - Find Equestrian Patterns & Score Sheets" />
             <meta property="og:description" content="Browse our extensive library of official patterns and score sheets. Perfect for clinics, practice, or individual show classes." />
           </Helmet>
           <div className="min-h-screen bg-background text-foreground">
