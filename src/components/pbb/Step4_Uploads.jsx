@@ -225,37 +225,11 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
               <Label htmlFor="generate">Generate from Details</Label>
             </div>
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="upload" id="upload" />
-              <Label htmlFor="upload">Upload My Own</Label>
-            </div>
-            <div className="flex items-center space-x-2">
               <RadioGroupItem value="none" id="none" />
               <Label htmlFor="none">No Cover Page</Label>
             </div>
           </RadioGroup>
         </div>
-
-        {formData.coverPageOption === 'upload' && (
-          <div className="space-y-2">
-            <Label>Upload Cover Page Image</Label>
-            <div {...coverImageDropzone.getRootProps()} className={cn("p-6 border-2 border-dashed rounded-md text-center cursor-pointer hover:border-primary transition-colors", isUploading && "cursor-not-allowed opacity-50")}>
-              <input {...coverImageDropzone.getInputProps()} disabled={isUploading} />
-              {isUploading ? (
-                <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Uploading...</span>
-                </div>
-              ) : coverImage ? (
-                <img  src={coverImage.preview || coverImage.fileUrl} alt="Cover preview" className="h-24 w-auto mx-auto rounded-md object-contain" />
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                  <ImageIcon className="h-10 w-10" />
-                  <p className="mt-2 text-sm">Drag 'n' drop an image here, or click to select</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {isEducationMode ? (
           <FileUploadZone
