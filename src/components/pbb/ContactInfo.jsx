@@ -95,14 +95,45 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const roleName = availableRoles.find(r => r.value === selectedRole)?.label || official.role;
+    
+    // If user doesn't exist and email is provided, create the user
+    if (!existingUser && email && email.includes('@')) {
+      try {
+        const { data, error } = await supabase.functions.invoke('create-staff-user', {
+          body: {
+            email: email,
+            name: name,
+            role: roleName
+          }
+        });
+
+        if (error) throw error;
+
+        if (data?.created) {
+          toast({
+            title: 'User Created',
+            description: `New user account created for ${name}. Login credentials sent to ${email}.`,
+          });
+        }
+      } catch (error) {
+        console.error('Error creating user:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to create user account. Contact information saved.',
+          variant: 'destructive'
+        });
+      }
+    }
+
     const updatedOfficial = {
       ...official,
       name,
       email,
       phone,
       roleId: selectedRole,
-      role: availableRoles.find(r => r.value === selectedRole)?.label || official.role,
+      role: roleName,
       existingUserId: existingUser?.id,
     };
     onUpdate(updatedOfficial);
@@ -185,7 +216,7 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
             </Label>
             <Select value={selectedRole} onValueChange={setSelectedRole}>
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select role..." />
+                <SelectValue placeholder="Select role for this person..." />
               </SelectTrigger>
               <SelectContent>
                 {availableRoles.map((role) => (
@@ -209,7 +240,9 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleSave}>Save Changes</Button>
+          <Button onClick={handleSave} disabled={isCheckingUser}>
+            {isCheckingUser ? 'Checking...' : 'Save Changes'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
