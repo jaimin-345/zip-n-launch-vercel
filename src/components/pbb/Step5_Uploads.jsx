@@ -47,14 +47,8 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
 
         <div>
           <Label className="text-lg font-semibold">Cover Page</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload a custom cover or let us generate one for you.</p>
-          <RadioGroup value={formData.coverPageOption} onValueChange={(v) => handleValueChange('coverPageOption', v)} className="flex gap-4 mb-3">
-            <div className="flex items-center space-x-2"><RadioGroupItem value="generate" id="c-gen" /><Label htmlFor="c-gen">Auto-Generate</Label></div>
-            <div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="c-up" /><Label htmlFor="c-up">Upload PDF</Label></div>
-          </RadioGroup>
-          {formData.coverPageOption === 'upload' && (
-            <Input name="coverPageFile" type="file" accept=".pdf" onChange={handleFileChange} />
-          )}
+          <p className="text-sm text-muted-foreground mb-3">Upload a custom cover (optional).</p>
+          <Input name="coverPageFile" type="file" accept=".pdf" onChange={handleFileChange} />
         </div>
 
         <div>
