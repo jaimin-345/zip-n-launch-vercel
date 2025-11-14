@@ -46,9 +46,9 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
         </div>
 
         <div>
-          <Label className="text-lg font-semibold">Cover Page</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload a custom cover (optional).</p>
-          <Input name="coverPageFile" type="file" accept=".pdf" onChange={handleFileChange} />
+          <Label className="text-lg font-semibold">Show Logos (optional)</Label>
+          <p className="text-sm text-muted-foreground mb-3">Upload custom cover page or logos for your pattern book.</p>
+          <Input name="coverPageFile" type="file" accept=".pdf,image/*" onChange={handleFileChange} />
         </div>
 
         <div>
