@@ -17,19 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
-// Load roles dynamically from Admin Role Management tables
-const availableRoles = [
-  { value: 'show_manager', label: 'Show Manager' },
-  { value: 'show_secretary', label: 'Show Secretary' },
-  { value: 'office_assistant', label: 'Office Assistant' },
-  { value: 'show_steward', label: 'Show Steward' },
-  { value: 'trail_course_designer', label: 'Trail Course Designer' },
-  { value: 'jump_course_designer', label: 'Jump Course Designer' },
-  { value: 'scribe_ring_steward', label: 'Scribe/Ring Steward' },
-  { value: 'equipment_provider', label: 'Equipment Provider' },
-];
-
 export const ContactInfo = ({ official, onUpdate, children }) => {
+  const [availableRoles, setAvailableRoles] = React.useState([]);
   const [name, setName] = React.useState(official.name || '');
   const [email, setEmail] = React.useState(official.email || '');
   const [phone, setPhone] = React.useState(official.phone || '');
@@ -38,6 +27,37 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
   const [isCheckingUser, setIsCheckingUser] = React.useState(false);
   const [existingUser, setExistingUser] = React.useState(null);
   const { toast } = useToast();
+
+  // Fetch roles from Supabase on mount
+  React.useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('roles')
+          .select('role_code, name')
+          .order('name');
+        
+        if (error) throw error;
+        
+        if (data) {
+          const rolesOptions = data.map(role => ({
+            value: role.role_code,
+            label: role.name
+          }));
+          setAvailableRoles(rolesOptions);
+        }
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load roles',
+          variant: 'destructive'
+        });
+      }
+    };
+    
+    fetchRoles();
+  }, [toast]);
 
   const checkUserExists = async (emailValue) => {
     if (!emailValue || !emailValue.includes('@')) return;

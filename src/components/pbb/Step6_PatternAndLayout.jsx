@@ -37,6 +37,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     });
   };
 
+  // Count total patterns selected
+  const getTotalPatterns = () => {
+    let total = 0;
+    formData.classes?.forEach((pbbClass, classIndex) => {
+      pbbClass.patternGroups?.forEach((group, groupIndex) => {
+        if (formData.patternSelections?.[classIndex]?.[groupIndex]) {
+          total++;
+        }
+      });
+    });
+    return total;
+  };
+
   const handleLayoutSelection = (layoutId) => {
     setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
@@ -45,6 +58,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
   const dateRange = formData.startDate && formData.endDate 
     ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
+
+  // Format due date (use pattern submission deadline or end date)
+  const dueDate = formData.patternSubmissionDeadline 
+    ? format(new Date(formData.patternSubmissionDeadline), 'MMM d, yyyy')
+    : formData.endDate 
+    ? format(new Date(formData.endDate), 'MMM d, yyyy')
+    : 'Not set';
 
   // Get judges info
   const judges = formData.staff?.filter(s => s.role?.toLowerCase().includes('judge')) || [];
@@ -63,12 +83,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
         {/* Show Details Summary */}
         <Card className="p-4 bg-muted/50">
           <h3 className="text-lg font-semibold mb-3">Show Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
               <div>
                 <p className="font-semibold">Show Dates</p>
                 <p className="text-muted-foreground">{dateRange}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2">
+              <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Pattern Due Date</p>
+                <p className="text-muted-foreground">{dueDate}</p>
               </div>
             </div>
             
@@ -85,7 +113,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
             )}
             
             {showStaff.length > 0 && (
-              <div className="flex items-start gap-2 md:col-span-2">
+              <div className="flex items-start gap-2 md:col-span-3">
                 <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
                 <div>
                   <p className="font-semibold">Show Staff</p>
@@ -119,7 +147,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                           ))}
                         </div>
                       </div>
-                      <div className="md:col-span-8">
+                      <div className={getTotalPatterns() > 1 ? "md:col-span-8" : "md:col-span-9"}>
                         <Select 
                           value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
                           onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
@@ -136,16 +164,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="md:col-span-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => handleDeletePattern(classIndex, groupIndex)}
-                          disabled={!formData.patternSelections?.[classIndex]?.[groupIndex]}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      {getTotalPatterns() > 1 && (
+                        <div className="md:col-span-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDeletePattern(classIndex, groupIndex)}
+                            disabled={!formData.patternSelections?.[classIndex]?.[groupIndex]}
+                            title="Delete pattern"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -166,11 +197,26 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
               <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                 <div className="w-full space-y-2">
                   <p className="font-semibold text-center mb-2">Layout A: Modern</p>
-                  <div className="w-full h-32 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-4 border border-border">
-                    <div className="text-center space-y-1">
-                      <p className="font-bold text-lg">{formData.showName || 'Show Name'}</p>
-                      <p className="text-muted-foreground">Pattern Book</p>
-                      <p className="text-xs text-muted-foreground mt-2">{dateRange}</p>
+                  <div className="w-full min-h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-6 border border-border space-y-4">
+                    {/* Cover Page Preview */}
+                    <div className="text-center space-y-2 border-b pb-4 w-full">
+                      <p className="font-bold text-2xl">{formData.showName || 'Show Name'}</p>
+                      <p className="text-muted-foreground font-semibold">Pattern Book</p>
+                      <p className="text-xs text-muted-foreground">{dateRange}</p>
+                      {formData.coverPageFile && (
+                        <Badge variant="outline" className="text-xs mt-2">Custom Cover Uploaded</Badge>
+                      )}
+                    </div>
+                    
+                    {/* Pattern List Preview */}
+                    <div className="w-full space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">Patterns:</p>
+                      {formData.classes?.slice(0, 3).map((cls, idx) => (
+                        <div key={idx} className="text-xs flex justify-between">
+                          <span>{cls.name}</span>
+                          <span className="text-muted-foreground">Page {idx + 2}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">Includes cover page with show details</p>
@@ -182,13 +228,27 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
               <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                 <div className="w-full space-y-2">
                   <p className="font-semibold text-center mb-2">Layout B: Classic</p>
-                  <div className="w-full h-32 bg-secondary rounded-md flex flex-col items-start justify-start text-xs p-4 border border-border overflow-hidden">
-                    <p className="font-bold text-sm mb-2">TABLE OF CONTENTS</p>
-                    <div className="space-y-1 w-full text-[10px] text-muted-foreground">
-                      <div className="flex justify-between"><span>Showmanship</span><span>4-8</span></div>
-                      <div className="flex justify-between"><span>Horsemanship</span><span>9-12</span></div>
-                      <div className="flex justify-between"><span>Trail</span><span>13-18</span></div>
-                      <div className="flex justify-between"><span>Western Riding</span><span>19-21</span></div>
+                  <div className="w-full min-h-48 border-4 border-double border-border rounded-md flex flex-col p-6 bg-background space-y-4">
+                    {/* Table of Contents Style */}
+                    <div className="text-center border-b-2 border-double pb-3">
+                      <p className="font-bold text-xl font-serif tracking-wide">{formData.showName || 'Show Name'}</p>
+                      <p className="text-muted-foreground italic text-sm mt-1">Pattern Book</p>
+                      <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
+                    </div>
+                    
+                    {/* Table of Contents */}
+                    <div className="space-y-1.5 text-xs">
+                      <p className="font-bold text-sm font-serif text-center mb-2 border-b pb-1">Table of Contents</p>
+                      <div className="flex justify-between px-2">
+                        <span className="font-semibold">Show Information</span>
+                        <span>1</span>
+                      </div>
+                      {formData.classes?.slice(0, 4).map((cls, idx) => (
+                        <div key={idx} className="flex justify-between px-2 border-b border-dotted">
+                          <span>{cls.name}</span>
+                          <span>{idx + 2}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">Includes table of contents</p>
