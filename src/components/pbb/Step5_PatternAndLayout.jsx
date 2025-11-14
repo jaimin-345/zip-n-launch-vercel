@@ -81,7 +81,7 @@
             {/* Show Details Summary */}
             <Card className="p-4 bg-muted/50">
               <h3 className="text-lg font-semibold mb-3">Show Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="flex items-start gap-2">
                   <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
                   <div>
@@ -98,27 +98,31 @@
                   </div>
                 </div>
                 
-                {judges.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Judges</p>
-                      {judges.map((judge, idx) => (
-                        <p key={idx} className="text-muted-foreground">{judge.name || 'Not assigned'}</p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
                 {showStaff.length > 0 && (
-                  <div className="flex items-start gap-2 md:col-span-3">
+                  <div className="flex items-start gap-2 md:col-span-2">
                     <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
+                    <div className="w-full">
                       <p className="font-semibold">Show Staff</p>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {showStaff.map((staff, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
                             {staff.role}: {staff.name || 'Not assigned'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {judges.length > 0 && (
+                  <div className="flex items-start gap-2 md:col-span-2">
+                    <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div className="w-full">
+                      <p className="font-semibold">Judges</p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {judges.map((judge, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {judge.role}: {judge.name || 'Not assigned'}
                           </Badge>
                         ))}
                       </div>
