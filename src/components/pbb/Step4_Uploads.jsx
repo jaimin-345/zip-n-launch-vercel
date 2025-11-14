@@ -273,8 +273,8 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
             files={formData.generalMarketing}
             onRemove={(index) => removeFile(index, 'general_marketing')}
             onEdit={(file, index) => handleEditFile(file, index, 'general_marketing')}
-            title="General marketing (optional)"
-            description="Upload JPEGs or PDFs related to general marketing of your event."
+            title="Show Logos (optional)"
+            description="Upload JPEGs or PDFs of show logos and branding materials."
             isUploading={isUploading}
           />
         )}

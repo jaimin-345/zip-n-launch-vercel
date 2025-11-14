@@ -11,15 +11,80 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
+
+const availableRoles = [
+  { value: 'show_manager', label: 'Show Manager' },
+  { value: 'show_secretary', label: 'Show Secretary' },
+  { value: 'office_assistant', label: 'Office Assistant' },
+  { value: 'show_steward', label: 'Show Steward' },
+  { value: 'trail_course_designer', label: 'Trail Course Designer' },
+  { value: 'jump_course_designer', label: 'Jump Course Designer' },
+  { value: 'scribe_ring_steward', label: 'Scribe/Ring Steward' },
+  { value: 'equipment_provider', label: 'Equipment Provider' },
+];
 
 export const ContactInfo = ({ official, onUpdate, children }) => {
   const [name, setName] = React.useState(official.name || '');
   const [email, setEmail] = React.useState(official.email || '');
   const [phone, setPhone] = React.useState(official.phone || '');
+  const [selectedRole, setSelectedRole] = React.useState(official.roleId || '');
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isCheckingUser, setIsCheckingUser] = React.useState(false);
+  const [existingUser, setExistingUser] = React.useState(null);
+  const { toast } = useToast();
+
+  const checkUserExists = async (emailValue) => {
+    if (!emailValue || !emailValue.includes('@')) return;
+    
+    setIsCheckingUser(true);
+    try {
+      // Check if user exists in profiles table
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('email', emailValue)
+        .single();
+
+      if (profiles && !error) {
+        setExistingUser(profiles);
+        setName(profiles.full_name || name);
+        toast({
+          title: 'User Found',
+          description: `Found existing user: ${profiles.full_name}`,
+        });
+      } else {
+        setExistingUser(null);
+      }
+    } catch (error) {
+      console.error('Error checking user:', error);
+      setExistingUser(null);
+    } finally {
+      setIsCheckingUser(false);
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (email !== official.email) {
+      checkUserExists(email);
+    }
+  };
 
   const handleSave = () => {
-    onUpdate({ ...official, name, email, phone });
+    const updatedOfficial = {
+      ...official,
+      name,
+      email,
+      phone,
+      roleId: selectedRole,
+      role: availableRoles.find(r => r.value === selectedRole)?.label || official.role,
+      existingUserId: existingUser?.id,
+    };
+    onUpdate(updatedOfficial);
     setIsOpen(false);
   };
 
@@ -27,16 +92,18 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
     setName(official.name || '');
     setEmail(official.email || '');
     setPhone(official.phone || '');
+    setSelectedRole(official.roleId || '');
+    setExistingUser(null);
   }, [official, isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Contact Info for {official.name}</DialogTitle>
+          <DialogTitle>Edit Contact Info</DialogTitle>
           <DialogDescription>
-            Add or update the contact details for this official. This information can be displayed in the pattern book.
+            Add or update the contact details for this staff member. System will check if they're an existing user.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -52,19 +119,32 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
               placeholder="Full Name"
             />
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
               Email
             </Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="col-span-3"
-              placeholder="name@example.com"
-            />
+            <div className="col-span-3 space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={handleEmailBlur}
+                  className="flex-1"
+                  placeholder="name@example.com"
+                />
+                {isCheckingUser && <Loader2 className="w-4 h-4 animate-spin mt-2" />}
+              </div>
+              {existingUser && (
+                <Badge variant="outline" className="text-xs">
+                  ✓ Existing user found
+                </Badge>
+              )}
+            </div>
           </div>
+          
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="phone" className="text-right">
               Phone
@@ -77,6 +157,35 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
               placeholder="(555) 123-4567"
             />
           </div>
+
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="role" className="text-right">
+              Role
+            </Label>
+            <Select value={selectedRole} onValueChange={setSelectedRole}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select role..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRoles.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    {role.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {existingUser && existingUser.role && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right text-xs text-muted-foreground">
+                Current Role
+              </Label>
+              <div className="col-span-3">
+                <Badge variant="secondary">{existingUser.role}</Badge>
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button onClick={handleSave}>Save Changes</Button>
