@@ -142,7 +142,7 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                     </PopoverTrigger>
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                         <Command>
-                            <CommandInput placeholder="Search roles..." />
+                            <CommandInput placeholder="Select role for staff member..." />
                             <CommandEmpty>No role found.</CommandEmpty>
                             <CommandGroup>
                                 {staffRoles.map((role) => {
