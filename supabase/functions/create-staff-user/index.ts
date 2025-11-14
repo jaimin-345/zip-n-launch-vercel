@@ -34,36 +34,39 @@ serve(async (req: Request) => {
     
     const { email, name, role }: CreateStaffUserRequest = await req.json();
 
-    console.log(`Creating user for email: ${email}, name: ${name}, role: ${role}`);
+    console.log(`Processing user for email: ${email}, name: ${name}, role: ${role}`);
 
-    // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin
-      .from('profiles')
-      .select('id, email')
-      .eq('email', email)
-      .single();
+    // Check if user already exists in auth.users
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error('Error listing users:', listError);
+      throw listError;
+    }
 
-    if (existingUser) {
-      console.log('User already exists:', existingUser.id);
+    const existingAuthUser = users.find(user => user.email === email);
+
+    if (existingAuthUser) {
+      console.log('User already exists in auth.users:', existingAuthUser.id);
       
-      // Update the role for existing user
+      // Update the role for existing user in profiles
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
         .update({ role: role, full_name: name })
-        .eq('id', existingUser.id);
+        .eq('id', existingAuthUser.id);
 
       if (updateError) {
         console.error('Error updating role for existing user:', updateError);
         throw updateError;
       }
 
-      console.log('Role updated for existing user:', existingUser.id);
+      console.log('Role updated for existing user:', existingAuthUser.id);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'Role updated for existing user',
-          userId: existingUser.id,
+          userId: existingAuthUser.id,
           created: false
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -97,16 +100,16 @@ serve(async (req: Request) => {
       console.error('Error updating profile:', updateError);
     }
 
-    // Send welcome email
+    // Send welcome email with role-specific message
     try {
       await resend.emails.send({
         from: 'EquiPatterns <onboarding@resend.dev>',
         to: [email],
-        subject: 'Welcome to EquiPatterns - Your Account Has Been Created',
+        subject: `Welcome to EquiPatterns - You've Been Added as ${role}`,
         html: `
           <h1>Welcome to EquiPatterns, ${name}!</h1>
-          <p>Your account has been created as <strong>${role}</strong>.</p>
-          <p><strong>Login Credentials:</strong></p>
+          <p>You have been added to EquiPatterns as <strong>${role}</strong>.</p>
+          <p><strong>Your Login Credentials:</strong></p>
           <ul>
             <li>Email: ${email}</li>
             <li>Temporary Password: <strong>12345</strong></li>
