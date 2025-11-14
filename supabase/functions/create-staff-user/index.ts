@@ -45,10 +45,24 @@ serve(async (req: Request) => {
 
     if (existingUser) {
       console.log('User already exists:', existingUser.id);
+      
+      // Update the role for existing user
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ role: role, full_name: name })
+        .eq('id', existingUser.id);
+
+      if (updateError) {
+        console.error('Error updating role for existing user:', updateError);
+        throw updateError;
+      }
+
+      console.log('Role updated for existing user:', existingUser.id);
+      
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'User already exists',
+          message: 'Role updated for existing user',
           userId: existingUser.id,
           created: false
         }),
