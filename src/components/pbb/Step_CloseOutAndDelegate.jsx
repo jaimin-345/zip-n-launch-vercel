@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const accessPhases = [
     { id: 'draft', name: 'Draft, Build, Review' },
@@ -19,7 +20,6 @@ const accessPhases = [
 ];
 
 const delegatedRoles = [
-    { id: 'request_pattern_selection', name: 'Request Pattern Selection' },
     { id: 'proof_accept_deny', name: 'Proof/Accept/Deny' },
     { id: 'comment', name: 'Comment' },
 ];
@@ -156,38 +156,28 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
             {isExpanded && (
                 <div className="p-4 border-t space-y-6">
                     {/* Access Per Phase */}
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <Label className="font-semibold">Access Per Phase</Label>
-                        <Popover open={openPopover === 'accessPhase'} onOpenChange={(isOpen) => setOpenPopover(isOpen ? 'accessPhase' : null)}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-start">
-                                    <ChevronsUpDown className="mr-2 h-4 w-4" />
-                                    Select Access Phases
-                                    {accessPhase.length > 0 && (
-                                        <Badge variant="secondary" className="ml-auto">{accessPhase.length} selected</Badge>
-                                    )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                <Command>
-                                    <CommandInput placeholder="Search phases..." />
-                                    <CommandList>
-                                        <CommandEmpty>No phases found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {accessPhases.map(phase => {
-                                                const isSelected = accessPhase.includes(phase.id);
-                                                return (
-                                                    <CommandItem key={phase.id} onSelect={() => handleAccessPhaseChange(phase.id)}>
-                                                        <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
-                                                        <span>{phase.name}</span>
-                                                    </CommandItem>
-                                                );
-                                            })}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <div className="space-y-2">
+                            {accessPhases.map(phase => {
+                                const isSelected = accessPhase.includes(phase.id);
+                                return (
+                                    <div key={phase.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`${staffMember.id}-phase-${phase.id}`}
+                                            checked={isSelected}
+                                            onCheckedChange={() => handleAccessPhaseChange(phase.id)}
+                                        />
+                                        <Label 
+                                            htmlFor={`${staffMember.id}-phase-${phase.id}`}
+                                            className="text-sm font-normal cursor-pointer"
+                                        >
+                                            {phase.name}
+                                        </Label>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
 
                     {/* Delegate Roles - Conditional */}
