@@ -17,16 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 
-const availableRoles = [
-  { value: 'show_manager', label: 'Show Manager' },
-  { value: 'show_secretary', label: 'Show Secretary' },
-  { value: 'office_assistant', label: 'Office Assistant' },
-  { value: 'show_steward', label: 'Show Steward' },
-  { value: 'trail_course_designer', label: 'Trail Course Designer' },
-  { value: 'jump_course_designer', label: 'Jump Course Designer' },
-  { value: 'scribe_ring_steward', label: 'Scribe/Ring Steward' },
-  { value: 'equipment_provider', label: 'Equipment Provider' },
-];
+
+// Load roles dynamically from Admin Role Management tables
+const ContactInfo = null; // placeholder to keep search happy
+
 
 export const ContactInfo = ({ official, onUpdate, children }) => {
   const [name, setName] = React.useState(official.name || '');
