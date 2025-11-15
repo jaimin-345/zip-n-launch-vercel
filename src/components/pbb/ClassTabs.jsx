@@ -219,12 +219,32 @@ import React, { useMemo } from 'react';
                         divisions = divisions.filter(d => !d.sub_association_type);
                     }
                     
-                    divisionMap[assocId] = divisions.filter(d => {
-                        if (shouldHideOpenCategories) {
-                            return d.group.toLowerCase() !== 'open';
-                        }
-                        return true;
-                     });
+                    // Filter Non-Pro levels for AQHA based on discipline name
+                    const isAQHA = assocId === 'AQHA';
+                    const aqhaCustomDisciplines = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
+                    const shouldFilterNonPro = isAQHA && aqhaCustomDisciplines.includes(pbbDiscipline.name);
+                    
+                    divisionMap[assocId] = divisions
+                        .filter(d => {
+                            if (shouldHideOpenCategories) {
+                                return d.group.toLowerCase() !== 'open';
+                            }
+                            return true;
+                        })
+                        .map(d => {
+                            // Filter Non-Pro levels to only show matching discipline
+                            if (shouldFilterNonPro && d.group === 'Non-Pro') {
+                                return {
+                                    ...d,
+                                    levels: d.levels.filter(level => {
+                                        // Match the level to the current discipline
+                                        const disciplineKeyword = pbbDiscipline.name.replace(' at Halter', '');
+                                        return level.includes(disciplineKeyword);
+                                    })
+                                };
+                            }
+                            return d;
+                        });
                 } else if (assocData) {
                     divisionMap[assocId] = [];
                 }
