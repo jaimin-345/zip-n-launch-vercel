@@ -255,8 +255,8 @@ import React, { useMemo } from 'react';
                 )}
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="divisions">1. Select Divisions</TabsTrigger>
-                    <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Organize Schedule</TabsTrigger>
-                    <TabsTrigger value="grouping" disabled={!pbbDiscipline.pattern || !hasScheduled}>3. Group &amp; Order Patterns</TabsTrigger>
+                    <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Add Dates &amp; Arrange Classes</TabsTrigger>
+                    <TabsTrigger value="grouping" disabled={!pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-4">
                     {isCustomOpenShowDiscipline ? (
