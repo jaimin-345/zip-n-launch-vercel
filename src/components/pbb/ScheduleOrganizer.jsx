@@ -30,40 +30,52 @@ import React, { useState, useMemo } from 'react';
         const [isEditing, setIsEditing] = useState(false);
         const [title, setTitle] = useState(customTitle || '');
 
-        const [assocId, ...divisionParts] = divisionIdentifier.split('-');
-        const originalDivisionName = divisionParts.join('-');
+    const [assocId, ...divisionParts] = divisionIdentifier.split('-');
+    const originalDivisionName = divisionParts.join('-');
 
-        const handleTitleSave = () => {
-            onTitleChange(divisionIdentifier, title);
-            setIsEditing(false);
-        };
+    // Parse division name to extract tag and name
+    const parseDivisionDisplay = (divName) => {
+        const cleanName = divName.startsWith('custom-') ? divName.substring(7) : divName;
+        const parts = cleanName.split(' - ');
+        if (parts.length === 2) {
+            return { tag: parts[0], name: parts[1] };
+        }
+        return { tag: null, name: cleanName };
+    };
+
+    const { tag: divisionTag, name: divisionName } = parseDivisionDisplay(originalDivisionName);
+
+    const handleTitleSave = () => {
+        onTitleChange(divisionIdentifier, title);
+        setIsEditing(false);
+    };
+    
+    const getAssociationBadges = () => {
+        if (!pbbDiscipline || !formData) return [];
         
-        const getAssociationBadges = () => {
-            if (!pbbDiscipline || !formData) return [];
-            
-            const badges = [];
-            const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
+        const badges = [];
+        const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
 
-            // Add Discipline Badge first
-            if (pbbDiscipline.name) {
-                badges.push(<Badge key="discipline-badge" variant="outline" className="text-xs bg-gray-100 dark:bg-gray-800">{pbbDiscipline.name}</Badge>);
-            }
+        // Add Discipline Badge first
+        if (pbbDiscipline.name) {
+            badges.push(<Badge key="discipline-badge" variant="outline" className="text-xs bg-gray-100 dark:bg-gray-800">{pbbDiscipline.name}</Badge>);
+        }
+        
+        const assoc = associationsData.find(a => a.id === assocId);
+        if (assoc) {
+            badges.push(<Badge key={assocId} variant={assoc?.color || 'secondary'} className="text-xs">{assoc.abbreviation || assoc.name}</Badge>);
             
-            const assoc = associationsData.find(a => a.id === assocId);
-            if (assoc) {
-                badges.push(<Badge key={assocId} variant={assoc?.color || 'secondary'} className="text-xs">{assoc.abbreviation || assoc.name}</Badge>);
-                
-                if (pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId)) {
-                    badges.push(<Badge key={`${assocId}-da`} variant="dualApproved" className="text-xs">NSBA Dual-Approved</Badge>);
-                }
+            if (pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId)) {
+                badges.push(<Badge key={`${assocId}-da`} variant="dualApproved" className="text-xs">NSBA Dual-Approved</Badge>);
             }
-    
-            if (pbbDiscipline.isNsbaStandalone && assocId === 'NSBA') {
-                badges.push(<Badge key="nsba-standalone" variant="standalone" className="text-xs">NSBA Standalone</Badge>);
-            }
-    
-            return badges;
-        };
+        }
+
+        if (pbbDiscipline.isNsbaStandalone && assocId === 'NSBA') {
+            badges.push(<Badge key="nsba-standalone" variant="standalone" className="text-xs">NSBA Standalone</Badge>);
+        }
+
+        return badges;
+    };
 
         return (
             <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-2 bg-background rounded-lg border shadow-sm touch-none">
@@ -71,24 +83,29 @@ import React, { useState, useMemo } from 'react';
                     <GripVertical className="h-5 w-5 text-muted-foreground" />
                 </Button>
                 <Checkbox id={`select-${divisionIdentifier}`} checked={isSelected} onCheckedChange={(checked) => onSelectionChange(divisionIdentifier, checked)} />
-                <div className="flex-grow text-sm">
-                    {isEditing ? (
-                        <Input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            onBlur={handleTitleSave}
-                            onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                            placeholder={originalDivisionName.startsWith('custom-') ? originalDivisionName.substring(7) : originalDivisionName}
-                            className="h-8"
-                            autoFocus
-                        />
-                    ) : (
-                        <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
-                            {customTitle || (originalDivisionName.startsWith('custom-') ? originalDivisionName.substring(7) : originalDivisionName)}
-                        </Label>
-                    )}
-                </div>
+        <div className="flex-grow text-sm">
+            {isEditing ? (
+                <Input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onBlur={handleTitleSave}
+                    onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
+                    placeholder={customTitle || divisionName}
+                    className="h-8"
+                    autoFocus
+                />
+            ) : (
+                <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
+                    {customTitle || divisionName}
+                </Label>
+            )}
+        </div>
+        {divisionTag && (
+            <Badge variant="outline" className="text-xs rounded-full px-2">
+                {divisionTag}
+            </Badge>
+        )}
                 {date && (
                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground">
                         <CalendarIcon className="h-3 w-3" />

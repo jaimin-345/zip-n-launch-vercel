@@ -183,7 +183,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     };
                     
                     if (newDiscipline.pattern) {
-                        newDiscipline.patternGroups.push({id: `pattern-group-${Date.now()}`, name: 'Pattern 1', divisions: [], rulebookPatternId: '', competitionDate: null});
+                        newDiscipline.patternGroups.push({id: `pattern-group-${Date.now()}`, name: 'Group 1', divisions: [], rulebookPatternId: '', competitionDate: null});
                     }
 
                     const selectedAssocIds = Object.keys(prev.associations).filter(id => prev.associations[id]);

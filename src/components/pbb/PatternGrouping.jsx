@@ -54,7 +54,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
           const newGroupId = `pattern-group-${Date.now()}`;
           const newGroup = { 
             id: newGroupId, 
-            name: `Pattern ${patternGroups.length + 1}`, 
+            name: `Group ${patternGroups.length + 1}`, 
             divisions: [],
             rulebookPatternId: '',
           };
