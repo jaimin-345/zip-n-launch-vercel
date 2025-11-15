@@ -251,16 +251,6 @@ import React, { useState, useMemo } from 'react';
                 </p>
 
                 <div className="p-4 border rounded-lg bg-background space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="print-title">Overall Custom Print Title (Optional)</Label>
-                        <Input 
-                            id="print-title"
-                            placeholder="e.g., 'Friday Morning Trail Classes'"
-                            value={pbbDiscipline.printTitle || ''}
-                            onChange={handleOverallPrintTitleChange}
-                        />
-                    </div>
-
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="flex items-center space-x-2">

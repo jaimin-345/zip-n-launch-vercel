@@ -39,8 +39,19 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
       ...prev,
       disciplines: prev.disciplines.map(disc => {
         if (disc.id === disciplineId) {
-          const newGroupId = `pattern-group-${Date.now()}`;
           const patternGroups = disc.patternGroups || [];
+          
+          // Maximum 5 pattern groups allowed
+          if (patternGroups.length >= 5) {
+            toast({
+              title: "Maximum Groups Reached",
+              description: "You can only create up to 5 pattern groups.",
+              variant: "destructive",
+            });
+            return disc;
+          }
+          
+          const newGroupId = `pattern-group-${Date.now()}`;
           const newGroup = { 
             id: newGroupId, 
             name: `Pattern ${patternGroups.length + 1}`, 
