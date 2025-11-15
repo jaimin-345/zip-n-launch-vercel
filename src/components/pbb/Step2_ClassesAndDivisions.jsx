@@ -12,6 +12,78 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
 
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames, onDisciplineToggle }) => {
+    if (disciplines.length === 0) return null;
+
+    // Define the custom 3-column layout for AQHA
+    const leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
+    const middleColumn = ['Trail', 'Ranch Trail'];
+    const rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
+
+    const getDisciplinesByNames = (names) => {
+        return names.map(name => disciplines.find(d => d.name === name)).filter(Boolean);
+    };
+
+    const leftDisciplines = getDisciplinesByNames(leftColumn);
+    const middleDisciplines = getDisciplinesByNames(middleColumn);
+    const rightDisciplines = getDisciplinesByNames(rightColumn);
+
+    return (
+        <div className="space-y-2">
+            <h4 className="text-md font-semibold text-muted-foreground px-2">{title}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
+                {/* Left Column */}
+                <div className="space-y-3">
+                    {leftDisciplines.map(disc => (
+                        <div key={disc.id} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`disc-${disc.id}`}
+                                checked={selectedDisciplineNames.has(disc.name)}
+                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
+                            />
+                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
+                                {disc.name.replace(' at Halter', '')}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Middle Column */}
+                <div className="space-y-3">
+                    {middleDisciplines.map(disc => (
+                        <div key={disc.id} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`disc-${disc.id}`}
+                                checked={selectedDisciplineNames.has(disc.name)}
+                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
+                            />
+                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
+                                {disc.name}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-3">
+                    {rightDisciplines.map(disc => (
+                        <div key={disc.id} className="flex items-center space-x-2">
+                            <Checkbox
+                                id={`disc-${disc.id}`}
+                                checked={selectedDisciplineNames.has(disc.name)}
+                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
+                            />
+                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
+                                {disc.name}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineNames, onDisciplineToggle }) => {
     if (disciplines.length === 0) return null;
 
@@ -67,7 +139,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                 </div>
             </AccordionTrigger>
             <AccordionContent className="p-4 space-y-6">
-                {categorized.custom.length > 0 && <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
+                {categorized.custom.length > 0 && (
+                    association.id === 'AQHA' ? 
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} /> :
+                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />
+                )}
                 {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
                 {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
             </AccordionContent>
