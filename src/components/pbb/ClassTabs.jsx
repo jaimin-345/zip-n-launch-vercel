@@ -312,19 +312,11 @@ import React, { useMemo } from 'react';
                                                 const column3Levels = ['Amateur Level 2', 'Amateur Select Level 2'];
                                                 const column4Levels = ['Amateur Level 3', 'Amateur Select Level 3'];
                                                 
-                                                const getLevelsByColumn = (columnLevels) => {
-                                                    return group.levels.filter(level => 
-                                                        columnLevels.some(col => 
-                                                            level === col || 
-                                                            level.includes(col.replace('Amateur ', '').replace('Select ', ''))
-                                                        )
-                                                    );
-                                                };
-                                                
-                                                const col1 = getLevelsByColumn(column1Levels);
-                                                const col2 = getLevelsByColumn(column2Levels);
-                                                const col3 = getLevelsByColumn(column3Levels);
-                                                const col4 = getLevelsByColumn(column4Levels);
+                                                // Match exact level names
+                                                const col1 = group.levels.filter(level => column1Levels.includes(level));
+                                                const col2 = group.levels.filter(level => column2Levels.includes(level));
+                                                const col3 = group.levels.filter(level => column3Levels.includes(level));
+                                                const col4 = group.levels.filter(level => column4Levels.includes(level));
                                                 
                                                 return (
                                                     <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
