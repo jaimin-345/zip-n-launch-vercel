@@ -62,6 +62,12 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
             </div>
             
             <div className="ml-auto flex items-center gap-1 shrink-0">
+                {divisionTag && (
+                    <Badge variant="outline" className="text-xs">
+                        {divisionTag}
+                    </Badge>
+                )}
+                
                  {division.date && (
                      <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs p-1 h-auto font-normal">
                         <CalendarIcon className="h-3 w-3" />
@@ -70,11 +76,6 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                  )}
                 
                 {getAssociationBadges()}
-                {divisionTag && (
-                    <Badge variant="outline" className="text-xs ml-1">
-                        {divisionTag}
-                    </Badge>
-                )}
             </div>
         </div>
     );
