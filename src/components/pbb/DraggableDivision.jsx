@@ -19,7 +19,12 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
         transition,
     };
 
-    const displayName = division.customTitle || (division.division.startsWith('custom') ? division.division.substring(7) : division.division);
+    // Parse division name to extract tag and clean name
+    const originalDivisionName = division.division.startsWith('custom') ? division.division.substring(7) : division.division;
+    const dashIndex = originalDivisionName.indexOf(' - ');
+    const divisionTag = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
+    const cleanedName = dashIndex > -1 ? originalDivisionName.substring(dashIndex + 3).trim() : originalDivisionName;
+    const displayName = division.customTitle || cleanedName;
 
     const getAssociationBadges = () => {
         if (!pbbDiscipline || !formData) return [];
@@ -65,6 +70,11 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                  )}
                 
                 {getAssociationBadges()}
+                {divisionTag && (
+                    <Badge variant="outline" className="text-xs ml-1">
+                        {divisionTag}
+                    </Badge>
+                )}
             </div>
         </div>
     );
