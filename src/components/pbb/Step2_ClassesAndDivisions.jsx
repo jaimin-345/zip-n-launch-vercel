@@ -22,6 +22,14 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
         leftColumn = ['Showmanship at Halter', 'Western Horsemanship', 'Bareback Horsemanship', 'Hunt Seat Equitation'];
         middleColumn = ['Trail', 'Ranch Trail'];
         rightColumn = ['Equitation Over Fences', 'Working Hunter', 'Hunter Hack', 'Jumping'];
+    } else if (associationId === 'ABRA') {
+        leftColumn = ['Showmanship at Halter', 'Western Horsemanship', 'Hunt Seat Equitation'];
+        middleColumn = ['Trail', 'Ranch Trail'];
+        rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
+    } else if (associationId === 'PtHA') {
+        leftColumn = ['Showmanship at Halter', 'Western Horsemanship', 'Hunt Seat Equitation'];
+        middleColumn = ['Trail', 'In-Hand Trail', 'Ranch Trail'];
+        rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
     } else {
         // AQHA/APHA layout
         leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
@@ -149,7 +157,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             </AccordionTrigger>
             <AccordionContent className="p-4 space-y-6">
                 {categorized.custom.length > 0 && (
-                    (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC') ? 
+                    (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
                         <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} associationId={association.id} /> :
                         <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />
                 )}
