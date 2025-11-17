@@ -303,8 +303,8 @@ import React, { useMemo } from 'react';
                                             {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
                         {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => {
-                            // Custom 3-column layout for APHA Open divisions
-                            const isCustomOpen = assocId === 'APHA' && group.group === 'Open';
+                            // Custom 3-column layout for AQHA/APHA Open divisions
+                            const isCustomOpen = (assocId === 'AQHA' || assocId === 'APHA') && group.group === 'Open';
                             
                             if (isCustomOpen) {
                                 const column1Levels = ['All-Ages', 'Junior Horse (5 & Under)', 'Senior Horse (6 & Over)'];
@@ -360,8 +360,8 @@ import React, { useMemo } from 'react';
                                 );
                             }
                             
-                            // Custom 3-column layout for APHA Youth divisions
-                            const isCustomYouth = assocId === 'APHA' && group.group === 'Youth';
+                            // Custom 3-column layout for AQHA/APHA Youth divisions
+                            const isCustomYouth = (assocId === 'AQHA' || assocId === 'APHA') && group.group === 'Youth';
                             
                             if (isCustomYouth) {
                                 const column1Levels = [
@@ -398,73 +398,6 @@ import React, { useMemo } from 'react';
                                                                     );
                                                                 })}
                                                             </div>
-                                            {/* Column 2 */}
-                                            <div className="space-y-2">
-                                                {col2.map(level => {
-                                                    const key = `${group.group} - ${level}`;
-                                                    return (
-                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                            {/* Column 3 */}
-                                            <div className="space-y-2">
-                                                {col3.map(level => {
-                                                    const key = `${group.group} - ${level}`;
-                                                    return (
-                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            
-                            // Custom 3-column layout for APHA Amateur divisions
-                            const isCustomAmateur = assocId === 'APHA' && group.group === 'Amateur';
-                            
-                            if (isCustomAmateur) {
-                                const column1Levels = [
-                                    'Amateur (19 & Over)',
-                                    'Classic Amateur (19–44)',
-                                    'Masters Amateur (45 & Over)'
-                                ];
-                                const column2Levels = [
-                                    'Novice Amateur'
-                                ];
-                                const column3Levels = [
-                                    'Amateur Walk-Trot (19 & Over)',
-                                    'Classic Amateur Walk-Trot (19 -44)',
-                                    'Masters Walk-Trot (45 & Over)'
-                                ];
-                                
-                                const col1 = column1Levels.filter(level => group.levels.includes(level));
-                                const col2 = column2Levels.filter(level => group.levels.includes(level));
-                                const col3 = column3Levels.filter(level => group.levels.includes(level));
-                                
-                                return (
-                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-1">
-                                            {/* Column 1 */}
-                                            <div className="space-y-2">
-                                                {col1.map(level => {
-                                                    const key = `${group.group} - ${level}`;
-                                                    return (
-                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
                                             {/* Column 2 */}
                                             <div className="space-y-2">
                                                 {col2.map(level => {
