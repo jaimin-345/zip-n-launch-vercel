@@ -140,7 +140,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             </AccordionTrigger>
             <AccordionContent className="p-4 space-y-6">
                 {categorized.custom.length > 0 && (
-                    (association.id === 'AQHA' || association.id === 'APHA') ? 
+                    (association.id === 'AQHA') ? 
                         <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} /> :
                         <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />
                 )}
