@@ -303,8 +303,8 @@ import React, { useMemo } from 'react';
                                             {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
                         {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => {
-                            // Custom 3-column layout for AQHA Open divisions
-                            const isCustomOpen = assocId === 'AQHA' && group.group === 'Open';
+                            // Custom 3-column layout for AQHA/APHA Open divisions
+                            const isCustomOpen = (assocId === 'AQHA' || assocId === 'APHA') && group.group === 'Open';
                             
                             if (isCustomOpen) {
                                 const column1Levels = ['All-Ages', 'Junior Horse (5 & Under)', 'Senior Horse (6 & Over)'];
@@ -360,8 +360,8 @@ import React, { useMemo } from 'react';
                                 );
                             }
                             
-                            // Custom 3-column layout for AQHA Youth divisions
-                            const isCustomYouth = assocId === 'AQHA' && group.group === 'Youth';
+                            // Custom 3-column layout for AQHA/APHA Youth divisions
+                            const isCustomYouth = (assocId === 'AQHA' || assocId === 'APHA') && group.group === 'Youth';
                             
                             if (isCustomYouth) {
                                 const column1Levels = [
