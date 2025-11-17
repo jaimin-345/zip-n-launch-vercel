@@ -12,13 +12,22 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames, onDisciplineToggle }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames, onDisciplineToggle, associationId }) => {
     if (disciplines.length === 0) return null;
 
-    // Define the custom 3-column layout for AQHA
-    const leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
-    const middleColumn = ['Trail', 'Ranch Trail'];
-    const rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
+    // Define the custom 3-column layout based on association
+    let leftColumn, middleColumn, rightColumn;
+    
+    if (associationId === 'ApHC') {
+        leftColumn = ['Showmanship at Halter', 'Western Horsemanship', 'Bareback Horsemanship', 'Hunt Seat Equitation'];
+        middleColumn = ['Trail', 'Ranch Trail'];
+        rightColumn = ['Equitation Over Fences', 'Working Hunter', 'Hunter Hack', 'Jumping'];
+    } else {
+        // AQHA/APHA layout
+        leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
+        middleColumn = ['Trail', 'Ranch Trail'];
+        rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
+    }
 
     const getDisciplinesByNames = (names) => {
         return names.map(name => disciplines.find(d => d.name === name)).filter(Boolean);
@@ -140,8 +149,8 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             </AccordionTrigger>
             <AccordionContent className="p-4 space-y-6">
                 {categorized.custom.length > 0 && (
-                    (association.id === 'AQHA' || association.id === 'APHA') ? 
-                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} /> :
+                    (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC') ? 
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} associationId={association.id} /> :
                         <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />
                 )}
                 {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
