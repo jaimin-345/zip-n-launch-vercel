@@ -312,7 +312,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 if (nonWtDivisions.length > 0) {
                     newPatternGroups.push({
                         id: `pattern-group-${Date.now()}`,
-                        name: `Pattern ${nextPatternNum++}`,
+                        name: `Group ${nextPatternNum++}`,
                         divisions: nonWtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
                         rulebookPatternId: '',
                     });
@@ -321,7 +321,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 if (wtDivisions.length > 0) {
                     newPatternGroups.push({
                         id: `pattern-group-${Date.now() + 1}`,
-                        name: `Pattern ${nextPatternNum++}`,
+                        name: `Group ${nextPatternNum++}`,
                         divisions: wtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
                         rulebookPatternId: '',
                     });
