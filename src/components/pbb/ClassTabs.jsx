@@ -407,11 +407,11 @@ import React, { useMemo } from 'react';
                                                     'Youth 18 & Under Level 3'
                                                 ];
                                                 
-                                                // Match exact level names
-                                                const col1 = group.levels.filter(level => column1Levels.includes(level));
-                                                const col2 = group.levels.filter(level => column2Levels.includes(level));
-                                                const col3 = group.levels.filter(level => column3Levels.includes(level));
-                                                const col4 = group.levels.filter(level => column4Levels.includes(level));
+                                                // Match exact level names - maintain column order
+                                                const col1 = column1Levels.filter(level => group.levels.includes(level));
+                                                const col2 = column2Levels.filter(level => group.levels.includes(level));
+                                                const col3 = column3Levels.filter(level => group.levels.includes(level));
+                                                const col4 = column4Levels.filter(level => group.levels.includes(level));
                                                 
                                                 return (
                                                     <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
