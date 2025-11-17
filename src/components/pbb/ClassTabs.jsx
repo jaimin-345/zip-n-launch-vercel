@@ -302,22 +302,105 @@ import React, { useMemo } from 'react';
                                             {pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
                                             {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
-                                        {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => (
-                                            <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
-                                                    {group.levels.map(level => {
-                                                        const key = `${group.group} - ${level}`;
-                                                        return (
-                                                            <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                                <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                                <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
-                                                            </div>
+                                        {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => {
+                                            // Custom 4-column layout for AQHA Amateur divisions
+                                            const isAQHAAmateur = assocId === 'AQHA' && group.group === 'Amateur';
+                                            
+                                            if (isAQHAAmateur) {
+                                                const column1Levels = ['Amateur', 'Amateur Select'];
+                                                const column2Levels = ['Amateur Rookie', 'Amateur Select Rookie (50+)', 'Amateur Level 1', 'Amateur Select Level 1'];
+                                                const column3Levels = ['Amateur Level 2', 'Amateur Select Level 2'];
+                                                const column4Levels = ['Amateur Level 3', 'Amateur Select Level 3'];
+                                                
+                                                const getLevelsByColumn = (columnLevels) => {
+                                                    return group.levels.filter(level => 
+                                                        columnLevels.some(col => 
+                                                            level === col || 
+                                                            level.includes(col.replace('Amateur ', '').replace('Select ', ''))
                                                         )
-                                                    })}
+                                                    );
+                                                };
+                                                
+                                                const col1 = getLevelsByColumn(column1Levels);
+                                                const col2 = getLevelsByColumn(column2Levels);
+                                                const col3 = getLevelsByColumn(column3Levels);
+                                                const col4 = getLevelsByColumn(column4Levels);
+                                                
+                                                return (
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
+                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
+                                                            {/* Column 1 */}
+                                                            <div className="space-y-2">
+                                                                {col1.map(level => {
+                                                                    const key = `${group.group} - ${level}`;
+                                                                    return (
+                                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {/* Column 2 */}
+                                                            <div className="space-y-2">
+                                                                {col2.map(level => {
+                                                                    const key = `${group.group} - ${level}`;
+                                                                    return (
+                                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {/* Column 3 */}
+                                                            <div className="space-y-2">
+                                                                {col3.map(level => {
+                                                                    const key = `${group.group} - ${level}`;
+                                                                    return (
+                                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            {/* Column 4 */}
+                                                            <div className="space-y-2">
+                                                                {col4.map(level => {
+                                                                    const key = `${group.group} - ${level}`;
+                                                                    return (
+                                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            // Default layout for all other divisions
+                                            return (
+                                                <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
+                                                    <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
+                                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                                                        {group.levels.map(level => {
+                                                            const key = `${group.group} - ${level}`;
+                                                            return (
+                                                                <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                    <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
+                                                                    <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )) : <p className="text-xs text-muted-foreground pl-2">No divisions found for this association.</p>}
+                                            );
+                                        }) : <p className="text-xs text-muted-foreground pl-2">No divisions found for this association.</p>}
      
                                         <div className="mt-2 pl-2">
                                             <p className="text-sm font-medium text-muted-foreground">Custom Divisions</p>
