@@ -143,6 +143,12 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                 </Popover>
             </div>
             <div className="flex items-center gap-1 ml-2">
+                {divisionTag && (
+                    <Badge variant="outline" className="text-xs">
+                        {divisionTag}
+                    </Badge>
+                )}
+                
                 {division.date && (
                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs p-1 h-auto font-normal">
                         <CalendarIcon className="h-3 w-3" />
@@ -151,11 +157,6 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     </Badge>
                 )}
                 {getAssociationBadges()}
-                {divisionTag && (
-                    <Badge variant="outline" className="text-xs ml-1">
-                        {divisionTag}
-                    </Badge>
-                )}
             </div>
         </div>
     );
