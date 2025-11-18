@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar, Users, UserCheck } from 'lucide-react';
+import { Calendar, Users, UserCheck, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/use-toast';
 
     const samplePatterns = [
       { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -21,6 +22,8 @@ import { cn } from '@/lib/utils';
     ];
 
     export const Step5_PatternAndLayout = ({ formData, setFormData }) => {
+  const { toast } = useToast();
+
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
@@ -60,6 +63,28 @@ import { cn } from '@/lib/utils';
   const handleLayoutSelection = (layoutId) => {
     setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
+
+  const handleDeletePatternGroup = (disciplineIndex, groupIndex) => {
+    setFormData(prev => {
+      const newDisciplines = [...(prev.disciplines || [])];
+      const discipline = newDisciplines[disciplineIndex];
+      
+      if (discipline && discipline.patternGroups) {
+        const updatedPatternGroups = discipline.patternGroups.filter((_, idx) => idx !== groupIndex);
+        newDisciplines[disciplineIndex] = {
+          ...discipline,
+          patternGroups: updatedPatternGroups
+        };
+      }
+      
+      toast({
+        title: "Pattern group deleted",
+        description: "The pattern group has been removed successfully."
+      });
+      
+      return { ...prev, disciplines: newDisciplines };
+    });
+  };
       
       const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
 
@@ -69,9 +94,20 @@ import { cn } from '@/lib/utils';
         : 'Dates not set';
 
 
-      // Get judges and staff from officials
-      const judges = (formData.officials || []).filter(o => o.role?.toLowerCase().includes('judge'));
+      // Get judges and staff from officials - DEBUG LOGGING
+      console.log('=== DEBUG: Step 6 Officials Data ===');
+      console.log('formData.officials:', formData.officials);
+      
+      const judges = (formData.officials || []).filter(o => {
+        const hasJudge = o.role?.toLowerCase().includes('judge');
+        console.log(`Official: ${o.name}, Role: ${o.role}, Is Judge: ${hasJudge}`);
+        return hasJudge;
+      });
       const showStaff = (formData.officials || []).filter(o => !o.role?.toLowerCase().includes('judge'));
+      
+      console.log('Filtered Judges:', judges);
+      console.log('Filtered Show Staff:', showStaff);
+      console.log('===================================');
 
       return (
         <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -139,13 +175,23 @@ import { cn } from '@/lib/utils';
                       <div className="space-y-6">
                         {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
                           <div key={group.id} className="p-4 border rounded-lg bg-muted/30 space-y-4">
-                            <div className="mb-3">
-                              <Label className="font-semibold">{group.name}</Label>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(group.divisions || []).map(div => (
-                                  <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                                ))}
+                            <div className="mb-3 flex items-start justify-between">
+                              <div className="flex-1">
+                                <Label className="font-semibold">{group.name}</Label>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(group.divisions || []).map(div => (
+                                    <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
+                                  ))}
+                                </div>
                               </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeletePatternGroup(originalDisciplineIndex, groupIndex)}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
