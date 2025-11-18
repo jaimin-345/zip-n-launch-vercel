@@ -219,21 +219,24 @@ import React, { useMemo } from 'react';
                         divisions = divisions.filter(d => !d.sub_association_type);
                     }
                     
-                    // Filter Non-Pro levels for AQHA based on discipline name
-                    const isAQHA = assocId === 'AQHA';
-                    const aqhaCustomDisciplines = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
-                    const shouldFilterNonPro = isAQHA && aqhaCustomDisciplines.includes(pbbDiscipline.name);
+                    // Non-Pro divisions should only be shown for specific disciplines
+                    const nonProAllowedDisciplines = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
+                    const shouldShowNonPro = nonProAllowedDisciplines.includes(pbbDiscipline.name);
                     
                     divisionMap[assocId] = divisions
                         .filter(d => {
                             if (shouldHideOpenCategories) {
                                 return d.group.toLowerCase() !== 'open';
                             }
+                            // Hide Non-Pro division group entirely unless discipline allows it
+                            if (d.group === 'Non-Pro' && !shouldShowNonPro) {
+                                return false;
+                            }
                             return true;
                         })
                         .map(d => {
                             // Filter Non-Pro levels to only show matching discipline
-                            if (shouldFilterNonPro && d.group === 'Non-Pro') {
+                            if (shouldShowNonPro && d.group === 'Non-Pro') {
                                 return {
                                     ...d,
                                     levels: d.levels.filter(level => {
