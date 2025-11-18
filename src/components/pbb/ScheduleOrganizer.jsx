@@ -275,7 +275,17 @@ import React, { useState, useMemo } from 'react';
                                 <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
                             </div>
                         </div>
-                         <Popover>
+                         <Popover onOpenChange={(open) => {
+                            if (open && selectedDivisions.length > 0) {
+                                // When popover opens, set the calendar to show the first selected division's date
+                                const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
+                                if (firstSelectedDiv?.date) {
+                                    setDateForPopover(new Date(firstSelectedDiv.date));
+                                } else {
+                                    setDateForPopover(null);
+                                }
+                            }
+                        }}>
                             <PopoverTrigger asChild>
                                 <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
                                     <CalendarIcon className="mr-2 h-4 w-4" />
