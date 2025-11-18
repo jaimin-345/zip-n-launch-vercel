@@ -144,8 +144,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 <div className="space-y-4">
                   {pbbClass.patternGroups?.map((group, groupIndex) => (
                     <div key={group.id} className="space-y-3 p-4 border rounded-md bg-muted/30">
-                      <div className="grid grid-cols-1 md:grid-cols-12 items-center gap-4">
-                        <div className="md:col-span-3">
+                      <div className="grid grid-cols-1 md:grid-cols-12 items-start gap-4">
+                        <div className="md:col-span-2">
                           <Label className="font-semibold">{group.name}</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {group.divisions?.map(div => (
@@ -153,7 +153,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             ))}
                           </div>
                         </div>
-                        <div className="md:col-span-9">
+                        <div className="md:col-span-8">
                           <Select 
                             value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
                             onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
@@ -170,11 +170,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             </SelectContent>
                           </Select>
                         </div>
-                      </div>
-                      
-                      {/* Due Date, Staff, and Judge Selectors */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                        <div>
+                        <div className="md:col-span-2">
                           <Label className="text-xs text-muted-foreground">Due Date</Label>
                           <Input 
                             type="date"
@@ -183,7 +179,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             className="mt-1"
                           />
                         </div>
-                        
+                      </div>
+                      
+                      {/* Staff and Judge Selectors */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                         <div>
                           <Label className="text-xs text-muted-foreground">Assigned Staff</Label>
                           <Select
