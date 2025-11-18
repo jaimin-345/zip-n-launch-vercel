@@ -8,7 +8,7 @@
     import { Badge } from '@/components/ui/badge';
     import { Button } from '@/components/ui/button';
     import { Card } from '@/components/ui/card';
-    import { Trash2, Calendar, Users, UserCheck } from 'lucide-react';
+    import { Calendar, Users, UserCheck } from 'lucide-react';
 
     const samplePatterns = [
       { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -27,26 +27,7 @@
         });
       };
 
-      const handleDeletePattern = (disciplineIndex, groupIndex) => {
-        setFormData(prev => {
-          const newSelections = { ...(prev.patternSelections || {}) };
-          if (newSelections[disciplineIndex]) {
-            delete newSelections[disciplineIndex][groupIndex];
-          }
-          return { ...prev, patternSelections: newSelections };
-        });
-      };
 
-      // Count total pattern groups across all disciplines
-      const getTotalPatternGroups = () => {
-        let total = 0;
-        (formData.disciplines || []).forEach(d => {
-          if (d.pattern && d.patternGroups) {
-            total += d.patternGroups.length;
-          }
-        });
-        return total;
-      };
 
       const handleLayoutSelection = (layoutId) => {
         setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
@@ -59,12 +40,6 @@
         ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
         : 'Dates not set';
 
-      // Format due date
-      const dueDate = formData.patternSubmissionDeadline 
-        ? format(new Date(formData.patternSubmissionDeadline), 'MMM d, yyyy')
-        : formData.endDate 
-        ? format(new Date(formData.endDate), 'MMM d, yyyy')
-        : 'Not set';
 
       // Get judges and staff from officials
       const judges = (formData.officials || []).filter(o => o.role?.toLowerCase().includes('judge'));
@@ -90,13 +65,6 @@
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2">
-                  <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="font-semibold">Pattern Due Date</p>
-                    <p className="text-muted-foreground">{dueDate}</p>
-                  </div>
-                </div>
                 
                 {showStaff.length > 0 && (
                   <div className="flex items-start gap-2 md:col-span-2">
@@ -152,7 +120,7 @@
                                 ))}
                               </div>
                             </div>
-                            <div className={getTotalPatternGroups() > 1 ? "md:col-span-8" : "md:col-span-9"}>
+                            <div className="md:col-span-9">
                               <Select 
                                 value={formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex] || ''}
                                 onValueChange={(value) => handlePatternSelection(originalDisciplineIndex, groupIndex, value)}
@@ -167,19 +135,6 @@
                                 </SelectContent>
                               </Select>
                             </div>
-                            {getTotalPatternGroups() > 1 && (
-                              <div className="md:col-span-1">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => handleDeletePattern(originalDisciplineIndex, groupIndex)}
-                                  title="Delete pattern"
-                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
