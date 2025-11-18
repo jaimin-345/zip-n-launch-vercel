@@ -206,7 +206,6 @@ import React, { useState, useMemo } from 'react';
                 return { ...prev, disciplines: newDisciplines };
             });
             setSelectedDivisions([]);
-            setDateForPopover(null);
         };
         
         const handleDateClear = (divisionId) => {
