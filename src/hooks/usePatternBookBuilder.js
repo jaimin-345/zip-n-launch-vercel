@@ -25,6 +25,9 @@ const initialFormData = {
   officials: [],
   staff: [],
   schedule: [],
+  groupDueDates: {},
+  groupStaff: {},
+  groupJudges: {},
 };
 
 export const usePatternBookBuilder = (projectId) => {

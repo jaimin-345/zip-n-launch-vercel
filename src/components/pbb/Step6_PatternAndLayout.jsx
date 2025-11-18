@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Trash2, Calendar, Users, UserCheck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Calendar, Users, UserCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 const samplePatterns = [
@@ -27,13 +27,30 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     });
   };
 
-  const handleDeletePattern = (classIndex, groupIndex) => {
+  const handleDueDateChange = (classIndex, groupIndex, date) => {
     setFormData(prev => {
-      const newSelections = { ...prev.patternSelections };
-      if (newSelections[classIndex]) {
-        delete newSelections[classIndex][groupIndex];
-      }
-      return { ...prev, patternSelections: newSelections };
+      const newDueDates = { ...prev.groupDueDates };
+      if (!newDueDates[classIndex]) newDueDates[classIndex] = {};
+      newDueDates[classIndex][groupIndex] = date;
+      return { ...prev, groupDueDates: newDueDates };
+    });
+  };
+
+  const handleStaffSelection = (classIndex, groupIndex, staffId) => {
+    setFormData(prev => {
+      const newStaffSelections = { ...prev.groupStaff };
+      if (!newStaffSelections[classIndex]) newStaffSelections[classIndex] = {};
+      newStaffSelections[classIndex][groupIndex] = staffId;
+      return { ...prev, groupStaff: newStaffSelections };
+    });
+  };
+
+  const handleJudgeSelection = (classIndex, groupIndex, judgeId) => {
+    setFormData(prev => {
+      const newJudgeSelections = { ...prev.groupJudges };
+      if (!newJudgeSelections[classIndex]) newJudgeSelections[classIndex] = {};
+      newJudgeSelections[classIndex][groupIndex] = judgeId;
+      return { ...prev, groupJudges: newJudgeSelections };
     });
   };
 
@@ -59,17 +76,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
-  // Format due date (use pattern submission deadline or end date)
-  const dueDate = formData.patternSubmissionDeadline 
-    ? format(new Date(formData.patternSubmissionDeadline), 'MMM d, yyyy')
-    : formData.endDate 
-    ? format(new Date(formData.endDate), 'MMM d, yyyy')
-    : 'Not set';
-
-  // Get judges info
+  // Get judges and staff info
   const judges = formData.staff?.filter(s => s.role?.toLowerCase().includes('judge')) || [];
-  
-  // Get other show staff
   const showStaff = formData.officials || [];
 
   return (
@@ -91,14 +99,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 <p className="text-muted-foreground">{dateRange}</p>
               </div>
             </div>
-
-            <div className="flex items-start gap-2">
-              <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
-              <div>
-                <p className="font-semibold">Pattern Due Date</p>
-                <p className="text-muted-foreground">{dueDate}</p>
-              </div>
-            </div>
             
             {judges.length > 0 && (
               <div className="flex items-start gap-2">
@@ -113,7 +113,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
             )}
             
             {showStaff.length > 0 && (
-              <div className="flex items-start gap-2 md:col-span-3">
+              <div className="flex items-start gap-2">
                 <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
                 <div>
                   <p className="font-semibold">Show Staff</p>
@@ -138,45 +138,85 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 <h4 className="font-bold text-md mb-3">{pbbClass.name}</h4>
                 <div className="space-y-4">
                   {pbbClass.patternGroups?.map((group, groupIndex) => (
-                    <div key={group.id} className="grid grid-cols-1 md:grid-cols-12 items-center gap-4">
-                      <div className="md:col-span-3">
-                        <Label className="font-semibold">{group.name}</Label>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {group.divisions?.map(div => (
-                            <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div className={getTotalPatterns() > 1 ? "md:col-span-8" : "md:col-span-9"}>
-                        <Select 
-                          value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
-                          onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a pattern..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {samplePatterns.map(p => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} <Badge variant="outline" className="ml-2">{p.difficulty}</Badge>
-                              </SelectItem>
+                    <div key={group.id} className="space-y-3 p-4 border rounded-md bg-muted/30">
+                      <div className="grid grid-cols-1 md:grid-cols-12 items-center gap-4">
+                        <div className="md:col-span-3">
+                          <Label className="font-semibold">{group.name}</Label>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {group.divisions?.map(div => (
+                              <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
                             ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {getTotalPatterns() > 1 && (
-                        <div className="md:col-span-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleDeletePattern(classIndex, groupIndex)}
-                            disabled={!formData.patternSelections?.[classIndex]?.[groupIndex]}
-                            title="Delete pattern"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </div>
                         </div>
-                      )}
+                        <div className="md:col-span-9">
+                          <Select 
+                            value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
+                            onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a pattern..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {samplePatterns.map(p => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} <Badge variant="outline" className="ml-2">{p.difficulty}</Badge>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      
+                      {/* Due Date, Staff, and Judge Selectors */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Due Date</Label>
+                          <Input 
+                            type="date"
+                            value={formData.groupDueDates?.[classIndex]?.[groupIndex] || ''}
+                            onChange={(e) => handleDueDateChange(classIndex, groupIndex, e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Assigned Staff</Label>
+                          <Select
+                            value={formData.groupStaff?.[classIndex]?.[groupIndex] || ''}
+                            onValueChange={(value) => handleStaffSelection(classIndex, groupIndex, value)}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select staff..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {showStaff.map((staff, idx) => (
+                                <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
+                                  {staff.role}: {staff.name || 'Unnamed'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Assigned Judge</Label>
+                          <Select
+                            value={formData.groupJudges?.[classIndex]?.[groupIndex] || ''}
+                            onValueChange={(value) => handleJudgeSelection(classIndex, groupIndex, value)}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select judge..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {judges.map((judge, idx) => (
+                                <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
+                                  {judge.name || 'Unnamed Judge'}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
