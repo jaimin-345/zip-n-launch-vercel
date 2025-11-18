@@ -70,19 +70,48 @@ import { useToast } from '@/components/ui/use-toast';
       const discipline = newDisciplines[disciplineIndex];
       
       if (discipline && discipline.patternGroups) {
+        const deletedGroup = discipline.patternGroups[groupIndex];
         const updatedPatternGroups = discipline.patternGroups.filter((_, idx) => idx !== groupIndex);
         newDisciplines[disciplineIndex] = {
           ...discipline,
           patternGroups: updatedPatternGroups
         };
+        
+        // Also clear related data for this group
+        const newPatternSelections = { ...(prev.patternSelections || {}) };
+        const newGroupDueDates = { ...(prev.groupDueDates || {}) };
+        const newGroupStaff = { ...(prev.groupStaff || {}) };
+        const newGroupJudges = { ...(prev.groupJudges || {}) };
+        
+        if (newPatternSelections[disciplineIndex]) {
+          delete newPatternSelections[disciplineIndex][groupIndex];
+        }
+        if (newGroupDueDates[disciplineIndex]) {
+          delete newGroupDueDates[disciplineIndex][groupIndex];
+        }
+        if (newGroupStaff[disciplineIndex]) {
+          delete newGroupStaff[disciplineIndex][groupIndex];
+        }
+        if (newGroupJudges[disciplineIndex]) {
+          delete newGroupJudges[disciplineIndex][groupIndex];
+        }
+        
+        toast({
+          title: "Pattern group deleted",
+          description: "The pattern group has been removed from all steps."
+        });
+        
+        return { 
+          ...prev, 
+          disciplines: newDisciplines,
+          patternSelections: newPatternSelections,
+          groupDueDates: newGroupDueDates,
+          groupStaff: newGroupStaff,
+          groupJudges: newGroupJudges
+        };
       }
       
-      toast({
-        title: "Pattern group deleted",
-        description: "The pattern group has been removed successfully."
-      });
-      
-      return { ...prev, disciplines: newDisciplines };
+      return prev;
     });
   };
       
@@ -94,20 +123,21 @@ import { useToast } from '@/components/ui/use-toast';
         : 'Dates not set';
 
 
-      // Get judges and staff from officials - DEBUG LOGGING
-      console.log('=== DEBUG: Step 6 Officials Data ===');
-      console.log('formData.officials:', formData.officials);
+      // Extract judges from associationJudges structure
+      const judges = [];
+      if (formData.associationJudges) {
+        Object.keys(formData.associationJudges).forEach(assocId => {
+          const assocJudges = formData.associationJudges[assocId]?.judges || [];
+          assocJudges.forEach(judge => {
+            if (judge.name) { // Only include judges with names
+              judges.push(judge);
+            }
+          });
+        });
+      }
       
-      const judges = (formData.officials || []).filter(o => {
-        const hasJudge = o.role?.toLowerCase().includes('judge');
-        console.log(`Official: ${o.name}, Role: ${o.role}, Is Judge: ${hasJudge}`);
-        return hasJudge;
-      });
-      const showStaff = (formData.officials || []).filter(o => !o.role?.toLowerCase().includes('judge'));
-      
-      console.log('Filtered Judges:', judges);
-      console.log('Filtered Show Staff:', showStaff);
-      console.log('===================================');
+      // Get show staff from officials
+      const showStaff = formData.officials || [];
 
       return (
         <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -274,11 +304,15 @@ import { useToast } from '@/components/ui/use-toast';
                                     <SelectValue placeholder="Select judge..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {judges.map((judge, idx) => (
-                                      <SelectItem key={idx} value={judge.name || idx.toString()}>
-                                        {judge.role}: {judge.name || 'Unnamed'}
-                                      </SelectItem>
-                                    ))}
+                                    {judges.length > 0 ? (
+                                      judges.map((judge, idx) => (
+                                        <SelectItem key={idx} value={judge.name || idx.toString()}>
+                                          {judge.name || 'Unnamed Judge'}
+                                        </SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="no-judges" disabled>No judges added yet</SelectItem>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
