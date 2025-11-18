@@ -1,4 +1,4 @@
-    import React from 'react';
+import React from 'react';
     import { motion } from 'framer-motion';
     import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -8,8 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar, Users, UserCheck } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
     const samplePatterns = [
       { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -137,22 +139,53 @@ import { Calendar, Users, UserCheck } from 'lucide-react';
                       <div className="space-y-6">
                         {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
                           <div key={group.id} className="p-4 border rounded-lg bg-muted/30 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-12 items-start gap-4">
-                              <div className="md:col-span-3">
-                                <Label className="font-semibold">{group.name}</Label>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {(group.divisions || []).map(div => (
-                                    <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                                  ))}
-                                </div>
+                            <div className="mb-3">
+                              <Label className="font-semibold">{group.name}</Label>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(group.divisions || []).map(div => (
+                                  <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
+                                ))}
                               </div>
-                              <div className="md:col-span-9">
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <Label htmlFor={`due-date-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Due Date</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-full justify-start text-left font-normal mt-1",
+                                        !formData.groupDueDates?.[originalDisciplineIndex]?.[groupIndex] && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <Calendar className="mr-2 h-4 w-4" />
+                                      {formData.groupDueDates?.[originalDisciplineIndex]?.[groupIndex] 
+                                        ? format(new Date(formData.groupDueDates[originalDisciplineIndex][groupIndex]), "PPP") 
+                                        : <span>Pick a date</span>
+                                      }
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <CalendarComponent
+                                      mode="single"
+                                      selected={formData.groupDueDates?.[originalDisciplineIndex]?.[groupIndex] ? new Date(formData.groupDueDates[originalDisciplineIndex][groupIndex]) : undefined}
+                                      onSelect={(date) => handleDueDateChange(originalDisciplineIndex, groupIndex, date ? format(date, 'yyyy-MM-dd') : '')}
+                                      initialFocus
+                                      className="pointer-events-auto"
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                              
+                              <div>
                                 <Label className="text-sm text-muted-foreground">Select Pattern</Label>
                                 <Select 
                                   value={formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex] || ''}
                                   onValueChange={(value) => handlePatternSelection(originalDisciplineIndex, groupIndex, value)}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger className="mt-1">
                                     <SelectValue placeholder="Select a pattern..." />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -164,17 +197,7 @@ import { Calendar, Users, UserCheck } from 'lucide-react';
                               </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div>
-                                <Label htmlFor={`due-date-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Due Date</Label>
-                                <Input 
-                                  id={`due-date-${originalDisciplineIndex}-${groupIndex}`}
-                                  type="date"
-                                  value={formData.groupDueDates?.[originalDisciplineIndex]?.[groupIndex] || ''}
-                                  onChange={(e) => handleDueDateChange(originalDisciplineIndex, groupIndex, e.target.value)}
-                                  className="mt-1"
-                                />
-                              </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               
                               <div>
                                 <Label htmlFor={`staff-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Assign Staff</Label>
