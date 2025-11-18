@@ -76,9 +76,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
-  // Get judges and staff info
-  const judges = formData.staff?.filter(s => s.role?.toLowerCase().includes('judge')) || [];
-  const showStaff = formData.officials || [];
+  // Get judges and staff info - separate them properly
+  const allStaff = formData.staff || [];
+  const judges = allStaff.filter(s => s.role?.toLowerCase().includes('judge'));
+  const showStaff = allStaff.filter(s => !s.role?.toLowerCase().includes('judge'));
 
   return (
     <motion.div key="step6-pattern" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -91,7 +92,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
         {/* Show Details Summary */}
         <Card className="p-4 bg-muted/50">
           <h3 className="text-lg font-semibold mb-3">Show Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="space-y-4 text-sm">
             <div className="flex items-start gap-2">
               <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
               <div>
@@ -99,18 +100,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 <p className="text-muted-foreground">{dateRange}</p>
               </div>
             </div>
-            
-            {judges.length > 0 && (
-              <div className="flex items-start gap-2">
-                <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold">Judges</p>
-                  {judges.map((judge, idx) => (
-                    <p key={idx} className="text-muted-foreground">{judge.name || 'Not assigned'}</p>
-                  ))}
-                </div>
-              </div>
-            )}
             
             {showStaff.length > 0 && (
               <div className="flex items-start gap-2">
@@ -121,6 +110,22 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                     {showStaff.map((staff, idx) => (
                       <Badge key={idx} variant="outline" className="text-xs">
                         {staff.role}: {staff.name || 'Not assigned'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {judges.length > 0 && (
+              <div className="flex items-start gap-2">
+                <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold">Judges</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {judges.map((judge, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {judge.name || 'Not assigned'}
                       </Badge>
                     ))}
                   </div>
