@@ -31,6 +31,9 @@ const initialFormData = {
 };
 
 export const usePatternBookBuilder = (projectId) => {
+  // Sanitize projectId - treat "undefined" string as null
+  const sanitizedProjectId = projectId && projectId !== 'undefined' ? projectId : null;
+  
   const [formData, setFormData] = useState(initialFormData);
   const [step, setStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -80,11 +83,11 @@ export const usePatternBookBuilder = (projectId) => {
         }, {});
         setDivisionsData(divisionsByAssoc);
   
-        if (projectId) {
+        if (sanitizedProjectId) {
           const { data: projectData, error: projectError } = await supabase
             .from('projects')
             .select('project_data')
-            .eq('id', projectId)
+            .eq('id', sanitizedProjectId)
             .single();
   
           if (projectError) throw projectError;
@@ -112,7 +115,7 @@ export const usePatternBookBuilder = (projectId) => {
     };
     
     fetchInitialData();
-  }, [projectId, toast]);
+  }, [sanitizedProjectId, toast]);
 
   const handleShowTypeChange = useCallback((newShowType) => {
     setFormData(prev => {
@@ -171,7 +174,7 @@ export const usePatternBookBuilder = (projectId) => {
       user_id: user.id,
     };
 
-    let currentProjectId = projectId || formData.id;
+    let currentProjectId = sanitizedProjectId || formData.id;
 
     if (currentProjectId) {
       const { error } = await supabase
@@ -204,7 +207,7 @@ export const usePatternBookBuilder = (projectId) => {
       toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
       return newProjectId;
     }
-  }, [formData, step, completedSteps, projectId, toast, navigate, user]);
+  }, [formData, step, completedSteps, sanitizedProjectId, toast, navigate, user]);
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 10));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
