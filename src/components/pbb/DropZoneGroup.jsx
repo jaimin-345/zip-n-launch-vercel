@@ -47,7 +47,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
             ...prev,
             disciplines: prev.disciplines.map(disc => {
                 if (disc.id === pbbDiscipline.id) {
-                    const newDates = { ...(disc.divisionDates || {}), [division.id]: date.toISOString() };
+                    const newDates = { ...(disc.divisionDates || {}), [division.id]: format(date, 'yyyy-MM-dd') };
                     return { ...disc, divisionDates: newDates };
                 }
                 return disc;
