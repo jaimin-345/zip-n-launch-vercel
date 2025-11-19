@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Palette, FileUp, QrCode, Zap } from 'lucide-react';
+import { LogoUploader } from '@/components/show-information/LogoUploader';
 
 export const Step5_Uploads = ({ formData, setFormData }) => {
   const handleFileChange = (e) => {
@@ -47,8 +48,24 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
 
         <div>
           <Label className="text-lg font-semibold">Show Logos (optional)</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload custom cover page or logos for your pattern book.</p>
-          <Input name="coverPageFile" type="file" accept=".pdf,image/*" onChange={handleFileChange} />
+          <p className="text-sm text-muted-foreground mb-3">Upload custom logos for your pattern book cover page.</p>
+          <LogoUploader
+            fieldId="show_logo"
+            currentLogoUrl={formData.showLogoUrl || ''}
+            onUploadComplete={(url) => handleValueChange('showLogoUrl', url)}
+            showId={formData.id || 'temp'}
+          />
+        </div>
+
+        <div>
+          <Label className="text-lg font-semibold">Sponsor Logos (optional)</Label>
+          <p className="text-sm text-muted-foreground mb-3">Upload sponsor logos to display in your pattern book.</p>
+          <LogoUploader
+            fieldId="sponsor_logo"
+            currentLogoUrl={formData.sponsorLogoUrl || ''}
+            onUploadComplete={(url) => handleValueChange('sponsorLogoUrl', url)}
+            showId={formData.id || 'temp'}
+          />
         </div>
 
         <div>
