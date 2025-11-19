@@ -183,7 +183,7 @@ import { useToast } from '@/components/ui/use-toast';
                       <div className="flex flex-wrap gap-2 mt-1">
                         {judges.map((judge, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
-                            {judge.role}: {judge.name || 'Not assigned'}
+                            {judge.name || 'Not assigned'}
                           </Badge>
                         ))}
                       </div>
