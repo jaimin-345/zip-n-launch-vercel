@@ -110,14 +110,12 @@ const PatternBookBuilderPage = () => {
     const handleSaveProject = async () => {
         setIsSaving(true);
         try {
-            const project = await createOrUpdateProject();
-            if (project && (!projectId || projectId !== project.id)) {
-                navigate(`/pattern-book-builder/${project.id}`, { replace: true });
+            const savedProjectId = await createOrUpdateProject();
+            // Only navigate if we're creating a new project (no projectId before)
+            if (savedProjectId && !projectId) {
+                navigate(`/pattern-book-builder/${savedProjectId}`, { replace: true });
             }
-            toast({
-                title: 'Project Saved',
-                description: 'Your pattern book project has been saved successfully.',
-            });
+            // Don't show duplicate toast - it's already shown in the hook
         } catch (error) {
             // Error toast is handled in the hook
         } finally {
