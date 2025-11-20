@@ -11,6 +11,9 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
         data: {
             division: division,
             type: 'division',
+            sortable: {
+                containerId: 'ungrouped-list'
+            }
         },
     });
     
