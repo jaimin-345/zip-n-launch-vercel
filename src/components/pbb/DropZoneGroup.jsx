@@ -11,12 +11,15 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData }) => {
+const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
         id: division.id,
         data: {
             division: division,
             type: 'division',
+            sortable: {
+                containerId: groupId
+            }
         }
     });
     const style = {
@@ -218,7 +221,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <SortableContext items={divisionsWithDetails.map(d => d.id)} strategy={verticalListSortingStrategy} id={group.id}>
                     <div className="space-y-1.5">
                         {divisionsWithDetails.map(div => (
-                            <SortableDivisionItem key={div.id} division={div} pbbDiscipline={pbbDiscipline} setFormData={setFormData} formData={formData} associationsData={associationsData} />
+                            <SortableDivisionItem key={div.id} division={div} pbbDiscipline={pbbDiscipline} setFormData={setFormData} formData={formData} associationsData={associationsData} groupId={group.id} />
                         ))}
                     </div>
                 </SortableContext>
