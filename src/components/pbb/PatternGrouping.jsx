@@ -110,22 +110,20 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
     const { over, active } = event;
     if (!over || !pbbDiscipline) return;
 
-    const activeId = active.id;
-    const overId = over.id;
     const activeType = active.data.current?.type;
     const overType = over.data.current?.type;
 
     const patternGroups = pbbDiscipline.patternGroups || [];
 
     // --- GROUP REORDERING (dragging whole Group 1, Group 2 etc.) ---
-    if (activeType === 'group' && overType === 'group' && activeId !== overId) {
+    if (activeType === 'group' && overType === 'group' && active.id !== over.id) {
       setFormData((prev) => ({
         ...prev,
         disciplines: prev.disciplines.map((disc) => {
           if (disc.id !== pbbDiscipline.id) return disc;
           const groups = disc.patternGroups || [];
-          const oldIndex = groups.findIndex((g) => g.id === activeId);
-          const newIndex = groups.findIndex((g) => g.id === overId);
+          const oldIndex = groups.findIndex((g) => g.id === active.id);
+          const newIndex = groups.findIndex((g) => g.id === over.id);
           if (oldIndex === -1 || newIndex === -1) return disc;
           return {
             ...disc,
@@ -142,40 +140,53 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
     const divisionToMove = active.data.current?.division;
     if (!divisionToMove) return;
 
+    const activeContainerId = active.data.current?.sortable?.containerId;
+    const overContainerId = over.data.current?.sortable?.containerId;
+
     // Helper: find which group (if any) a division currently belongs to
     const findGroupIdByDivisionId = (divisionId) => {
       const group = patternGroups.find((g) => g.divisions?.some((d) => d.id === divisionId));
       return group ? group.id : null;
     };
 
-    const sourceGroupId = findGroupIdByDivisionId(activeId) || UNGROUPED_ID;
+    const sourceGroupId =
+      activeContainerId && activeContainerId !== UNGROUPED_ID
+        ? activeContainerId
+        : findGroupIdByDivisionId(active.id) || UNGROUPED_ID;
 
     let targetGroupId = UNGROUPED_ID;
-    if (overId === UNGROUPED_ID) {
+
+    if (overType === 'division') {
+      // Dropping on top of another division
+      const viaDivisionGroupId =
+        overContainerId && overContainerId !== UNGROUPED_ID
+          ? overContainerId
+          : findGroupIdByDivisionId(over.id);
+      targetGroupId = viaDivisionGroupId || UNGROUPED_ID;
+    } else if (overType === 'group') {
+      // Dropping on a group header / empty group area
+      targetGroupId = over.id;
+    } else if (over.id === UNGROUPED_ID) {
       targetGroupId = UNGROUPED_ID;
-    } else {
-      // Dropping on a group header / empty group
-      const directGroup = patternGroups.find((g) => g.id === overId);
-      if (directGroup) {
-        targetGroupId = directGroup.id;
-      } else {
-        // Dropping on another division inside a group
-        const viaDivision = findGroupIdByDivisionId(overId);
-        targetGroupId = viaDivision || UNGROUPED_ID;
-      }
     }
 
     // Prevent invalid grouping based on Walk/Trot rules
-    if (AFFECTED_CLASSES_FOR_WT_RULE.includes(pbbDiscipline.name) && targetGroupId !== UNGROUPED_ID) {
+    if (
+      AFFECTED_CLASSES_FOR_WT_RULE.includes(pbbDiscipline.name) &&
+      targetGroupId !== UNGROUPED_ID
+    ) {
       const isWt = isWalkTrotDivision(divisionToMove.division);
       const targetGroup = patternGroups.find((g) => g.id === targetGroupId);
       if (targetGroup && targetGroup.divisions.length > 0) {
-        const groupHasWt = targetGroup.divisions.some((d) => isWalkTrotDivision(d.division));
+        const groupHasWt = targetGroup.divisions.some((d) =>
+          isWalkTrotDivision(d.division)
+        );
         if (isWt && !groupHasWt) {
           toast({
             variant: 'destructive',
             title: 'Invalid Grouping',
-            description: 'Walk-Trot divisions cannot be grouped with loping/cantering divisions.',
+            description:
+              'Walk-Trot divisions cannot be grouped with loping/cantering divisions.',
           });
           return;
         }
@@ -183,13 +194,40 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
           toast({
             variant: 'destructive',
             title: 'Invalid Grouping',
-            description: 'Loping/cantering divisions cannot be grouped with Walk-Trot divisions.',
+            description:
+              'Loping/cantering divisions cannot be grouped with Walk-Trot divisions.',
           });
           return;
         }
       }
     }
 
+    // If nothing actually changes, bail out
+    if (sourceGroupId === targetGroupId) {
+      // Reorder within same group if dropped on a different division
+      if (targetGroupId !== UNGROUPED_ID && overType === 'division' && active.id !== over.id) {
+        setFormData((prev) => ({
+          ...prev,
+          disciplines: prev.disciplines.map((disc) => {
+            if (disc.id !== pbbDiscipline.id) return disc;
+            const groups = disc.patternGroups || [];
+            const groupIndex = groups.findIndex((g) => g.id === targetGroupId);
+            if (groupIndex === -1) return disc;
+            const group = groups[groupIndex];
+            const oldIndex = group.divisions.findIndex((d) => d.id === active.id);
+            const newIndex = group.divisions.findIndex((d) => d.id === over.id);
+            if (oldIndex === -1 || newIndex === -1) return disc;
+            const newDivisions = arrayMove(group.divisions, oldIndex, newIndex);
+            const newGroups = [...groups];
+            newGroups[groupIndex] = { ...group, divisions: newDivisions };
+            return { ...disc, patternGroups: newGroups };
+          }),
+        }));
+      }
+      return;
+    }
+
+    // Move between containers (ungrouped <-> group, or group <-> group)
     setFormData((prev) => ({
       ...prev,
       disciplines: prev.disciplines.map((disc) => {
@@ -203,35 +241,27 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
           if (sourceIdx > -1) {
             newPatternGroups[sourceIdx] = {
               ...newPatternGroups[sourceIdx],
-              divisions: newPatternGroups[sourceIdx].divisions.filter((d) => d.id !== divisionToMove.id),
+              divisions: newPatternGroups[sourceIdx].divisions.filter(
+                (d) => d.id !== divisionToMove.id
+              ),
             };
           }
         }
 
-        // 2) If target is a real group, insert there at appropriate position
+        // 2) If target is a real group, insert there (end of list for simplicity)
         if (targetGroupId !== UNGROUPED_ID) {
           const targetIdx = newPatternGroups.findIndex((g) => g.id === targetGroupId);
           if (targetIdx > -1) {
             const targetGroup = newPatternGroups[targetIdx];
             const newDivisions = [...(targetGroup.divisions || [])];
 
-            // If dropping on top of another division, insert at that index; otherwise push to end
-            if (targetGroupId === sourceGroupId && overId !== targetGroupId) {
-              const overIndex = newDivisions.findIndex((d) => d.id === overId);
-              const fromIndex = newDivisions.findIndex((d) => d.id === divisionToMove.id);
-              if (fromIndex > -1 && overIndex > -1) {
-                newDivisions.splice(fromIndex, 1);
-                newDivisions.splice(overIndex, 0, divisionToMove);
-              }
-            } else if (overId !== targetGroupId) {
-              const overIndex = newDivisions.findIndex((d) => d.id === overId);
-              if (overIndex > -1) {
-                newDivisions.splice(overIndex, 0, divisionToMove);
-              } else {
-                newDivisions.push(divisionToMove);
-              }
-            } else {
-              newDivisions.push(divisionToMove);
+            // Avoid duplicates
+            if (!newDivisions.some((d) => d.id === divisionToMove.id)) {
+              newDivisions.push({
+                id: divisionToMove.id,
+                assocId: divisionToMove.assocId,
+                division: divisionToMove.division,
+              });
             }
 
             newPatternGroups[targetIdx] = { ...targetGroup, divisions: newDivisions };
