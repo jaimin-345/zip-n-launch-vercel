@@ -12,7 +12,7 @@ import { isWalkTrotDivision, cn } from '@/lib/utils';
 import DraggableDivision from './DraggableDivision';
 import DropZoneGroup from './DropZoneGroup';
 
-const UNGROUPED_ID = 'ungrouped-divisions-drop-zone';
+const UNGROUPED_ID = 'ungrouped-list';
 
 export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData }) => {
   const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
@@ -188,7 +188,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 let newPatternGroups = [...(disc.patternGroups || [])];
                 
                 // Remove from source group if it's not ungrouped
-                if (sourceGroupId && sourceGroupId !== 'ungrouped-list') {
+                if (sourceGroupId && sourceGroupId !== UNGROUPED_ID) {
                     const sourceGroupIndex = newPatternGroups.findIndex(g => g.id === sourceGroupId);
                     if (sourceGroupIndex > -1) {
                         newPatternGroups[sourceGroupIndex] = {
