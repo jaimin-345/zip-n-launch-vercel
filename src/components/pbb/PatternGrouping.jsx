@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { DndContext, closestCenter, useDroppable } from '@dnd-kit/core';
+import { DndContext, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useToast } from '@/components/ui/use-toast';
 import { isWalkTrotDivision, cn } from '@/lib/utils';
@@ -17,6 +17,14 @@ const UNGROUPED_ID = 'ungrouped-divisions-drop-zone';
 export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData }) => {
   const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
   const { toast } = useToast();
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
   
   const { setNodeRef: setUngroupedNodeRef, isOver: isOverUngrouped } = useDroppable({ id: UNGROUPED_ID });
 
@@ -364,7 +372,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
   const allUngroupedSelected = ungroupedDivisions.length > 0 && selectedForBulkMove.length === ungroupedDivisions.length;
 
   return (
-    <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter}>
+    <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter} sensors={sensors}>
         <div className="flex justify-end mb-2">
             <Popover>
                 <PopoverTrigger asChild>
