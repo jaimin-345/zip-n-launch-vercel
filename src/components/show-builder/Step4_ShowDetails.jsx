@@ -9,7 +9,7 @@ import React from 'react';
     import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
     import { Calendar } from '@/components/ui/calendar';
     import { format } from 'date-fns';
-    import { cn } from '@/lib/utils';
+    import { cn, parseLocalDate } from '@/lib/utils';
     import { Calendar as CalendarIcon } from 'lucide-react';
     import { JudgesAndStaff } from '@/components/pbb/JudgesAndStaff';
 
@@ -150,13 +150,13 @@ import React from 'react';
                                                   className={cn("w-full justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {formData.startDate ? format(new Date(formData.startDate + 'T00:00:00'), "PPP") : <span>Pick a date</span>}
+                                                    {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0">
                                                 <Calendar
                                                   mode="single"
-                                                  selected={formData.startDate ? new Date(formData.startDate + 'T00:00:00') : undefined}
+                                                  selected={formData.startDate ? parseLocalDate(formData.startDate) : undefined}
                                                   onSelect={(date) => handleDateChange('startDate', date)}
                                                   initialFocus
                                                 />
@@ -172,13 +172,13 @@ import React from 'react';
                                                   className={cn("w-full justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {formData.endDate ? format(new Date(formData.endDate + 'T00:00:00'), "PPP") : <span>Pick a date</span>}
+                                                    {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0">
                                                 <Calendar
                                                   mode="single"
-                                                  selected={formData.endDate ? new Date(formData.endDate + 'T00:00:00') : undefined}
+                                                  selected={formData.endDate ? parseLocalDate(formData.endDate) : undefined}
                                                   onSelect={(date) => handleDateChange('endDate', date)}
                                                   initialFocus
                                                 />
