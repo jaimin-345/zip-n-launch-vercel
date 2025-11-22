@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -62,7 +62,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
   };
 
   const dateRange = formData.startDate && formData.endDate
-    ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
+    ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
   // Judges & staff sources (see project memory)
@@ -170,7 +170,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                         <span className="text-sm text-muted-foreground">
                           Due:{' '}
                           {formData.disciplineDueDates?.[disciplineIndex]
-                            ? format(new Date(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
+                            ? format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
                             : 'Not set'}
                         </span>
                         <ChevronDown

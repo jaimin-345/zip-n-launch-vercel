@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar, Users, UserCheck, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 
     const samplePatterns = [
@@ -119,7 +119,7 @@ import { useToast } from '@/components/ui/use-toast';
 
       // Format date range
       const dateRange = formData.startDate && formData.endDate 
-        ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
+        ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
         : 'Dates not set';
 
 

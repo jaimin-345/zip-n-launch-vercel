@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -88,13 +88,13 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formData.startDate ? format(new Date(formData.startDate), "PPP") : <span>Pick a date</span>}
+                                        {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={formData.startDate ? new Date(formData.startDate) : null}
+                                        selected={formData.startDate ? parseLocalDate(formData.startDate) : null}
                                         onSelect={(date) => handleUpdate('startDate', date ? format(date, 'yyyy-MM-dd') : null)}
                                         initialFocus
                                     />
@@ -113,15 +113,15 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formData.endDate ? format(new Date(formData.endDate), "PPP") : <span>Pick a date</span>}
+                                        {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={formData.endDate ? new Date(formData.endDate) : null}
+                                        selected={formData.endDate ? parseLocalDate(formData.endDate) : null}
                                         onSelect={(date) => handleUpdate('endDate', date ? format(date, 'yyyy-MM-dd') : null)}
-                                        disabled={{ before: formData.startDate ? new Date(formData.startDate) : null }}
+                                        disabled={{ before: formData.startDate ? parseLocalDate(formData.startDate) : null }}
                                         initialFocus
                                     />
                                 </PopoverContent>

@@ -12,6 +12,7 @@ import React, { useState, useMemo } from 'react';
     import { Calendar } from '@/components/ui/calendar';
     import { format } from 'date-fns';
     import { ScrollArea } from '@/components/ui/scroll-area';
+    import { parseLocalDate } from '@/lib/utils';
 
     const SortableDivisionItem = ({ 
         divisionIdentifier, 
@@ -109,7 +110,7 @@ import React, { useState, useMemo } from 'react';
                 {date && (
                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(new Date(date), 'EEE, MMM d')}
+                        {format(parseLocalDate(date), 'EEE, MMM d')}
                         <Button variant="ghost" size="icon" className="h-4 w-4 ml-1" onClick={() => onDateClear(divisionIdentifier)}>
                             <X className="h-3 w-3" />
                         </Button>
@@ -152,7 +153,7 @@ import React, { useState, useMemo } from 'react';
             const sortedKeys = Object.keys(groups).sort((a, b) => {
                 if (a === 'Unscheduled') return 1;
                 if (b === 'Unscheduled') return -1;
-                return new Date(a) - new Date(b);
+                return parseLocalDate(a) - parseLocalDate(b);
             });
 
             const finalGroups = {};
@@ -309,10 +310,10 @@ import React, { useState, useMemo } from 'react';
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                             <SortableContext items={divisionsWithData.map(d => d.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-4 pr-4">
-                                    {Object.entries(groupedDivisions).map(([dateKey, divisions]) => (
+                                     {Object.entries(groupedDivisions).map(([dateKey, divisions]) => (
                                         <div key={dateKey}>
                                             <h4 className="font-semibold text-sm mb-2 pb-1 border-b">
-                                                {dateKey === 'Unscheduled' ? 'Unscheduled' : format(new Date(dateKey), 'EEEE, MMMM d, yyyy')}
+                                                {dateKey === 'Unscheduled' ? 'Unscheduled' : format(parseLocalDate(dateKey), 'EEEE, MMMM d, yyyy')}
                                             </h4>
                                             <div className="space-y-2">
                                                 {divisions.map(({ id, date, customTitle }) => (

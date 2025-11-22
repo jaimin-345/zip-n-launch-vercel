@@ -4,6 +4,7 @@ import { CardHeader, CardTitle, CardDescription, CardContent } from '@/component
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
+import { parseLocalDate } from '@/lib/utils';
 
 export const Step7_Preview = ({ formData, setFormData }) => {
     const { toast } = useToast();
@@ -24,10 +25,10 @@ export const Step7_Preview = ({ formData, setFormData }) => {
             <CardContent className="space-y-6">
                 <div className="p-4 border rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">{formData.showName || 'Untitled Show'}</h3>
-                    <p className="text-muted-foreground">{formData.venueAddress}</p>
-                    <p className="text-muted-foreground">
-                        {formData.startDate && new Date(formData.startDate + 'T00:00:00').toLocaleDateString()} - {formData.endDate && new Date(formData.endDate + 'T00:00:00').toLocaleDateString()}
-                    </p>
+                <p className="text-muted-foreground">{formData.venueAddress}</p>
+                <p className="text-muted-foreground">
+                    {formData.startDate && parseLocalDate(formData.startDate).toLocaleDateString()} - {formData.endDate && parseLocalDate(formData.endDate).toLocaleDateString()}
+                </p>
                 </div>
                 <div className="p-4 border rounded-lg">
                     <h3 className="text-lg font-semibold mb-2">Associations</h3>
