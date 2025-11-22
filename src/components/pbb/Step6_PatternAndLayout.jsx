@@ -7,8 +7,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Calendar, Users, UserCheck } from 'lucide-react';
+import { Calendar, Users, UserCheck, ChevronDown } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -144,124 +145,125 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
 
         <div>
           <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
-          <div className="space-y-6">
+          <Accordion type="single" collapsible className="w-full space-y-3">
             {formData.classes?.map((pbbClass, classIndex) => (
-              <div key={classIndex} className="space-y-4">
-                {/* Discipline Box with Due Date */}
-                <div className="p-4 border rounded-lg bg-card">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div className="md:col-span-2">
-                      <Label className="text-sm font-semibold mb-2">Discipline</Label>
-                      <Select
-                        value={formData.disciplineSelections?.[classIndex] || pbbClass.name}
-                        onValueChange={(value) => handleDisciplineChange(classIndex, value)}
-                      >
-                        <SelectTrigger className="bg-background">
-                          <SelectValue placeholder="Select discipline..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {formData.classes?.map((cls, idx) => (
-                            <SelectItem key={idx} value={cls.name}>
-                              {cls.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              <div key={classIndex} className="bg-card rounded-lg border">
+                <AccordionItem value={`discipline-${classIndex}`} className="border-b-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <div className="flex-1">
+                        <span className="text-left font-semibold text-base">{pbbClass.name}</span>
+                        {pbbClass.patternGroups?.length > 0 && (
+                          <Badge variant="secondary" className="ml-3">
+                            {pbbClass.patternGroups.length} {pbbClass.patternGroups.length === 1 ? 'Group' : 'Groups'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-sm text-muted-foreground">
+                          Due: {formData.disciplineDueDates?.[classIndex] 
+                            ? format(new Date(formData.disciplineDueDates[classIndex]), 'MMM d, yyyy')
+                            : 'Not set'}
+                        </div>
+                      </div>
                     </div>
-                    <div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4 pt-2 border-t">
+                    {/* Due Date Input */}
+                    <div className="mb-4 bg-muted/30 p-3 rounded-md">
                       <Label className="text-sm font-semibold mb-2">Due Date</Label>
                       <Input 
                         type="date"
                         value={formData.disciplineDueDates?.[classIndex] || ''}
                         onChange={(e) => handleDisciplineDueDateChange(classIndex, e.target.value)}
-                        className="bg-background"
+                        className="bg-background mt-1"
                       />
                     </div>
-                  </div>
-                </div>
 
-                {/* Pattern Groups */}
-                <div className="space-y-4">
-                  {pbbClass.patternGroups?.map((group, groupIndex) => (
-                    <div key={group.id} className="p-4 border rounded-lg bg-background/50">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <Label className="font-semibold text-base">{group.name}</Label>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {group.divisions?.map(div => (
-                                <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                              ))}
+                    {/* Pattern Groups */}
+                    <div className="space-y-3">
+                      {pbbClass.patternGroups?.map((group, groupIndex) => (
+                        <div key={group.id} className="p-4 border rounded-lg bg-background/50">
+                          <div className="space-y-3">
+                            <div>
+                              <Label className="font-semibold text-base">{group.name}</Label>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {group.divisions?.map(div => (
+                                  <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">
+                                    {div.division}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label className="text-sm text-muted-foreground mb-2">Select Pattern</Label>
+                              <Select 
+                                value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
+                                onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
+                              >
+                                <SelectTrigger className="bg-background">
+                                  <SelectValue placeholder="Select a pattern..." />
+                                </SelectTrigger>
+                                <SelectContent className="bg-background z-50">
+                                  {samplePatterns.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>
+                                      {p.name} <Badge variant="outline" className="ml-2">{p.difficulty}</Badge>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            {/* Staff and Judge Selectors */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1">Assigned Staff</Label>
+                                <Select
+                                  value={formData.groupStaff?.[classIndex]?.[groupIndex] || ''}
+                                  onValueChange={(value) => handleStaffSelection(classIndex, groupIndex, value)}
+                                >
+                                  <SelectTrigger className="bg-background mt-1">
+                                    <SelectValue placeholder="Select staff..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {showStaff.map((staff, idx) => (
+                                      <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
+                                        {staff.role}: {staff.name || 'Unnamed'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1">Assigned Judge</Label>
+                                <Select
+                                  value={formData.groupJudges?.[classIndex]?.[groupIndex] || ''}
+                                  onValueChange={(value) => handleJudgeSelection(classIndex, groupIndex, value)}
+                                >
+                                  <SelectTrigger className="bg-background mt-1">
+                                    <SelectValue placeholder="Select judge..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {judges.map((judge, idx) => (
+                                      <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
+                                        {judge.name || 'Unnamed Judge'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </div>
                         </div>
-
-                        <div>
-                          <Label className="text-sm text-muted-foreground mb-2">Select Pattern</Label>
-                          <Select 
-                            value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
-                            onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
-                          >
-                            <SelectTrigger className="bg-background">
-                              <SelectValue placeholder="Select a pattern..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {samplePatterns.map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name} <Badge variant="outline" className="ml-2">{p.difficulty}</Badge>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        {/* Staff and Judge Selectors */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-sm text-muted-foreground mb-2">Assigned Staff</Label>
-                            <Select
-                              value={formData.groupStaff?.[classIndex]?.[groupIndex] || ''}
-                              onValueChange={(value) => handleStaffSelection(classIndex, groupIndex, value)}
-                            >
-                              <SelectTrigger className="bg-background">
-                                <SelectValue placeholder="Select staff..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background z-50">
-                                {showStaff.map((staff, idx) => (
-                                  <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
-                                    {staff.role}: {staff.name || 'Unnamed'}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm text-muted-foreground mb-2">Assigned Judge</Label>
-                            <Select
-                              value={formData.groupJudges?.[classIndex]?.[groupIndex] || ''}
-                              onValueChange={(value) => handleJudgeSelection(classIndex, groupIndex, value)}
-                            >
-                              <SelectTrigger className="bg-background">
-                                <SelectValue placeholder="Select judge..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background z-50">
-                                {judges.map((judge, idx) => (
-                                  <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
-                                    {judge.name || 'Unnamed Judge'}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </AccordionContent>
+                </AccordionItem>
               </div>
             ))}
-          </div>
+          </Accordion>
         </div>
 
         <div>
