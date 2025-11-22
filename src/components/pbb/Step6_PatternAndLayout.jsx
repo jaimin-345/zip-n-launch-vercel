@@ -146,58 +146,63 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
           <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
           <div className="space-y-6">
             {formData.classes?.map((pbbClass, classIndex) => (
-              <div key={classIndex} className="p-4 border rounded-lg bg-background/50">
-                {/* Discipline Dropdown and Due Date */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 pb-4 border-b">
-                  <div className="md:col-span-8">
-                    <Label className="text-sm font-semibold mb-2">Select Discipline</Label>
-                    <Select
-                      value={formData.disciplineSelections?.[classIndex] || pbbClass.name}
-                      onValueChange={(value) => handleDisciplineChange(classIndex, value)}
-                    >
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select discipline..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background z-50">
-                        {formData.classes?.map((cls, idx) => (
-                          <SelectItem key={idx} value={cls.name}>
-                            {cls.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="md:col-span-4">
-                    <Label className="text-sm font-semibold mb-2">Due Date</Label>
-                    <Input 
-                      type="date"
-                      value={formData.disciplineDueDates?.[classIndex] || ''}
-                      onChange={(e) => handleDisciplineDueDateChange(classIndex, e.target.value)}
-                      className="bg-background"
-                    />
+              <div key={classIndex} className="space-y-4">
+                {/* Discipline Box with Due Date */}
+                <div className="p-4 border rounded-lg bg-card">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-semibold mb-2">Discipline</Label>
+                      <Select
+                        value={formData.disciplineSelections?.[classIndex] || pbbClass.name}
+                        onValueChange={(value) => handleDisciplineChange(classIndex, value)}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="Select discipline..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {formData.classes?.map((cls, idx) => (
+                            <SelectItem key={idx} value={cls.name}>
+                              {cls.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold mb-2">Due Date</Label>
+                      <Input 
+                        type="date"
+                        value={formData.disciplineDueDates?.[classIndex] || ''}
+                        onChange={(e) => handleDisciplineDueDateChange(classIndex, e.target.value)}
+                        className="bg-background"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Pattern Groups */}
                 <div className="space-y-4">
                   {pbbClass.patternGroups?.map((group, groupIndex) => (
-                    <div key={group.id} className="space-y-3 p-4 border rounded-md bg-muted/30">
-                      <div className="grid grid-cols-1 md:grid-cols-12 items-start gap-4">
-                        <div className="md:col-span-3">
-                          <Label className="font-semibold">{group.name}</Label>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {group.divisions?.map(div => (
-                              <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                            ))}
+                    <div key={group.id} className="p-4 border rounded-lg bg-background/50">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <Label className="font-semibold text-base">{group.name}</Label>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {group.divisions?.map(div => (
+                                <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                        <div className="md:col-span-9">
-                          <Label className="text-xs text-muted-foreground mb-1">Select Pattern</Label>
+
+                        <div>
+                          <Label className="text-sm text-muted-foreground mb-2">Select Pattern</Label>
                           <Select 
                             value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
                             onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-background">
                               <SelectValue placeholder="Select a pattern..." />
                             </SelectTrigger>
                             <SelectContent className="bg-background z-50">
@@ -209,46 +214,46 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             </SelectContent>
                           </Select>
                         </div>
-                      </div>
-                      
-                      {/* Staff and Judge Selectors */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Assigned Staff</Label>
-                          <Select
-                            value={formData.groupStaff?.[classIndex]?.[groupIndex] || ''}
-                            onValueChange={(value) => handleStaffSelection(classIndex, groupIndex, value)}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select staff..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {showStaff.map((staff, idx) => (
-                                <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
-                                  {staff.role}: {staff.name || 'Unnamed'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
                         
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Assigned Judge</Label>
-                          <Select
-                            value={formData.groupJudges?.[classIndex]?.[groupIndex] || ''}
-                            onValueChange={(value) => handleJudgeSelection(classIndex, groupIndex, value)}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select judge..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {judges.map((judge, idx) => (
-                                <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
-                                  {judge.name || 'Unnamed Judge'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        {/* Staff and Judge Selectors */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm text-muted-foreground mb-2">Assigned Staff</Label>
+                            <Select
+                              value={formData.groupStaff?.[classIndex]?.[groupIndex] || ''}
+                              onValueChange={(value) => handleStaffSelection(classIndex, groupIndex, value)}
+                            >
+                              <SelectTrigger className="bg-background">
+                                <SelectValue placeholder="Select staff..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                {showStaff.map((staff, idx) => (
+                                  <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
+                                    {staff.role}: {staff.name || 'Unnamed'}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div>
+                            <Label className="text-sm text-muted-foreground mb-2">Assigned Judge</Label>
+                            <Select
+                              value={formData.groupJudges?.[classIndex]?.[groupIndex] || ''}
+                              onValueChange={(value) => handleJudgeSelection(classIndex, groupIndex, value)}
+                            >
+                              <SelectTrigger className="bg-background">
+                                <SelectValue placeholder="Select judge..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                {judges.map((judge, idx) => (
+                                  <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
+                                    {judge.name || 'Unnamed Judge'}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                     </div>
