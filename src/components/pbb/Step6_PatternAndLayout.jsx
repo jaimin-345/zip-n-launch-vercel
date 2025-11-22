@@ -27,12 +27,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     });
   };
 
-  const handleDueDateChange = (classIndex, groupIndex, date) => {
+  const handleDisciplineChange = (classIndex, disciplineId) => {
     setFormData(prev => {
-      const newDueDates = { ...prev.groupDueDates };
-      if (!newDueDates[classIndex]) newDueDates[classIndex] = {};
-      newDueDates[classIndex][groupIndex] = date;
-      return { ...prev, groupDueDates: newDueDates };
+      const newDisciplineSelections = { ...prev.disciplineSelections };
+      newDisciplineSelections[classIndex] = disciplineId;
+      return { ...prev, disciplineSelections: newDisciplineSelections };
+    });
+  };
+
+  const handleDisciplineDueDateChange = (classIndex, date) => {
+    setFormData(prev => {
+      const newDisciplineDueDates = { ...prev.disciplineDueDates };
+      newDisciplineDueDates[classIndex] = date;
+      return { ...prev, disciplineDueDates: newDisciplineDueDates };
     });
   };
 
@@ -140,12 +147,43 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
           <div className="space-y-6">
             {formData.classes?.map((pbbClass, classIndex) => (
               <div key={classIndex} className="p-4 border rounded-lg bg-background/50">
-                <h4 className="font-bold text-md mb-3">{pbbClass.name}</h4>
+                {/* Discipline Dropdown and Due Date */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4 pb-4 border-b">
+                  <div className="md:col-span-8">
+                    <Label className="text-sm font-semibold mb-2">Select Discipline</Label>
+                    <Select
+                      value={formData.disciplineSelections?.[classIndex] || pbbClass.name}
+                      onValueChange={(value) => handleDisciplineChange(classIndex, value)}
+                    >
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select discipline..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {formData.classes?.map((cls, idx) => (
+                          <SelectItem key={idx} value={cls.name}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-4">
+                    <Label className="text-sm font-semibold mb-2">Due Date</Label>
+                    <Input 
+                      type="date"
+                      value={formData.disciplineDueDates?.[classIndex] || ''}
+                      onChange={(e) => handleDisciplineDueDateChange(classIndex, e.target.value)}
+                      className="bg-background"
+                    />
+                  </div>
+                </div>
+
+                {/* Pattern Groups */}
                 <div className="space-y-4">
                   {pbbClass.patternGroups?.map((group, groupIndex) => (
                     <div key={group.id} className="space-y-3 p-4 border rounded-md bg-muted/30">
                       <div className="grid grid-cols-1 md:grid-cols-12 items-start gap-4">
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-3">
                           <Label className="font-semibold">{group.name}</Label>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {group.divisions?.map(div => (
@@ -153,7 +191,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             ))}
                           </div>
                         </div>
-                        <div className="md:col-span-8">
+                        <div className="md:col-span-9">
+                          <Label className="text-xs text-muted-foreground mb-1">Select Pattern</Label>
                           <Select 
                             value={formData.patternSelections?.[classIndex]?.[groupIndex] || ''} 
                             onValueChange={(value) => handlePatternSelection(classIndex, groupIndex, value)}
@@ -169,15 +208,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                               ))}
                             </SelectContent>
                           </Select>
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label className="text-xs text-muted-foreground">Due Date</Label>
-                          <Input 
-                            type="date"
-                            value={formData.groupDueDates?.[classIndex]?.[groupIndex] || ''}
-                            onChange={(e) => handleDueDateChange(classIndex, groupIndex, e.target.value)}
-                            className="mt-1"
-                          />
                         </div>
                       </div>
                       
