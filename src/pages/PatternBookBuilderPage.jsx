@@ -10,7 +10,7 @@ import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
 import { Step3_Details } from '@/components/pbb/Step3_Details';
 import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
-import { Step5_PatternAndLayout } from '@/components/pbb/Step5_PatternAndLayout';
+import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 import { Step7_PreviewScoresheets } from '@/components/pbb/Step7_PreviewScoresheets';
@@ -176,7 +176,7 @@ const PatternBookBuilderPage = () => {
             );
             case 4: return <Step3_Details formData={formData} setFormData={setFormData} />;
             case 5: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
-            case 6: return <Step5_PatternAndLayout formData={formData} setFormData={setFormData} />;
+            case 6: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} />;
             case 7: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
             case 8: return <Step6_Preview formData={formData} setFormData={setFormData} />;
             case 9: return <Step7_PreviewScoresheets formData={formData} setFormData={setFormData} />;

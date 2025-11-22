@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Calendar, Users, UserCheck, ChevronDown } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -19,96 +18,91 @@ const samplePatterns = [
 ];
 
 export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
-  const handlePatternSelection = (classIndex, groupIndex, patternId) => {
+  const [openDisciplineId, setOpenDisciplineId] = useState(null);
+
+  const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+
+  const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
-      const newSelections = { ...prev.patternSelections };
-      if (!newSelections[classIndex]) newSelections[classIndex] = {};
-      newSelections[classIndex][groupIndex] = patternId;
+      const newSelections = { ...(prev.patternSelections || {}) };
+      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
+      newSelections[disciplineIndex][groupIndex] = patternId;
       return { ...prev, patternSelections: newSelections };
     });
   };
 
-  const handleDisciplineChange = (classIndex, disciplineId) => {
+  const handleDisciplineDueDateChange = (disciplineIndex, value) => {
     setFormData(prev => {
-      const newDisciplineSelections = { ...prev.disciplineSelections };
-      newDisciplineSelections[classIndex] = disciplineId;
-      return { ...prev, disciplineSelections: newDisciplineSelections };
+      const next = { ...(prev.disciplineDueDates || {}) };
+      next[disciplineIndex] = value;
+      return { ...prev, disciplineDueDates: next };
     });
   };
 
-  const handleDisciplineDueDateChange = (classIndex, date) => {
+  const handleStaffSelection = (disciplineIndex, groupIndex, staffId) => {
     setFormData(prev => {
-      const newDisciplineDueDates = { ...prev.disciplineDueDates };
-      newDisciplineDueDates[classIndex] = date;
-      return { ...prev, disciplineDueDates: newDisciplineDueDates };
+      const newStaff = { ...(prev.groupStaff || {}) };
+      if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
+      newStaff[disciplineIndex][groupIndex] = staffId;
+      return { ...prev, groupStaff: newStaff };
     });
   };
 
-  const handleStaffSelection = (classIndex, groupIndex, staffId) => {
+  const handleJudgeSelection = (disciplineIndex, groupIndex, judgeId) => {
     setFormData(prev => {
-      const newStaffSelections = { ...prev.groupStaff };
-      if (!newStaffSelections[classIndex]) newStaffSelections[classIndex] = {};
-      newStaffSelections[classIndex][groupIndex] = staffId;
-      return { ...prev, groupStaff: newStaffSelections };
+      const newJudges = { ...(prev.groupJudges || {}) };
+      if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
+      newJudges[disciplineIndex][groupIndex] = judgeId;
+      return { ...prev, groupJudges: newJudges };
     });
-  };
-
-  const handleJudgeSelection = (classIndex, groupIndex, judgeId) => {
-    setFormData(prev => {
-      const newJudgeSelections = { ...prev.groupJudges };
-      if (!newJudgeSelections[classIndex]) newJudgeSelections[classIndex] = {};
-      newJudgeSelections[classIndex][groupIndex] = judgeId;
-      return { ...prev, groupJudges: newJudgeSelections };
-    });
-  };
-
-  // Count total patterns selected
-  const getTotalPatterns = () => {
-    let total = 0;
-    formData.classes?.forEach((pbbClass, classIndex) => {
-      pbbClass.patternGroups?.forEach((group, groupIndex) => {
-        if (formData.patternSelections?.[classIndex]?.[groupIndex]) {
-          total++;
-        }
-      });
-    });
-    return total;
   };
 
   const handleLayoutSelection = (layoutId) => {
     setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
 
-  // Format date range
-  const dateRange = formData.startDate && formData.endDate 
+  const dateRange = formData.startDate && formData.endDate
     ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
-  // Get judges and staff info - separate them properly
-  const allStaff = formData.staff || [];
-  const judges = allStaff.filter(s => s.role?.toLowerCase().includes('judge'));
-  const showStaff = allStaff.filter(s => !s.role?.toLowerCase().includes('judge'));
+  // Judges & staff sources (see project memory)
+  const judges = [];
+  if (formData.associationJudges) {
+    Object.keys(formData.associationJudges).forEach(assocId => {
+      const assocJudges = formData.associationJudges[assocId]?.judges || [];
+      assocJudges.forEach(judge => {
+        if (judge?.name) judges.push(judge);
+      });
+    });
+  }
+  const showStaff = formData.officials || [];
 
   return (
-    <motion.div key="step6-pattern" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+    <motion.div
+      key="step6-pattern-layout"
+      initial={{ opacity: 0, x: 50 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -50 }}
+    >
       <CardHeader>
         <CardTitle>Step 6: Select Patterns & Layout</CardTitle>
-        <CardDescription>Assign a pattern to each group and choose the final look for your book.</CardDescription>
+        <CardDescription>
+          Assign a pattern to each group and choose the final look for your book.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        
-        {/* Show Details Summary */}
+        {/* Show summary */}
         <Card className="p-4 bg-muted/50">
           <h3 className="text-lg font-semibold mb-3">Show Information</h3>
           <div className="space-y-4 text-sm">
             <div className="flex items-start gap-2">
-              <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
               <div>
                 <p className="font-semibold">Show Dates</p>
                 <p className="text-muted-foreground">{dateRange}</p>
               </div>
             </div>
-            
+
             {showStaff.length > 0 && (
               <div className="flex items-start gap-2">
                 <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
@@ -124,7 +118,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 </div>
               </div>
             )}
-            
+
             {judges.length > 0 && (
               <div className="flex items-start gap-2">
                 <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
@@ -143,74 +137,77 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
           </div>
         </Card>
 
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
-          <div className="w-full space-y-3">
-            {formData.classes?.map((pbbClass, classIndex) => {
-              const isOpen = formData._step6OpenClassIndex === classIndex;
+        {/* Pattern selection accordion-style list */}
+        {patternDisciplines.length > 0 && (
+          <section>
+            <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
+            <div className="space-y-2">
+              {patternDisciplines.map((discipline, logicalIndex) => {
+                const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                const isOpen = openDisciplineId === discipline.id;
+                const groups = discipline.patternGroups || [];
 
-              return (
-                <div key={classIndex} className="bg-card rounded-lg border">
-                  {/* Discipline header / toggle box */}
-                  <button
-                    type="button"
-                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/60 transition-colors"
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        _step6OpenClassIndex:
-                          prev._step6OpenClassIndex === classIndex ? null : classIndex,
-                      }));
-                    }}
-                 >
-                    <div className="flex-1 text-left">
-                      <span className="font-semibold text-base">{pbbClass.name}</span>
-                      {pbbClass.patternGroups?.length > 0 && (
-                        <Badge variant="secondary" className="ml-3">
-                          {pbbClass.patternGroups.length}{' '}
-                          {pbbClass.patternGroups.length === 1 ? 'Group' : 'Groups'}
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                      <span>
-                        Due:{' '}
-                        {formData.disciplineDueDates?.[classIndex]
-                          ? format(new Date(formData.disciplineDueDates[classIndex]), 'MMM d, yyyy')
-                          : 'Not set'}
-                      </span>
-                      <ChevronDown
-                        className={`w-4 h-4 transition-transform ${
-                          isOpen ? 'rotate-180' : 'rotate-0'
-                        }`}
-                      />
-                    </div>
-                  </button>
-
-                  {/* Expanded content for selected discipline */}
-                  {isOpen && (
-                    <div className="px-4 pb-4 pt-2 border-t">
-                      {/* Due Date Input at discipline level */}
-                      <div className="mb-4 bg-muted/30 p-3 rounded-md">
-                        <Label className="text-sm font-semibold mb-2">Due Date</Label>
-                        <Input
-                          type="date"
-                          value={formData.disciplineDueDates?.[classIndex] || ''}
-                          onChange={e => handleDisciplineDueDateChange(classIndex, e.target.value)}
-                          className="bg-background mt-1"
-                        />
+                return (
+                  <div key={discipline.id} className="bg-card rounded-lg border">
+                    {/* Toggle row, similar to Step 3 */}
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/60 transition-colors"
+                      onClick={() =>
+                        setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
+                      }
+                    >
+                      <div className="flex-1 text-left">
+                        <span className="font-semibold text-base">{discipline.name}</span>
+                        {groups.length > 0 && (
+                          <Badge variant="secondary" className="ml-3">
+                            {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
+                          </Badge>
+                        )}
                       </div>
 
-                      {/* Pattern Groups */}
-                      <div className="space-y-3">
-                        {pbbClass.patternGroups?.map((group, groupIndex) => (
-                          <div key={group.id} className="p-4 border rounded-lg bg-background/50">
-                            <div className="space-y-3">
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>
+                          Due:{' '}
+                          {formData.disciplineDueDates?.[disciplineIndex]
+                            ? format(new Date(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
+                            : 'Not set'}
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            'w-4 h-4 transition-transform',
+                            isOpen ? 'rotate-180' : 'rotate-0'
+                          )}
+                        />
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-2 border-t space-y-4">
+                        {/* Discipline-level due date */}
+                        <div className="bg-muted/30 p-3 rounded-md max-w-xs ml-auto">
+                          <Label className="text-xs font-semibold mb-1 block">Due Date</Label>
+                          <input
+                            type="date"
+                            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+                            value={formData.disciplineDueDates?.[disciplineIndex] || ''}
+                            onChange={e =>
+                              handleDisciplineDueDateChange(disciplineIndex, e.target.value)
+                            }
+                          />
+                        </div>
+
+                        {/* Pattern groups */}
+                        <div className="space-y-3">
+                          {groups.map((group, groupIndex) => (
+                            <div
+                              key={group.id}
+                              className="p-4 border rounded-lg bg-background/50 space-y-4"
+                            >
                               <div>
                                 <Label className="font-semibold text-base">{group.name}</Label>
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                  {group.divisions?.map(div => (
+                                  {(group.divisions || []).map(div => (
                                     <Badge
                                       key={`${div.assocId}-${div.division}`}
                                       variant="secondary"
@@ -223,13 +220,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                               </div>
 
                               <div>
-                                <Label className="text-sm text-muted-foreground mb-2">Select Pattern</Label>
+                                <Label className="text-sm text-muted-foreground mb-1 block">
+                                  Select Pattern
+                                </Label>
                                 <Select
                                   value={
-                                    formData.patternSelections?.[classIndex]?.[groupIndex] || ''
+                                    formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
                                   }
                                   onValueChange={value =>
-                                    handlePatternSelection(classIndex, groupIndex, value)
+                                    handlePatternSelection(disciplineIndex, groupIndex, value)
                                   }
                                 >
                                   <SelectTrigger className="bg-background">
@@ -239,7 +238,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                     {samplePatterns.map(p => (
                                       <SelectItem key={p.id} value={p.id}>
                                         {p.name}{' '}
-                                        <Badge variant="outline" className="ml-2">
+                                        <Badge variant="outline" className="ml-2 text-[10px]">
                                           {p.difficulty}
                                         </Badge>
                                       </SelectItem>
@@ -248,18 +247,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                 </Select>
                               </div>
 
-                              {/* Staff and Judge Selectors */}
+                              {/* Staff / Judge selectors */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                  <Label className="text-xs text-muted-foreground mb-1">
-                                    Assigned Staff
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Assign Staff
                                   </Label>
                                   <Select
                                     value={
-                                      formData.groupStaff?.[classIndex]?.[groupIndex] || ''
+                                      formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
                                     }
                                     onValueChange={value =>
-                                      handleStaffSelection(classIndex, groupIndex, value)
+                                      handleStaffSelection(disciplineIndex, groupIndex, value)
                                     }
                                   >
                                     <SelectTrigger className="bg-background mt-1">
@@ -279,15 +278,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                 </div>
 
                                 <div>
-                                  <Label className="text-xs text-muted-foreground mb-1">
-                                    Assigned Judge
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Assign Judge
                                   </Label>
                                   <Select
                                     value={
-                                      formData.groupJudges?.[classIndex]?.[groupIndex] || ''
+                                      formData.groupJudges?.[disciplineIndex]?.[groupIndex] || ''
                                     }
                                     onValueChange={value =>
-                                      handleJudgeSelection(classIndex, groupIndex, value)
+                                      handleJudgeSelection(disciplineIndex, groupIndex, value)
                                     }
                                   >
                                     <SelectTrigger className="bg-background mt-1">
@@ -307,89 +306,104 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-        <div>
+        {/* Layout & design (keep existing options) */}
+        <section>
           <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
-          <RadioGroup 
-            value={formData.layoutSelection || 'layout-a'} 
-            onValueChange={handleLayoutSelection} 
+          <RadioGroup
+            value={formData.layoutSelection || 'layout-a'}
+            onValueChange={handleLayoutSelection}
             className="grid grid-cols-1 md:grid-cols-2 gap-4"
           >
             <div>
               <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
-              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+              <Label
+                htmlFor="layout-a"
+                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
                 <div className="w-full space-y-2">
                   <p className="font-semibold text-center mb-2">Layout A: Modern</p>
                   <div className="w-full min-h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-6 border border-border space-y-4">
-                    {/* Cover Page Preview */}
                     <div className="text-center space-y-2 border-b pb-4 w-full">
                       <p className="font-bold text-2xl">{formData.showName || 'Show Name'}</p>
                       <p className="text-muted-foreground font-semibold">Pattern Book</p>
                       <p className="text-xs text-muted-foreground">{dateRange}</p>
                       {formData.coverPageFile && (
-                        <Badge variant="outline" className="text-xs mt-2">Custom Cover Uploaded</Badge>
+                        <Badge variant="outline" className="text-xs mt-2">
+                          Custom Cover Uploaded
+                        </Badge>
                       )}
                     </div>
-                    
-                    {/* Pattern List Preview */}
                     <div className="w-full space-y-1">
                       <p className="text-xs font-semibold text-muted-foreground">Patterns:</p>
-                      {formData.classes?.slice(0, 3).map((cls, idx) => (
-                        <div key={idx} className="text-xs flex justify-between">
-                          <span>{cls.name}</span>
+                      {patternDisciplines.slice(0, 3).map((disc, idx) => (
+                        <div key={disc.id} className="text-xs flex justify-between">
+                          <span>{disc.name}</span>
                           <span className="text-muted-foreground">Page {idx + 2}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">Includes cover page with show details</p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Includes cover page with show details
+                  </p>
                 </div>
               </Label>
             </div>
+
             <div>
               <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
-              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+              <Label
+                htmlFor="layout-b"
+                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
                 <div className="w-full space-y-2">
                   <p className="font-semibold text-center mb-2">Layout B: Classic</p>
                   <div className="w-full min-h-48 border-4 border-double border-border rounded-md flex flex-col p-6 bg-background space-y-4">
-                    {/* Table of Contents Style */}
                     <div className="text-center border-b-2 border-double pb-3">
-                      <p className="font-bold text-xl font-serif tracking-wide">{formData.showName || 'Show Name'}</p>
+                      <p className="font-bold text-xl font-serif tracking-wide">
+                        {formData.showName || 'Show Name'}
+                      </p>
                       <p className="text-muted-foreground italic text-sm mt-1">Pattern Book</p>
                       <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
                     </div>
-                    
-                    {/* Table of Contents */}
                     <div className="space-y-1.5 text-xs">
-                      <p className="font-bold text-sm font-serif text-center mb-2 border-b pb-1">Table of Contents</p>
+                      <p className="font-bold text-sm font-serif text-center mb-2 border-b pb-1">
+                        Table of Contents
+                      </p>
                       <div className="flex justify-between px-2">
                         <span className="font-semibold">Show Information</span>
                         <span>1</span>
                       </div>
-                      {formData.classes?.slice(0, 4).map((cls, idx) => (
-                        <div key={idx} className="flex justify-between px-2 border-b border-dotted">
-                          <span>{cls.name}</span>
+                      {patternDisciplines.slice(0, 4).map((disc, idx) => (
+                        <div
+                          key={disc.id}
+                          className="flex justify-between px-2 border-b border-dotted"
+                        >
+                          <span>{disc.name}</span>
                           <span>{idx + 2}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground text-center">Includes table of contents</p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Includes table of contents
+                  </p>
                 </div>
               </Label>
             </div>
           </RadioGroup>
-        </div>
+        </section>
       </CardContent>
     </motion.div>
   );
