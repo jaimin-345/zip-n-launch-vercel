@@ -166,8 +166,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-muted-foreground">
                           Due:{' '}
                           {formData.disciplineDueDates?.[disciplineIndex]
                             ? format(new Date(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
@@ -175,7 +175,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                         </span>
                         <ChevronDown
                           className={cn(
-                            'w-4 h-4 transition-transform',
+                            'w-4 h-4 transition-transform text-muted-foreground',
                             isOpen ? 'rotate-180' : 'rotate-0'
                           )}
                         />
@@ -185,11 +185,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                     {isOpen && (
                       <div className="px-4 pb-4 pt-2 border-t space-y-4">
                         {/* Discipline-level due date */}
-                        <div className="bg-muted/30 p-3 rounded-md max-w-xs ml-auto">
+                        <div className="bg-muted/30 p-3 rounded-md">
                           <Label className="text-xs font-semibold mb-1 block">Due Date</Label>
                           <input
                             type="date"
-                            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                             value={formData.disciplineDueDates?.[disciplineIndex] || ''}
                             onChange={e =>
                               handleDisciplineDueDateChange(disciplineIndex, e.target.value)
@@ -247,36 +247,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                 </Select>
                               </div>
 
-                              {/* Staff / Judge selectors */}
+                              {/* Judge / Staff selectors - swapped order */}
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-xs text-muted-foreground mb-1 block">
-                                    Assign Staff
-                                  </Label>
-                                  <Select
-                                    value={
-                                      formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
-                                    }
-                                    onValueChange={value =>
-                                      handleStaffSelection(disciplineIndex, groupIndex, value)
-                                    }
-                                  >
-                                    <SelectTrigger className="bg-background mt-1">
-                                      <SelectValue placeholder="Select staff..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-50">
-                                      {showStaff.map((staff, idx) => (
-                                        <SelectItem
-                                          key={idx}
-                                          value={staff.id || `staff-${idx}`}
-                                        >
-                                          {staff.role}: {staff.name || 'Unnamed'}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
                                 <div>
                                   <Label className="text-xs text-muted-foreground mb-1 block">
                                     Assign Judge
@@ -299,6 +271,34 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                           value={judge.id || `judge-${idx}`}
                                         >
                                           {judge.name || 'Unnamed Judge'}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Assign Staff
+                                  </Label>
+                                  <Select
+                                    value={
+                                      formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
+                                    }
+                                    onValueChange={value =>
+                                      handleStaffSelection(disciplineIndex, groupIndex, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-background mt-1">
+                                      <SelectValue placeholder="Select staff..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {showStaff.map((staff, idx) => (
+                                        <SelectItem
+                                          key={idx}
+                                          value={staff.id || `staff-${idx}`}
+                                        >
+                                          {staff.role}: {staff.name || 'Unnamed'}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
