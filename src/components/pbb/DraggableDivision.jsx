@@ -56,23 +56,23 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="relative p-1.5 border rounded-md bg-background text-xs flex items-center gap-2 touch-none w-full">
-            <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing p-1">
+        <div ref={setNodeRef} style={style} className="relative p-2 border rounded-md bg-background text-xs flex items-center gap-2 touch-none w-full">
+            <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing p-1 shrink-0">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
-            <div className="flex-grow flex items-center">
+            <div className="flex-grow min-w-0 flex items-center">
                 <span className="truncate">{displayName}</span>
             </div>
             
-            <div className="ml-auto flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                 {divisionTag && (
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs whitespace-nowrap">
                         {divisionTag}
                     </Badge>
                 )}
                 
                  {division.date && (
-                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs p-1 h-auto font-normal">
+                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
                         <CalendarIcon className="h-3 w-3" />
                         {format(new Date(division.date), 'MMM d')}
                     </Badge>
