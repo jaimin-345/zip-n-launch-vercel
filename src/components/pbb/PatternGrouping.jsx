@@ -506,7 +506,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
               )}
             </div>
         </div>
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           <SortableContext items={patternGroups.map(g => g.id)} strategy={verticalListSortingStrategy} id="groups-container">
               {patternGroups.map((group, index) => (
               <DropZoneGroup 
