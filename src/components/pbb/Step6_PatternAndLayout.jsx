@@ -101,7 +101,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {formData.showName && (
           <div className="mt-4 pt-4 border-t">
             <h3 className="text-xl font-semibold">
-              Horse Show "{formData.showName}"
+              Horse Show {formData.showName}
             </h3>
           </div>
         )}
@@ -205,7 +205,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">Discipline Folders</h3>
               <div className="text-xs text-muted-foreground mb-2">
-                {patternDisciplines.length} of {(formData.disciplines || []).length} disciplines configured
+                {(() => {
+                  const completeDisciplines = patternDisciplines.filter((discipline) => {
+                    const groups = discipline.patternGroups || [];
+                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                    const assignedCount = groups.filter(
+                      (_, idx) => formData.patternSelections?.[disciplineIndex]?.[idx]
+                    ).length;
+                    return assignedCount === groups.length && groups.length > 0;
+                  }).length;
+                  const allComplete = completeDisciplines === patternDisciplines.length && patternDisciplines.length > 0;
+                  return `${completeDisciplines} of ${patternDisciplines.length} disciplines ${allComplete ? 'complete' : 'incomplete'}`;
+                })()}
               </div>
               <div className="space-y-2">
                 {patternDisciplines.map((discipline) => {
