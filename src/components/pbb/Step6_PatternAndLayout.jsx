@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -88,7 +88,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     >
       <CardHeader>
         <CardTitle>
-          {formData.showName ? `${formData.showName} - ` : ''}Step 5: Select Patterns & Layout
+          {formData.horseShoeName ? `${formData.horseShoeName} - ` : ''}Step 5: Select Patterns & Layout
         </CardTitle>
         <CardDescription>
           Assign a pattern to each group and choose the final look for your book.
@@ -185,13 +185,51 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
 
             {/* Right Column - Discipline Folder */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">Discipline Folder</h3>
-              <div className="text-sm text-muted-foreground">
-                {patternDisciplines.length > 0 ? (
-                  <p>{patternDisciplines.length} discipline{patternDisciplines.length !== 1 ? 's' : ''} configured</p>
-                ) : (
-                  <p>No disciplines configured</p>
-                )}
+              <h3 className="text-lg font-semibold border-b pb-2">Discipline Folders</h3>
+              <div className="text-xs text-muted-foreground mb-2">
+                {patternDisciplines.length} of {(formData.disciplines || []).length} disciplines configured
+              </div>
+              <div className="space-y-2">
+                {patternDisciplines.map((discipline) => {
+                  const groups = discipline.patternGroups || [];
+                  const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                  const assignedCount = groups.filter(
+                    (_, idx) => formData.patternSelections?.[disciplineIndex]?.[idx]
+                  ).length;
+                  const isComplete = assignedCount === groups.length && groups.length > 0;
+                  
+                  return (
+                    <div
+                      key={discipline.id}
+                      className={cn(
+                        "p-3 rounded-lg border-2 flex items-center justify-between transition-colors",
+                        isComplete 
+                          ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700" 
+                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isComplete ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-sm">{discipline.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {assignedCount} pattern{assignedCount !== 1 ? 's' : ''} assigned
+                          </p>
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-xs font-semibold px-2 py-1 rounded",
+                        isComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
+                      )}>
+                        {isComplete ? 'Complete' : 'Incomplete'}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -243,50 +281,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                     </button>
 
                     {isOpen && (
-                      <div className="px-4 pb-4 pt-2 border-t space-y-4">
-                        {/* Discipline-level due date */}
-                        <div className="bg-muted/30 p-3 rounded-md">
-                          <Label className="text-xs font-semibold mb-1 block">Due Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  'w-full justify-start text-left font-normal',
-                                  !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {formData.disciplineDueDates?.[disciplineIndex] ? (
-                                  format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  formData.disciplineDueDates?.[disciplineIndex]
-                                    ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
-                                    : undefined
-                                }
-                                onSelect={(date) => {
-                                  if (date) {
-                                    const localDate = format(date, 'yyyy-MM-dd');
-                                    handleDisciplineDueDateChange(disciplineIndex, localDate);
-                                  }
-                                }}
-                                initialFocus
-                                className={cn('p-3 pointer-events-auto')}
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-
-                        {/* Pattern groups */}
-                        <div className="space-y-3">
+                      <div className="px-4 pb-4 pt-2 border-t space-y-3">
                           {groups.map((group, groupIndex) => (
                             <div
                               key={group.id}
@@ -307,32 +302,75 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                                 </div>
                               </div>
 
-                              <div>
-                                <Label className="text-sm text-muted-foreground mb-1 block">
-                                  Select Pattern
-                                </Label>
-                                <Select
-                                  value={
-                                    formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
-                                  }
-                                  onValueChange={value =>
-                                    handlePatternSelection(disciplineIndex, groupIndex, value)
-                                  }
-                                >
-                                  <SelectTrigger className="bg-background">
-                                    <SelectValue placeholder="Select a pattern..." />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-background z-50">
-                                    {samplePatterns.map(p => (
-                                      <SelectItem key={p.id} value={p.id}>
-                                        {p.name}{' '}
-                                        <Badge variant="outline" className="ml-2 text-[10px]">
-                                          {p.difficulty}
-                                        </Badge>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              {/* Pattern Selection and Due Date - 50/50 split */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-sm text-muted-foreground mb-1 block">
+                                    Select Pattern
+                                  </Label>
+                                  <Select
+                                    value={
+                                      formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
+                                    }
+                                    onValueChange={value =>
+                                      handlePatternSelection(disciplineIndex, groupIndex, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-background">
+                                      <SelectValue placeholder="Select a pattern..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {samplePatterns.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name}{' '}
+                                          <Badge variant="outline" className="ml-2 text-[10px]">
+                                            {p.difficulty}
+                                          </Badge>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm text-muted-foreground mb-1 block">Due Date</Label>
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className={cn(
+                                          'w-full justify-start text-left font-normal',
+                                          !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
+                                        )}
+                                      >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {formData.disciplineDueDates?.[disciplineIndex] ? (
+                                          format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
+                                        ) : (
+                                          <span>Pick a date</span>
+                                        )}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={
+                                          formData.disciplineDueDates?.[disciplineIndex]
+                                            ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
+                                            : undefined
+                                        }
+                                        onSelect={(date) => {
+                                          if (date) {
+                                            const localDate = format(date, 'yyyy-MM-dd');
+                                            handleDisciplineDueDateChange(disciplineIndex, localDate);
+                                          }
+                                        }}
+                                        initialFocus
+                                        className={cn('p-3 pointer-events-auto')}
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
                               </div>
 
                               {/* Judge / Staff selectors - swapped order */}
