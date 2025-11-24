@@ -85,7 +85,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
       exit={{ opacity: 0, x: -50 }}
     >
       <CardHeader>
-        <CardTitle>Step 6: Select Patterns & Layout</CardTitle>
+        <CardTitle>Step 5: Select Patterns & Layout</CardTitle>
         <CardDescription>
           Assign a pattern to each group and choose the final look for your book.
         </CardDescription>
