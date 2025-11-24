@@ -210,24 +210,6 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
             />
           </div>
 
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="role" className="text-right">
-              Role
-            </Label>
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select role for this person..." />
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map((role) => (
-                  <SelectItem key={role.value} value={role.value}>
-                    {role.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {existingUser && existingUser.role && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right text-xs text-muted-foreground">

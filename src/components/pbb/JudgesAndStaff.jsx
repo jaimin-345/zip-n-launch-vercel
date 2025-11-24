@@ -291,8 +291,8 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
         {selectedAssociationIds.map(assocId => {
           const assocDetails = associationsData.find(a => a.id === assocId);
           const judgeInfo = (formData.associationJudges && formData.associationJudges[assocId]) || { count: 0, judges: [] };
@@ -347,12 +347,14 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
         })}
       </div>
 
-       <OtherOfficialsList 
+      <div>
+        <OtherOfficialsList
             officials={formData.officials || []}
             onUpdate={handleOfficialsUpdate}
             isClinicMode={isClinicMode}
             isEducationMode={isEducationMode}
-       />
+        />
+      </div>
     </div>
   );
 };
