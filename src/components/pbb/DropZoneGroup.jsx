@@ -196,37 +196,37 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     });
 
     return (
-        <div ref={setSortableNodeRef} style={style} className="p-3 border rounded-lg bg-muted/30">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 flex-grow">
-                    <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1">
+        <div ref={setSortableNodeRef} style={style} className="p-4 border border-border rounded-lg bg-card shadow-sm">
+            <div className="flex items-center justify-between mb-3 gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 shrink-0">
                         <GripVertical className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <Input
                         value={group.name}
                         onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
-                        className="font-semibold h-8 flex-grow"
+                        className="font-semibold h-9 flex-1"
                     />
                 </div>
-                <div className="flex items-center gap-1 ml-2">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleAiAssistClick()}>
+                <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleAiAssistClick()}>
                         <Sparkles className="h-4 w-4 text-primary" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                 </div>
             </div>
-            <div ref={setNodeRef} className={cn('min-h-[60px] p-2 rounded-md bg-background/50 transition-colors border border-dashed', { 'border-primary bg-primary/10 border-2': isOver })}>
+            <div ref={setNodeRef} className={cn('min-h-[80px] p-3 rounded-md bg-muted/30 transition-colors border-2 border-dashed border-border', { 'border-primary bg-primary/10': isOver })}>
                 <SortableContext items={divisionsWithDetails.map(d => d.id)} strategy={verticalListSortingStrategy} id={group.id}>
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                         {divisionsWithDetails.map(div => (
                             <SortableDivisionItem key={div.id} division={div} pbbDiscipline={pbbDiscipline} setFormData={setFormData} formData={formData} associationsData={associationsData} groupId={group.id} />
                         ))}
                     </div>
                 </SortableContext>
                 {group.divisions.length === 0 && (
-                    <div className="text-center text-xs text-muted-foreground py-4">
+                    <div className="text-center text-sm text-muted-foreground py-6">
                         Drop divisions here
                     </div>
                 )}
