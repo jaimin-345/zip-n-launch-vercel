@@ -208,29 +208,10 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   return (
     <>
       <CardHeader>
-        <CardTitle>Step 5: Uploads & Media</CardTitle>
+        <CardTitle>Step 6: Uploads & Media</CardTitle>
         <CardDescription>Upload any relevant files or media for your show book. Your project must be saved first.</CardDescription>
       </CardHeader>
       <div className="space-y-6">
-        <div ref={coverPageRef} className={cn("p-4 border rounded-lg", !formData.coverPageOption && "highlight-next-step border-primary")}>
-          <Label className="text-base font-semibold">Cover Page</Label>
-          <p className="text-sm text-muted-foreground mb-2">Choose how to create your cover page. This is the only required step here.</p>
-          <RadioGroup
-            value={formData.coverPageOption}
-            onValueChange={(value) => setFormData(prev => ({ ...prev, coverPageOption: value }))}
-            className="flex items-center space-x-4"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="generate" id="generate" />
-              <Label htmlFor="generate">Generate from Details</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="none" id="none" />
-              <Label htmlFor="none">No Cover Page</Label>
-            </div>
-          </RadioGroup>
-        </div>
-
         {isEducationMode ? (
           <FileUploadZone
             dropzone={lessonPlanDropzone}

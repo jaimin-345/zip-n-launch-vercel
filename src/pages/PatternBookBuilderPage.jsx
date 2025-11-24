@@ -26,8 +26,8 @@ const steps = [
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
   { id: 3, name: 'Configure Classes', icon: Settings2 },
   { id: 4, name: 'Show Details', icon: Calendar },
-  { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
-  { id: 6, name: 'Uploads & Media', icon: UploadCloud },
+  { id: 5, name: 'Uploads & Media', icon: UploadCloud },
+  { id: 6, name: 'Pattern & Layout', icon: LayoutTemplate },
   { id: 7, name: 'Close Out & Delegate', icon: Share2 },
   { id: 8, name: 'Preview Patterns', icon: Eye },
   { id: 9, name: 'Preview Scoresheets', icon: FileSignature },
@@ -136,7 +136,9 @@ const PatternBookBuilderPage = () => {
             case 4:
                 return !(formData.showName && formData.startDate && formData.venueAddress);
             case 5:
-                return !formData.coverPageOption;
+                return false; // Uploads & Media is now optional
+            case 6:
+                return false; // Pattern & Layout validation if needed
             case 10:
                 return false;
             default:
@@ -175,8 +177,8 @@ const PatternBookBuilderPage = () => {
                 </>
             );
             case 4: return <Step3_Details formData={formData} setFormData={setFormData} />;
-            case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} />;
-            case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
+            case 5: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
+            case 6: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} />;
             case 7: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
             case 8: return <Step6_Preview formData={formData} setFormData={setFormData} />;
             case 9: return <Step7_PreviewScoresheets formData={formData} setFormData={setFormData} />;
