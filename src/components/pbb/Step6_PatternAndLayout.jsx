@@ -7,8 +7,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -85,55 +87,113 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
       exit={{ opacity: 0, x: -50 }}
     >
       <CardHeader>
-        <CardTitle>Step 5: Select Patterns & Layout</CardTitle>
+        <CardTitle>
+          {formData.showName ? `${formData.showName} - ` : ''}Step 5: Select Patterns & Layout
+        </CardTitle>
         <CardDescription>
           Assign a pattern to each group and choose the final look for your book.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Show summary */}
+        {/* Show summary - 3 column layout */}
         <Card className="p-4 bg-muted/50">
-          <h3 className="text-lg font-semibold mb-3">Show Information</h3>
-          <div className="space-y-4 text-sm">
-            <div className="flex items-start gap-2">
-              <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
-              <div>
-                <p className="font-semibold">Show Dates</p>
-                <p className="text-muted-foreground">{dateRange}</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Left Column - Show Information */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
+              <div className="space-y-3 text-sm">
+                {formData.showName && (
+                  <div>
+                    <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
+                    <p className="font-medium">{formData.showName}</p>
+                  </div>
+                )}
+                <div className="flex items-start gap-2">
+                  <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold text-xs text-muted-foreground">Show Dates</p>
+                    <p className="text-muted-foreground">{dateRange}</p>
+                  </div>
+                </div>
+                {(formData.location || formData.venueName) && (
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Location</p>
+                      <p className="text-muted-foreground">
+                        {formData.venueName && <span className="block">{formData.venueName}</span>}
+                        {formData.location}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {formData.associations && formData.associations.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Building className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Associations</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {formData.associations.map((assoc, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {assoc.name || assoc.id}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {showStaff.length > 0 && (
-              <div className="flex items-start gap-2">
-                <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold">Show Staff</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {showStaff.map((staff, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {staff.role}: {staff.name || 'Not assigned'}
-                      </Badge>
-                    ))}
+            {/* Middle Column - Staff */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">Staff</h3>
+              <div className="space-y-3 text-sm">
+                {showStaff.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Show Staff</p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {showStaff.map((staff, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {staff.role}: {staff.name || 'Not assigned'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                )}
 
-            {judges.length > 0 && (
-              <div className="flex items-start gap-2">
-                <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold">Judges</p>
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    {judges.map((judge, idx) => (
-                      <Badge key={idx} variant="outline" className="text-xs">
-                        {judge.name || 'Not assigned'}
-                      </Badge>
-                    ))}
+                {judges.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Judges + Associations</p>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {judges.map((judge, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {judge.name || 'Not assigned'}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Right Column - Discipline Folder */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">Discipline Folder</h3>
+              <div className="text-sm text-muted-foreground">
+                {patternDisciplines.length > 0 ? (
+                  <p>{patternDisciplines.length} discipline{patternDisciplines.length !== 1 ? 's' : ''} configured</p>
+                ) : (
+                  <p>No disciplines configured</p>
+                )}
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -187,14 +247,42 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                         {/* Discipline-level due date */}
                         <div className="bg-muted/30 p-3 rounded-md">
                           <Label className="text-xs font-semibold mb-1 block">Due Date</Label>
-                          <input
-                            type="date"
-                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={formData.disciplineDueDates?.[disciplineIndex] || ''}
-                            onChange={e =>
-                              handleDisciplineDueDateChange(disciplineIndex, e.target.value)
-                            }
-                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  'w-full justify-start text-left font-normal',
+                                  !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.disciplineDueDates?.[disciplineIndex] ? (
+                                  format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={
+                                  formData.disciplineDueDates?.[disciplineIndex]
+                                    ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
+                                    : undefined
+                                }
+                                onSelect={(date) => {
+                                  if (date) {
+                                    const localDate = format(date, 'yyyy-MM-dd');
+                                    handleDisciplineDueDateChange(disciplineIndex, localDate);
+                                  }
+                                }}
+                                initialFocus
+                                className={cn('p-3 pointer-events-auto')}
+                              />
+                            </PopoverContent>
+                          </Popover>
                         </div>
 
                         {/* Pattern groups */}
