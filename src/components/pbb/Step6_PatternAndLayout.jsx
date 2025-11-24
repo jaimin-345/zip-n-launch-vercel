@@ -19,10 +19,15 @@ const samplePatterns = [
   { id: 'pat_4', name: 'Smooth Equitation Flow', difficulty: 'Intermediate' },
 ];
 
-export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
 
   const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+  
+  // Get selected associations from formData
+  const selectedAssociations = associationsData.filter(
+    assoc => formData.associations?.[assoc.id]
+  );
 
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
@@ -91,12 +96,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
           Step 5: Select Patterns & Layout
         </CardTitle>
         <CardDescription>
-          Name your pattern book and select the affiliated associations.
+          Assign patterns to classes and choose your book layout.
         </CardDescription>
-        {formData.horseShoeName && (
+        {formData.showName && (
           <div className="mt-4 pt-4 border-t">
             <h3 className="text-xl font-semibold">
-              Horse Show "{formData.horseShoeName}"
+              Horse Show "{formData.showName}"
             </h3>
           </div>
         )}
@@ -109,12 +114,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
               <div className="space-y-3 text-sm">
-                {formData.horseShoeName && (
+                {formData.showName && (
                   <div className="flex items-start gap-2">
                     <Trophy className="w-4 h-4 mt-0.5 text-blue-600" />
                     <div>
                       <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
-                      <p className="font-medium">{formData.horseShoeName}</p>
+                      <p className="font-medium">{formData.showName}</p>
                     </div>
                   </div>
                 )}
@@ -125,30 +130,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                     <p className="text-muted-foreground">{dateRange}</p>
                   </div>
                 </div>
-                {(formData.location || formData.venueName) && (
+                {formData.venueAddress && (
                   <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 mt-0.5 text-blue-600" />
                     <div>
                       <p className="font-semibold text-xs text-muted-foreground">Location</p>
-                      <p className="text-muted-foreground">
-                        {formData.venueName && <span className="block">{formData.venueName}</span>}
-                        {formData.location}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {formData.associations && formData.associations.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <Building className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Associations</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {formData.associations.map((assoc, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs">
-                            {assoc.name || assoc.id}
-                          </Badge>
-                        ))}
-                      </div>
+                      <p className="text-muted-foreground">{formData.venueAddress}</p>
                     </div>
                   </div>
                 )}
@@ -199,10 +186,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                   <div>
                     <span className="text-sm font-medium">Associations</span>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.associations && formData.associations.length > 0 ? (
-                        formData.associations.map((assoc, idx) => (
-                          <Badge key={idx} className="bg-green-100 text-green-700 hover:bg-green-200">
-                            {assoc.name || assoc.id}
+                      {selectedAssociations.length > 0 ? (
+                        selectedAssociations.map((assoc) => (
+                          <Badge key={assoc.id} className="bg-green-100 text-green-700 hover:bg-green-200">
+                            {assoc.abbreviation || assoc.name}
                           </Badge>
                         ))
                       ) : (
