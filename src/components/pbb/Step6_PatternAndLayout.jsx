@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -88,11 +88,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
     >
       <CardHeader>
         <CardTitle>
-          {formData.horseShoeName ? `${formData.horseShoeName} - ` : ''}Step 5: Select Patterns & Layout
+          Step 5: Select Patterns & Layout
         </CardTitle>
         <CardDescription>
-          Assign a pattern to each group and choose the final look for your book.
+          Name your pattern book and select the affiliated associations.
         </CardDescription>
+        {formData.horseShoeName && (
+          <div className="mt-4 pt-4 border-t">
+            <h3 className="text-xl font-semibold">
+              Horse Show "{formData.horseShoeName}"
+            </h3>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-8">
         {/* Show summary - 3 column layout */}
@@ -102,10 +109,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
               <div className="space-y-3 text-sm">
-                {formData.showName && (
-                  <div>
-                    <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
-                    <p className="font-medium">{formData.showName}</p>
+                {formData.horseShoeName && (
+                  <div className="flex items-start gap-2">
+                    <Trophy className="w-4 h-4 mt-0.5 text-blue-600" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
+                      <p className="font-medium">{formData.horseShoeName}</p>
+                    </div>
                   </div>
                 )}
                 <div className="flex items-start gap-2">
@@ -117,7 +127,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 </div>
                 {(formData.location || formData.venueName) && (
                   <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <MapPin className="w-4 h-4 mt-0.5 text-blue-600" />
                     <div>
                       <p className="font-semibold text-xs text-muted-foreground">Location</p>
                       <p className="text-muted-foreground">
@@ -147,39 +157,60 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
 
             {/* Middle Column - Staff */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">Staff</h3>
-              <div className="space-y-3 text-sm">
-                {showStaff.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Show Staff</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {showStaff.map((staff, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {staff.role}: {staff.name || 'Not assigned'}
-                          </Badge>
-                        ))}
+              {/* Show Staff Section */}
+              <div className="border rounded-lg p-3">
+                <h3 className="text-lg font-semibold mb-3">Show Staff</h3>
+                <div className="space-y-2">
+                  {showStaff.length > 0 ? (
+                    showStaff.map((staff, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-sm">
+                        <span className="text-blue-600 font-medium">{staff.role}:</span>
+                        <span className="font-semibold uppercase">{staff.name || 'Not assigned'}</span>
                       </div>
-                    </div>
-                  </div>
-                )}
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No staff assigned</span>
+                  )}
+                </div>
+              </div>
 
-                {judges.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Judges + Associations</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {judges.map((judge, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
+              {/* Judges + Associations Section */}
+              <div className="border rounded-lg p-3">
+                <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Judges + Associations</h3>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium">Judges</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {judges.length > 0 ? (
+                        judges.map((judge, idx) => (
+                          <Badge key={idx} className="bg-blue-100 text-blue-700 hover:bg-blue-200">
                             {judge.name || 'Not assigned'}
                           </Badge>
-                        ))}
-                      </div>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No judges assigned</span>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  <div>
+                    <span className="text-sm font-medium">Associations</span>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.associations && formData.associations.length > 0 ? (
+                        formData.associations.map((assoc, idx) => (
+                          <Badge key={idx} className="bg-green-100 text-green-700 hover:bg-green-200">
+                            {assoc.name || assoc.id}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground text-sm">None selected</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
