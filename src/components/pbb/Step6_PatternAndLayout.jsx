@@ -7,8 +7,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 
@@ -92,20 +90,58 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
           Assign a pattern to each group and choose the final look for your book.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Show Name Header */}
-        <div className="text-center py-4 border-b">
-          <h2 className="text-2xl font-bold">{formData.showName || 'Horse Show Name'}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{dateRange}</p>
-        </div>
+      <CardContent className="space-y-8">
+        {/* Show summary */}
+        <Card className="p-4 bg-muted/50">
+          <h3 className="text-lg font-semibold mb-3">Show Information</h3>
+          <div className="space-y-4 text-sm">
+            <div className="flex items-start gap-2">
+              <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">Show Dates</p>
+                <p className="text-muted-foreground">{dateRange}</p>
+              </div>
+            </div>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT COLUMN - Pattern selection accordion-style list */}
-          <div>
+            {showStaff.length > 0 && (
+              <div className="flex items-start gap-2">
+                <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold">Show Staff</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {showStaff.map((staff, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {staff.role}: {staff.name || 'Not assigned'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {judges.length > 0 && (
+              <div className="flex items-start gap-2">
+                <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold">Judges</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {judges.map((judge, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {judge.name || 'Not assigned'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Pattern selection accordion-style list */}
+        {patternDisciplines.length > 0 && (
+          <section>
             <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
-            {patternDisciplines.length > 0 ? (
-              <div className="space-y-2">
+            <div className="space-y-2">
               {patternDisciplines.map((discipline, logicalIndex) => {
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                 const isOpen = openDisciplineId === discipline.id;
@@ -148,43 +184,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
 
                     {isOpen && (
                       <div className="px-4 pb-4 pt-2 border-t space-y-4">
-                        {/* Discipline-level due date with Popover */}
+                        {/* Discipline-level due date */}
                         <div className="bg-muted/30 p-3 rounded-md">
-                          <Label className="text-xs font-semibold mb-2 block">Due Date</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                className={cn(
-                                  'w-full justify-start text-left font-normal',
-                                  !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
-                                )}
-                              >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {formData.disciplineDueDates?.[disciplineIndex]
-                                  ? format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
-                                  : 'Pick a date'}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  formData.disciplineDueDates?.[disciplineIndex]
-                                    ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
-                                    : undefined
-                                }
-                                onSelect={date =>
-                                  handleDisciplineDueDateChange(
-                                    disciplineIndex,
-                                    date ? format(date, 'yyyy-MM-dd') : ''
-                                  )
-                                }
-                                initialFocus
-                                className={cn('p-3 pointer-events-auto')}
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <Label className="text-xs font-semibold mb-1 block">Due Date</Label>
+                          <input
+                            type="date"
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            value={formData.disciplineDueDates?.[disciplineIndex] || ''}
+                            onChange={e =>
+                              handleDisciplineDueDateChange(disciplineIndex, e.target.value)
+                            }
+                          />
                         </div>
 
                         {/* Pattern groups */}
@@ -303,20 +313,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                   </div>
                 );
               })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No pattern disciplines available.</p>
-            )}
-          </div>
+            </div>
+          </section>
+        )}
 
-          {/* RIGHT COLUMN - Layout & design */}
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
-            <RadioGroup
-              value={formData.layoutSelection || 'layout-a'}
-              onValueChange={handleLayoutSelection}
-              className="grid grid-cols-1 gap-4"
-            >
+        {/* Layout & design (keep existing options) */}
+        <section>
+          <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
+          <RadioGroup
+            value={formData.layoutSelection || 'layout-a'}
+            onValueChange={handleLayoutSelection}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
             <div>
               <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
               <Label
@@ -394,9 +402,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                 </div>
               </Label>
             </div>
-            </RadioGroup>
-          </div>
-        </div>
+          </RadioGroup>
+        </section>
       </CardContent>
     </motion.div>
   );
