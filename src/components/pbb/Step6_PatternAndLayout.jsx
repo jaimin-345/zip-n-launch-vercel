@@ -434,7 +434,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData }) => {
                             </div>
                           ))}
                         </div>
-                      </div>
                     )}
                   </div>
                 );
