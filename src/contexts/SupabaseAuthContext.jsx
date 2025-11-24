@@ -147,21 +147,39 @@ export const AuthProvider = ({ children }) => {
   }, [toast]);
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    let error = null;
+
+    try {
+      const { error: signOutError } = await supabase.auth.signOut();
+      error = signOutError;
+    } catch (err) {
+      // Network-level errors like "Failed to fetch" shouldn't block local sign-out
+      error = err;
+    }
+
+    if (error && error.message !== 'Failed to fetch') {
       toast({
         variant: "destructive",
         title: "Sign out Failed",
         description: error.message || "Something went wrong",
       });
-    } else {
-      toast({
-        title: "Signed Out",
-        description: "You have been logged out.",
-      });
-      navigate('/');
+      return { error };
     }
-    return { error };
+
+    // Always clear local auth state even if network sign-out failed
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setIsAdmin(false);
+    setPermissions([]);
+
+    toast({
+      title: "Signed Out",
+      description: "You have been logged out.",
+    });
+    navigate('/');
+
+    return { error: null };
   }, [toast, navigate]);
 
   const sendPasswordResetEmail = useCallback(async (email) => {
