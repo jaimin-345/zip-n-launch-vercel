@@ -33,7 +33,7 @@ const initialFormData = {
 export const usePatternBookBuilder = (projectId) => {
   // Sanitize projectId - treat "undefined" string as null
   const sanitizedProjectId = projectId && projectId !== 'undefined' ? projectId : null;
-  
+
   const [formData, setFormData] = useState(initialFormData);
   const [step, setStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -54,45 +54,45 @@ export const usePatternBookBuilder = (projectId) => {
           supabase.from('associations').select('*').order('position').order('name'),
           supabase.from('divisions').select('*, division_levels(*)').order('sort_order')
         ]);
-  
+
         if (disciplinesRes.error) throw disciplinesRes.error;
         if (associationsRes.error) throw associationsRes.error;
         if (divisionsRes.error) throw divisionsRes.error;
-  
+
         const disciplinesWithAssociationId = disciplinesRes.data.map(d => ({
           ...d,
           associations: d.association_id ? [{ association_id: d.association_id, sub_association_type: d.sub_association_type }] : []
         }));
-        
+
         setDisciplineLibrary(disciplinesWithAssociationId);
         setAssociationsData(associationsRes.data);
-        
+
         const divisionsByAssoc = (divisionsRes.data || []).reduce((acc, div) => {
-            const key = div.association_id;
-            
-            if (!acc[key]) acc[key] = [];
-            
-            div.division_levels.sort((a, b) => a.sort_order - b.sort_order);
-            
-            acc[key].push({ 
-                group: div.name, 
-                levels: div.division_levels.map(l => l.name),
-                sub_association_type: div.sub_association_type 
-            });
-            return acc;
+          const key = div.association_id;
+
+          if (!acc[key]) acc[key] = [];
+
+          div.division_levels.sort((a, b) => a.sort_order - b.sort_order);
+
+          acc[key].push({
+            group: div.name,
+            levels: div.division_levels.map(l => l.name),
+            sub_association_type: div.sub_association_type
+          });
+          return acc;
         }, {});
         setDivisionsData(divisionsByAssoc);
-  
+
         if (sanitizedProjectId) {
           const { data: projectData, error: projectError } = await supabase
             .from('projects')
             .select('project_data')
             .eq('id', sanitizedProjectId)
             .single();
-  
+
           if (projectError) throw projectError;
           if (projectData && projectData.project_data) {
-            setFormData(prev => ({ ...initialFormData, ...projectData.project_data }));
+            setFormData(prev => ({ ...initialFormData, ...projectData.project_data, id: sanitizedProjectId }));
             const savedStep = projectData.project_data.currentStep || 1;
             const savedCompleted = projectData.project_data.completedSteps || [];
             setStep(savedStep);
@@ -113,44 +113,44 @@ export const usePatternBookBuilder = (projectId) => {
         setIsLoading(false);
       }
     };
-    
+
     fetchInitialData();
   }, [sanitizedProjectId, toast]);
 
   const handleShowTypeChange = useCallback((newShowType) => {
     setFormData(prev => {
-        let newDisciplines = [...(prev.disciplines || [])];
-        const vrhDisciplines = disciplineLibrary.filter(d => d.associations.some(a => a.association_id === 'versatility-ranch'));
+      let newDisciplines = [...(prev.disciplines || [])];
+      const vrhDisciplines = disciplineLibrary.filter(d => d.associations.some(a => a.association_id === 'versatility-ranch'));
 
-        if (newShowType === 'versatility-ranch') {
-            const existingVrhNames = new Set(newDisciplines.map(d => d.name));
-            vrhDisciplines.forEach(vrhDisc => {
-                if (!existingVrhNames.has(vrhDisc.name)) {
-                    newDisciplines.push({
-                        ...vrhDisc,
-                        id: `${vrhDisc.name.replace(/\s+/g, '-')}-${Date.now()}`,
-                        pattern: vrhDisc.category?.startsWith('pattern'),
-                        scoresheet: vrhDisc.category !== 'none',
-                        patternType: vrhDisc.pattern_type || 'none',
-                        isCustom: false,
-                        selectedAssociations: { 'versatility-ranch': true },
-                        divisions: { 'versatility-ranch': {} },
-                        patternGroups: [{id: `pg-${Date.now()}`, name: 'Pattern 1', divisions: [], competitionDate: null}],
-                    });
-                }
+      if (newShowType === 'versatility-ranch') {
+        const existingVrhNames = new Set(newDisciplines.map(d => d.name));
+        vrhDisciplines.forEach(vrhDisc => {
+          if (!existingVrhNames.has(vrhDisc.name)) {
+            newDisciplines.push({
+              ...vrhDisc,
+              id: `${vrhDisc.name.replace(/\s+/g, '-')}-${Date.now()}`,
+              pattern: vrhDisc.category?.startsWith('pattern'),
+              scoresheet: vrhDisc.category !== 'none',
+              patternType: vrhDisc.pattern_type || 'none',
+              isCustom: false,
+              selectedAssociations: { 'versatility-ranch': true },
+              divisions: { 'versatility-ranch': {} },
+              patternGroups: [{ id: `pg-${Date.now()}`, name: 'Pattern 1', divisions: [], competitionDate: null }],
             });
-        } else {
-            const vrhDisciplineNames = new Set(vrhDisciplines.map(d => d.name));
-            newDisciplines = newDisciplines.filter(d => !vrhDisciplineNames.has(d.name));
-        }
-        
-        newDisciplines.sort((a, b) => {
-            const aSort = disciplineLibrary.find(d => d.name === a.name)?.sort_order ?? 999;
-            const bSort = disciplineLibrary.find(d => d.name === b.name)?.sort_order ?? 999;
-            return aSort - bSort;
+          }
         });
+      } else {
+        const vrhDisciplineNames = new Set(vrhDisciplines.map(d => d.name));
+        newDisciplines = newDisciplines.filter(d => !vrhDisciplineNames.has(d.name));
+      }
 
-        return { ...prev, showType: newShowType, disciplines: newDisciplines };
+      newDisciplines.sort((a, b) => {
+        const aSort = disciplineLibrary.find(d => d.name === a.name)?.sort_order ?? 999;
+        const bSort = disciplineLibrary.find(d => d.name === b.name)?.sort_order ?? 999;
+        return aSort - bSort;
+      });
+
+      return { ...prev, showType: newShowType, disciplines: newDisciplines };
     });
   }, [disciplineLibrary]);
 
@@ -200,7 +200,7 @@ export const usePatternBookBuilder = (projectId) => {
         toast({ title: 'Error creating project', description: error.message, variant: 'destructive' });
         return null;
       }
-      
+
       const newProjectId = data.id;
       setFormData(prev => ({ ...prev, id: newProjectId }));
       navigate(`/pattern-book-builder/${newProjectId}`, { replace: true });

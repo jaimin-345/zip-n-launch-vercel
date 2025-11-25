@@ -22,21 +22,21 @@ import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 
 const steps = [
-  { id: 1, name: 'Book Details', icon: GitMerge },
-  { id: 2, name: 'Select Disciplines', icon: ListPlus },
-  { id: 3, name: 'Configure Classes', icon: Settings2 },
-  { id: 4, name: 'Show Details', icon: Calendar },
-  { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
-  { id: 6, name: 'Uploads & Media', icon: UploadCloud },
-  { id: 7, name: 'Close Out & Delegate', icon: Share2 },
-  { id: 8, name: 'Preview Patterns', icon: Eye },
-  { id: 9, name: 'Preview Scoresheets', icon: FileSignature },
-  { id: 10, name: 'Review & Finalize', icon: ShieldCheck },
+    { id: 1, name: 'Book Details', icon: GitMerge },
+    { id: 2, name: 'Select Disciplines', icon: ListPlus },
+    { id: 3, name: 'Configure Classes', icon: Settings2 },
+    { id: 4, name: 'Show Details', icon: Calendar },
+    { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
+    { id: 6, name: 'Uploads & Media', icon: UploadCloud },
+    { id: 7, name: 'Close Out & Delegate', icon: Share2 },
+    { id: 8, name: 'Preview Patterns', icon: Eye },
+    { id: 9, name: 'Preview Scoresheets', icon: FileSignature },
+    { id: 10, name: 'Review & Finalize', icon: ShieldCheck },
 ];
 
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
     if (!pbbDiscipline) return false;
-    
+
     const getSelectedDivisionsSet = () => {
         const divisions = new Set();
         if (!pbbDiscipline.divisions) return divisions;
@@ -51,13 +51,13 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
         } else {
             Object.entries(pbbDiscipline.divisions).forEach(([assocId, divs]) => {
                 Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
-                     divisions.add(`${assocId}-${divisionKey}`);
+                    divisions.add(`${assocId}-${divisionKey}`);
                 });
             });
         }
         return divisions;
     };
-    
+
     const selectedDivisions = getSelectedDivisionsSet();
     const hasPattern = !(pbbDiscipline.pattern_type === 'none' || pbbDiscipline.pattern_type === 'scoresheet_only' || !pbbDiscipline.pattern);
 
@@ -66,7 +66,7 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
     }
 
     const groupedDivisions = new Set((pbbDiscipline.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
-    
+
     if (selectedDivisions.size === 0) {
         return (pbbDiscipline.patternGroups || []).length > 0 && (pbbDiscipline.patternGroups[0].divisions || []).length === 0;
     }
@@ -79,11 +79,11 @@ const PatternBookBuilderPage = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const {
-        step: currentStep, 
+        step: currentStep,
         setCurrentStep,
         nextStep,
         prevStep,
-        formData, 
+        formData,
         setFormData,
         completedSteps,
         setCompletedSteps,
@@ -94,7 +94,7 @@ const PatternBookBuilderPage = () => {
         divisionsData,
         handleShowTypeChange,
     } = usePatternBookBuilder(projectId);
-    
+
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const { toast } = useToast();
@@ -139,6 +139,9 @@ const PatternBookBuilderPage = () => {
                 return false; // Pattern & Layout validation if needed
             case 6:
                 return false; // Uploads & Media is now optional
+            case 7:
+            case 8:
+            case 9:
             case 10:
                 return false;
             default:
@@ -161,19 +164,19 @@ const PatternBookBuilderPage = () => {
             case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />;
             case 3: return (
                 <>
-                <CardHeader>
-                    <CardTitle>Step 3: Configure Classes</CardTitle>
-                    <CardDescription>Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ClassConfiguration 
-                        formData={formData} 
-                        setFormData={setFormData} 
-                        isOpenShowMode={isOpenShowMode}
-                        associationsData={associationsData}
-                        divisionsData={divisionsData}
-                    />
-                </CardContent>
+                    <CardHeader>
+                        <CardTitle>Step 3: Configure Classes</CardTitle>
+                        <CardDescription>Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ClassConfiguration
+                            formData={formData}
+                            setFormData={setFormData}
+                            isOpenShowMode={isOpenShowMode}
+                            associationsData={associationsData}
+                            divisionsData={divisionsData}
+                        />
+                    </CardContent>
                 </>
             );
             case 4: return <Step3_Details formData={formData} setFormData={setFormData} />;
@@ -234,7 +237,7 @@ const PatternBookBuilderPage = () => {
                         </Card>
                     </div>
                 </main>
-                <GenerateBookDialog 
+                <GenerateBookDialog
                     open={isGenerateDialogOpen}
                     onOpenChange={setIsGenerateDialogOpen}
                     pbbData={formData}

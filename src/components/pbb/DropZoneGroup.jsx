@@ -9,10 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 
 const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: division.id,
         data: {
             division: division,
@@ -83,18 +83,18 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
     const getAssociationBadges = () => {
         if (!pbbDiscipline || !formData) return [];
-        
+
         const badges = [];
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
 
         if (pbbDiscipline.name) {
             badges.push(<Badge key="discipline-badge" variant="discipline" className="text-xs">{pbbDiscipline.name}</Badge>);
         }
-        
+
         const assoc = associationsData.find(a => a.id === division.assocId);
         if (assoc) {
             badges.push(<Badge key={division.assocId} variant={assoc?.color || 'secondary'} className="text-xs">{assoc.abbreviation || assoc.name}</Badge>);
-            
+
             if (pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(division.assocId)) {
                 badges.push(<Badge key={`${division.assocId}-da`} variant="dualApproved" className="text-xs">NSBA Dual-Approved</Badge>);
             }
@@ -138,7 +138,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     <PopoverContent className="w-auto p-0">
                         <Calendar
                             mode="single"
-                            selected={division.date ? new Date(division.date) : null}
+                            selected={division.date ? parseLocalDate(division.date) : null}
                             onSelect={handleDateSelect}
                             initialFocus
                         />
@@ -151,11 +151,11 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                         {divisionTag}
                     </Badge>
                 )}
-                
+
                 {division.date && (
                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs p-1 h-auto font-normal">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(new Date(division.date), 'EEE, MMM d')}
+                        {format(parseLocalDate(division.date), 'EEE, MMM d')}
                         <button onClick={handleRemoveDate} className="ml-1 rounded-full hover:bg-muted-foreground/20"><X className="h-3 w-3" /></button>
                     </Badge>
                 )}
@@ -167,13 +167,13 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
 
 const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, handleRemovePatternGroup, handleAiAssistClick, setFormData, formData, associationsData }) => {
-    const { setNodeRef, isOver } = useDroppable({ 
+    const { setNodeRef, isOver } = useDroppable({
         id: group.id,
         data: {
             type: 'group',
         }
-     });
-    const { attributes, listeners, setNodeRef: setSortableNodeRef, transform, transition } = useSortable({ 
+    });
+    const { attributes, listeners, setNodeRef: setSortableNodeRef, transform, transition } = useSortable({
         id: group.id,
         data: {
             type: 'group',
@@ -209,12 +209,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     />
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleAiAssistClick()}>
-                        <Sparkles className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleAiAssistClick()}><Sparkles className="h-4 w-4 text-primary" /></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
             </div>
             <div ref={setNodeRef} className={cn('min-h-[80px] p-3 rounded-md bg-muted/30 transition-colors border-2 border-dashed border-border', { 'border-primary bg-primary/10': isOver })}>
