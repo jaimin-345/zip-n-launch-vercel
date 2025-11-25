@@ -616,7 +616,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 </Select>
               </div>
 
-              {(dialogJudge || dialogStaff) && (
+              {(dialogJudge?.trim() || dialogStaff?.trim()) && (
                 <div>
                   <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
                   <Input
