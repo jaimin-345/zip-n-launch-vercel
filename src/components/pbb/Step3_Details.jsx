@@ -73,8 +73,12 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                             <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} />
                         </div>
                         <div>
-                            <Label htmlFor="venueAddress">Venue Name & Address</Label>
-                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., Grand Oak Arena, 123 Stable Rd" />
+                            <Label htmlFor="venueName">Venue Name</Label>
+                            <Input id="venueName" value={formData.venueName} onChange={(e) => handleUpdate('venueName', e.target.value)} placeholder="E.g., Grand Oak Arena" />
+                        </div>
+                        <div>
+                            <Label htmlFor="venueAddress">Venue Address</Label>
+                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" />
                         </div>
                         <div>
                             <Label htmlFor="startDate">Start Date</Label>
