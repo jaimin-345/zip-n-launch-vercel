@@ -25,7 +25,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
-  const [selectedPattern, setSelectedPattern] = useState('');
+  const [disciplinePatternSelections, setDisciplinePatternSelections] = useState({});
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
@@ -76,20 +76,46 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
 
+  const handleDisciplinePatternChange = (disciplineIndex, patternId) => {
+    setDisciplinePatternSelections(prev => ({ ...prev, [disciplineIndex]: patternId }));
+    
+    // Auto-apply to all groups
+    const discipline = patternDisciplines.find((d, idx) => 
+      (formData.disciplines || []).findIndex(fd => fd.id === d.id) === disciplineIndex
+    );
+    const groups = discipline?.patternGroups || [];
+    
+    setFormData(prev => {
+      const newSelections = { ...(prev.patternSelections || {}) };
+      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
+      
+      groups.forEach((_, groupIndex) => {
+        newSelections[disciplineIndex][groupIndex] = patternId;
+      });
+      
+      return { ...prev, patternSelections: newSelections };
+    });
+  };
+
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
     setCurrentDiscipline({ ...discipline, disciplineIndex });
-    setSelectedPattern('');
     setDialogDueDate(formData.disciplineDueDates?.[disciplineIndex] || '');
-    setDialogJudge('');
-    setDialogStaff('');
+    
+    // Get current judge/staff from first group if exists
+    const firstGroupJudge = formData.groupJudges?.[disciplineIndex]?.[0] || '';
+    const firstGroupStaff = formData.groupStaff?.[disciplineIndex]?.[0] || '';
+    
+    setDialogJudge(firstGroupJudge);
+    setDialogStaff(firstGroupStaff);
     setAssignDialogOpen(true);
   };
 
   const handleAssignPattern = () => {
-    if (!currentDiscipline || !selectedPattern) return;
+    if (!currentDiscipline) return;
     
     const { disciplineIndex } = currentDiscipline;
     const groups = currentDiscipline.patternGroups || [];
+    const selectedPattern = disciplinePatternSelections[disciplineIndex];
 
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
@@ -104,7 +130,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
       // Apply to all groups in this discipline
       groups.forEach((_, groupIndex) => {
-        newSelections[disciplineIndex][groupIndex] = selectedPattern;
+        if (selectedPattern) newSelections[disciplineIndex][groupIndex] = selectedPattern;
         if (dialogJudge) newJudges[disciplineIndex][groupIndex] = dialogJudge;
         if (dialogStaff) newStaff[disciplineIndex][groupIndex] = dialogStaff;
       });
@@ -334,78 +360,60 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
                 return (
                   <div key={discipline.id} className="bg-card rounded-lg border">
-                    {/* Toggle row, similar to Step 3 */}
-                    <button
-                      type="button"
-                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-accent/60 transition-colors"
-                      onClick={() =>
-                        setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
-                      }
-                    >
-                      <div className="flex-1 text-left">
+                    {/* Toggle row with inline pattern selection */}
+                    <div className="w-full flex items-center gap-3 px-4 py-3 border-b">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 hover:text-primary transition-colors"
+                        onClick={() =>
+                          setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
+                        }
+                      >
                         <span className="font-semibold text-base">{discipline.name}</span>
                         {groups.length > 0 && (
-                          <Badge variant="secondary" className="ml-3">
+                          <Badge variant="secondary" className="ml-1">
                             {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
                           </Badge>
                         )}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">
-                          Due:{' '}
-                          {formData.disciplineDueDates?.[disciplineIndex]
-                            ? format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
-                            : 'Not set'}
-                        </span>
                         <ChevronDown
                           className={cn(
                             'w-4 h-4 transition-transform text-muted-foreground',
                             isOpen ? 'rotate-180' : 'rotate-0'
                           )}
                         />
+                      </button>
+                      
+                      <div className="flex-1 flex items-center gap-3">
+                        <Select
+                          value={disciplinePatternSelections[disciplineIndex] || ''}
+                          onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
+                        >
+                          <SelectTrigger className="w-[280px] bg-background">
+                            <SelectValue placeholder="Select Pattern..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            {samplePatterns.map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name}{' '}
+                                <Badge variant="outline" className="ml-2 text-[10px]">
+                                  {p.difficulty}
+                                </Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button 
+                          onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Assign Pattern Selection
+                        </Button>
                       </div>
-                    </button>
+                    </div>
 
                     {isOpen && (
-                      <div className="px-4 pb-4 pt-2 border-t space-y-4">
-                        {/* Discipline Level Pattern Assignment */}
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <div className="flex-1">
-                            <Select
-                              value={selectedPattern}
-                              onValueChange={setSelectedPattern}
-                            >
-                              <SelectTrigger className="bg-background">
-                                <SelectValue placeholder="Select Pattern..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-background z-50">
-                                {samplePatterns.map(p => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    {p.name}{' '}
-                                    <Badge variant="outline" className="ml-2 text-[10px]">
-                                      {p.difficulty}
-                                    </Badge>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <Button 
-                            onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
-                            disabled={!selectedPattern}
-                            className="bg-blue-600 hover:bg-blue-700"
-                          >
-                            Assign Pattern Selection
-                          </Button>
-                          <span className="text-sm text-muted-foreground whitespace-nowrap">
-                            Due:{' '}
-                            {formData.disciplineDueDates?.[disciplineIndex]
-                              ? format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'MMM d, yyyy')
-                              : 'Not set'}
-                          </span>
-                        </div>
-
+                      <div className="px-4 pb-4 pt-2 space-y-4">
                         {/* Group Level Details */}
                         <div className="space-y-3">
                           {groups.map((group, groupIndex) => (
@@ -577,24 +585,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label className="text-sm mb-2 block">Discipline</Label>
-                <div className="text-sm font-semibold text-muted-foreground">
-                  {currentDiscipline?.name || 'N/A'}
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
-                <Input
-                  id="dialog-due-date"
-                  type="date"
-                  value={dialogDueDate}
-                  onChange={(e) => setDialogDueDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
                 <Label htmlFor="dialog-judge" className="text-sm mb-2 block">Assign Judge</Label>
                 <Select value={dialogJudge} onValueChange={setDialogJudge}>
                   <SelectTrigger id="dialog-judge" className="bg-background">
@@ -625,6 +615,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   </SelectContent>
                 </Select>
               </div>
+
+              {(dialogJudge || dialogStaff) && (
+                <div>
+                  <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
+                  <Input
+                    id="dialog-due-date"
+                    type="date"
+                    value={dialogDueDate}
+                    onChange={(e) => setDialogDueDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              )}
             </div>
 
             <DialogFooter className="gap-2 mt-4">
@@ -633,7 +636,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               </Button>
               <Button 
                 onClick={handleAssignPattern}
-                disabled={!selectedPattern}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Assign
