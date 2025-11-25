@@ -619,13 +619,29 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               {(dialogJudge?.trim() || dialogStaff?.trim()) && (
                 <div>
                   <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
-                  <Input
-                    id="dialog-due-date"
-                    type="date"
-                    value={dialogDueDate}
-                    onChange={(e) => setDialogDueDate(e.target.value)}
-                    className="w-full"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !dialogDueDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dialogDueDate ? format(new Date(dialogDueDate), "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dialogDueDate ? new Date(dialogDueDate) : undefined}
+                        onSelect={(date) => setDialogDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
             </div>
