@@ -58,16 +58,16 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
 
   return (
     <motion.div key="step4" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-      <CardHeader>
-        <CardTitle>Step 4: {titles[mode]}</CardTitle>
-        <CardDescription>{descriptions[mode]}</CardDescription>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xl">Step 4: {titles[mode]}</CardTitle>
+        <CardDescription className="text-sm">{descriptions[mode]}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3">
         <Accordion type="multiple" defaultValue={['item-1', 'item-2']} className="w-full">
             <AccordionItem value="item-1">
-                <AccordionTrigger className="text-lg font-semibold">{infoTriggers[mode]}</AccordionTrigger>
-                <AccordionContent className="pt-4 space-y-4">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <AccordionTrigger className="text-base font-semibold">{infoTriggers[mode]}</AccordionTrigger>
+                <AccordionContent className="pt-3 space-y-3">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <Label htmlFor="showName">{nameLabels[mode]}</Label>
                             <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} />
@@ -135,8 +135,8 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                 </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-                 <AccordionTrigger className="text-lg font-semibold">{staffTriggers[mode]}</AccordionTrigger>
-                 <AccordionContent className="pt-4">
+                 <AccordionTrigger className="text-base font-semibold">{staffTriggers[mode]}</AccordionTrigger>
+                 <AccordionContent className="pt-3">
                     <JudgesAndStaff
                         formData={formData}
                         setFormData={setFormData}

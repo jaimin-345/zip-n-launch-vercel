@@ -46,11 +46,11 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
     const rightDisciplines = getDisciplinesByNames(rightColumn);
 
     return (
-        <div className="space-y-2">
-            <h4 className="text-md font-semibold text-muted-foreground px-2">{title}</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-2">
+        <div className="space-y-1.5">
+            <h4 className="text-sm font-semibold text-muted-foreground px-1.5">{title}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-1.5">
                 {/* Left Column */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {leftDisciplines.map(disc => (
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
@@ -66,7 +66,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
                 </div>
 
                 {/* Middle Column */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {middleDisciplines.map(disc => (
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
@@ -82,7 +82,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {rightDisciplines.map(disc => (
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
@@ -105,9 +105,9 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     if (disciplines.length === 0) return null;
 
     return (
-        <div className="space-y-2">
-            <h4 className="text-md font-semibold text-muted-foreground px-2">{title}</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-2">
+        <div className="space-y-1.5">
+            <h4 className="text-sm font-semibold text-muted-foreground px-1.5">{title}</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1.5">
                 {disciplines.map(disc => (
                     <div key={disc.id} className="flex items-center space-x-2">
                         <Checkbox
@@ -138,7 +138,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
 
     return (
         <AccordionItem value={groupKey} className="border rounded-lg overflow-hidden">
-            <AccordionTrigger className="text-lg font-semibold hover:no-underline px-4 py-3 bg-muted/50">
+            <AccordionTrigger className="text-base font-semibold hover:no-underline px-3 py-2 bg-muted/50">
                 <div className="flex items-center gap-3">
                     {logoUrl ? (
                         <img src={logoUrl} alt={`${association.name} logo`} className="h-8 object-contain" />
@@ -155,7 +155,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                     </div>
                 </div>
             </AccordionTrigger>
-            <AccordionContent className="p-4 space-y-6">
+            <AccordionContent className="p-3 space-y-3">
                 {categorized.custom.length > 0 && (
                     (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
                         <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} associationId={association.id} /> :
@@ -325,14 +325,14 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
 
     return (
         <motion.div key="step2" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-            <CardHeader>
-                <CardTitle>Step 2: Select Disciplines</CardTitle>
-                <CardDescription>{ isVrhMode ? "The required disciplines for a Versatility Ranch Horse show have been automatically selected." : "Select disciplines from the library, or add custom disciplines for open shows." }</CardDescription>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Step 2: Select Disciplines</CardTitle>
+                <CardDescription className="text-sm">{ isVrhMode ? "The required disciplines for a Versatility Ranch Horse show have been automatically selected." : "Select disciplines from the library, or add custom disciplines for open shows." }</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-                <div className={cn("space-y-4 p-4 rounded-lg border", needsDisciplineSelection && "highlight-next-step border-primary")}>
-                    <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
-                        <h3 className="text-xl font-bold tracking-tight">Available Disciplines</h3>
+            <CardContent className="space-y-3">
+                <div className={cn("space-y-3 p-3 rounded-lg border", needsDisciplineSelection && "highlight-next-step border-primary")}>
+                    <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
+                        <h3 className="text-lg font-bold tracking-tight">Available Disciplines</h3>
                          <div className="flex items-center gap-2">
                              <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
