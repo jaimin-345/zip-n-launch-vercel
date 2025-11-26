@@ -432,20 +432,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           Assign Pattern Selection
                         </Button>
 
-                        {/* Display assigned values immediately after button */}
+                        {/* Display assigned labels only */}
                         {formData.judgeSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
-                            Judge: {formData.judgeSelections[disciplineIndex]}
+                            Judge:
                           </Badge>
                         )}
                         {formData.staffSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
-                            Staff: {formData.staffSelections[disciplineIndex]}
+                            Staff:
                           </Badge>
                         )}
                         {formData.dueDateSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
-                            Due: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
+                            Due Date:
                           </Badge>
                         )}
                       </div>
