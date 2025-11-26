@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const samplePatterns = [
@@ -19,40 +20,67 @@ const samplePatterns = [
   { id: 'pattern-4', name: 'Advanced Recursion', difficulty: 'Expert' },
 ];
 
-const judges = [
-  { id: 'judge-1', name: 'Alice Johnson' },
-  { id: 'judge-2', name: 'Bob Williams' },
-  { id: 'judge-3', name: 'Charlie Brown' },
-];
-
-const showStaff = [
-  { id: 'staff-1', role: 'Director', name: 'David Miller' },
-  { id: 'staff-2', role: 'Coordinator', name: 'Eve Davis' },
-  { id: 'staff-3', role: 'Technician', name: 'Frank White' },
-];
-
-function generateId() {
-  return Math.random().toString(36).substring(2, 15);
-}
-
-const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => {
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [currentDisciplineIndex, setCurrentDisciplineIndex] = useState(null);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
+  const [currentDisciplineIndex, setCurrentDisciplineIndex] = useState(null);
+  const [dialogJudge, setDialogJudge] = useState('');
+  const [dialogStaff, setDialogStaff] = useState('');
+  const [dialogDueDate, setDialogDueDate] = useState('');
 
   const patternDisciplines = useMemo(() => {
-    return formData.disciplines || [];
+    return (formData.disciplines || []).filter(d => d.pattern);
   }, [formData.disciplines]);
 
   const disciplinePatternSelections = useMemo(() => {
-    return formData.patternSelections || [];
-  }, [formData.patternSelections]);
+    const selections = [];
+    (formData.disciplines || []).forEach((_, idx) => {
+      selections[idx] = formData.patternSelections?.[idx]?.[0] || '';
+    });
+    return selections;
+  }, [formData.disciplines, formData.patternSelections]);
+
+  const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
+    setFormData(prev => {
+      const newSelections = { ...(prev.patternSelections || {}) };
+      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
+      newSelections[disciplineIndex][groupIndex] = patternId;
+      return { ...prev, patternSelections: newSelections };
+    });
+  };
+
+  const handleJudgeSelection = (disciplineIndex, groupIndex, judgeId) => {
+    setFormData(prev => {
+      const newJudges = { ...(prev.groupJudges || {}) };
+      if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
+      newJudges[disciplineIndex][groupIndex] = judgeId;
+      return { ...prev, groupJudges: newJudges };
+    });
+  };
+
+  const handleStaffSelection = (disciplineIndex, groupIndex, staffId) => {
+    setFormData(prev => {
+      const newStaff = { ...(prev.groupStaff || {}) };
+      if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
+      newStaff[disciplineIndex][groupIndex] = staffId;
+      return { ...prev, groupStaff: newStaff };
+    });
+  };
+
+  const handleDisciplineDueDateChange = (disciplineIndex, date) => {
+    setFormData(prev => {
+      const newDueDateSelections = [...(prev.dueDateSelections || [])];
+      newDueDateSelections[disciplineIndex] = date;
+      return { ...prev, dueDateSelections: newDueDateSelections };
+    });
+  };
 
   const handleDisciplinePatternChange = (disciplineIndex, patternId) => {
     setFormData(prev => {
-      const newPatternSelections = [...(prev.patternSelections || [])];
-      newPatternSelections[disciplineIndex] = patternId;
+      const newPatternSelections = { ...(prev.patternSelections || {}) };
+      if (!newPatternSelections[disciplineIndex]) newPatternSelections[disciplineIndex] = {};
+      newPatternSelections[disciplineIndex][0] = patternId;
       return { ...prev, patternSelections: newPatternSelections };
     });
   };
@@ -60,67 +88,206 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
     setCurrentDiscipline(discipline);
     setCurrentDisciplineIndex(disciplineIndex);
+
+    const existingJudge = formData.judgeSelections?.[disciplineIndex]
+      || formData.groupJudges?.[disciplineIndex]?.[0]
+      || '';
+    const existingStaff = formData.staffSelections?.[disciplineIndex]
+      || formData.groupStaff?.[disciplineIndex]?.[0]
+      || '';
+    const existingDueDate = formData.dueDateSelections?.[disciplineIndex] || '';
+
+    setDialogJudge(existingJudge);
+    setDialogStaff(existingStaff);
+    setDialogDueDate(existingDueDate);
+
     setAssignDialogOpen(true);
   };
 
-  const handleCloseAssignDialog = () => {
+  const handleSaveAssignDialog = () => {
+    if (currentDisciplineIndex === null) return;
+
+    setFormData(prev => {
+      const discipline = prev.disciplines[currentDisciplineIndex];
+      const groupCount = discipline.patternGroups?.length || 0;
+
+      const newJudges = { ...(prev.groupJudges || {}) };
+      const newStaff = { ...(prev.groupStaff || {}) };
+      const newDueDates = { ...(prev.groupDueDates || {}) };
+
+      if (!newJudges[currentDisciplineIndex]) newJudges[currentDisciplineIndex] = {};
+      if (!newStaff[currentDisciplineIndex]) newStaff[currentDisciplineIndex] = {};
+      if (!newDueDates[currentDisciplineIndex]) newDueDates[currentDisciplineIndex] = {};
+
+      for (let groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+        if (dialogJudge) newJudges[currentDisciplineIndex][groupIndex] = dialogJudge;
+        if (dialogStaff) newStaff[currentDisciplineIndex][groupIndex] = dialogStaff;
+        if (dialogDueDate) {
+          const localDate = format(new Date(dialogDueDate), 'yyyy-MM-dd');
+          newDueDates[currentDisciplineIndex][groupIndex] = localDate;
+        }
+      }
+
+      const judgeSelections = [...(prev.judgeSelections || [])];
+      const staffSelections = [...(prev.staffSelections || [])];
+      const dueDateSelections = [...(prev.dueDateSelections || [])];
+
+      judgeSelections[currentDisciplineIndex] = dialogJudge || '';
+      staffSelections[currentDisciplineIndex] = dialogStaff || '';
+      dueDateSelections[currentDisciplineIndex] = dialogDueDate || '';
+
+      return {
+        ...prev,
+        groupJudges: newJudges,
+        groupStaff: newStaff,
+        groupDueDates: newDueDates,
+        judgeSelections,
+        staffSelections,
+        dueDateSelections
+      };
+    });
+
     setAssignDialogOpen(false);
-    setCurrentDiscipline(null);
-    setCurrentDisciplineIndex(null);
   };
 
-  const handleDueDateChange = (date) => {
-    setFormData(prev => {
-      const newDueDateSelections = [...(prev.dueDateSelections || [])];
-      newDueDateSelections[currentDisciplineIndex] = date;
-      return { ...prev, dueDateSelections: newDueDateSelections };
+  // Judges & staff sources (see project memory)
+  const judges = [];
+  if (formData.associationJudges) {
+    Object.keys(formData.associationJudges).forEach(assocId => {
+      const assocJudges = formData.associationJudges[assocId]?.judges || [];
+      assocJudges.forEach(judge => {
+        if (judge?.name) judges.push(judge);
+      });
     });
-  };
+  }
 
-  const handleJudgeChange = (judgeId) => {
-    setFormData(prev => {
-      const newJudgeSelections = [...(prev.judgeSelections || [])];
-      newJudgeSelections[currentDisciplineIndex] = judgeId;
-      return { ...prev, judgeSelections: newJudgeSelections };
-    });
-  };
-
-  const handleStaffChange = (staffId) => {
-    setFormData(prev => {
-      const newStaffSelections = [...(prev.staffSelections || [])];
-      newStaffSelections[currentDisciplineIndex] = staffId;
-      return { ...prev, staffSelections: newStaffSelections };
-    });
-  };
-
-  const OverviewLayout = () => (
-    <Card>
-      <CardContent className='space-y-4'>
-        <h4 className='text-sm font-semibold'>Overview</h4>
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-          <div>
-            <Label>Disciplines</Label>
-            <p>{patternDisciplines.length}</p>
-          </div>
-          <div>
-            <Label>Patterns Assigned</Label>
-            <p>{disciplinePatternSelections.filter(Boolean).length}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const showStaff = (formData.officials || []).filter(o => !o.role?.toLowerCase().includes('judge'));
 
   return (
     <div className="space-y-6">
+      {/* Summary Card */}
       <Card>
-        <CardContent>
-          <p>Step 6 - Pattern and Layout</p>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Show Information */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Show Information</h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium">Horse Show {formData.showName || 'Unnamed'}</span>
+                  </div>
+                </div>
+                {formData.venueAddress && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{formData.venueAddress}</span>
+                  </div>
+                )}
+                {formData.startDate && formData.endDate && (
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {format(new Date(formData.startDate), 'MMM d')} - {format(new Date(formData.endDate), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Staff Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Staff</h3>
+              <div className="flex flex-wrap gap-2">
+                {showStaff.length > 0 ? (
+                  showStaff.map((staff, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-xs">
+                      {staff.role} - {staff.name || 'Not assigned'}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-sm">No staff assigned</span>
+                )}
+              </div>
+            </div>
+
+            {/* Associations with Judges Section */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Associations with Judges</h3>
+              <div className="space-y-3">
+                {formData.associations?.map((assoc, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20">
+                      {assoc.name || 'Unknown Association'}
+                    </Badge>
+                    <div className="ml-2 space-y-1">
+                      <span className="text-sm font-medium">Judges</span>
+                      <div className="flex flex-wrap gap-1">
+                        {judges.length > 0 ? (
+                          judges.map((judge, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20">
+                              {judge.name || 'Not assigned'}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground text-sm">No judges assigned</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Discipline Folder */}
+            <div className="space-y-3 col-span-full">
+              <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Discipline Folder</h3>
+              <div className="flex flex-wrap gap-3">
+                {patternDisciplines.map((discipline, logicalIndex) => {
+                  const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                  const groups = discipline.patternGroups || [];
+                  const assignedCount = groups.filter((group, groupIndex) => {
+                    return formData.patternSelections?.[disciplineIndex]?.[groupIndex];
+                  }).length;
+                  const isComplete = groups.length > 0 && assignedCount === groups.length;
+
+                  return (
+                    <div key={discipline.id} className={cn(
+                      "flex items-center justify-between gap-3 p-3 rounded-lg border-2 transition-colors min-w-[200px]",
+                      isComplete ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900" : "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        {isComplete ? (
+                          <div className="w-5 h-5 rounded-full bg-green-600 dark:bg-green-500 flex items-center justify-center">
+                            <ChevronRight className="w-3 h-3 text-white" />
+                          </div>
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-sm">{discipline.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {assignedCount} pattern{assignedCount !== 1 ? 's' : ''} assigned
+                          </p>
+                        </div>
+                      </div>
+                      <span className={cn(
+                        "text-xs font-semibold px-2 py-1 rounded",
+                        isComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
+                      )}>
+                        {isComplete ? 'Complete' : 'Incomplete'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      <OverviewLayout />
-
+      {/* Pattern selection accordion-style list */}
       {patternDisciplines.length > 0 && (
         <section>
           <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
@@ -154,7 +321,7 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
                         )}
                       />
                     </button>
-
+                    
                     <div className="flex-1 flex items-center gap-2 flex-wrap">
                       <Select
                         value={disciplinePatternSelections[disciplineIndex] || ''}
@@ -174,7 +341,7 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
                           ))}
                         </SelectContent>
                       </Select>
-
+                      
                       <Button 
                         onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
                         className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
@@ -209,116 +376,165 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
 
                   {isOpen && (
                     <div className="px-4 pb-4 pt-2 space-y-4">
-                      {groups.map((group, groupIndex) => (
-                        <div key={group.id} className="border rounded-md p-3 space-y-2">
-                          <h5 className="font-medium">Group: {group.name}</h5>
-                          <Select
-                            value={formData.groupPatternSelections?.[disciplineIndex]?.[groupIndex] || ''}
-                            onValueChange={(value) => {
-                              setFormData(prev => {
-                                const newGroupPatternSelections = [...(prev.groupPatternSelections || [])];
-                                if (!newGroupPatternSelections[disciplineIndex]) {
-                                  newGroupPatternSelections[disciplineIndex] = [];
-                                }
-                                newGroupPatternSelections[disciplineIndex][groupIndex] = value;
-                                return { ...prev, groupPatternSelections: newGroupPatternSelections };
-                              });
-                            }}
+                      {/* Group Level Details */}
+                      <div className="space-y-3">
+                        {groups.map((group, groupIndex) => (
+                          <div
+                            key={group.id}
+                            className="p-4 border rounded-lg bg-background/50 space-y-4"
                           >
-                            <SelectTrigger className="w-[280px] bg-background">
-                              <SelectValue placeholder="Select Pattern for Group..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {samplePatterns.map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name}{' '}
-                                  <Badge variant="outline" className="ml-2 text-[10px]">
-                                    {p.difficulty}
+                            <div>
+                              <Label className="font-semibold text-base">{group.name}</Label>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {(group.divisions || []).map(div => (
+                                  <Badge
+                                    key={`${div.assocId}-${div.division}`}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {div.division}
                                   </Badge>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ))}
+                                ))}
+                              </div>
+                            </div>
 
-                      <div className="flex items-center space-x-4">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant={'outline'}
-                              className={cn(
-                                'w-[280px] justify-start text-left font-normal',
-                                !formData.dueDateSelections?.[disciplineIndex] && 'text-muted-foreground'
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {formData.dueDateSelections?.[disciplineIndex] ? (
-                                format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yyyy')
-                              ) : (
-                                <span>Pick a due date</span>
-                              )}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={formData.dueDateSelections?.[disciplineIndex] ? new Date(formData.dueDateSelections[disciplineIndex]) : undefined}
-                              onSelect={(date) => {
-                                setFormData(prev => {
-                                  const newDueDateSelections = [...(prev.dueDateSelections || [])];
-                                  newDueDateSelections[disciplineIndex] = date;
-                                  return { ...prev, dueDateSelections: newDueDateSelections };
-                                });
-                              }}
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
+                            {/* Pattern Selection and Due Date - 50/50 split */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-sm text-muted-foreground mb-1 block">
+                                  Select Pattern
+                                </Label>
+                                <Select
+                                  value={
+                                    formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
+                                  }
+                                  onValueChange={value =>
+                                    handlePatternSelection(disciplineIndex, groupIndex, value)
+                                  }
+                                >
+                                  <SelectTrigger className="bg-background">
+                                    <SelectValue placeholder="Select a pattern..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {samplePatterns.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.name}{' '}
+                                        <Badge variant="outline" className="ml-2 text-[10px]">
+                                          {p.difficulty}
+                                        </Badge>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
 
-                        <Select
-                          value={formData.judgeSelections?.[disciplineIndex] || ''}
-                          onValueChange={(value) => {
-                            setFormData(prev => {
-                              const newJudgeSelections = [...(prev.judgeSelections || [])];
-                              newJudgeSelections[disciplineIndex] = value;
-                              return { ...prev, judgeSelections: newJudgeSelections };
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-[280px] bg-background">
-                            <SelectValue placeholder="Select Judge..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background z-50">
-                            {judges.map(judge => (
-                              <SelectItem key={judge.id} value={judge.id}>
-                                {judge.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                              <div>
+                                <Label className="text-sm text-muted-foreground mb-1 block">Due Date</Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        'w-full justify-start text-left font-normal bg-background',
+                                        !formData.groupDueDates?.[disciplineIndex]?.[groupIndex] &&
+                                          'text-muted-foreground'
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {formData.groupDueDates?.[disciplineIndex]?.[groupIndex]
+                                        ? format(
+                                            new Date(
+                                              formData.groupDueDates[disciplineIndex][groupIndex]
+                                            ),
+                                            'MM/dd/yy'
+                                          )
+                                        : 'Pick a date'}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={
+                                        formData.groupDueDates?.[disciplineIndex]?.[groupIndex]
+                                          ? new Date(
+                                              formData.groupDueDates[disciplineIndex][groupIndex]
+                                            )
+                                          : undefined
+                                      }
+                                      onSelect={(date) => {
+                                        if (date) {
+                                          const localDate = format(date, 'yyyy-MM-dd');
+                                          handleDisciplineDueDateChange(disciplineIndex, localDate);
+                                        }
+                                      }}
+                                      initialFocus
+                                      className={cn('p-3 pointer-events-auto')}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
+                            </div>
 
-                        <Select
-                          value={formData.staffSelections?.[disciplineIndex] || ''}
-                          onValueChange={(value) => {
-                            setFormData(prev => {
-                              const newStaffSelections = [...(prev.staffSelections || [])];
-                              newStaffSelections[disciplineIndex] = value;
-                              return { ...prev, staffSelections: newStaffSelections };
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="w-[280px] bg-background">
-                            <SelectValue placeholder="Select Staff..." />
-                          </SelectTrigger>
-                          <SelectContent className="bg-background z-50">
-                            {showStaff.map(staff => (
-                              <SelectItem key={staff.id} value={staff.id}>
-                                {staff.role}: {staff.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            {/* Judge / Staff selectors - swapped order */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1 block">
+                                  Assign Judge
+                                </Label>
+                                <Select
+                                  value={
+                                    formData.groupJudges?.[disciplineIndex]?.[groupIndex] || ''
+                                  }
+                                  onValueChange={value =>
+                                    handleJudgeSelection(disciplineIndex, groupIndex, value)
+                                  }
+                                >
+                                  <SelectTrigger className="bg-background mt-1">
+                                    <SelectValue placeholder="Select judge..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {judges.map((judge, idx) => (
+                                      <SelectItem
+                                        key={idx}
+                                        value={judge.id || `judge-${idx}`}
+                                      >
+                                        {judge.name || 'Unnamed Judge'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div>
+                                <Label className="text-xs text-muted-foreground mb-1 block">
+                                  Assign Staff
+                                </Label>
+                                <Select
+                                  value={
+                                    formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
+                                  }
+                                  onValueChange={value =>
+                                    handleStaffSelection(disciplineIndex, groupIndex, value)
+                                  }
+                                >
+                                  <SelectTrigger className="bg-background mt-1">
+                                    <SelectValue placeholder="Select staff..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {showStaff.map((staff, idx) => (
+                                      <SelectItem
+                                        key={idx}
+                                        value={staff.id || `staff-${idx}`}
+                                      >
+                                        {staff.role}: {staff.name || 'Unnamed'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -329,85 +545,79 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
         </section>
       )}
 
-      {/* Assign Pattern Selection Dialog */}
+      {/* Assign Dialog */}
       {assignDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 grid place-items-center">
-          <Card className="max-w-md w-full">
-            <CardContent className="space-y-4">
-              <h4 className="text-lg font-semibold">Assign Pattern Selection</h4>
-              <p>Discipline: {currentDiscipline?.name}</p>
+        <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+          <DialogContent className="bg-background">
+            <DialogHeader>
+              <DialogTitle>Assign Pattern Selection for {currentDiscipline?.name}</DialogTitle>
+            </DialogHeader>
+            <Card className="border-none shadow-none">
+              <CardContent className="space-y-4 pt-4">
+                <Label htmlFor="dialog-judge" className="text-sm mb-2 block">Assign Judge</Label>
+                <Select value={dialogJudge} onValueChange={setDialogJudge}>
+                  <SelectTrigger id="dialog-judge" className="bg-background">
+                    <SelectValue placeholder="Select a judge..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {judges.map((judge, idx) => (
+                      <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
+                        {judge.name || 'Unnamed Judge'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={'outline'}
-                    className={cn(
-                      'w-[280px] justify-start text-left font-normal',
-                      !formData.dueDateSelections?.[currentDisciplineIndex] && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dueDateSelections?.[currentDisciplineIndex] ? (
-                      format(new Date(formData.dueDateSelections[currentDisciplineIndex]), 'MM/dd/yyyy')
-                    ) : (
-                      <span>Pick a due date</span>
-                    )}
+                <Label htmlFor="dialog-staff" className="text-sm mb-2 block">Assign Staff</Label>
+                <Select value={dialogStaff} onValueChange={setDialogStaff}>
+                  <SelectTrigger id="dialog-staff" className="bg-background">
+                    <SelectValue placeholder="Select staff..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {showStaff.map((staff, idx) => (
+                      <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
+                        {staff.role}: {staff.name || 'Unnamed'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-background">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dialogDueDate ? format(new Date(dialogDueDate), 'MM/dd/yy') : 'Pick a date'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-background z-50" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dialogDueDate ? new Date(dialogDueDate) : undefined}
+                      onSelect={(date) => setDialogDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                {(dialogJudge?.trim() || dialogStaff?.trim()) && (
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                    This will apply the selected judge and/or staff to all groups in this discipline.
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="secondary" onClick={() => setAssignDialogOpen(false)}>
+                    Cancel
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.dueDateSelections?.[currentDisciplineIndex] ? new Date(formData.dueDateSelections[currentDisciplineIndex]) : undefined}
-                    onSelect={handleDueDateChange}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-
-              <Select
-                value={formData.judgeSelections?.[currentDisciplineIndex] || ''}
-                onValueChange={handleJudgeChange}
-              >
-                <SelectTrigger className="w-[280px] bg-background">
-                  <SelectValue placeholder="Select Judge..." />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {judges.map(judge => (
-                    <SelectItem key={judge.id} value={judge.id}>
-                      {judge.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={formData.staffSelections?.[currentDisciplineIndex] || ''}
-                onValueChange={handleStaffChange}
-              >
-                <SelectTrigger className="w-[280px] bg-background">
-                  <SelectValue placeholder="Select Staff..." />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {showStaff.map(staff => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.role}: {staff.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex justify-end space-x-2">
-                <Button variant="secondary" onClick={handleCloseAssignDialog}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCloseAssignDialog}>Save</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  <Button onClick={handleSaveAssignDialog}>Save</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
 };
-
-export { Step6_PatternAndLayout };
