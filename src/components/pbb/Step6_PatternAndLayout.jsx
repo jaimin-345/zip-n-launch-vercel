@@ -383,7 +383,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         />
                       </button>
                       
-                      <div className="flex-1 flex items-center gap-3">
+                      <div className="flex-1 flex items-center gap-3 flex-wrap">
                         <Select
                           value={disciplinePatternSelections[disciplineIndex] || ''}
                           onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
@@ -409,10 +409,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         >
                           Assign Pattern Selection
                         </Button>
-                      </div>
 
-                      {/* Display assigned values on the right */}
-                      <div className="flex items-center gap-2 ml-auto flex-wrap">
+                        {/* Display assigned values next to button */}
                         {formData.judgeSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20">
                             {formData.judgeSelections[disciplineIndex]}
