@@ -164,9 +164,9 @@ const PatternBookBuilderPage = () => {
             case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />;
             case 3: return (
                 <>
-                    <CardHeader>
-                        <CardTitle>Step 3: Configure Classes</CardTitle>
-                        <CardDescription>Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-xl">Step 3: Configure Classes</CardTitle>
+                        <CardDescription className="text-sm">Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <ClassConfiguration
@@ -198,11 +198,11 @@ const PatternBookBuilderPage = () => {
             </Helmet>
             <div className="min-h-screen bg-background text-foreground">
                 <Navigation />
-                <main className="container mx-auto px-4 py-8">
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-8">
-                        <BookCopy className="mx-auto h-16 w-16 text-primary mb-4" />
-                        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">Pattern Book Builder</h1>
-                        <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">Generate a compliant, auto-filled pattern book for your show in minutes.</p>
+                <main className="container mx-auto px-4 py-4">
+                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-4">
+                        <BookCopy className="mx-auto h-12 w-12 text-primary mb-2" />
+                        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Pattern Book Builder</h1>
+                        <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate a compliant, auto-filled pattern book for your show in minutes.</p>
                     </motion.div>
                     <div className="max-w-7xl mx-auto">
                         <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={setCurrentStep} />
@@ -216,7 +216,7 @@ const PatternBookBuilderPage = () => {
                                     renderStepContent()
                                 )}
                             </AnimatePresence>
-                            <CardFooter className="p-6 flex justify-between items-center border-t border-border">
+                            <CardFooter className="p-4 flex justify-between items-center border-t border-border">
                                 <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
                                 <div className="flex items-center gap-2">
                                     <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
