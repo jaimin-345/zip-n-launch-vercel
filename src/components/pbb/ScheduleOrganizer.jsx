@@ -79,9 +79,9 @@ import React, { useState, useMemo } from 'react';
     };
 
         return (
-            <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-2 bg-background rounded-lg border shadow-sm touch-none">
-                <Button variant="ghost" size="icon" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing h-8 w-8">
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
+            <div ref={setNodeRef} style={style} className="flex items-center gap-2 p-1.5 bg-background rounded-lg border shadow-sm touch-none">
+                <Button variant="ghost" size="icon" {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing h-7 w-7">
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>
                 <Checkbox id={`select-${divisionIdentifier}`} checked={isSelected} onCheckedChange={(checked) => onSelectionChange(divisionIdentifier, checked)} />
         <div className="flex-grow text-sm">
@@ -119,8 +119,8 @@ import React, { useState, useMemo } from 'react';
                 <div className="flex items-center gap-1 ml-auto">
                     {getAssociationBadges()}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => isEditing ? handleTitleSave() : setIsEditing(true)}>
-                    {isEditing ? <Check className="h-4 w-4 text-green-500" /> : <Pencil className="h-4 w-4" />}
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => isEditing ? handleTitleSave() : setIsEditing(true)}>
+                    {isEditing ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Pencil className="h-3.5 w-3.5" />}
                 </Button>
             </div>
         );
@@ -262,12 +262,12 @@ import React, { useState, useMemo } from 'react';
         };
 
         return (
-            <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
+            <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
                     Organize the general class schedule. Drag to reorder, and click the pencil to rename individual classes. Select classes to apply a date.
                 </p>
 
-                <div className="p-4 border rounded-lg bg-background space-y-4">
+                <div className="p-3 border rounded-lg bg-background space-y-2">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="flex items-center space-x-2">
@@ -306,16 +306,16 @@ import React, { useState, useMemo } from 'react';
                         </Popover>
                     </div>
 
-                    <ScrollArea className="h-96">
+                    <ScrollArea className="h-60">
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                             <SortableContext items={divisionsWithData.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-4 pr-4">
+                                <div className="space-y-2 pr-3">
                                      {Object.entries(groupedDivisions).map(([dateKey, divisions]) => (
                                         <div key={dateKey}>
-                                            <h4 className="font-semibold text-sm mb-2 pb-1 border-b">
+                                            <h4 className="font-semibold text-xs mb-1.5 pb-1 border-b">
                                                 {dateKey === 'Unscheduled' ? 'Unscheduled' : format(parseLocalDate(dateKey), 'EEEE, MMMM d, yyyy')}
                                             </h4>
-                                            <div className="space-y-2">
+                                            <div className="space-y-1.5">
                                                 {divisions.map(({ id, date, customTitle }) => (
                                                     <SortableDivisionItem
                                                         key={id}

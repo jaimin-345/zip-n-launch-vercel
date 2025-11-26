@@ -94,21 +94,21 @@ const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formD
     return (
         <div ref={setNodeRef} style={style} className="bg-card rounded-lg border">
             <AccordionItem value={pbbDiscipline.id} className="border-b-0">
-                <AccordionTrigger className="w-full px-4 hover:no-underline">
-                    <div className="flex items-center w-full gap-4">
-                        <div {...attributes} {...listeners} className="cursor-grab p-2">
-                            <GripVertical className="h-5 w-5 text-muted-foreground" />
+                <AccordionTrigger className="w-full px-3 py-2 hover:no-underline">
+                    <div className="flex items-center w-full gap-3">
+                        <div {...attributes} {...listeners} className="cursor-grab p-1">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <span className="flex-grow text-left font-semibold">{pbbDiscipline.name}</span>
-                        <div className="flex items-center gap-1 mr-4">
+                        <span className="flex-grow text-left font-semibold text-sm">{pbbDiscipline.name}</span>
+                        <div className="flex items-center gap-1 mr-2">
                             {divisionCounts.length > 0 ? (
                                 divisionCounts.map(item => (
-                                    <Badge key={item.id} variant={item.color || "default"} className="whitespace-nowrap">
+                                    <Badge key={item.id} variant={item.color || "default"} className="whitespace-nowrap text-xs px-2 py-0">
                                         {item.abbreviation}: {item.count}
                                     </Badge>
                                 ))
                             ) : (
-                                <Badge variant="outline" className="whitespace-nowrap">0 Divisions</Badge>
+                                <Badge variant="outline" className="whitespace-nowrap text-xs px-2 py-0">0 Divisions</Badge>
                             )}
                         </div>
                     </div>
