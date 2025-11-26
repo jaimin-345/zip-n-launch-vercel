@@ -61,13 +61,13 @@ import React, { useMemo } from 'react';
         const currentDivisions = pbbDiscipline.divisions && pbbDiscipline.divisions['open-show'] ? pbbDiscipline.divisions['open-show'] : {};
     
         return (
-            <div className="space-y-4">
-                <h4 className="font-semibold text-lg">Select Divisions for "{pbbDiscipline.name}"</h4>
-                <div className="space-y-3">
+            <div className="space-y-3">
+                <h4 className="font-semibold text-base">Select Divisions for "{pbbDiscipline.name}"</h4>
+                <div className="space-y-2">
                     {openShowSuggestions.divisions.map(group => (
                         <div key={group.group}>
-                            <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                            <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-1">
                                 {group.levels.map(level => (
                                     <div key={level} className="flex items-center space-x-2">
                                         <Checkbox
@@ -271,7 +271,7 @@ import React, { useMemo } from 'react';
         return (
             <Tabs defaultValue="divisions">
                 {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
-                    <div className="flex gap-6 mb-4">
+                    <div className="flex gap-4 mb-2">
                         <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>
                         <div className="flex items-center space-x-2"><Checkbox id={`sco-${pbbDiscipline.id}`} checked={pbbDiscipline.scoresheet} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'scoresheet', c)}/><Label htmlFor={`sco-${pbbDiscipline.id}`} className="font-normal">Scoresheet</Label></div>
                     </div>
@@ -281,19 +281,19 @@ import React, { useMemo } from 'react';
                     <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Add Dates &amp; Arrange Classes</TabsTrigger>
                     <TabsTrigger value="grouping" disabled={!pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
                 </TabsList>
-                <TabsContent value="divisions" className="mt-4">
+                <TabsContent value="divisions" className="mt-2">
                     {isCustomOpenShowDiscipline ? (
                         <CustomDivisionManager pbbDiscipline={pbbDiscipline} setFormData={setFormData} />
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {Object.entries(getDivisionsForDiscipline).map(([assocId, divisionGroups]) => {
                                 const assoc = associationsData.find(a => a.id === assocId);
                                 const subTypeId = pbbDiscipline.sub_association_type;
                                 const subTypeName = subTypeId && assoc?.sub_association_info?.types.find(t => t.id === subTypeId)?.name;
                                 
                                 return (
-                                    <div key={assocId} className="p-3 border rounded-md">
-                                        <div className="flex items-center space-x-2 mb-2 flex-wrap">
+                                    <div key={assocId} className="p-2.5 border rounded-md">
+                                        <div className="flex items-center space-x-2 mb-1.5 flex-wrap">
                                             <Badge variant={assoc?.color || 'secondary'}>
                                                 {assoc?.name || assocId}
                                             </Badge>
@@ -322,11 +322,11 @@ import React, { useMemo } from 'react';
                                                 const col4 = group.levels.filter(level => column4Levels.includes(level));
                                                 
                                                 return (
-                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-1">
                                                             {/* Column 1 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col1.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -338,7 +338,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 2 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col2.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -350,7 +350,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 3 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col3.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -362,7 +362,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 4 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col4.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -417,11 +417,11 @@ import React, { useMemo } from 'react';
                                                 const col4 = column4Levels.filter(level => group.levels.includes(level));
                                                 
                                                 return (
-                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-1">
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-1">
                                                             {/* Column 1 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col1.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -433,7 +433,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 2 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col2.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -445,7 +445,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 3 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col3.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -457,7 +457,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 4 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col4.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -486,11 +486,11 @@ import React, { useMemo } from 'react';
                                                 const col3 = column3Levels.filter(level => group.levels.includes(level));
                                                 
                                                 return (
-                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-1">
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1">
                                                             {/* Column 1 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col1.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -502,7 +502,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 2 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col2.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -514,7 +514,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 3 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col3.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -543,11 +543,11 @@ import React, { useMemo } from 'react';
                                                 const col3 = column3Levels.filter(level => group.levels.includes(level));
                                                 
                                                 return (
-                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-1">
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1">
                                                             {/* Column 1 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col1.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -559,7 +559,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 2 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col2.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -571,7 +571,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 3 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col3.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -600,11 +600,11 @@ import React, { useMemo } from 'react';
                                                 const col3 = column3Levels.filter(level => group.levels.includes(level));
                                                 
                                                 return (
-                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                        <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-1">
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-1">
                                                             {/* Column 1 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col1.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -616,7 +616,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 2 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col2.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -628,7 +628,7 @@ import React, { useMemo } from 'react';
                                                                 })}
                                                             </div>
                                                             {/* Column 3 */}
-                                                            <div className="space-y-2">
+                                                            <div className="space-y-1.5">
                                                                 {col3.map(level => {
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
@@ -646,9 +646,9 @@ import React, { useMemo } from 'react';
                                             
                                             // Default layout for all other divisions
                                             return (
-                                                <div key={`${assocId}-${group.group}-${index}`} className="mt-2 pl-2">
-                                                    <p className="text-sm font-medium text-muted-foreground">{group.group}</p>
-                                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                                                <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                    <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+                                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-1">
                                                         {group.levels.map(level => {
                                                             const key = `${group.group} - ${level}`;
                                                             return (
@@ -663,9 +663,9 @@ import React, { useMemo } from 'react';
                                             );
                                         }) : <p className="text-xs text-muted-foreground pl-2">No divisions found for this association.</p>}
      
-                                        <div className="mt-2 pl-2">
-                                            <p className="text-sm font-medium text-muted-foreground">Custom Divisions</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-1">
+                                        <div className="mt-1.5 pl-1.5">
+                                            <p className="text-xs font-medium text-muted-foreground">Custom Divisions</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5 mt-1">
                                                 {(pbbDiscipline.customDivisions || []).filter(d => d.assocId === assocId).map(customDiv => (
                                                     <div key={customDiv.name} className="flex items-center space-x-2 bg-muted/50 p-1 rounded-md">
                                                         <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${customDiv.name}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][`custom-${customDiv.name}`])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, customDiv.name, '', c, true)} />
@@ -677,7 +677,7 @@ import React, { useMemo } from 'react';
                                                 ))}
                                             </div>
                                         </div >
-                                        <Button variant="outline" size="sm" className="mt-2" onClick={() => { setCustomDivisionAssocId(assocId); setIsCustomDivisionModalOpen(true); }}>
+                                        <Button variant="outline" size="sm" className="mt-1.5" onClick={() => { setCustomDivisionAssocId(assocId); setIsCustomDivisionModalOpen(true); }}>
                                             <PlusCircle className="h-4 w-4 mr-2" />Add Custom Division
                                         </Button>
                                     </div>
@@ -698,7 +698,7 @@ import React, { useMemo } from 'react';
                         </div>
                     )}
                 </TabsContent>
-                <TabsContent value="schedule" className="mt-4">
+                <TabsContent value="schedule" className="mt-2">
                     <ScheduleOrganizer
                         pbbDiscipline={pbbDiscipline}
                         setFormData={setFormData}
@@ -706,7 +706,7 @@ import React, { useMemo } from 'react';
                         associationsData={associationsData}
                     />
                 </TabsContent>
-                <TabsContent value="grouping" className="mt-4">
+                <TabsContent value="grouping" className="mt-2">
                     <PatternGrouping
                         pbbDiscipline={pbbDiscipline}
                         setFormData={setFormData}

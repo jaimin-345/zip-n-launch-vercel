@@ -113,7 +113,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formD
                         </div>
                     </div>
                 </AccordionTrigger>
-                <AccordionContent className="p-4 border-t">
+                <AccordionContent className="p-3 border-t">
                     <ClassTabs
                         pbbDiscipline={pbbDiscipline}
                         setFormData={setFormData}
@@ -163,7 +163,7 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
     return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={disciplines.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                <Accordion type="single" collapsible className="w-full space-y-2" value={openAccordion} onValueChange={setOpenAccordion}>
+                <Accordion type="single" collapsible className="w-full space-y-1.5" value={openAccordion} onValueChange={setOpenAccordion}>
                     {disciplines.map(pbbDiscipline => (
                         <SortableDisciplineItem 
                             key={pbbDiscipline.id} 
