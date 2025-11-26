@@ -435,9 +435,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         {/* Display assigned labels with values */}
                         {formData.judgeSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
-                            {(() => {
+                            Judge: {(() => {
                               const judge = judges.find(j => j.id === formData.judgeSelections[disciplineIndex]);
-                              return judge ? `${judge.role}: ${judge.name || 'Unnamed'}` : formData.judgeSelections[disciplineIndex];
+                              return judge?.name || formData.judgeSelections[disciplineIndex];
                             })()}
                           </Badge>
                         )}
