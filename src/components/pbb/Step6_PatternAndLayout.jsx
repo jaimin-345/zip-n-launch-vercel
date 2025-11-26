@@ -443,7 +443,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         )}
                         {formData.staffSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
-                            Staff: {(() => {
+                            {(() => {
                               const staff = showStaff.find(s => s.id === formData.staffSelections[disciplineIndex]);
                               return staff ? `${staff.role}: ${staff.name || 'Unnamed'}` : formData.staffSelections[disciplineIndex];
                             })()}
