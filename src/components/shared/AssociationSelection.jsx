@@ -123,10 +123,10 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
       };
       
       return (
-        <div className="mt-4 space-y-4 px-4 pb-4">
+        <div className="mt-2 space-y-2 px-3 pb-2">
           <div>
-            <Label className="text-sm font-medium mb-2 block">{info.label}</Label>
-            <div className="space-y-2">
+            <Label className="text-sm font-medium mb-1.5 block">{info.label}</Label>
+            <div className="space-y-1.5">
               {info.types.map(type => (
                 <div key={type.id} className="flex items-center space-x-2">
                   <Checkbox 
@@ -163,7 +163,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
     if (association.id.toLowerCase() === 'nsba') {
       const approvalType = subSelections.nsba?.approvalType;
       return (
-        <div className="mt-4 space-y-4 px-4 pb-4">
+        <div className="mt-2 space-y-2 px-3 pb-2">
           <div>
             <Label className="text-xs text-muted-foreground">NSBA Show Category</Label>
             <Select value={subSelections.nsba?.showCategory || ''} onValueChange={(value) => handleSubAssociationChange('nsba', 'showCategory', value)}>
@@ -208,7 +208,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
         isSelected ? 'border-primary ring-1 ring-primary' : 'hover:bg-muted/50'
       )}
     >
-      <div className="flex items-center space-x-3 p-4 cursor-pointer" onClick={() => onSelect(association.id, !isSelected)}>
+      <div className="flex items-center space-x-3 p-3 cursor-pointer" onClick={() => onSelect(association.id, !isSelected)}>
         <Checkbox id={`assoc-${association.id}`} checked={isSelected} onCheckedChange={(checked) => onSelect(association.id, checked)} />
         <Label htmlFor={`assoc-${association.id}`} className="font-normal cursor-pointer flex-grow">
           {association.name}
@@ -354,13 +354,13 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
 
   return (
     <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-      <CardHeader>
-        <CardTitle>{getTitle()}</CardTitle>
-        <CardDescription>{getDescription()}</CardDescription>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xl">{getTitle()}</CardTitle>
+        <CardDescription className="text-sm">{getDescription()}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-3">
         {context !== 'hub' && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="showName" className="font-semibold">{getShowNameLabel()}</Label>
             <Input
                 id="showName"
@@ -371,10 +371,10 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
           </div>
         )}
         
-        <div className="space-y-4">
+        <div className="space-y-2">
           <Label className="font-semibold">Select all hosted associations:</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2 border-l-4 border-red-500 pl-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-1.5 border-l-4 border-red-500 pl-3">
               {leftAssociations.map(assoc => (
                 <AssociationCheckbox
                   key={assoc.id}
@@ -387,7 +387,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                 />
               ))}
             </div>
-            <div className="space-y-2 border-l-4 border-blue-500 pl-4">
+            <div className="space-y-1.5 border-l-4 border-blue-500 pl-3">
               {rightAssociations.map(assoc => (
                 <AssociationCheckbox
                   key={assoc.id}
