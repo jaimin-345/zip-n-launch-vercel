@@ -99,14 +99,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
     setCurrentDiscipline({ ...discipline, disciplineIndex });
-    setDialogDueDate(formData.disciplineDueDates?.[disciplineIndex] || '');
-    
-    // Get current judge/staff from first group if exists
-    const firstGroupJudge = formData.groupJudges?.[disciplineIndex]?.[0] || '';
-    const firstGroupStaff = formData.groupStaff?.[disciplineIndex]?.[0] || '';
-    
-    setDialogJudge(firstGroupJudge);
-    setDialogStaff(firstGroupStaff);
+
+    // Prefill from any existing discipline-level selections first
+    const existingJudge = formData.judgeSelections?.[disciplineIndex]
+      || formData.groupJudges?.[disciplineIndex]?.[0]
+      || '';
+    const existingStaff = formData.staffSelections?.[disciplineIndex]
+      || formData.groupStaff?.[disciplineIndex]?.[0]
+      || '';
+    const existingDueDate = formData.dueDateSelections?.[disciplineIndex]
+      || formData.disciplineDueDates?.[disciplineIndex]
+      || '';
+
+    setDialogJudge(existingJudge);
+    setDialogStaff(existingStaff);
+    setDialogDueDate(existingDueDate);
     setAssignDialogOpen(true);
   };
 
@@ -123,12 +130,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       const newStaff = { ...(prev.groupStaff || {}) };
       const newDueDates = { ...(prev.disciplineDueDates || {}) };
 
+      // Discipline-level summary values used for row display
+      const judgeSelections = [...(prev.judgeSelections || [])];
+      const staffSelections = [...(prev.staffSelections || [])];
+      const dueDateSelections = [...(prev.dueDateSelections || [])];
+
       // Initialize discipline entries
       if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
       if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
       if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
 
-      // Apply to all groups in this discipline
+      // Apply to all groups in this discipline (keeps existing group behaviour)
       groups.forEach((_, groupIndex) => {
         if (selectedPattern) newSelections[disciplineIndex][groupIndex] = selectedPattern;
         if (dialogJudge) newJudges[disciplineIndex][groupIndex] = dialogJudge;
@@ -140,12 +152,22 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         newDueDates[disciplineIndex] = dialogDueDate;
       }
 
+      // Store discipline-level selections for display on the row
+      judgeSelections[disciplineIndex] = dialogJudge || '';
+      staffSelections[disciplineIndex] = dialogStaff || '';
+      if (dialogDueDate) {
+        dueDateSelections[disciplineIndex] = dialogDueDate;
+      }
+
       return {
         ...prev,
         patternSelections: newSelections,
         groupJudges: newJudges,
         groupStaff: newStaff,
         disciplineDueDates: newDueDates,
+        judgeSelections,
+        staffSelections,
+        dueDateSelections,
       };
     });
 
