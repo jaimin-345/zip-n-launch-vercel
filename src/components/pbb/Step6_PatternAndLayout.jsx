@@ -410,4 +410,4 @@ const Step6_PatternAndLayout = ({ formData, setFormData, associationsData }) => 
   );
 };
 
-export default Step6_PatternAndLayout;
+export { Step6_PatternAndLayout };
