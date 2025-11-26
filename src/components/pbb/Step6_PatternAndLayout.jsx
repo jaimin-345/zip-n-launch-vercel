@@ -410,6 +410,25 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           Assign Pattern Selection
                         </Button>
                       </div>
+
+                      {/* Display assigned values on the right */}
+                      <div className="flex items-center gap-2 ml-auto">
+                        {formData.judgeSelections?.[disciplineIndex] && (
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                            Judge: {formData.judgeSelections[disciplineIndex]}
+                          </Badge>
+                        )}
+                        {formData.staffSelections?.[disciplineIndex] && (
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
+                            Staff: {formData.staffSelections[disciplineIndex]}
+                          </Badge>
+                        )}
+                        {formData.dueDateSelections?.[disciplineIndex] && (
+                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300">
+                            Due: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
 
                     {isOpen && (
@@ -689,12 +708,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     </div>
                     <div className="w-full space-y-1">
                       <p className="text-xs font-semibold text-muted-foreground">Patterns:</p>
-                      {patternDisciplines.slice(0, 3).map((disc, idx) => (
-                        <div key={disc.id} className="text-xs flex justify-between">
-                          <span>{disc.name}</span>
-                          <span className="text-muted-foreground">Page {idx + 2}</span>
-                        </div>
-                      ))}
+                      {patternDisciplines.slice(0, 3).map((disc, idx) => {
+                        // Calculate cumulative page number based on group counts
+                        let cumulativePage = 2; // Start at page 2 (page 1 is cover)
+                        for (let i = 0; i < idx; i++) {
+                          const prevDisc = patternDisciplines[i];
+                          const prevGroupCount = (prevDisc.patternGroups || []).length;
+                          cumulativePage += prevGroupCount;
+                        }
+                        return (
+                          <div key={disc.id} className="text-xs flex justify-between">
+                            <span>{disc.name}</span>
+                            <span className="text-muted-foreground">Page {cumulativePage}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
@@ -728,15 +756,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         <span className="font-semibold">Show Information</span>
                         <span>1</span>
                       </div>
-                      {patternDisciplines.slice(0, 4).map((disc, idx) => (
-                        <div
-                          key={disc.id}
-                          className="flex justify-between px-2 border-b border-dotted"
-                        >
-                          <span>{disc.name}</span>
-                          <span>{idx + 2}</span>
-                        </div>
-                      ))}
+                      {patternDisciplines.slice(0, 4).map((disc, idx) => {
+                        // Calculate cumulative page number based on group counts
+                        let cumulativePage = 2; // Start at page 2 (page 1 is cover)
+                        for (let i = 0; i < idx; i++) {
+                          const prevDisc = patternDisciplines[i];
+                          const prevGroupCount = (prevDisc.patternGroups || []).length;
+                          cumulativePage += prevGroupCount;
+                        }
+                        return (
+                          <div
+                            key={disc.id}
+                            className="flex justify-between px-2 border-b border-dotted"
+                          >
+                            <span>{disc.name}</span>
+                            <span>{cumulativePage}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
