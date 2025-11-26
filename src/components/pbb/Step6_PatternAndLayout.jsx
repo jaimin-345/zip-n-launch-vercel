@@ -383,7 +383,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         />
                       </button>
                       
-                      <div className="flex-1 flex items-center gap-3 flex-wrap">
+                      <div className="flex-1 flex items-center gap-2 flex-wrap">
                         <Select
                           value={disciplinePatternSelections[disciplineIndex] || ''}
                           onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
@@ -405,25 +405,25 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         
                         <Button 
                           onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
                         >
                           Assign Pattern Selection
                         </Button>
 
-                        {/* Display assigned values next to button */}
+                        {/* Display assigned values immediately after button */}
                         {formData.judgeSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20">
-                            {formData.judgeSelections[disciplineIndex]}
+                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                            Judge: {formData.judgeSelections[disciplineIndex]}
                           </Badge>
                         )}
                         {formData.staffSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20">
-                            {formData.staffSelections[disciplineIndex]}
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
+                            Staff: {formData.staffSelections[disciplineIndex]}
                           </Badge>
                         )}
                         {formData.dueDateSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-500/20">
-                            {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
+                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
+                            Due: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
                           </Badge>
                         )}
                       </div>
