@@ -152,9 +152,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         newDueDates[disciplineIndex] = dialogDueDate;
       }
 
-      // Store discipline-level selections for display on the row
-      judgeSelections[disciplineIndex] = dialogJudge || '';
-      staffSelections[disciplineIndex] = dialogStaff || '';
+      // Store discipline-level selections for display on the row (only if selected)
+      if (dialogJudge) {
+        judgeSelections[disciplineIndex] = dialogJudge;
+      }
+      if (dialogStaff) {
+        staffSelections[disciplineIndex] = dialogStaff;
+      }
       if (dialogDueDate) {
         dueDateSelections[disciplineIndex] = dialogDueDate;
       }
