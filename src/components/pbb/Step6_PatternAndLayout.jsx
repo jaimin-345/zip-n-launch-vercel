@@ -412,20 +412,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       </div>
 
                       {/* Display assigned values on the right */}
-                      <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex items-center gap-2 ml-auto flex-wrap">
                         {formData.judgeSelections?.[disciplineIndex] && (
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
-                            Judge: {formData.judgeSelections[disciplineIndex]}
+                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border-blue-500/20">
+                            {formData.judgeSelections[disciplineIndex]}
                           </Badge>
                         )}
                         {formData.staffSelections?.[disciplineIndex] && (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300">
-                            Staff: {formData.staffSelections[disciplineIndex]}
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border-green-500/20">
+                            {formData.staffSelections[disciplineIndex]}
                           </Badge>
                         )}
                         {formData.dueDateSelections?.[disciplineIndex] && (
-                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300">
-                            Due: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
+                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border-purple-500/20">
+                            {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MMM dd, yyyy')}
                           </Badge>
                         )}
                       </div>
