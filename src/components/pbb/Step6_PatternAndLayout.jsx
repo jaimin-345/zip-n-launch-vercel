@@ -437,7 +437,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
                             Judge:{' '}
                             {(() => {
-                              const judge = judges.find(j => j.id === formData.judgeSelections[disciplineIndex]);
+                              const judge = judges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
                               return judge?.name || formData.judgeSelections[disciplineIndex];
                             })()}
                           </Badge>
@@ -446,7 +446,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
                             Staff:{' '}
                             {(() => {
-                              const staff = showStaff.find(s => s.id === formData.staffSelections[disciplineIndex]);
+                              const staff = showStaff.find((s, idx) => (s.id || `staff-${idx}`) === formData.staffSelections[disciplineIndex]);
                               return staff ? `${staff.role} - ${staff.name || 'Unnamed'}` : formData.staffSelections[disciplineIndex];
                             })()}
                           </Badge>
