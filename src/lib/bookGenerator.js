@@ -279,12 +279,13 @@ export const generatePatternBookPdf = async (pbbData) => {
         const xStart = (pageWidth - (logosPerRow * logoSize + (logosPerRow - 1) * 30)) / 2;
         let currentX = xStart;
         
-        sponsorLogosBase64.forEach((logoBase64, index) => {
+        for (let index = 0; index < sponsorLogosBase64.length; index++) {
+            const logoBase64 = sponsorLogosBase64[index];
             if(index > 0 && index % logosPerRow === 0) {
                 yPos += logoSize + 30;
                 currentX = xStart;
             }
-             if (yPos > pageHeight - logoSize - margin) {
+            if (yPos > pageHeight - logoSize - margin) {
                 addNewPage();
                 yPos = margin + 30;
                 currentX = xStart;
@@ -292,7 +293,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             
             await addImageToPage(logoBase64, currentX, yPos, logoSize, logoSize);
             currentX += logoSize + 30;
-        });
+        }
     }
 
     // --- Finalize: Generate TOC and add page numbers ---
