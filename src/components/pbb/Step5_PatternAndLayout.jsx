@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/use-toast';
 
     export const Step5_PatternAndLayout = ({ formData, setFormData }) => {
   const { toast } = useToast();
+  const [calendarOpen, setCalendarOpen] = React.useState({});
 
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
@@ -40,6 +41,9 @@ import { useToast } from '@/components/ui/use-toast';
       newDueDates[disciplineIndex][groupIndex] = date;
       return { ...prev, groupDueDates: newDueDates };
     });
+    // Close the specific calendar after selection
+    const key = `${disciplineIndex}-${groupIndex}`;
+    setCalendarOpen(prev => ({ ...prev, [key]: false }));
   };
 
   const handleStaffSelection = (disciplineIndex, groupIndex, staffId) => {
@@ -239,7 +243,11 @@ import { useToast } from '@/components/ui/use-toast';
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <Label htmlFor={`due-date-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Due Date</Label>
-                                <Popover key={`popover-${originalDisciplineIndex}-${groupIndex}`}>
+                                <Popover 
+                                  key={`popover-${originalDisciplineIndex}-${groupIndex}`}
+                                  open={calendarOpen[`${originalDisciplineIndex}-${groupIndex}`] || false}
+                                  onOpenChange={(open) => setCalendarOpen(prev => ({ ...prev, [`${originalDisciplineIndex}-${groupIndex}`]: open }))}
+                                >
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant={"outline"}
