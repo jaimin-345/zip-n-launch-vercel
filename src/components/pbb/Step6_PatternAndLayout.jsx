@@ -98,7 +98,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
-    setCurrentDiscipline({ ...discipline, disciplineIndex });
+    // Filter judges by discipline's association
+    const associationJudges = [];
+    if (discipline.association_id && formData.associationJudges) {
+      const assocJudges = formData.associationJudges[discipline.association_id]?.judges || [];
+      assocJudges.forEach(judge => {
+        if (judge.name) {
+          associationJudges.push(judge);
+        }
+      });
+    }
+    
+    setCurrentDiscipline({ ...discipline, disciplineIndex, associationJudges });
 
     // Prefill from any existing discipline-level selections first
     const existingJudge = formData.judgeSelections?.[disciplineIndex]
@@ -383,6 +394,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                 const isOpen = openDisciplineId === discipline.id;
                 const groups = discipline.patternGroups || [];
+                
+                // Filter judges by this discipline's association
+                const disciplineJudges = [];
+                if (discipline.association_id && formData.associationJudges) {
+                  const assocJudges = formData.associationJudges[discipline.association_id]?.judges || [];
+                  assocJudges.forEach(judge => {
+                    if (judge.name) {
+                      disciplineJudges.push(judge);
+                    }
+                  });
+                }
 
                 return (
                   <div key={discipline.id} className="bg-card rounded-lg border">
@@ -519,7 +541,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
                                 <div>
                                   <Label className="text-sm text-muted-foreground mb-1 block">Due Date</Label>
-                                  <Popover>
+                                  <Popover key={`popover-${disciplineIndex}-${groupIndex}`}>
                                     <PopoverTrigger asChild>
                                       <Button
                                         variant="outline"
@@ -538,6 +560,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
                                       <Calendar
+                                        key={`calendar-${disciplineIndex}-${groupIndex}`}
                                         mode="single"
                                         selected={
                                           formData.disciplineDueDates?.[disciplineIndex]
@@ -576,14 +599,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                       <SelectValue placeholder="Select judge..." />
                                     </SelectTrigger>
                                     <SelectContent className="bg-background z-50">
-                                      {judges.map((judge, idx) => (
-                                        <SelectItem
-                                          key={idx}
-                                          value={judge.id || `judge-${idx}`}
-                                        >
-                                          {judge.name || 'Unnamed Judge'}
-                                        </SelectItem>
-                                      ))}
+                                      {disciplineJudges.length > 0 ? (
+                                        disciplineJudges.map((judge, idx) => (
+                                          <SelectItem
+                                            key={idx}
+                                            value={judge.id || `judge-${idx}`}
+                                          >
+                                            {judge.name || 'Unnamed Judge'}
+                                          </SelectItem>
+                                        ))
+                                      ) : (
+                                        <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
+                                      )}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -642,11 +669,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     <SelectValue placeholder="Select a judge..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
-                    {judges.map((judge, idx) => (
-                      <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
-                        {judge.name || 'Unnamed Judge'}
-                      </SelectItem>
-                    ))}
+                    {(currentDiscipline?.associationJudges || []).length > 0 ? (
+                      (currentDiscipline?.associationJudges || []).map((judge, idx) => (
+                        <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
+                          {judge.name || 'Unnamed Judge'}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
