@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames, onDisciplineToggle, associationId }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey }) => {
     if (disciplines.length === 0) return null;
 
     // Define the custom 3-column layout based on association
@@ -55,7 +55,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
                                 id={`disc-${disc.id}`}
-                                checked={selectedDisciplineNames.has(disc.name)}
+                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
                                 onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
                             />
                             <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
@@ -71,7 +71,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
                                 id={`disc-${disc.id}`}
-                                checked={selectedDisciplineNames.has(disc.name)}
+                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
                                 onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
                             />
                             <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
@@ -87,7 +87,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
                         <div key={disc.id} className="flex items-center space-x-2">
                             <Checkbox
                                 id={`disc-${disc.id}`}
-                                checked={selectedDisciplineNames.has(disc.name)}
+                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
                                 onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
                             />
                             <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
@@ -101,7 +101,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineNames
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineNames, onDisciplineToggle }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey }) => {
     if (disciplines.length === 0) return null;
 
     return (
@@ -112,7 +112,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
                     <div key={disc.id} className="flex items-center space-x-2">
                         <Checkbox
                             id={`disc-${disc.id}`}
-                            checked={selectedDisciplineNames.has(disc.name)}
+                            checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
                             onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
                         />
                         <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
@@ -125,7 +125,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineNames, onDisciplineToggle, subAssociationType, groupKey }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -158,11 +158,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             <AccordionContent className="p-3 space-y-3">
                 {categorized.custom.length > 0 && (
                     (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
-                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} associationId={association.id} /> :
-                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} /> :
+                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />
                 )}
-                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
-                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineNames={selectedDisciplineNames} onDisciplineToggle={onDisciplineToggle} />}
+                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />}
+                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />}
             </AccordionContent>
         </AccordionItem>
     );
@@ -177,7 +177,12 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
     const isVrhMode = formData.showType === 'versatility-ranch';
 
-    const selectedDisciplineNames = useMemo(() => new Set((formData.disciplines || []).map(d => d.name)), [formData.disciplines]);
+    const selectedDisciplineKeys = useMemo(() => 
+        new Set((formData.disciplines || []).map(d => `${d.association_id}-${d.sub_association_type || 'none'}-${d.name}`)), 
+        [formData.disciplines]
+    );
+    
+    const getDisciplineKey = (disc) => `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
     
     const groupedDisciplines = useMemo(() => {
         if (!disciplineLibrary || !associationsData) return [];
@@ -258,13 +263,16 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         }
         setFormData(prev => {
             let newDisciplines = [...(prev.disciplines || [])];
-            const disciplineExistsIndex = newDisciplines.findIndex(c => c.name === disc.name);
+            const disciplineKey = getDisciplineKey(disc);
+            const disciplineExistsIndex = newDisciplines.findIndex(c => 
+                getDisciplineKey(c) === disciplineKey
+            );
 
             if (isChecked) {
                 if (disciplineExistsIndex === -1) {
                     const newDiscipline = {
                         ...disc,
-                        id: `${disc.name.replace(/\s+/g, '-')}-${Date.now()}`,
+                        id: `${disc.name.replace(/\s+/g, '-')}-${disc.association_id}-${Date.now()}`,
                         pattern: disc.pattern_type !== 'none' && disc.pattern_type !== 'scoresheet_only',
                         scoresheet: disc.category !== 'none',
                         isCustom: disc.isCustom || false,
@@ -290,7 +298,9 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     newDisciplines.push(newDiscipline);
                 }
             } else {
-                newDisciplines = newDisciplines.filter(c => c.name !== disc.name);
+                newDisciplines = newDisciplines.filter(c => 
+                    getDisciplineKey(c) !== disciplineKey
+                );
             }
             
             newDisciplines.sort((a, b) => {
@@ -372,9 +382,10 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                 groupKey={group.groupKey}
                                 association={group.association}
                                 disciplines={group.disciplines}
-                                selectedDisciplineNames={selectedDisciplineNames}
+                                selectedDisciplineKeys={selectedDisciplineKeys}
                                 onDisciplineToggle={handleDisciplineToggle}
                                 subAssociationType={group.subAssociationType}
+                                getDisciplineKey={getDisciplineKey}
                             />
                         ))}
                     </Accordion>
