@@ -199,6 +199,18 @@ import { useToast } from '@/components/ui/use-toast';
                 <div className="space-y-6">
                   {patternDisciplines.map((pbbDiscipline) => {
                     const originalDisciplineIndex = (formData.disciplines || []).findIndex(d => d.id === pbbDiscipline.id);
+                    
+                    // Filter judges by this discipline's association
+                    const disciplineJudges = [];
+                    if (pbbDiscipline.association_id && formData.associationJudges) {
+                      const assocJudges = formData.associationJudges[pbbDiscipline.association_id]?.judges || [];
+                      assocJudges.forEach(judge => {
+                        if (judge.name) {
+                          disciplineJudges.push(judge);
+                        }
+                      });
+                    }
+                    
                     return (
                     <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
                       <h4 className="font-bold text-md mb-3">{pbbDiscipline.name}</h4>
@@ -227,7 +239,7 @@ import { useToast } from '@/components/ui/use-toast';
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <Label htmlFor={`due-date-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Due Date</Label>
-                                <Popover>
+                                <Popover key={`popover-${originalDisciplineIndex}-${groupIndex}`}>
                                   <PopoverTrigger asChild>
                                     <Button
                                       variant={"outline"}
@@ -245,6 +257,7 @@ import { useToast } from '@/components/ui/use-toast';
                                   </PopoverTrigger>
                                   <PopoverContent className="w-auto p-0" align="start">
                                     <CalendarComponent
+                                      key={`calendar-${originalDisciplineIndex}-${groupIndex}`}
                                       mode="single"
                                       selected={formData.groupDueDates?.[originalDisciplineIndex]?.[groupIndex] ? new Date(formData.groupDueDates[originalDisciplineIndex][groupIndex]) : undefined}
                                       onSelect={(date) => handleDueDateChange(originalDisciplineIndex, groupIndex, date ? format(date, 'yyyy-MM-dd') : '')}
@@ -304,14 +317,14 @@ import { useToast } from '@/components/ui/use-toast';
                                     <SelectValue placeholder="Select judge..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {judges.length > 0 ? (
-                                      judges.map((judge, idx) => (
+                                    {disciplineJudges.length > 0 ? (
+                                      disciplineJudges.map((judge, idx) => (
                                         <SelectItem key={idx} value={judge.name || idx.toString()}>
                                           {judge.name || 'Unnamed Judge'}
                                         </SelectItem>
                                       ))
                                     ) : (
-                                      <SelectItem value="no-judges" disabled>No judges added yet</SelectItem>
+                                      <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
                                     )}
                                   </SelectContent>
                                 </Select>
