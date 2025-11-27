@@ -12,24 +12,27 @@ export const generatePatternBookPdf = async (pbbData) => {
     let toc = [];
 
     // --- Helper Functions ---
-    const addPageHeader = (text) => {
+    const addPageHeader = (text, rightText = null) => {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(150);
-        doc.text(text, margin, margin / 2);
+        doc.setTextColor(100, 100, 100);
+        doc.text(text, margin, margin / 2 + 10);
+        if (rightText) {
+            doc.text(rightText, pageWidth - margin, margin / 2 + 10, { align: 'right' });
+        }
     };
 
     const addPageFooter = (pageNumber) => {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(150);
-        doc.text(`Page ${pageNumber}`, pageWidth / 2, pageHeight - margin / 2, { align: 'center' });
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        const footerText = `${pbbData.showName || 'Pattern Book'} – Page ${pageNumber}`;
+        doc.text(footerText, pageWidth / 2, pageHeight - 20, { align: 'center' });
     };
     
-    const addNewPage = (headerText) => {
+    const addNewPage = () => {
         doc.addPage();
-        yPos = margin;
-        if (headerText) addPageHeader(headerText);
+        yPos = margin + 30;
     };
 
     const addImageToPage = async (base64, x, y, width, height) => {
@@ -40,6 +43,20 @@ export const generatePatternBookPdf = async (pbbData) => {
         } catch (e) {
             console.error("Failed to add image", e);
         }
+    };
+
+    const formatAssociationName = (assocId) => {
+        const assocNames = {
+            'aqha': 'AMERICAN QUARTER HORSE ASSOCIATION',
+            'aha': 'ARABIAN HORSE ASSOCIATION',
+            'apha': 'AMERICAN PAINT HORSE ASSOCIATION',
+            'aphc': 'APPALOOSA HORSE CLUB',
+            'nsba': 'NATIONAL SNAFFLE BIT ASSOCIATION',
+            'phba': 'PINTO HORSE ASSOCIATION',
+            'abra': 'AMERICAN BUCKSKIN REGISTRY ASSOCIATION',
+            'ptha': 'PALOMINO HORSE BREEDERS OF AMERICA'
+        };
+        return assocNames[assocId?.toLowerCase()] || assocId?.toUpperCase() || 'HORSE ASSOCIATION';
     };
     
     // --- Fetch Assets ---
@@ -63,20 +80,33 @@ export const generatePatternBookPdf = async (pbbData) => {
         if (pbbData.coverPageOption === 'upload' && coverImageBase64) {
              await addImageToPage(coverImageBase64, 0, 0, pageWidth, pageHeight);
         } else {
-            doc.setFillColor(41, 128, 185);
+            doc.setFillColor(245, 245, 250);
             doc.rect(0, 0, pageWidth, pageHeight, 'F');
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(36);
+            
+            doc.setTextColor(40, 40, 40);
+            doc.setFontSize(42);
             doc.setFont('helvetica', 'bold');
-            doc.text(pbbData.showName || 'Pattern Book', pageWidth / 2, pageHeight / 2 - 60, { align: 'center' });
-            doc.setFontSize(18);
+            const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
+            doc.text(showTitle, pageWidth / 2, pageHeight / 2 - 100, { align: 'center', maxWidth: pageWidth - 80 });
+            
+            const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
+            if (associations.length > 0) {
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'normal');
+                const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
+                doc.text(assocText, pageWidth / 2, pageHeight / 2 - 40, { align: 'center', maxWidth: pageWidth - 80 });
+            }
+            
+            doc.setFontSize(16);
             doc.setFont('helvetica', 'normal');
-            doc.text(pbbData.venueAddress || 'Event Location', pageWidth / 2, pageHeight / 2 - 30, { align: 'center' });
-            if (pbbData.startDate) {
-                const dateText = pbbData.endDate 
-                    ? `${format(new Date(pbbData.startDate), 'MMMM d')} - ${format(new Date(pbbData.endDate), 'MMMM d, yyyy')}`
-                    : format(new Date(pbbData.startDate), 'MMMM d, yyyy');
+            if (pbbData.startDate && pbbData.endDate) {
+                const dateText = `${format(new Date(pbbData.startDate), 'MMMM d')} – ${format(new Date(pbbData.endDate), 'd, yyyy')}`;
                 doc.text(dateText, pageWidth / 2, pageHeight / 2, { align: 'center' });
+            }
+            
+            if (pbbData.venueAddress) {
+                doc.setFontSize(14);
+                doc.text(pbbData.venueAddress, pageWidth / 2, pageHeight / 2 + 30, { align: 'center' });
             }
         }
     }
@@ -84,207 +114,260 @@ export const generatePatternBookPdf = async (pbbData) => {
     // --- Table of Contents ---
     const generateToc = () => {
         addNewPage();
+        doc.setTextColor(40, 40, 40);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.text('Table of Contents', margin, yPos);
+        doc.setFontSize(20);
+        doc.text(`${pbbData.showName || 'Pattern Book'} – Table of Contents`, pageWidth / 2, yPos, { align: 'center' });
         yPos += 40;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(12);
 
+        // Group TOC by date
+        const tocByDate = {};
         toc.forEach(item => {
-            const titleWidth = doc.getStringUnitWidth(item.title) * doc.getFontSize() / doc.internal.scaleFactor;
-            const pageNumStr = `${item.page}`;
-            const pageNumWidth = doc.getStringUnitWidth(pageNumStr) * doc.getFontSize() / doc.internal.scaleFactor;
-            const dotsWidth = pageWidth - margin * 2 - titleWidth - pageNumWidth;
-            const dots = '.'.repeat(Math.floor(dotsWidth / (doc.getStringUnitWidth('.') * doc.getFontSize() / doc.internal.scaleFactor)));
+            if (!item.date) return;
+            if (!tocByDate[item.date]) tocByDate[item.date] = [];
+            tocByDate[item.date].push(item);
+        });
+
+        const sortedDates = Object.keys(tocByDate).sort();
+        sortedDates.forEach(dateStr => {
+            if (yPos > pageHeight - 100) addNewPage();
             
-            doc.text(item.title, margin, yPos);
-            doc.text(dots, margin + titleWidth, yPos);
-            doc.text(pageNumStr, pageWidth - margin - pageNumWidth, yPos);
-            yPos += 20;
-        });
-    };
-
-    // --- Show Information Page ---
-    addNewPage();
-    toc.push({ title: 'Show Information', page: doc.internal.getNumberOfPages() });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.text('Show Information', margin, yPos);
-    yPos += 30;
-
-    const info = [
-        ['Show Name', pbbData.showName],
-        ['Venue', pbbData.venueAddress],
-        ['Start Date', pbbData.startDate ? format(new Date(pbbData.startDate), 'PPP') : 'N/A'],
-        ['End Date', pbbData.endDate ? format(new Date(pbbData.endDate), 'PPP') : 'N/A']
-    ];
-    doc.autoTable({
-        startY: yPos,
-        body: info,
-        theme: 'striped',
-        styles: { fontSize: 11, cellPadding: 8 },
-        headStyles: { fillColor: [41, 128, 185] },
-        columnStyles: { 0: { fontStyle: 'bold' } },
-    });
-    yPos = doc.autoTable.previous.finalY + 20;
-
-    if (pbbData.officials?.length > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.text('Judges & Staff', margin, yPos);
-        yPos += 20;
-        doc.autoTable({
-            startY: yPos,
-            head: [['Name', 'Role', 'Association']],
-            body: pbbData.officials.map(o => [o.name, o.role, o.association || 'N/A']),
-            theme: 'grid',
-        });
-        yPos = doc.autoTable.previous.finalY + 20;
-    }
-
-    // --- Daily Schedule ---
-    addNewPage();
-    toc.push({ title: 'Schedule', page: doc.internal.getNumberOfPages() });
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.text('Daily Schedule', margin, yPos);
-    yPos += 30;
-
-    const scheduleData = pbbData.disciplines?.flatMap(disc => 
-        disc.patternGroups?.map(pg => ({
-            date: pg.competitionDate ? format(new Date(pg.competitionDate), 'yyyy-MM-dd') : 'Unscheduled',
-            discipline: disc.name,
-            group: pg.name,
-            divisions: pg.divisions.map(d => d.division).join(', ')
-        }))
-    ).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
-
-    if (scheduleData?.length > 0) {
-        const groupedByDate = scheduleData.reduce((acc, curr) => {
-            (acc[curr.date] = acc[curr.date] || []).push(curr);
-            return acc;
-        }, {});
-
-        Object.entries(groupedByDate).forEach(([date, events]) => {
-            if (yPos > pageHeight - 100) addNewPage('Daily Schedule');
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(16);
-            doc.text(date === 'Unscheduled' ? 'Unscheduled' : format(new Date(date), 'EEEE, MMMM d, yyyy'), margin, yPos);
-            yPos += 20;
+            doc.setFontSize(14);
+            doc.setTextColor(60, 60, 60);
+            const dateFormatted = format(new Date(dateStr), 'EEEE, MMMM d, yyyy');
+            doc.text(dateFormatted, margin, yPos);
+            yPos += 25;
+
+            const tableData = tocByDate[dateStr].map(item => [
+                item.classNumber || '',
+                item.title || '',
+                item.page.toString()
+            ]);
 
             doc.autoTable({
                 startY: yPos,
-                head: [['Discipline', 'Pattern Group', 'Divisions']],
-                body: events.map(e => [e.discipline, e.group, e.divisions]),
-                theme: 'striped'
+                head: [['#', 'Class', 'Pg']],
+                body: tableData,
+                theme: 'plain',
+                styles: { fontSize: 10, cellPadding: 5 },
+                headStyles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: [40, 40, 40] },
+                columnStyles: { 
+                    0: { cellWidth: 60 },
+                    2: { cellWidth: 40, halign: 'center' }
+                },
+                margin: { left: margin, right: margin }
             });
             yPos = doc.autoTable.previous.finalY + 20;
         });
-    } else {
-        doc.setFontSize(12);
-        doc.text('No schedule has been configured.', margin, yPos);
-    }
-    yPos = doc.autoTable.previous.finalY + 20;
+    };
 
-    // --- Patterns & Scoresheets ---
+
+    // --- Pattern Pages ---
     (pbbData.disciplines || []).forEach((discipline, discIndex) => {
         (discipline.patternGroups || []).forEach((group, groupIndex) => {
             const patternId = pbbData.patternSelections?.[discIndex]?.[groupIndex];
-            const scoresheetId = pbbData.scoresheetSelections?.[discIndex]?.[groupIndex];
+            const competitionDate = group.competitionDate || pbbData.startDate;
             
-            const groupTitle = `${discipline.name} - ${group.name}`;
-
-            if (patternId && assets.patterns[patternId]) {
-                addNewPage(groupTitle);
-                toc.push({ title: groupTitle + ' (Pattern)', page: doc.internal.getNumberOfPages() });
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(18);
-                doc.text(groupTitle, margin, yPos);
-                yPos += 20;
-                doc.setFontSize(11);
-                doc.text(`Divisions: ${group.divisions.map(d => d.division).join(', ')}`, margin, yPos);
-                yPos += 20;
-                
-                const imgBase64 = assets.patterns[patternId];
-                if (imgBase64) {
-                    const imgProps = doc.getImageProperties(imgBase64);
-                    const aspect = imgProps.height / imgProps.width;
-                    const imgWidth = pageWidth - margin * 2;
-                    const imgHeight = imgWidth * aspect;
-                    if (yPos + imgHeight > pageHeight - margin) {
-                        addNewPage(groupTitle);
-                        yPos = margin;
-                    }
-                    addImageToPage(imgBase64, margin, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 20;
-                }
+            // Get association info
+            const assocId = discipline.associationId || (pbbData.associations?.[0]?.id);
+            const assocName = formatAssociationName(assocId);
+            
+            addNewPage();
+            
+            // Add to TOC
+            const classNumber = `${discIndex + 1}${groupIndex + 1}`;
+            const className = `${discipline.name} - ${group.divisions.map(d => d.division).join('/')}`;
+            toc.push({ 
+                title: className,
+                page: doc.internal.getNumberOfPages(),
+                date: competitionDate,
+                classNumber: classNumber
+            });
+            
+            // Page header with date and association
+            const dateHeader = competitionDate ? format(new Date(competitionDate), 'MM-dd-yyyy') : '';
+            addPageHeader(`${assocName}, ${pbbData.showName || 'Horse Show'}`, `${discipline.name.toUpperCase()} - ${dateHeader}`);
+            
+            yPos = margin + 30;
+            
+            // Association name - centered, large
+            doc.setTextColor(40, 40, 40);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(16);
+            doc.text(assocName, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 25;
+            
+            // Class info
+            doc.setFontSize(14);
+            doc.text(`${classNumber} ${className}`, pageWidth / 2, yPos, { align: 'center', maxWidth: pageWidth - 100 });
+            yPos += 20;
+            
+            // Show info
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text(pbbData.showName?.toUpperCase() || 'HORSE SHOW', pageWidth / 2, yPos, { align: 'center' });
+            yPos += 18;
+            
+            // Venue and dates
+            doc.setFontSize(10);
+            const venueText = pbbData.venueAddress?.toUpperCase() || '';
+            doc.text(venueText, pageWidth / 2, yPos, { align: 'center' });
+            yPos += 40;
+            
+            // Pattern diagram area - show loading or empty space
+            const diagramHeight = 280;
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(1);
+            doc.rect(margin, yPos, pageWidth - margin * 2, diagramHeight);
+            
+            // Add "Pattern Diagram" text in center
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(14);
+            doc.setTextColor(150, 150, 150);
+            doc.text('[Pattern Diagram]', pageWidth / 2, yPos + diagramHeight / 2, { align: 'center' });
+            
+            yPos += diagramHeight + 30;
+            
+            // Pattern steps table
+            doc.setTextColor(40, 40, 40);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(12);
+            doc.text('Pattern', margin, yPos);
+            yPos += 5;
+            
+            // Create sample pattern steps (can be customized based on actual data)
+            const patternSteps = [];
+            for (let i = 1; i <= 8; i++) {
+                patternSteps.push([i.toString(), `[Step ${i} description]`]);
             }
-
-            if (scoresheetId && assets.scoresheets[scoresheetId]) {
-                addNewPage(groupTitle);
-                toc.push({ title: groupTitle + ' (Scoresheet)', page: doc.internal.getNumberOfPages() });
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(18);
-                doc.text(groupTitle, margin, yPos);
-                yPos += 20;
-
-                const imgBase64 = assets.scoresheets[scoresheetId];
-                if (imgBase64) {
-                    const imgProps = doc.getImageProperties(imgBase64);
-                    const aspect = imgProps.height / imgProps.width;
-                    const imgWidth = pageWidth - margin * 2;
-                    const imgHeight = imgWidth * aspect;
-                    if (yPos + imgHeight > pageHeight - margin) {
-                        addNewPage(groupTitle);
-                        yPos = margin;
-                    }
-                    addImageToPage(imgBase64, margin, yPos, imgWidth, imgHeight);
-                    yPos += imgHeight + 20;
-                }
-            }
+            
+            doc.autoTable({
+                startY: yPos,
+                body: patternSteps,
+                theme: 'plain',
+                styles: { fontSize: 9, cellPadding: 4 },
+                columnStyles: { 
+                    0: { cellWidth: 30, fontStyle: 'bold' },
+                    1: { cellWidth: pageWidth - margin * 2 - 30 }
+                },
+                margin: { left: margin, right: margin }
+            });
+            
+            yPos = doc.autoTable.previous.finalY + 10;
+            
+            // Pattern complete footer
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(10);
+            doc.text('Pattern Complete', margin, yPos);
         });
     });
     
     // --- Sponsor Page ---
     if(sponsorLogosBase64.length > 0) {
         addNewPage();
-        toc.push({ title: 'Our Sponsors', page: doc.internal.getNumberOfPages() });
+        const sponsorDate = pbbData.startDate || new Date().toISOString();
+        toc.push({ title: 'Our Sponsors', page: doc.internal.getNumberOfPages(), date: sponsorDate });
+        doc.setTextColor(40, 40, 40);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
+        doc.setFontSize(20);
         doc.text('Thank You to Our Sponsors!', pageWidth / 2, yPos, { align: 'center' });
         yPos += 40;
         
-        const logoSize = 120;
+        const logoSize = 100;
         const logosPerRow = 3;
-        const xStart = (pageWidth - (logosPerRow * logoSize + (logosPerRow - 1) * 20)) / 2;
+        const xStart = (pageWidth - (logosPerRow * logoSize + (logosPerRow - 1) * 30)) / 2;
         let currentX = xStart;
         
         sponsorLogosBase64.forEach((logoBase64, index) => {
             if(index > 0 && index % logosPerRow === 0) {
-                yPos += logoSize + 20;
+                yPos += logoSize + 30;
                 currentX = xStart;
             }
              if (yPos > pageHeight - logoSize - margin) {
-                addNewPage('Our Sponsors');
-                yPos = margin;
+                addNewPage();
+                yPos = margin + 30;
+                currentX = xStart;
             }
             
-            addImageToPage(logoBase64, currentX, yPos, logoSize, logoSize);
-            currentX += logoSize + 20;
+            await addImageToPage(logoBase64, currentX, yPos, logoSize, logoSize);
+            currentX += logoSize + 30;
         });
     }
 
-    // --- Finalize: Add page numbers and TOC ---
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        addPageFooter(i);
-    }
-
+    // --- Finalize: Generate TOC and add page numbers ---
+    // First, generate TOC to know how many pages it takes
+    const tocPagesBefore = doc.internal.getNumberOfPages();
     doc.setPage(2);
+    const tocStartPage = 2;
     generateToc();
-    for (let i = 1; i <= pageCount; i++) { // re-add footers after TOC insertion
+    const tocPagesAfter = doc.internal.getNumberOfPages();
+    const tocPageCount = tocPagesAfter - tocPagesBefore;
+    
+    // Adjust page numbers in TOC since TOC pages shift everything
+    if (tocPageCount > 0) {
+        toc.forEach(item => {
+            if (item.page > 1) {
+                item.page += tocPageCount;
+            }
+        });
+        
+        // Regenerate TOC with adjusted page numbers
+        doc.setPage(tocStartPage);
+        yPos = margin + 30;
+        doc.setTextColor(40, 40, 40);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text(`${pbbData.showName || 'Pattern Book'} – Table of Contents`, pageWidth / 2, yPos, { align: 'center' });
+        yPos += 40;
+
+        const tocByDate = {};
+        toc.forEach(item => {
+            if (!item.date) return;
+            if (!tocByDate[item.date]) tocByDate[item.date] = [];
+            tocByDate[item.date].push(item);
+        });
+
+        const sortedDates = Object.keys(tocByDate).sort();
+        sortedDates.forEach(dateStr => {
+            if (yPos > pageHeight - 100) {
+                doc.addPage();
+                yPos = margin + 30;
+            }
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(60, 60, 60);
+            const dateFormatted = format(new Date(dateStr), 'EEEE, MMMM d, yyyy');
+            doc.text(dateFormatted, margin, yPos);
+            yPos += 25;
+
+            const tableData = tocByDate[dateStr].map(item => [
+                item.classNumber || '',
+                item.title || '',
+                item.page.toString()
+            ]);
+
+            doc.autoTable({
+                startY: yPos,
+                head: [['#', 'Class', 'Pg']],
+                body: tableData,
+                theme: 'plain',
+                styles: { fontSize: 10, cellPadding: 5 },
+                headStyles: { fontStyle: 'bold', fillColor: [240, 240, 240], textColor: [40, 40, 40] },
+                columnStyles: { 
+                    0: { cellWidth: 60 },
+                    2: { cellWidth: 40, halign: 'center' }
+                },
+                margin: { left: margin, right: margin }
+            });
+            yPos = doc.autoTable.previous.finalY + 20;
+        });
+    }
+    
+    // Add footers to all pages
+    const finalPageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= finalPageCount; i++) {
         doc.setPage(i);
         addPageFooter(i);
     }
