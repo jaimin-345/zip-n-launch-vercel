@@ -305,6 +305,11 @@ import React, { useState, useMemo } from 'react';
                             </PopoverContent>
                         </Popover>
                     </div>
+                    {formData?.showName && (
+                        <div className="text-sm font-medium text-muted-foreground px-1">
+                            {formData.showName}
+                        </div>
+                    )}
 
                     <ScrollArea className="h-60">
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
