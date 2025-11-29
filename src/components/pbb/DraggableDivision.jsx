@@ -61,7 +61,7 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="flex-grow min-w-0 flex items-center">
-                <span className="truncate">{formData?.showName && `${formData.showName} - `}{displayName}</span>
+                <span className="truncate">{displayName}</span>
             </div>
             
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
