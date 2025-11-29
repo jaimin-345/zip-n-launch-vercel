@@ -98,7 +98,7 @@ import React, { useState, useMemo } from 'react';
                 />
             ) : (
                 <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
-                    {formData?.showName && `${formData.showName} - `}{customTitle || divisionName}
+                    {customTitle || divisionName}
                 </Label>
             )}
         </div>
