@@ -275,41 +275,43 @@ import React, { useState, useMemo } from 'react';
                                 <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
                             </div>
                         </div>
-                         <Popover onOpenChange={(open) => {
-                            if (open && selectedDivisions.length > 0) {
-                                // When popover opens, set the calendar to show the first selected division's date
-                                const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
-                                if (firstSelectedDiv?.date) {
-                                    setDateForPopover(new Date(firstSelectedDiv.date));
-                                } else {
-                                    setDateForPopover(null);
+                        <div className="flex flex-col items-end gap-1">
+                            <Popover onOpenChange={(open) => {
+                                if (open && selectedDivisions.length > 0) {
+                                    // When popover opens, set the calendar to show the first selected division's date
+                                    const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
+                                    if (firstSelectedDiv?.date) {
+                                        setDateForPopover(new Date(firstSelectedDiv.date));
+                                    } else {
+                                        setDateForPopover(null);
+                                    }
                                 }
-                            }
-                        }}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    Apply Date to Selected ({selectedDivisions.length})
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={dateForPopover}
-                                    onSelect={(newDate) => {
-                                        setDateForPopover(newDate);
-                                        handleApplyDateToSelected(newDate);
-                                    }}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    {formData?.showName && (
-                        <div className="text-sm font-medium text-muted-foreground px-1">
-                            {formData.showName}
+                            }}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        Apply Date to Selected ({selectedDivisions.length})
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={dateForPopover}
+                                        onSelect={(newDate) => {
+                                            setDateForPopover(newDate);
+                                            handleApplyDateToSelected(newDate);
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            {formData?.showName && (
+                                <div className="text-xs font-medium text-muted-foreground">
+                                    Horse Show: {formData.showName}
+                                </div>
+                            )}
                         </div>
-                    )}
+                    </div>
 
                     <ScrollArea className="h-60">
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
