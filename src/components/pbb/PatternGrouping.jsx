@@ -429,7 +429,12 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
 
     return (
         <DndContext onDragEnd={handleDragEnd} collisionDetection={closestCenter} sensors={sensors}>
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-between items-center mb-2">
+                {formData?.showName && (
+                    <div className="text-sm font-medium text-muted-foreground">
+                        {formData.showName}
+                    </div>
+                )}
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="ghost" size="sm" className="text-xs">
