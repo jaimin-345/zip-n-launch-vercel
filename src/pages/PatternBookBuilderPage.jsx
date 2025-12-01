@@ -13,7 +13,6 @@ import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
-import { Step7_PreviewScoresheets } from '@/components/pbb/Step7_PreviewScoresheets';
 import { Step8_Review } from '@/components/pbb/Step8_Review';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { usePatternBookBuilder } from '@/hooks/usePatternBookBuilder';
@@ -29,9 +28,8 @@ const steps = [
     { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
     { id: 6, name: 'Uploads & Media', icon: UploadCloud },
     { id: 7, name: 'Preview', icon: Eye },
-    { id: 8, name: 'Close Out', icon: Share2 },
-    { id: 9, name: 'Preview Scoresheets', icon: FileSignature },
-    { id: 10, name: 'Review & Finalize', icon: ShieldCheck },
+    { id: 8, name: 'Close Out & Delegate', icon: Share2 },
+    { id: 9, name: 'Review & Finalize', icon: ShieldCheck },
 ];
 
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
@@ -142,7 +140,6 @@ const PatternBookBuilderPage = () => {
             case 7:
             case 8:
             case 9:
-            case 10:
                 return false;
             default:
                 return !completedSteps.has(currentStep);
@@ -184,8 +181,7 @@ const PatternBookBuilderPage = () => {
             case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
             case 7: return <Step6_Preview formData={formData} setFormData={setFormData} />;
             case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
-            case 9: return <Step7_PreviewScoresheets formData={formData} setFormData={setFormData} />;
-            case 10: return <Step8_Review pbbData={formData} onBack={prevStep} onSubmit={() => setIsGenerateDialogOpen(true)} />;
+            case 9: return <Step8_Review pbbData={formData} onBack={prevStep} onSubmit={() => setIsGenerateDialogOpen(true)} />;
             default: return null;
         }
     };

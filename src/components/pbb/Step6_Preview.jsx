@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2, FileText } from 'lucide-react';
 import PatternGroupPreview from './PatternGroupPreview';
+import ScoresheetGroupPreview from './ScoresheetGroupPreview';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -13,6 +14,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   const { toast } = useToast();
   
   const patternDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.pattern), [formData.disciplines]);
+  const scoresheetDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.scoresheet), [formData.disciplines]);
 
   useEffect(() => {
     const fetchPatterns = async () => {
@@ -103,56 +105,90 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   return (
     <motion.div key="step6-preview" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>Step 8: Preview & Select Patterns</CardTitle>
-        <CardDescription>Review your selected patterns. Use the carousel to see alternatives for each group.</CardDescription>
+        <CardTitle>Step 7: Preview & Select Patterns</CardTitle>
+        <CardDescription>Review your selected patterns and scoresheets. Use the carousel to see alternatives for each group.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {patternDisciplines.length > 0 ? (
-          <div className="space-y-6">
-            {patternDisciplines.map((pbbDiscipline) => {
-              const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
-              return (
-                <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
-                  <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name}</h4>
-                  <div className="space-y-6">
-                    {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
-                       const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
-                       const groupPatterns = availablePatterns[groupKey] || [];
-                       const selectedPatternId = formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex];
+        {/* Patterns Section */}
+        {patternDisciplines.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-foreground">Pattern Preview</h3>
+            <div className="space-y-6">
+              {patternDisciplines.map((pbbDiscipline) => {
+                const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
+                return (
+                  <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
+                    <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name}</h4>
+                    <div className="space-y-6">
+                      {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
+                         const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
+                         const groupPatterns = availablePatterns[groupKey] || [];
+                         const selectedPatternId = formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex];
 
-                       return(
-                        <div key={group.id}>
-                          <PatternGroupPreview
-                            group={group}
-                            patterns={groupPatterns}
-                            selectedPatternId={selectedPatternId}
-                            onPatternSelect={(newPatternId) => handlePatternSelectionChange(originalDisciplineIndex, groupIndex, newPatternId)}
-                            primaryAffiliates={new Set(formData.primaryAffiliates || [])}
-                          />
-                          {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
-                            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                <h5 className="font-semibold text-sm mb-2 text-blue-800 dark:text-blue-300">Associated Lesson Plans</h5>
-                                <div className="flex flex-wrap gap-2">
-                                    {(formData.lessonPlans || []).map((plan, index) => (
-                                        <Badge key={index} variant="outline" className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
-                                            <FileText className="h-3 w-3" />
-                                            {plan.customName || plan.fileName}
-                                        </Badge>
-                                    ))}
-                                </div>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                         return(
+                          <div key={group.id}>
+                            <PatternGroupPreview
+                              group={group}
+                              patterns={groupPatterns}
+                              selectedPatternId={selectedPatternId}
+                              onPatternSelect={(newPatternId) => handlePatternSelectionChange(originalDisciplineIndex, groupIndex, newPatternId)}
+                              primaryAffiliates={new Set(formData.primaryAffiliates || [])}
+                            />
+                            {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
+                              <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                                  <h5 className="font-semibold text-sm mb-2 text-blue-800 dark:text-blue-300">Associated Lesson Plans</h5>
+                                  <div className="flex flex-wrap gap-2">
+                                      {(formData.lessonPlans || []).map((plan, index) => (
+                                          <Badge key={index} variant="outline" className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
+                                              <FileText className="h-3 w-3" />
+                                              {plan.customName || plan.fileName}
+                                          </Badge>
+                                      ))}
+                                  </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        ) : (
+        )}
+
+        {/* Scoresheets Section */}
+        {scoresheetDisciplines.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-foreground">Scoresheet Preview</h3>
+            <div className="space-y-6">
+              {scoresheetDisciplines.map((pbbDiscipline) => {
+                const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
+                return (
+                  <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
+                    <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name}</h4>
+                    <div className="space-y-6">
+                      {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
+                        <ScoresheetGroupPreview
+                          key={group.id}
+                          group={group}
+                          scoresheets={group.scoresheets || []}
+                          discipline={pbbDiscipline}
+                          formData={formData}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {patternDisciplines.length === 0 && scoresheetDisciplines.length === 0 && (
           <div className="text-center py-10 border-2 border-dashed rounded-lg">
-            <p className="text-muted-foreground">No disciplines require pattern selections.</p>
+            <p className="text-muted-foreground">No disciplines require pattern or scoresheet selections.</p>
           </div>
         )}
       </CardContent>
