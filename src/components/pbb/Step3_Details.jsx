@@ -68,17 +68,9 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                 <AccordionTrigger className="text-base font-semibold">{infoTriggers[mode]}</AccordionTrigger>
                 <AccordionContent className="pt-3 space-y-3">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
+                        <div className="md:col-span-2">
                             <Label htmlFor="showName">{nameLabels[mode]}</Label>
                             <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} />
-                        </div>
-                        <div>
-                            <Label htmlFor="venueName">Venue Name</Label>
-                            <Input id="venueName" value={formData.venueName} onChange={(e) => handleUpdate('venueName', e.target.value)} placeholder="E.g., Grand Oak Arena" />
-                        </div>
-                        <div>
-                            <Label htmlFor="venueAddress">Venue Address</Label>
-                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" />
                         </div>
                         <div>
                             <Label htmlFor="startDate">Start Date</Label>
@@ -130,6 +122,14 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                     />
                                 </PopoverContent>
                             </Popover>
+                        </div>
+                        <div>
+                            <Label htmlFor="venueName">Venue Name</Label>
+                            <Input id="venueName" value={formData.venueName} onChange={(e) => handleUpdate('venueName', e.target.value)} placeholder="E.g., Grand Oak Arena" />
+                        </div>
+                        <div>
+                            <Label htmlFor="venueAddress">Venue Address</Label>
+                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" />
                         </div>
                     </div>
                 </AccordionContent>
