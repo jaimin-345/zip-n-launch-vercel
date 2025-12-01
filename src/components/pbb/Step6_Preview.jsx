@@ -5,6 +5,8 @@ import { Loader2, FileText } from 'lucide-react';
 import PatternGroupPreview from './PatternGroupPreview';
 import ScoresheetGroupPreview from './ScoresheetGroupPreview';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -91,6 +93,10 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
       newFormData.patternSelections[disciplineIndex][groupIndex] = newPatternId;
       return newFormData;
     });
+  };
+
+  const handleLayoutSelection = (layoutId) => {
+    setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
   
   if (isLoading) {
@@ -185,6 +191,25 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
             </div>
           </div>
         )}
+
+        {/* Layout & Design Section */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
+          <RadioGroup value={formData.layoutSelection} onValueChange={handleLayoutSelection} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
+              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid">Layout A: Modern</div>
+              </Label>
+            </div>
+            <div>
+              <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
+              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid-alt">Layout B: Classic</div>
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
 
         {patternDisciplines.length === 0 && scoresheetDisciplines.length === 0 && (
           <div className="text-center py-10 border-2 border-dashed rounded-lg">
