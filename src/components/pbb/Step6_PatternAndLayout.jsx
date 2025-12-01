@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,10 +69,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       newJudges[disciplineIndex][groupIndex] = judgeId;
       return { ...prev, groupJudges: newJudges };
     });
-  };
-
-  const handleLayoutSelection = (layoutId) => {
-    setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
 
   const handleDisciplinePatternChange = (disciplineIndex, patternId) => {
@@ -231,10 +226,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     >
       <CardHeader>
         <CardTitle>
-          Step 5: Select Patterns & Layout
+          Step 5: Select Patterns
         </CardTitle>
         <CardDescription>
-          Assign patterns to classes and choose your book layout.
+          Assign patterns to each group for your book.
         </CardDescription>
         {formData.showName && (
           <div className="mt-4 pt-4 border-t">
@@ -746,112 +741,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Layout & design (keep existing options) */}
-        <section>
-          <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
-          <RadioGroup
-            value={formData.layoutSelection || 'layout-a'}
-            onValueChange={handleLayoutSelection}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
-          >
-            <div>
-              <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
-              <Label
-                htmlFor="layout-a"
-                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-              >
-                <div className="w-full space-y-2">
-                  <p className="font-semibold text-center mb-2">Layout A: Modern</p>
-                  <div className="w-full min-h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-6 border border-border space-y-4">
-                    <div className="text-center space-y-2 border-b pb-4 w-full">
-                      <p className="font-bold text-2xl">{formData.showName || 'Show Name'}</p>
-                      <p className="text-muted-foreground font-semibold">Pattern Book</p>
-                      <p className="text-xs text-muted-foreground">{dateRange}</p>
-                      {formData.coverPageFile && (
-                        <Badge variant="outline" className="text-xs mt-2">
-                          Custom Cover Uploaded
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="w-full space-y-1">
-                      <p className="text-xs font-semibold text-muted-foreground">Patterns:</p>
-                      {patternDisciplines.slice(0, 3).map((disc, idx) => {
-                        // Calculate cumulative page number based on group counts
-                        let cumulativePage = 2; // Start at page 2 (page 1 is cover)
-                        for (let i = 0; i < idx; i++) {
-                          const prevDisc = patternDisciplines[i];
-                          const prevGroupCount = (prevDisc.patternGroups || []).length;
-                          cumulativePage += prevGroupCount;
-                        }
-                        return (
-                          <div key={disc.id} className="text-xs flex justify-between">
-                            <span>{disc.name}</span>
-                            <span className="text-muted-foreground">Page {cumulativePage}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Includes cover page with show details
-                  </p>
-                </div>
-              </Label>
-            </div>
-
-            <div>
-              <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
-              <Label
-                htmlFor="layout-b"
-                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-              >
-                <div className="w-full space-y-2">
-                  <p className="font-semibold text-center mb-2">Layout B: Classic</p>
-                  <div className="w-full min-h-48 border-4 border-double border-border rounded-md flex flex-col p-6 bg-background space-y-4">
-                    <div className="text-center border-b-2 border-double pb-3">
-                      <p className="font-bold text-xl font-serif tracking-wide">
-                        {formData.showName || 'Show Name'}
-                      </p>
-                      <p className="text-muted-foreground italic text-sm mt-1">Pattern Book</p>
-                      <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
-                    </div>
-                    <div className="space-y-1.5 text-xs">
-                      <p className="font-bold text-sm font-serif text-center mb-2 border-b pb-1">
-                        Table of Contents
-                      </p>
-                      <div className="flex justify-between px-2">
-                        <span className="font-semibold">Show Information</span>
-                        <span>1</span>
-                      </div>
-                      {patternDisciplines.slice(0, 4).map((disc, idx) => {
-                        // Calculate cumulative page number based on group counts
-                        let cumulativePage = 2; // Start at page 2 (page 1 is cover)
-                        for (let i = 0; i < idx; i++) {
-                          const prevDisc = patternDisciplines[i];
-                          const prevGroupCount = (prevDisc.patternGroups || []).length;
-                          cumulativePage += prevGroupCount;
-                        }
-                        return (
-                          <div
-                            key={disc.id}
-                            className="flex justify-between px-2 border-b border-dotted"
-                          >
-                            <span>{disc.name}</span>
-                            <span>{cumulativePage}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    Includes table of contents
-                  </p>
-                </div>
-              </Label>
-            </div>
-          </RadioGroup>
-        </section>
       </CardContent>
     </motion.div>
   );
