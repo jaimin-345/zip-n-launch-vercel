@@ -178,6 +178,16 @@ import { useToast } from '@/components/ui/use-toast';
                   </div>
                 </div>
 
+                {formData.venueAddress && (
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Location</p>
+                      <p className="text-muted-foreground">{formData.venueAddress}</p>
+                    </div>
+                  </div>
+                )}
+
                 {formData.venueName && (
                   <div className="flex items-start gap-2">
                     <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
