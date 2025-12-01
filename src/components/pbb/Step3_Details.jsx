@@ -68,60 +68,62 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                 <AccordionTrigger className="text-base font-semibold">{infoTriggers[mode]}</AccordionTrigger>
                 <AccordionContent className="pt-3 space-y-3">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="md:col-span-2">
+                        <div>
                             <Label htmlFor="showName">{nameLabels[mode]}</Label>
                             <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} />
                         </div>
-                        <div>
-                            <Label htmlFor="startDate">Start Date</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !formData.startDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={formData.startDate ? parseLocalDate(formData.startDate) : null}
-                                        onSelect={(date) => handleUpdate('startDate', date ? format(date, 'yyyy-MM-dd') : null)}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div>
-                            <Label htmlFor="endDate">End Date</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !formData.endDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={formData.endDate ? parseLocalDate(formData.endDate) : null}
-                                        onSelect={(date) => handleUpdate('endDate', date ? format(date, 'yyyy-MM-dd') : null)}
-                                        disabled={{ before: formData.startDate ? parseLocalDate(formData.startDate) : null }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label htmlFor="startDate">Start Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !formData.startDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={formData.startDate ? parseLocalDate(formData.startDate) : null}
+                                            onSelect={(date) => handleUpdate('startDate', date ? format(date, 'yyyy-MM-dd') : null)}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div>
+                                <Label htmlFor="endDate">End Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !formData.endDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={formData.endDate ? parseLocalDate(formData.endDate) : null}
+                                            onSelect={(date) => handleUpdate('endDate', date ? format(date, 'yyyy-MM-dd') : null)}
+                                            disabled={{ before: formData.startDate ? parseLocalDate(formData.startDate) : null }}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
                         <div>
                             <Label htmlFor="venueName">Venue Name</Label>
