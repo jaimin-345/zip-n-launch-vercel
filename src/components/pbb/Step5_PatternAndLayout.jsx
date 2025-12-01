@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar, Users, UserCheck, Trash2 } from 'lucide-react';
+import { Calendar, Users, UserCheck, Trash2, Trophy, MapPin } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -166,44 +166,61 @@ import { useToast } from '@/components/ui/use-toast';
           </CardHeader>
           <CardContent className="space-y-8">
             
-            {/* Show Details Summary */}
-            <Card className="p-4 bg-muted/50">
-              <h3 className="text-lg font-semibold mb-3">Show Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-start gap-2">
-                  <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="font-semibold">Show Dates</p>
-                    <p className="text-muted-foreground">{dateRange}</p>
+            {/* 3-Column Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Left Column - Show Information */}
+              <Card className="p-4 bg-muted/50">
+                <h3 className="text-lg font-semibold mb-4">Show Information</h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    <Trophy className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Show Name</p>
+                      <p className="text-muted-foreground">{formData.showName || 'Not set'}</p>
+                    </div>
                   </div>
+
+                  {formData.venueName && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold">Venue Name</p>
+                        <p className="text-muted-foreground">{formData.venueName}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Show Dates</p>
+                      <p className="text-muted-foreground">{dateRange}</p>
+                    </div>
+                  </div>
+
+                  {formData.venueAddress && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold">Location</p>
+                        <p className="text-muted-foreground">{formData.venueAddress}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </Card>
 
-                {formData.venueAddress && (
-                  <div className="flex items-start gap-2">
-                    <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+              {/* Middle Column - Show Staff & Judges */}
+              <Card className="p-4 bg-muted/50">
+                <div className="space-y-4">
+                  {/* Show Staff Section */}
+                  {showStaff.length > 0 && (
                     <div>
-                      <p className="font-semibold">Location</p>
-                      <p className="text-muted-foreground">{formData.venueAddress}</p>
-                    </div>
-                  </div>
-                )}
-
-                {formData.venueName && (
-                  <div className="flex items-start gap-2">
-                    <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold">Venue Name</p>
-                      <p className="text-muted-foreground">{formData.venueName}</p>
-                    </div>
-                  </div>
-                )}
-
-                {showStaff.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div className="w-full">
-                      <p className="font-semibold">Show Staff</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-muted-foreground" />
+                        <h3 className="text-lg font-semibold">Show Staff</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
                         {showStaff.map((staff, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
                             {staff.role}: {staff.name || 'Not assigned'}
@@ -211,15 +228,16 @@ import { useToast } from '@/components/ui/use-toast';
                         ))}
                       </div>
                     </div>
-                  </div>
-                )}
-                
-                {judgesWithAssociations.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div className="w-full">
-                      <p className="font-semibold">Judges</p>
-                      <div className="flex flex-wrap gap-2 mt-1">
+                  )}
+
+                  {/* Judges Section */}
+                  {judgesWithAssociations.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <UserCheck className="w-4 h-4 text-muted-foreground" />
+                        <h3 className="text-lg font-semibold">Judges</h3>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
                         {judgesWithAssociations.map((judge, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
                             {judge.name} - {judge.associations.join(', ')}
@@ -227,10 +245,18 @@ import { useToast } from '@/components/ui/use-toast';
                         ))}
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </Card>
+                  )}
+                </div>
+              </Card>
+
+              {/* Right Column - Discipline Folders */}
+              <Card className="p-4 bg-muted/50">
+                <h3 className="text-lg font-semibold mb-4">Discipline Folders</h3>
+                <div className="text-sm text-muted-foreground">
+                  <p>0 of {patternDisciplines.length} disciplines incomplete</p>
+                </div>
+              </Card>
+            </div>
 
             {patternDisciplines.length > 0 ? (
               <div>
