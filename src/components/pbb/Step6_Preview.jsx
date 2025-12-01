@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2, FileText } from 'lucide-react';
 import PatternGroupPreview from './PatternGroupPreview';
@@ -119,16 +120,78 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
         <div>
           <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
           <RadioGroup value={formData.layoutSelection} onValueChange={handleLayoutSelection} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Layout A: Modern */}
             <div>
               <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
-              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid">Layout A: Modern</div>
+              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                <div className="w-full space-y-2 text-center">
+                  <h4 className="font-bold text-sm mb-3">Layout A: Modern</h4>
+                  <div className="bg-card border border-border rounded-lg p-4 space-y-3 min-h-[280px]">
+                    <h3 className="text-2xl font-bold tracking-wide">{formData.showName || 'HORSE SHOW NAME'}</h3>
+                    <p className="text-sm text-muted-foreground italic">Pattern Book</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.startDate && formData.endDate 
+                        ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
+                        : 'Nov 10 - Nov 30, 2025'
+                      }
+                    </p>
+                    
+                    <div className="border-t border-border my-3"></div>
+                    
+                    <div className="text-left space-y-2">
+                      <p className="text-xs font-semibold">Patterns:</p>
+                      {patternDisciplines.slice(0, 3).map((disc, idx) => (
+                        <div key={disc.id} className="flex justify-between text-xs">
+                          <span>{disc.name}</span>
+                          <span className="text-muted-foreground">Page {2 + idx * 2}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <p className="text-[10px] text-muted-foreground italic mt-4">Includes cover page with show details</p>
+                  </div>
+                </div>
               </Label>
             </div>
+            
+            {/* Layout B: Classic */}
             <div>
               <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
-              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid-alt">Layout B: Classic</div>
+              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                <div className="w-full space-y-2 text-center">
+                  <h4 className="font-bold text-sm mb-3">Layout B: Classic</h4>
+                  <div className="bg-card border border-border rounded-lg p-4 space-y-3 min-h-[280px]">
+                    <h3 className="text-2xl font-bold tracking-wide">{formData.showName || 'HORSE SHOW NAME'}</h3>
+                    <p className="text-sm text-muted-foreground italic">Pattern Book</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.startDate && formData.endDate 
+                        ? `${format(new Date(formData.startDate), 'MMM d')} - ${format(new Date(formData.endDate), 'MMM d, yyyy')}`
+                        : 'Nov 10 - Nov 30, 2025'
+                      }
+                    </p>
+                    
+                    <div className="border-t border-border my-3"></div>
+                    
+                    <div className="text-center">
+                      <p className="text-sm font-bold mb-2">Table of Contents</p>
+                    </div>
+                    
+                    <div className="text-left space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-semibold">Show Information</span>
+                        <span className="text-muted-foreground">1</span>
+                      </div>
+                      {patternDisciplines.slice(0, 3).map((disc, idx) => (
+                        <div key={disc.id} className="flex justify-between text-xs">
+                          <span>{disc.name}</span>
+                          <span className="text-muted-foreground">{2 + idx * 2}</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <p className="text-[10px] text-muted-foreground italic mt-4">Includes table of contents</p>
+                  </div>
+                </div>
               </Label>
             </div>
           </RadioGroup>
