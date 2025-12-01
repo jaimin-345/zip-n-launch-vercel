@@ -25,7 +25,7 @@ const steps = [
     { id: 2, name: 'Select Disciplines', icon: ListPlus },
     { id: 3, name: 'Configure Classes', icon: Settings2 },
     { id: 4, name: 'Show Details', icon: Calendar },
-    { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
+    { id: 5, name: 'Pattern Selection', icon: LayoutTemplate },
     { id: 6, name: 'Uploads & Media', icon: UploadCloud },
     { id: 7, name: 'Preview', icon: Eye },
     { id: 8, name: 'Close Out & Review', icon: ShieldCheck },
