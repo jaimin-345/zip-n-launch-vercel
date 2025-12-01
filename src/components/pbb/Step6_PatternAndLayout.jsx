@@ -193,16 +193,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
-  // Judges & staff sources (see project memory)
-  const judges = [];
+  // Judges with associated associations
+  const judgesWithAssociations = [];
   if (formData.associationJudges) {
     Object.keys(formData.associationJudges).forEach(assocId => {
       const assocJudges = formData.associationJudges[assocId]?.judges || [];
       assocJudges.forEach(judge => {
-        if (judge?.name) judges.push(judge);
+        if (judge?.name) {
+          // Find association display name (prefer abbreviation)
+          const association = (associationsData || []).find(a => a.id === assocId) || selectedAssociations.find(a => a.id === assocId);
+          const assocName = association?.abbreviation || association?.name || assocId;
+
+          const existing = judgesWithAssociations.find(j => j.name === judge.name);
+          if (existing) {
+            if (!existing.associations.includes(assocName)) {
+              existing.associations.push(assocName);
+            }
+          } else {
+            judgesWithAssociations.push({
+              name: judge.name,
+              associations: [assocName],
+            });
+          }
+        }
       });
     });
   }
+
   const showStaff = formData.officials || [];
 
   return (
@@ -244,6 +261,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     </div>
                   </div>
                 )}
+                {formData.venueName && (
+                  <div className="flex items-start gap-2">
+                    <Building className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Venue Name</p>
+                      <p className="text-muted-foreground">{formData.venueName}</p>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-start gap-2">
                   <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
                   <div>
@@ -282,9 +308,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 </div>
               </div>
 
-              {/* Associations with Judges Section */}
+              {/* Judges Section */}
               <div className="border rounded-lg p-3">
-                <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Associations with Judges</h3>
+                <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Judges</h3>
                 <div className="space-y-3">
                   <div>
                     <span className="text-sm font-medium">Associations</span>
@@ -307,10 +333,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       <span className="text-sm font-medium">Judges</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {judges.length > 0 ? (
-                        judges.map((judge, idx) => (
-                          <Badge key={idx} className="bg-blue-100 text-blue-700 hover:bg-blue-200">
-                            {judge.name || 'Not assigned'}
+                      {judgesWithAssociations.length > 0 ? (
+                        judgesWithAssociations.map((judge, idx) => (
+                          <Badge key={idx} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs">
+                            {judge.name} - {judge.associations.join(', ')}
                           </Badge>
                         ))
                       ) : (
