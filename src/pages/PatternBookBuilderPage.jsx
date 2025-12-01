@@ -131,7 +131,7 @@ const PatternBookBuilderPage = () => {
                 const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
                 return !(formData.disciplines && formData.disciplines.length > 0 && formData.disciplines.every(disc => isDisciplineComplete(disc, isOpenShowMode)));
             case 4:
-                return !(formData.showName && formData.startDate && formData.venueAddress);
+                return !(formData.showName && formData.startDate);
             case 5:
                 return false; // Pattern & Layout validation if needed
             case 6:
