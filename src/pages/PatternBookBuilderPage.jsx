@@ -28,8 +28,8 @@ const steps = [
     { id: 4, name: 'Show Details', icon: Calendar },
     { id: 5, name: 'Pattern & Layout', icon: LayoutTemplate },
     { id: 6, name: 'Uploads & Media', icon: UploadCloud },
-    { id: 7, name: 'Close Out & Delegate', icon: Share2 },
-    { id: 8, name: 'Preview Patterns', icon: Eye },
+    { id: 7, name: 'Preview', icon: Eye },
+    { id: 8, name: 'Close Out', icon: Share2 },
     { id: 9, name: 'Preview Scoresheets', icon: FileSignature },
     { id: 10, name: 'Review & Finalize', icon: ShieldCheck },
 ];
@@ -182,8 +182,8 @@ const PatternBookBuilderPage = () => {
             case 4: return <Step3_Details formData={formData} setFormData={setFormData} />;
             case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} />;
             case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
-            case 7: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
-            case 8: return <Step6_Preview formData={formData} setFormData={setFormData} />;
+            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} />;
+            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
             case 9: return <Step7_PreviewScoresheets formData={formData} setFormData={setFormData} />;
             case 10: return <Step8_Review pbbData={formData} onBack={prevStep} onSubmit={() => setIsGenerateDialogOpen(true)} />;
             default: return null;
