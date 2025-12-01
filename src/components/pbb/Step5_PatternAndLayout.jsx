@@ -161,7 +161,7 @@ import { useToast } from '@/components/ui/use-toast';
       return (
         <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
           <CardHeader>
-            <CardTitle>Step 5: Patterns Selection</CardTitle>
+            <CardTitle>Step 5: Select Patterns</CardTitle>
             <CardDescription>Assign a pattern to each group for your book.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
