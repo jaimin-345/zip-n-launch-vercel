@@ -127,14 +127,29 @@ import { useToast } from '@/components/ui/use-toast';
         : 'Dates not set';
 
 
-      // Extract judges from associationJudges structure
-      const judges = [];
+      // Extract judges from associationJudges structure with their associations
+      const judgesWithAssociations = [];
       if (formData.associationJudges) {
         Object.keys(formData.associationJudges).forEach(assocId => {
           const assocJudges = formData.associationJudges[assocId]?.judges || [];
           assocJudges.forEach(judge => {
-            if (judge.name) { // Only include judges with names
-              judges.push(judge);
+            if (judge.name) {
+              // Find association name
+              const association = (formData.associations || []).find(a => a.id === assocId);
+              const assocName = association?.name || assocId;
+              
+              // Check if judge already exists
+              const existingJudge = judgesWithAssociations.find(j => j.name === judge.name);
+              if (existingJudge) {
+                // Add association to existing judge
+                existingJudge.associations.push(assocName);
+              } else {
+                // Add new judge with association
+                judgesWithAssociations.push({
+                  name: judge.name,
+                  associations: [assocName]
+                });
+              }
             }
           });
         });
@@ -163,6 +178,16 @@ import { useToast } from '@/components/ui/use-toast';
                   </div>
                 </div>
 
+                {formData.venueName && (
+                  <div className="flex items-start gap-2">
+                    <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold">Venue Name</p>
+                      <p className="text-muted-foreground">{formData.venueName}</p>
+                    </div>
+                  </div>
+                )}
+
                 {showStaff.length > 0 && (
                   <div className="flex items-start gap-2">
                     <Users className="w-4 h-4 mt-0.5 text-muted-foreground" />
@@ -179,15 +204,15 @@ import { useToast } from '@/components/ui/use-toast';
                   </div>
                 )}
                 
-                {judges.length > 0 && (
+                {judgesWithAssociations.length > 0 && (
                   <div className="flex items-start gap-2">
                     <UserCheck className="w-4 h-4 mt-0.5 text-muted-foreground" />
                     <div className="w-full">
                       <p className="font-semibold">Judges</p>
                       <div className="flex flex-wrap gap-2 mt-1">
-                        {judges.map((judge, idx) => (
+                        {judgesWithAssociations.map((judge, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
-                            {judge.name || 'Not assigned'}
+                            {judge.name} - {judge.associations.join(', ')}
                           </Badge>
                         ))}
                       </div>
