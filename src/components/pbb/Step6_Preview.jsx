@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { parseLocalDate } from '@/lib/utils';
 
 export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   const [availablePatterns, setAvailablePatterns] = useState({});
@@ -19,7 +20,9 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   const patternDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.pattern), [formData.disciplines]);
   const scoresheetDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.scoresheet), [formData.disciplines]);
 
-  useEffect(() => {
+  const dateRange = formData.startDate && formData.endDate
+    ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
+    : 'Dates not set';
     const fetchPatterns = async () => {
         setIsLoading(true);
         const allGroupKeys = patternDisciplines.flatMap((discipline, discIndex) =>
@@ -117,23 +120,108 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
       </CardHeader>
       <CardContent className="space-y-8">
         {/* Layout & Design Section */}
-        <div>
+        <section>
           <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
-          <RadioGroup value={formData.layoutSelection} onValueChange={handleLayoutSelection} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RadioGroup
+            value={formData.layoutSelection || 'layout-a'}
+            onValueChange={handleLayoutSelection}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
             <div>
               <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
-              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid">Layout A: Modern</div>
+              <Label
+                htmlFor="layout-a"
+                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
+                <div className="w-full space-y-2">
+                  <p className="font-semibold text-center mb-2">Layout A: Modern</p>
+                  <div className="w-full min-h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-6 border border-border space-y-4">
+                    <div className="text-center space-y-2 border-b pb-4 w-full">
+                      <p className="font-bold text-2xl">{formData.showName || 'Show Name'}</p>
+                      <p className="text-muted-foreground font-semibold">Pattern Book</p>
+                      <p className="text-xs text-muted-foreground">{dateRange}</p>
+                      {formData.coverPageFile && (
+                        <Badge variant="outline" className="text-xs mt-2">
+                          Custom Cover Uploaded
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="w-full space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">Patterns:</p>
+                      {patternDisciplines.slice(0, 3).map((disc, idx) => {
+                        let cumulativePage = 2;
+                        for (let i = 0; i < idx; i++) {
+                          const prevDisc = patternDisciplines[i];
+                          const prevGroupCount = (prevDisc.patternGroups || []).length;
+                          cumulativePage += prevGroupCount;
+                        }
+                        return (
+                          <div key={disc.id} className="text-xs flex justify-between">
+                            <span>{disc.name}</span>
+                            <span className="text-muted-foreground">Page {cumulativePage}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Includes cover page with show details
+                  </p>
+                </div>
               </Label>
             </div>
+
             <div>
               <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
-              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
-                <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid-alt">Layout B: Classic</div>
+              <Label
+                htmlFor="layout-b"
+                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+              >
+                <div className="w-full space-y-2">
+                  <p className="font-semibold text-center mb-2">Layout B: Classic</p>
+                  <div className="w-full min-h-48 border-4 border-double border-border rounded-md flex flex-col p-6 bg-background space-y-4">
+                    <div className="text-center border-b-2 border-double pb-3">
+                      <p className="font-bold text-xl font-serif tracking-wide">
+                        {formData.showName || 'Show Name'}
+                      </p>
+                      <p className="text-muted-foreground italic text-sm mt-1">Pattern Book</p>
+                      <p className="text-xs text-muted-foreground mt-1">{dateRange}</p>
+                    </div>
+                    <div className="space-y-1.5 text-xs">
+                      <p className="font-bold text-sm font-serif text-center mb-2 border-b pb-1">
+                        Table of Contents
+                      </p>
+                      <div className="flex justify-between px-2">
+                        <span className="font-semibold">Show Information</span>
+                        <span>1</span>
+                      </div>
+                      {patternDisciplines.slice(0, 4).map((disc, idx) => {
+                        let cumulativePage = 2;
+                        for (let i = 0; i < idx; i++) {
+                          const prevDisc = patternDisciplines[i];
+                          const prevGroupCount = (prevDisc.patternGroups || []).length;
+                          cumulativePage += prevGroupCount;
+                        }
+                        return (
+                          <div
+                            key={disc.id}
+                            className="flex justify-between px-2 border-b border-dotted"
+                          >
+                            <span>{disc.name}</span>
+                            <span>{cumulativePage}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Includes table of contents
+                  </p>
+                </div>
               </Label>
             </div>
           </RadioGroup>
-        </div>
+        </section>
 
         {/* Patterns Section */}
         {patternDisciplines.length > 0 && (
