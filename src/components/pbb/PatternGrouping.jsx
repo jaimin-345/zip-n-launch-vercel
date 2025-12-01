@@ -445,81 +445,83 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 </Popover>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div ref={setUngroupedNodeRef} className={cn('lg:col-span-1 p-4 border rounded-xl bg-muted/20 transition-colors', isOverUngrouped ? 'border-primary bg-primary/10' : 'border-dashed')}>
-                    <div className="flex justify-between items-center mb-3">
-                        <div>
-                            <Label className="font-semibold flex items-center text-base">
-                                <Undo2 className="h-5 w-5 mr-2 text-muted-foreground" />
-                                Ungrouped Divisions
-                            </Label>
-                            <p className="text-xs text-muted-foreground">Drag, or select and move divisions.</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={handleAutoGroup} disabled={ungroupedDivisions.length === 0}>
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Auto-Group
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-background p-2 rounded-md mb-3">
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="select-all-ungrouped"
-                                checked={allUngroupedSelected}
-                                onCheckedChange={handleSelectAll}
-                                disabled={ungroupedDivisions.length === 0}
-                            />
-                            <Label htmlFor="select-all-ungrouped" className="text-xs font-normal">
-                                {selectedForBulkMove.length > 0 ? `${selectedForBulkMove.length} selected` : 'Select All'}
-                            </Label>
-                        </div>
-                        {selectedForBulkMove.length > 0 && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="secondary" size="sm" className="h-8 text-xs">
-                                        <Move className="h-3.5 w-3.5 mr-1.5" /> Move to...
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    {patternGroups.map(group => (
-                                        <DropdownMenuItem key={group.id} onSelect={() => handleBulkMove(pbbDiscipline.id, group.id)}>
-                                            {group.name}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
-                    </div>
-
-                    <div className="space-y-2 min-h-[100px] max-h-[400px] overflow-y-auto pr-2">
-                        <SortableContext items={ungroupedDivisions.map(d => d.id)} id="ungrouped-list">
-                            {ungroupedDivisions.map((div) => (
-                                <div key={div.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                        id={`bulk-${div.id}`}
-                                        checked={selectedForBulkMove.includes(div.id)}
-                                        onCheckedChange={c => handleBulkSelectChange(div.id, c)}
-                                    />
-                                    <div className="flex-grow">
-                                        <DraggableDivision
-                                            id={div.id}
-                                            division={div}
-                                            pbbDiscipline={pbbDiscipline}
-                                            formData={formData}
-                                            associationsData={associationsData}
-                                        />
-                                    </div>
-                                </div>
-                            ))}
-                        </SortableContext>
-                        {ungroupedDivisions.length === 0 && (
-                            <div className="flex flex-col items-center justify-center text-center text-sm text-muted-foreground py-10">
-                                <Check className="h-8 w-8 text-green-500 mb-2" />
-                                <p className="font-semibold">All divisions are grouped!</p>
+                {ungroupedDivisions.length > 0 && (
+                    <div ref={setUngroupedNodeRef} className={cn('lg:col-span-1 p-4 border rounded-xl bg-muted/20 transition-colors', isOverUngrouped ? 'border-primary bg-primary/10' : 'border-dashed')}>
+                        <div className="flex justify-between items-center mb-3">
+                            <div>
+                                <Label className="font-semibold flex items-center text-base">
+                                    <Undo2 className="h-5 w-5 mr-2 text-muted-foreground" />
+                                    Ungrouped Divisions
+                                </Label>
+                                <p className="text-xs text-muted-foreground">Drag, or select and move divisions.</p>
                             </div>
-                        )}
+                            <Button variant="outline" size="sm" onClick={handleAutoGroup} disabled={ungroupedDivisions.length === 0}>
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Auto-Group
+                            </Button>
+                        </div>
+
+                        <div className="flex items-center justify-between bg-background p-2 rounded-md mb-3">
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    id="select-all-ungrouped"
+                                    checked={allUngroupedSelected}
+                                    onCheckedChange={handleSelectAll}
+                                    disabled={ungroupedDivisions.length === 0}
+                                />
+                                <Label htmlFor="select-all-ungrouped" className="text-xs font-normal">
+                                    {selectedForBulkMove.length > 0 ? `${selectedForBulkMove.length} selected` : 'Select All'}
+                                </Label>
+                            </div>
+                            {selectedForBulkMove.length > 0 && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="secondary" size="sm" className="h-8 text-xs">
+                                            <Move className="h-3.5 w-3.5 mr-1.5" /> Move to...
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        {patternGroups.map(group => (
+                                            <DropdownMenuItem key={group.id} onSelect={() => handleBulkMove(pbbDiscipline.id, group.id)}>
+                                                {group.name}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
+
+                        <div className="space-y-2 min-h-[100px] max-h-[400px] overflow-y-auto pr-2">
+                            <SortableContext items={ungroupedDivisions.map(d => d.id)} id="ungrouped-list">
+                                {ungroupedDivisions.map((div) => (
+                                    <div key={div.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`bulk-${div.id}`}
+                                            checked={selectedForBulkMove.includes(div.id)}
+                                            onCheckedChange={c => handleBulkSelectChange(div.id, c)}
+                                        />
+                                        <div className="flex-grow">
+                                            <DraggableDivision
+                                                id={div.id}
+                                                division={div}
+                                                pbbDiscipline={pbbDiscipline}
+                                                formData={formData}
+                                                associationsData={associationsData}
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </SortableContext>
+                            {ungroupedDivisions.length === 0 && (
+                                <div className="flex flex-col items-center justify-center text-center text-sm text-muted-foreground py-10">
+                                    <Check className="h-8 w-8 text-green-500 mb-2" />
+                                    <p className="font-semibold">All divisions are grouped!</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-                <div className="lg:col-span-1 space-y-4">
+                )}
+                <div className={cn(ungroupedDivisions.length === 0 ? 'lg:col-span-2' : 'lg:col-span-1', 'space-y-4')}
                     <SortableContext items={patternGroups.map(g => g.id)} strategy={verticalListSortingStrategy} id="groups-container">
                         {patternGroups.map((group, index) => (
                             <DropZoneGroup
