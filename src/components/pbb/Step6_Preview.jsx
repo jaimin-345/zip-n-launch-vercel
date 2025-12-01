@@ -122,19 +122,13 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
           <RadioGroup value={formData.layoutSelection} onValueChange={handleLayoutSelection} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <RadioGroupItem value="layout-a" id="layout-a" className="peer sr-only" />
-              <Label 
-                htmlFor="layout-a" 
-                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-lg peer-data-[state=checked]:shadow-primary/20 cursor-pointer transition-all"
-              >
+              <Label htmlFor="layout-a" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                 <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid">Layout A: Modern</div>
               </Label>
             </div>
             <div>
               <RadioGroupItem value="layout-b" id="layout-b" className="peer sr-only" />
-              <Label 
-                htmlFor="layout-b" 
-                className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-lg peer-data-[state=checked]:shadow-primary/20 cursor-pointer transition-all"
-              >
+              <Label htmlFor="layout-b" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
                 <div className="w-full h-24 bg-secondary rounded-md flex items-center justify-center text-muted-foreground text-sm pattern-grid-alt">Layout B: Classic</div>
               </Label>
             </div>
