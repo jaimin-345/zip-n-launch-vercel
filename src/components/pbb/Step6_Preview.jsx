@@ -23,6 +23,8 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   const dateRange = formData.startDate && formData.endDate
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
+
+  useEffect(() => {
     const fetchPatterns = async () => {
         setIsLoading(true);
         const allGroupKeys = patternDisciplines.flatMap((discipline, discIndex) =>
