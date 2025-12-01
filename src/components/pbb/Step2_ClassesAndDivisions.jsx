@@ -33,7 +33,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     } else {
         // AQHA/APHA layout
         leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
-        middleColumn = ['Trail', 'Ranch Trail'];
+        middleColumn = ['Trail', 'In-Hand Trail', 'Ranch Trail'];
         rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'];
     }
 
