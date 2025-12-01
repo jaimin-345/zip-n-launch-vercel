@@ -310,13 +310,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
               {/* Judges Section */}
               <div className="border rounded-lg p-3">
-                <h3 className="text-lg font-semibold mb-3 pb-2 border-b">Judges</h3>
                 <div className="space-y-2">
                   {judgesWithAssociations.length > 0 ? (
                     judgesWithAssociations.map((judge, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-sm">
-                        <span className="font-medium uppercase">{judge.name}</span>
-                        <span className="text-muted-foreground">- {judge.associations.join(', ')}</span>
+                      <div key={idx} className="flex justify-between items-center">
+                        <span className="font-medium uppercase text-sm">{judge.name}</span>
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-200 text-xs">
+                          - {judge.associations.join(', ')}
+                        </Badge>
                       </div>
                     ))
                   ) : (
