@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -30,6 +30,18 @@ const TAG_COLORS = {
     discipline: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
     deadline: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
 };
+
+const ReviewItem = ({ icon, title, children }) => (
+  <div className="flex items-start space-x-4">
+    <div className="flex-shrink-0 w-8 h-8 bg-primary/10 text-primary rounded-lg flex items-center justify-center">
+      {icon}
+    </div>
+    <div>
+      <h4 className="font-semibold text-md">{title}</h4>
+      <div className="text-sm text-muted-foreground">{children}</div>
+    </div>
+  </div>
+);
 
 
 const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
@@ -259,6 +271,16 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
 };
 
 export const Step_CloseOutAndDelegate = ({ formData, setFormData }) => {
+    const getAssociationNames = () => {
+        if (!formData.associations) return 'N/A';
+        return Object.keys(formData.associations).filter(key => formData.associations[key]).join(', ') || 'None';
+    };
+
+    const totalPatternsSelected = () => {
+        if (!formData.patternSelections) return 0;
+        return Object.values(formData.patternSelections).reduce((total, disc) => total + Object.keys(disc).length, 0);
+    };
+
     const staffList = useMemo(() => {
         const staff = new Map();
 
@@ -304,25 +326,67 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData }) => {
     return (
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 7: Close Out & Delegate</CardTitle>
-                <CardDescription>Assign access rights and delegate specific roles to your staff for each phase of the pattern book process.</CardDescription>
+                <CardTitle>Step 8: Close Out & Review</CardTitle>
+                <CardDescription>Review all details and manage staff access rights for different phases.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-                {staffList.length > 0 ? (
-                    staffList.map(staff => (
-                        <StaffDelegationCard
-                            key={staff.id}
-                            staffMember={staff}
-                            disciplines={disciplines}
-                            onUpdate={handleUpdateStaffDelegation}
-                        />
-                    ))
-                ) : (
-                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                        <p className="text-muted-foreground">No staff members found.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Go back to Step 4 to add judges and staff.</p>
+            <CardContent className="space-y-6">
+                {/* Review Section */}
+                <div className="space-y-4 pb-6 border-b">
+                    <h3 className="text-lg font-semibold">Review & Finalize</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Information">
+                            <p><strong>Name:</strong> {formData.showName || 'N/A'}</p>
+                            <p><strong>Type:</strong> {formData.showType || 'N/A'}</p>
+                            <p><strong>Associations:</strong> {getAssociationNames()}</p>
+                        </ReviewItem>
+
+                        <ReviewItem icon={<CalendarIcon className="w-5 h-5" />} title="Dates & Location">
+                            <p><strong>Dates:</strong> {formData.startDate ? `${format(new Date(formData.startDate), 'PPP')} to ${formData.endDate ? format(new Date(formData.endDate), 'PPP') : 'N/A'}` : 'N/A'}</p>
+                            <p><strong>Venue:</strong> {formData.venueName || 'N/A'}</p>
+                            <p><strong>Address:</strong> {formData.venueAddress || 'N/A'}</p>
+                        </ReviewItem>
+
+                        <ReviewItem icon={<FileText className="w-5 h-5" />} title="Disciplines & Patterns">
+                            <p><strong>Disciplines:</strong> {(formData.disciplines || []).length} selected</p>
+                            <p><strong>Patterns Assigned:</strong> {totalPatternsSelected()} patterns</p>
+                        </ReviewItem>
+
+                        <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel & Sponsors">
+                            <p><strong>Officials:</strong> {(formData.officials || []).length} added</p>
+                            <p><strong>Sponsors:</strong> {(formData.sponsors || []).length} added</p>
+                        </ReviewItem>
+
+                        <ReviewItem icon={<Palette className="w-5 h-5" />} title="Design & Layout">
+                            <p><strong>Cover Page:</strong> {formData.coverPageOption || 'N/A'}</p>
+                            <p><strong>Book Layout:</strong> {formData.layoutSelection || 'N/A'}</p>
+                        </ReviewItem>
+                        
+                        <ReviewItem icon={<DollarSign className="w-5 h-5" />} title="Customizations & Fees">
+                            <p><strong>Custom Classes:</strong> {(formData.disciplines || []).filter(d => d.isCustom).length}</p>
+                            <p><strong>Estimated Custom Fees:</strong> ${((formData.disciplines || []).filter(d => d.isCustom).length * 50).toFixed(2)}</p>
+                        </ReviewItem>
                     </div>
-                )}
+                </div>
+
+                {/* Staff Delegation Section */}
+                <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Staff Access & Delegation</h3>
+                    {staffList.length > 0 ? (
+                        staffList.map(staff => (
+                            <StaffDelegationCard
+                                key={staff.id}
+                                staffMember={staff}
+                                disciplines={disciplines}
+                                onUpdate={handleUpdateStaffDelegation}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                            <p className="text-muted-foreground">No staff members found.</p>
+                            <p className="text-sm text-muted-foreground mt-1">Go back to Step 4 to add judges and staff.</p>
+                        </div>
+                    )}
+                </div>
             </CardContent>
         </motion.div>
     );
