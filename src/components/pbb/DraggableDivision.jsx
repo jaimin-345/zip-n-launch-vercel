@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { Calendar as CalendarIcon, GripVertical } from 'lucide-react';
 import { format } from 'date-fns';
+import { parseLocalDate } from '@/lib/utils';
 
 const DraggableDivision = ({ division, id, pbbDiscipline, formData, associationsData }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -74,7 +75,7 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                  {division.date && (
                      <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(new Date(division.date), 'MMM d')}
+                        {format(parseLocalDate(division.date), 'EEE, MMM d')}
                     </Badge>
                  )}
                 
