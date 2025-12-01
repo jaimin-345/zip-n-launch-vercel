@@ -100,6 +100,9 @@ const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formD
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <span className="flex-grow text-left font-semibold text-sm">{pbbDiscipline.name}</span>
+                        <span className={`text-xs font-semibold ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
+                            - {isComplete ? 'complete' : 'incomplete'}
+                        </span>
                         <div className="flex items-center gap-1 mr-2">
                             {divisionCounts.length > 0 ? (
                                 divisionCounts.map(item => (
