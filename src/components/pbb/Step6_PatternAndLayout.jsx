@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -21,6 +22,7 @@ const samplePatterns = [
 ];
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
+  const { toast } = useToast();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
@@ -28,6 +30,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
+  const disciplineRefs = useRef({});
 
   const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
   
@@ -217,6 +220,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   const showStaff = formData.officials || [];
 
+  // Scroll to discipline and expand it
+  const scrollToDiscipline = (disciplineId) => {
+    const ref = disciplineRefs.current[disciplineId];
+    if (ref) {
+      ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Expand the discipline
+      setOpenDisciplineId(disciplineId);
+    }
+  };
+
   return (
     <motion.div
       key="step6-pattern-layout"
@@ -351,18 +364,30 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   return (
                     <div
                       key={discipline.id}
+                      onClick={() => {
+                        scrollToDiscipline(discipline.id);
+                        if (!isComplete) {
+                          toast({
+                            title: "Scrolling to Discipline",
+                            description: `Opening ${discipline.name} for pattern assignment.`
+                          });
+                        }
+                      }}
                       className={cn(
-                        "p-3 rounded-lg border-2 flex items-center justify-between transition-colors",
+                        "p-3 rounded-lg border-2 flex items-center justify-between cursor-pointer transition-all",
                         isComplete 
-                          ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700" 
-                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700"
+                          ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-950/30" 
+                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700 hover:bg-destructive/10 hover:border-destructive dark:hover:border-destructive"
                       )}
                     >
                       <div className="flex items-center gap-2">
                         {isComplete ? (
                           <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                         ) : (
-                          <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                          <AlertCircle className={cn(
+                            "w-4 h-4",
+                            isComplete ? "text-orange-600 dark:text-orange-400" : "text-destructive"
+                          )} />
                         )}
                         <div>
                           <p className="font-semibold text-sm">{discipline.name}</p>
@@ -407,7 +432,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 }
 
                 return (
-                  <div key={discipline.id} className="bg-card rounded-lg border">
+                  <div 
+                    key={discipline.id} 
+                    className="bg-card rounded-lg border"
+                    ref={(el) => disciplineRefs.current[discipline.id] = el}
+                  >
                     {/* Toggle row with inline pattern selection */}
                     <div className="w-full flex items-center gap-3 px-4 py-3 border-b">
                       <button
