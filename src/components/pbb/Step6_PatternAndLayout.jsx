@@ -26,13 +26,22 @@ const getPatternOptions = (disciplineName) => [
 // Difficulty levels for group dropdowns
 const difficultyLevels = ['Beginner', 'Intermediate', 'Advanced', 'Championship', 'Walk-Trot'];
 
-// Get group difficulty options based on selected main pattern
-const getGroupDifficultyOptions = (patternId) => {
+// Difficulty badge colors
+const difficultyColors = {
+  'Beginner': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  'Intermediate': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  'Advanced': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  'Championship': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  'Walk-Trot': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+};
+
+// Get group difficulty options based on selected main pattern and discipline name
+const getGroupDifficultyOptions = (patternId, disciplineName) => {
   const patternMap = { 'pat_101': '101', 'pat_203': '203', 'pat_305': '305', 'pat_407': '407' };
   const patternNumber = patternMap[patternId] || '101';
-  return difficultyLevels.map((difficulty, idx) => ({
+  return difficultyLevels.map((difficulty) => ({
     id: `${patternId}_${difficulty.toLowerCase().replace('-', '')}`,
-    name: `#${patternNumber} - ${difficulty}`,
+    name: `Pattern Set #${patternNumber} - ${disciplineName}`,
     difficulty
   }));
 };
@@ -100,7 +109,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       (formData.disciplines || []).findIndex(fd => fd.id === d.id) === disciplineIndex
     );
     const groups = discipline?.patternGroups || [];
-    const difficultyOptions = getGroupDifficultyOptions(patternId);
+    const difficultyOptions = getGroupDifficultyOptions(patternId, discipline?.name || '');
     
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
@@ -572,9 +581,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   </SelectTrigger>
                                   <SelectContent className="bg-background z-50">
                                     {disciplinePatternSelections[disciplineIndex] ? (
-                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex]).map(p => (
+                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex], discipline.name).map(p => (
                                         <SelectItem key={p.id} value={p.id}>
-                                          {p.name}
+                                          <span className="flex items-center gap-2">
+                                            {p.name}
+                                            <Badge className={cn("text-[10px] px-1.5 py-0", difficultyColors[p.difficulty])}>
+                                              {p.difficulty}
+                                            </Badge>
+                                          </span>
                                         </SelectItem>
                                       ))
                                     ) : (
