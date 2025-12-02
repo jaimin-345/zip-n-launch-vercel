@@ -8,6 +8,14 @@ import { parseLocalDate } from '@/lib/utils';
 const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) => {
   const [currentPage, setCurrentPage] = React.useState(0);
 
+  // Reset to first page when dialog opens - MUST be before any conditional returns
+  React.useEffect(() => {
+    if (isOpen) {
+      setCurrentPage(0);
+    }
+  }, [isOpen]);
+
+  // Early return AFTER all hooks
   if (!discipline) return null;
 
   const groups = discipline.patternGroups || [];
@@ -31,13 +39,6 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const handleNext = () => {
     setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
   };
-
-  // Reset to first page when dialog opens
-  React.useEffect(() => {
-    if (isOpen) {
-      setCurrentPage(0);
-    }
-  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
