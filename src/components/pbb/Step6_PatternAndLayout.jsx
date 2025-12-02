@@ -502,7 +502,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
                             Judge:{' '}
                             {(() => {
-                              const judge = judges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
+                              const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
                               return judge?.name || formData.judgeSelections[disciplineIndex];
                             })()}
                           </Badge>
