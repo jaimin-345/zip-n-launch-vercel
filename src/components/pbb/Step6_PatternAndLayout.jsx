@@ -655,6 +655,40 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           </section>
         )}
 
+        {/* Uploads Section */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold">Upload Documents</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="showSchedule" className="text-sm font-semibold mb-2 block">
+                Show Schedule
+              </Label>
+              <p className="text-xs text-muted-foreground mb-3">Upload the show schedule document.</p>
+              <Input 
+                id="showSchedule" 
+                name="showSchedule" 
+                type="file" 
+                accept=".pdf,.doc,.docx" 
+                className="cursor-pointer"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="showBill" className="text-sm font-semibold mb-2 block">
+                Show Bill
+              </Label>
+              <p className="text-xs text-muted-foreground mb-3">Upload the show bill document.</p>
+              <Input 
+                id="showBill" 
+                name="showBill" 
+                type="file" 
+                accept=".pdf,.doc,.docx" 
+                className="cursor-pointer"
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Assign Pattern Dialog */}
         <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
           <DialogContent className="sm:max-w-md">
