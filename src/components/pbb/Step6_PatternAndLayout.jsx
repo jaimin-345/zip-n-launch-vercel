@@ -321,6 +321,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
               {/* Judges Section */}
               <div className="border rounded-lg p-3">
+                <h3 className="text-lg font-semibold mb-3">Show Judges</h3>
                 <div className="space-y-2">
                   {judgesWithAssociations.length > 0 ? (
                     judgesWithAssociations.map((judge, idx) => (
