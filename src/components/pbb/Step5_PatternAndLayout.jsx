@@ -300,12 +300,28 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
                     return (
                       <div
                         key={originalDisciplineIndex}
-                        onClick={() => scrollToDiscipline(originalDisciplineIndex)}
-                        className="p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                        onClick={() => {
+                          scrollToDiscipline(originalDisciplineIndex);
+                          if (!isComplete) {
+                            toast({
+                              title: "Scrolling to Discipline",
+                              description: `Opening ${pbbDiscipline.name} for pattern assignment.`
+                            });
+                          }
+                        }}
+                        className={cn(
+                          "p-3 border rounded-lg cursor-pointer transition-all",
+                          isComplete 
+                            ? "hover:bg-accent border-border" 
+                            : "hover:bg-destructive/10 border-destructive/50 hover:border-destructive"
+                        )}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <AlertCircle className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                            <AlertCircle className={cn(
+                              "w-4 h-4 flex-shrink-0",
+                              isComplete ? "text-muted-foreground" : "text-destructive"
+                            )} />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">{pbbDiscipline.name}</p>
                               <p className="text-xs text-muted-foreground">
