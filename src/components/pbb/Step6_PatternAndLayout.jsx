@@ -364,15 +364,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   return (
                     <div
                       key={discipline.id}
-                      onClick={() => {
-                        scrollToDiscipline(discipline.id);
-                        if (!isComplete) {
-                          toast({
-                            title: "Scrolling to Discipline",
-                            description: `Opening ${discipline.name} for pattern assignment.`
-                          });
-                        }
-                      }}
+                      onClick={() => scrollToDiscipline(discipline.id)}
                       className={cn(
                         "p-3 rounded-lg border-2 flex items-center justify-between cursor-pointer transition-all",
                         isComplete 
