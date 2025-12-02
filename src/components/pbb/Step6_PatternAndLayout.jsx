@@ -17,11 +17,25 @@ import { useToast } from '@/components/ui/use-toast';
 
 // Generate dynamic pattern options based on discipline name
 const getPatternOptions = (disciplineName) => [
-  { id: 'pat_101', name: `Pattern Set #101 - ${disciplineName}` },
-  { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}` },
-  { id: 'pat_305', name: `Pattern Set #305 - ${disciplineName}` },
-  { id: 'pat_407', name: `Pattern Set #407 - ${disciplineName}` },
+  { id: 'pat_101', name: `Pattern Set #101 - ${disciplineName}`, patternNumber: '101' },
+  { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203' },
+  { id: 'pat_305', name: `Pattern Set #305 - ${disciplineName}`, patternNumber: '305' },
+  { id: 'pat_407', name: `Pattern Set #407 - ${disciplineName}`, patternNumber: '407' },
 ];
+
+// Difficulty levels for group dropdowns
+const difficultyLevels = ['Beginner', 'Intermediate', 'Advanced', 'Championship', 'Walk-Trot'];
+
+// Get group difficulty options based on selected main pattern
+const getGroupDifficultyOptions = (patternId) => {
+  const patternMap = { 'pat_101': '101', 'pat_203': '203', 'pat_305': '305', 'pat_407': '407' };
+  const patternNumber = patternMap[patternId] || '101';
+  return difficultyLevels.map((difficulty, idx) => ({
+    id: `${patternId}_${difficulty.toLowerCase().replace('-', '')}`,
+    name: `#${patternNumber} - ${difficulty}`,
+    difficulty
+  }));
+};
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
   const { toast } = useToast();
@@ -81,18 +95,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const handleDisciplinePatternChange = (disciplineIndex, patternId) => {
     setDisciplinePatternSelections(prev => ({ ...prev, [disciplineIndex]: patternId }));
     
-    // Auto-apply to all groups
+    // Auto-apply difficulty levels to groups based on pattern selection
     const discipline = patternDisciplines.find((d, idx) => 
       (formData.disciplines || []).findIndex(fd => fd.id === d.id) === disciplineIndex
     );
     const groups = discipline?.patternGroups || [];
+    const difficultyOptions = getGroupDifficultyOptions(patternId);
     
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
       
+      // Auto-assign difficulty levels: Group 1 = Beginner, Group 2 = Intermediate, etc.
       groups.forEach((_, groupIndex) => {
-        newSelections[disciplineIndex][groupIndex] = patternId;
+        const difficultyOption = difficultyOptions[groupIndex % difficultyOptions.length];
+        newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || patternId;
       });
       
       return { ...prev, patternSelections: newSelections };
@@ -554,11 +571,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     <SelectValue placeholder="Select a pattern..." />
                                   </SelectTrigger>
                                   <SelectContent className="bg-background z-50">
-                                    {getPatternOptions(discipline.name).map(p => (
-                                      <SelectItem key={p.id} value={p.id}>
-                                        {p.name}
-                                      </SelectItem>
-                                    ))}
+                                    {disciplinePatternSelections[disciplineIndex] ? (
+                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex]).map(p => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name}
+                                        </SelectItem>
+                                      ))
+                                    ) : (
+                                      <SelectItem value="no-pattern" disabled>Select main pattern first</SelectItem>
+                                    )}
                                   </SelectContent>
                                 </Select>
                               </div>
