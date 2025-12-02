@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -388,12 +388,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </p>
                         </div>
                       </div>
-                      <span className={cn(
-                        "text-xs font-semibold px-2 py-1 rounded",
-                        isComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
-                      )}>
-                        {isComplete ? 'Complete' : 'Incomplete'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          "text-xs font-semibold px-2 py-1 rounded",
+                          isComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
+                        )}>
+                          {isComplete ? 'Complete' : 'Incomplete'}
+                        </span>
+                        {isComplete && (
+                          <Eye className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        )}
+                      </div>
                     </div>
                   );
                 })}
