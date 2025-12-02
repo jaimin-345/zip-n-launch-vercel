@@ -507,15 +507,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             })()}
                           </Badge>
                         )}
-                        {formData.staffSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
-                            Staff:{' '}
-                            {(() => {
-                              const staff = showStaff.find((s, idx) => (s.id || `staff-${idx}`) === formData.staffSelections[disciplineIndex]);
-                              return staff ? `${staff.role} - ${staff.name || 'Unnamed'}` : formData.staffSelections[disciplineIndex];
-                            })()}
-                          </Badge>
-                        )}
                         {formData.dueDateSelections?.[disciplineIndex] && (
                           <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
                             Due Date: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yy')}
