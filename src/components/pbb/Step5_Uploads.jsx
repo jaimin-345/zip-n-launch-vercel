@@ -74,18 +74,6 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
           <Input id="eventThumbnail" name="eventThumbnail" type="file" accept="image/*" onChange={handleFileChange} />
         </div>
 
-        <div>
-          <Label htmlFor="showSchedule" className="text-lg font-semibold">Show Schedule</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload the show schedule document.</p>
-          <Input id="showSchedule" name="showSchedule" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-        </div>
-
-        <div>
-          <Label htmlFor="showBill" className="text-lg font-semibold">Show Bill</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload the show bill document.</p>
-          <Input id="showBill" name="showBill" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-        </div>
-
         <div className="p-6 border rounded-lg bg-primary/10 border-primary/30 space-y-4">
           <div className="flex items-center justify-between">
             <div>
