@@ -10,6 +10,7 @@ import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Buildi
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import PatternPagePreview from './PatternPagePreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
@@ -31,6 +32,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
   const disciplineRefs = useRef({});
+  const [previewDiscipline, setPreviewDiscipline] = useState(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
   
@@ -396,7 +399,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           {isComplete ? 'Complete' : 'Incomplete'}
                         </span>
                         {isComplete && (
-                          <Eye className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewDiscipline(discipline);
+                              setIsPreviewOpen(true);
+                            }}
+                            className="p-1 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
+                          >
+                            <Eye className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </button>
                         )}
                       </div>
                     </div>
@@ -767,6 +779,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Pattern Preview Modal */}
+        <PatternPagePreview
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          discipline={previewDiscipline}
+          associationsData={associationsData}
+        />
       </CardContent>
     </motion.div>
   );
