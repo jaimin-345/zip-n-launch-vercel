@@ -63,22 +63,27 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
 
           {/* Discipline Info */}
           <div className="mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-              {discipline.name.toUpperCase()} {disciplineDate && `- ${disciplineDate}`}
+            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
+              {discipline.name.toUpperCase()}
             </h3>
             
             {currentGroup && (
-              <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                {currentGroup.divisions?.map((div, idx) => (
-                  <p key={idx}>
-                    {div.classNumber} {div.divisionName} {div.divisionLevel}
-                  </p>
-                ))}
-                {currentGroup.divisions && currentGroup.divisions.length > 1 && (
-                  <p className="text-xs italic mt-2">
-                    Classes {currentGroup.divisions.map(d => d.classNumber).join(', ')} will run concurrently
-                  </p>
-                )}
+              <div className="mb-4">
+                <h4 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">
+                  Group {currentPage + 1}
+                </h4>
+                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                  {currentGroup.divisions?.map((div, idx) => (
+                    <p key={idx}>
+                      {div.classNumber} {div.divisionName} {div.divisionLevel}
+                    </p>
+                  ))}
+                  {currentGroup.divisions && currentGroup.divisions.length > 1 && (
+                    <p className="text-xs italic mt-2 text-gray-600 dark:text-gray-400">
+                      Classes {currentGroup.divisions.map(d => d.classNumber).join(', ')} will run concurrently
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -116,12 +121,12 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
                 <p className="mb-1">12. Twelfth maneuver description</p>
               </div>
             </div>
-            <p className="font-semibold mt-4 text-gray-900 dark:text-gray-100">Pattern Complete</p>
+            <p className="font-bold mt-4 text-gray-900 dark:text-gray-100">Pattern Complete</p>
           </div>
 
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700 text-center text-xs text-gray-600 dark:text-gray-400">
-            {associationFullName} {discipline.name} Patterns 2025 – Page {currentPage + 1}
+            {discipline.name} Patterns 2025 – Page {currentPage + 1}
           </div>
         </div>
 
