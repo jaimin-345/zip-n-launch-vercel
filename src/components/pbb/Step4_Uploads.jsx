@@ -219,6 +219,16 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
         <CardDescription>Upload any relevant files or media for your show book. Your project must be saved first.</CardDescription>
       </CardHeader>
       <div className="space-y-6">
+        <FileUploadZone
+          dropzone={showDocumentsDropzone}
+          files={formData.showDocuments}
+          onRemove={(index) => removeFile(index, 'show_documents')}
+          onEdit={(file, index) => handleEditFile(file, index, 'show_documents')}
+          title="Show Schedule/Show Bill (Optional)"
+          description="Upload show schedule and bill documents (PDF, DOC, or DOCX)."
+          isUploading={isUploading}
+        />
+
         {isEducationMode ? (
           <FileUploadZone
             dropzone={lessonPlanDropzone}
@@ -248,16 +258,6 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
           onEdit={(file, index) => handleEditFile(file, index, 'sponsor_logo')}
           title="Sponsor Logos (Optional)"
           description="Upload JPEGs or PDFs for sponsor logos to be included in the document."
-          isUploading={isUploading}
-        />
-
-        <FileUploadZone
-          dropzone={showDocumentsDropzone}
-          files={formData.showDocuments}
-          onRemove={(index) => removeFile(index, 'show_documents')}
-          onEdit={(file, index) => handleEditFile(file, index, 'show_documents')}
-          title="Show Schedule/Show Bill (Optional)"
-          description="Upload show schedule and bill documents (PDF, DOC, or DOCX)."
           isUploading={isUploading}
         />
         
