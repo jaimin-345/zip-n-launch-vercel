@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar, Users, UserCheck, Trash2, Trophy, MapPin } from 'lucide-react';
+import { Calendar, Users, UserCheck, Trash2, Trophy, MapPin, Eye, AlertCircle } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
     const samplePatterns = [
       { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -24,6 +25,8 @@ import { useToast } from '@/components/ui/use-toast';
     export const Step5_PatternAndLayout = ({ formData, setFormData }) => {
   const { toast } = useToast();
   const [calendarOpen, setCalendarOpen] = React.useState({});
+  const [openAccordions, setOpenAccordions] = React.useState([]);
+  const disciplineRefs = React.useRef({});
 
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
@@ -125,6 +128,32 @@ import { useToast } from '@/components/ui/use-toast';
       const dateRange = formData.startDate && formData.endDate 
         ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
         : 'Dates not set';
+
+      // Check if a discipline is complete (all groups have patterns assigned)
+      const isDisciplineComplete = (pbbDiscipline, disciplineIndex) => {
+        const groups = pbbDiscipline.patternGroups || [];
+        if (groups.length === 0) return false;
+        
+        return groups.every((group, groupIndex) => {
+          return formData.patternSelections?.[disciplineIndex]?.[groupIndex];
+        });
+      };
+
+      // Scroll to discipline and expand it
+      const scrollToDiscipline = (disciplineIndex) => {
+        const ref = disciplineRefs.current[disciplineIndex];
+        if (ref) {
+          ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Expand the accordion for this discipline
+          const accordionValue = `discipline-${disciplineIndex}`;
+          setOpenAccordions(prev => {
+            if (prev.includes(accordionValue)) {
+              return prev;
+            }
+            return [...prev, accordionValue];
+          });
+        }
+      };
 
 
       // Extract judges from associationJudges structure with their associations
@@ -252,8 +281,48 @@ import { useToast } from '@/components/ui/use-toast';
               {/* Right Column - Discipline Folders */}
               <Card className="p-4 bg-muted/50">
                 <h3 className="text-lg font-semibold mb-4">Discipline Folders</h3>
-                <div className="text-sm text-muted-foreground">
-                  <p>0 of {patternDisciplines.length} disciplines incomplete</p>
+                <div className="text-sm text-muted-foreground mb-4">
+                  <p>
+                    {patternDisciplines.filter((d, idx) => {
+                      const originalDisciplineIndex = (formData.disciplines || []).findIndex(fd => fd.id === d.id);
+                      return !isDisciplineComplete(d, originalDisciplineIndex);
+                    }).length} of {patternDisciplines.length} disciplines incomplete
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {patternDisciplines.map((pbbDiscipline) => {
+                    const originalDisciplineIndex = (formData.disciplines || []).findIndex(fd => fd.id === pbbDiscipline.id);
+                    const isComplete = isDisciplineComplete(pbbDiscipline, originalDisciplineIndex);
+                    const patternCount = (pbbDiscipline.patternGroups || []).filter((_, gIdx) => 
+                      formData.patternSelections?.[originalDisciplineIndex]?.[gIdx]
+                    ).length;
+                    
+                    return (
+                      <div
+                        key={originalDisciplineIndex}
+                        onClick={() => scrollToDiscipline(originalDisciplineIndex)}
+                        className="p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{pbbDiscipline.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {patternCount} patterns assigned
+                              </p>
+                            </div>
+                          </div>
+                          <Badge 
+                            variant={isComplete ? "default" : "destructive"}
+                            className="flex-shrink-0 text-xs"
+                          >
+                            {isComplete ? "Complete" : "Incomplete"}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             </div>
@@ -261,9 +330,15 @@ import { useToast } from '@/components/ui/use-toast';
             {patternDisciplines.length > 0 ? (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
-                <div className="space-y-6">
+                <Accordion 
+                  type="multiple" 
+                  value={openAccordions}
+                  onValueChange={setOpenAccordions}
+                  className="space-y-4"
+                >
                   {patternDisciplines.map((pbbDiscipline) => {
                     const originalDisciplineIndex = (formData.disciplines || []).findIndex(d => d.id === pbbDiscipline.id);
+                    const isComplete = isDisciplineComplete(pbbDiscipline, originalDisciplineIndex);
                     
                     // Filter judges by this discipline's association
                     const disciplineJudges = [];
@@ -277,8 +352,39 @@ import { useToast } from '@/components/ui/use-toast';
                     }
                     
                     return (
-                    <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
-                      <h4 className="font-bold text-md mb-3">{pbbDiscipline.name}</h4>
+                    <AccordionItem 
+                      key={originalDisciplineIndex} 
+                      value={`discipline-${originalDisciplineIndex}`}
+                      className="border rounded-lg"
+                      ref={(el) => disciplineRefs.current[originalDisciplineIndex] = el}
+                    >
+                      <AccordionTrigger className="px-4 hover:no-underline">
+                        <div className="flex items-center justify-between w-full pr-2">
+                          <h4 className="font-bold text-md">{pbbDiscipline.name}</h4>
+                          <div className="flex items-center gap-2">
+                            {isComplete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-2 text-green-600 hover:text-green-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toast({
+                                    title: "Preview Pattern",
+                                    description: "Pattern preview will be available soon."
+                                  });
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Badge variant={isComplete ? "default" : "destructive"} className="ml-2">
+                              {isComplete ? "Complete" : "Incomplete"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-4 pb-4">
                       <div className="space-y-6">
                         {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
                           <div key={group.id} className="p-4 border rounded-lg bg-muted/30 space-y-4">
@@ -401,10 +507,10 @@ import { useToast } from '@/components/ui/use-toast';
                             </div>
                           </div>
                         ))}
-                      </div>
-                    </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   )})}
-                </div>
+                </Accordion>
               </div>
             ) : (
               <div className="text-center py-10 border-2 border-dashed rounded-lg">
