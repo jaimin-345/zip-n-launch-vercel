@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import patternDiagram from '@/assets/pattern-diagram-sample.png';
 
 const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) => {
   const [currentPage, setCurrentPage] = React.useState(0);
@@ -79,17 +80,13 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             </div>
           )}
 
-          {/* Pattern Diagram Placeholder */}
-          <div className="my-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg p-12 border-2 border-dashed border-gray-300 dark:border-gray-600">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📐</div>
-              <p className="text-gray-600 dark:text-gray-400 font-medium">
-                Pattern Diagram
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                Pattern visualization will appear here
-              </p>
-            </div>
+          {/* Pattern Diagram */}
+          <div className="my-8 flex items-center justify-center">
+            <img 
+              src={patternDiagram} 
+              alt="Pattern Diagram" 
+              className="max-w-full h-auto rounded-lg"
+            />
           </div>
 
           {/* Footer */}
