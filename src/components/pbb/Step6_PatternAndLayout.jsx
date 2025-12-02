@@ -179,11 +179,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
       if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
 
-      // Apply to all groups in this discipline (keeps existing group behaviour)
+      // Apply judge and staff to all groups (don't overwrite existing pattern selections)
       groups.forEach((_, groupIndex) => {
-        if (selectedPattern) newSelections[disciplineIndex][groupIndex] = selectedPattern;
+        // Only set pattern if no existing selection for this group
+        if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
+          const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '');
+          const difficultyOption = difficultyOptions[groupIndex % difficultyOptions.length];
+          newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || selectedPattern;
+        }
         if (dialogJudge) newJudges[disciplineIndex][groupIndex] = dialogJudge;
-        if (dialogStaff) newStaff[disciplineIndex][groupIndex] = dialogStaff;
       });
 
       // Set due date at discipline level
@@ -195,9 +199,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       if (dialogJudge) {
         judgeSelections[disciplineIndex] = dialogJudge;
       }
-      if (dialogStaff) {
-        staffSelections[disciplineIndex] = dialogStaff;
-      }
       if (dialogDueDate) {
         dueDateSelections[disciplineIndex] = dialogDueDate;
       }
@@ -206,10 +207,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         ...prev,
         patternSelections: newSelections,
         groupJudges: newJudges,
-        groupStaff: newStaff,
         disciplineDueDates: newDueDates,
         judgeSelections,
-        staffSelections,
         dueDateSelections,
       };
     });
