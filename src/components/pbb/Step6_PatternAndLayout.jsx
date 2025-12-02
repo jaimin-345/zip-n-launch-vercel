@@ -548,139 +548,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 </div>
                               </div>
 
-                              {/* Pattern Selection and Due Date - 50/50 split */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-sm text-muted-foreground mb-1 block">
-                                    Select Pattern
-                                  </Label>
-                                  <Select
-                                    value={
-                                      formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
-                                    }
-                                    onValueChange={value =>
-                                      handlePatternSelection(disciplineIndex, groupIndex, value)
-                                    }
-                                  >
-                                    <SelectTrigger className="bg-background">
-                                      <SelectValue placeholder="Select a pattern..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-50">
-                                      {samplePatterns.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          {p.name}{' '}
-                                          <Badge variant="outline" className="ml-2 text-[10px]">
-                                            {p.difficulty}
-                                          </Badge>
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                <div>
-                                  <Label className="text-sm text-muted-foreground mb-1 block">Due Date</Label>
-                                  <Popover key={`popover-${disciplineIndex}-${groupIndex}`}>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        className={cn(
-                                          'w-full justify-start text-left font-normal',
-                                          !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
-                                        )}
-                                      >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {formData.disciplineDueDates?.[disciplineIndex] ? (
-                                          format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
-                                        ) : (
-                                          <span>Pick a date</span>
-                                        )}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                      <Calendar
-                                        key={`calendar-${disciplineIndex}-${groupIndex}`}
-                                        mode="single"
-                                        selected={
-                                          formData.disciplineDueDates?.[disciplineIndex]
-                                            ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
-                                            : undefined
-                                        }
-                                        onSelect={(date) => {
-                                          if (date) {
-                                            const localDate = format(date, 'yyyy-MM-dd');
-                                            handleDisciplineDueDateChange(disciplineIndex, localDate);
-                                          }
-                                        }}
-                                        initialFocus
-                                        className={cn('p-3 pointer-events-auto')}
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                                </div>
-                              </div>
-
-                              {/* Judge / Staff selectors - swapped order */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div>
-                                  <Label className="text-xs text-muted-foreground mb-1 block">
-                                    Assign Judge
-                                  </Label>
-                                  <Select
-                                    value={
-                                      formData.groupJudges?.[disciplineIndex]?.[groupIndex] || ''
-                                    }
-                                    onValueChange={value =>
-                                      handleJudgeSelection(disciplineIndex, groupIndex, value)
-                                    }
-                                  >
-                                    <SelectTrigger className="bg-background mt-1">
-                                      <SelectValue placeholder="Select judge..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-50">
-                                      {disciplineJudges.length > 0 ? (
-                                        disciplineJudges.map((judge, idx) => (
-                                          <SelectItem
-                                            key={idx}
-                                            value={judge.id || `judge-${idx}`}
-                                          >
-                                            {judge.name || 'Unnamed Judge'}
-                                          </SelectItem>
-                                        ))
-                                      ) : (
-                                        <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                                <div>
-                                  <Label className="text-xs text-muted-foreground mb-1 block">
-                                    Assign Staff
-                                  </Label>
-                                  <Select
-                                    value={
-                                      formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
-                                    }
-                                    onValueChange={value =>
-                                      handleStaffSelection(disciplineIndex, groupIndex, value)
-                                    }
-                                  >
-                                    <SelectTrigger className="bg-background mt-1">
-                                      <SelectValue placeholder="Select staff..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-50">
-                                      {showStaff.map((staff, idx) => (
-                                        <SelectItem
-                                          key={idx}
-                                          value={staff.id || `staff-${idx}`}
-                                        >
-                                          {staff.role}: {staff.name || 'Unnamed'}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
+                              {/* Pattern Selection */}
+                              <div>
+                                <Label className="text-sm text-muted-foreground mb-1 block">
+                                  Select Pattern
+                                </Label>
+                                <Select
+                                  value={
+                                    formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
+                                  }
+                                  onValueChange={value =>
+                                    handlePatternSelection(disciplineIndex, groupIndex, value)
+                                  }
+                                >
+                                  <SelectTrigger className="bg-background">
+                                    <SelectValue placeholder="Select a pattern..." />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-background z-50">
+                                    {samplePatterns.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>
+                                        {p.name}{' '}
+                                        <Badge variant="outline" className="ml-2 text-[10px]">
+                                          {p.difficulty}
+                                        </Badge>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </div>
                              </div>
                            ))}
@@ -721,23 +615,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 </Select>
               </div>
 
-              <div>
-                <Label htmlFor="dialog-staff" className="text-sm mb-2 block">Assign Staff</Label>
-                <Select value={dialogStaff} onValueChange={setDialogStaff}>
-                  <SelectTrigger id="dialog-staff" className="bg-background">
-                    <SelectValue placeholder="Select staff..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {showStaff.map((staff, idx) => (
-                      <SelectItem key={idx} value={staff.id || `staff-${idx}`}>
-                        {staff.role}: {staff.name || 'Unnamed'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              {(dialogJudge?.trim() || dialogStaff?.trim()) && (
+              {dialogJudge?.trim() && (
                 <div>
                   <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
                   <Popover>
