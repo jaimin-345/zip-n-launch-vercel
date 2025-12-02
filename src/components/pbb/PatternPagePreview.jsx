@@ -89,6 +89,23 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             />
           </div>
 
+          {/* Pattern Steps as Text */}
+          <div className="mt-6 space-y-1 text-sm text-gray-800 dark:text-gray-200">
+            <p>1. Lope left lead over poles</p>
+            <p>2. Jog trot; poles</p>
+            <p>3. Jog serpentine over poles</p>
+            <p>4. Lope right lead over poles</p>
+            <p>5. Extended trot over 3 poles</p>
+            <p>6. Stop; back through "L" back to gate</p>
+            <p>7. Walk gate with right hand, close gate</p>
+            <p>8. Lope left lead over poles</p>
+            <p>9. Walk over bridge</p>
+            <p>10. Extended jog to walk over</p>
+            <p>11. Walk over poles</p>
+            <p>12. Lope right lead over poles</p>
+            <p className="font-semibold mt-2">Pattern Complete</p>
+          </div>
+
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700 text-center text-xs text-gray-600 dark:text-gray-400">
             {discipline.name} Patterns 2025 – Page {currentPage + 1}
