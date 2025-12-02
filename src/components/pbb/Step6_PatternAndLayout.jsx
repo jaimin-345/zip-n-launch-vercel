@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -6,14 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useToast } from '@/components/ui/use-toast';
 
 const samplePatterns = [
   { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
@@ -23,9 +21,7 @@ const samplePatterns = [
 ];
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
-  const { toast } = useToast();
-  const [openAccordions, setOpenAccordions] = useState([]);
-  const disciplineRefs = useRef({});
+  const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
   const [disciplinePatternSelections, setDisciplinePatternSelections] = useState({});
@@ -221,21 +217,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   const showStaff = formData.officials || [];
 
-  // Scroll to discipline and expand it
-  const scrollToDiscipline = (disciplineIndex) => {
-    const ref = disciplineRefs.current[disciplineIndex];
-    if (ref) {
-      ref.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const accordionValue = `discipline-${disciplineIndex}`;
-      setOpenAccordions(prev => {
-        if (prev.includes(accordionValue)) {
-          return prev;
-        }
-        return [...prev, accordionValue];
-      });
-    }
-  };
-
   return (
     <motion.div
       key="step6-pattern-layout"
@@ -370,9 +351,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   return (
                     <div
                       key={discipline.id}
-                      onClick={() => scrollToDiscipline(disciplineIndex)}
                       className={cn(
-                        "p-3 rounded-lg border-2 flex items-center justify-between transition-colors cursor-pointer hover:bg-accent",
+                        "p-3 rounded-lg border-2 flex items-center justify-between transition-colors",
                         isComplete 
                           ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700" 
                           : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700"
@@ -409,19 +389,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {patternDisciplines.length > 0 && (
           <section>
             <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
-            <Accordion 
-              type="multiple" 
-              value={openAccordions}
-              onValueChange={setOpenAccordions}
-              className="space-y-4"
-            >
+            <div className="space-y-2">
               {patternDisciplines.map((discipline, logicalIndex) => {
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                const isOpen = openDisciplineId === discipline.id;
                 const groups = discipline.patternGroups || [];
-                const assignedCount = groups.filter(
-                  (_, idx) => formData.patternSelections?.[disciplineIndex]?.[idx]
-                ).length;
-                const isComplete = assignedCount === groups.length && groups.length > 0;
                 
                 // Filter judges by this discipline's association
                 const disciplineJudges = [];
@@ -435,111 +407,251 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 }
 
                 return (
-                  <AccordionItem 
-                    key={discipline.id}
-                    value={`discipline-${disciplineIndex}`}
-                    className="border rounded-lg"
-                    ref={(el) => disciplineRefs.current[disciplineIndex] = el}
-                  >
-                    <AccordionTrigger className="px-4 hover:no-underline">
-                      <div className="flex items-center justify-between w-full pr-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-lg">{discipline.name}</h4>
-                          {groups.length > 0 && (
-                            <Badge variant="secondary" className="ml-1">
-                              {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isComplete && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 gap-2 text-green-600 hover:text-green-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toast({
-                                  title: "Preview Pattern",
-                                  description: "Pattern preview will be available soon."
-                                });
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Badge variant={isComplete ? "default" : "destructive"}>
-                            {isComplete ? "Complete" : "Incomplete"}
+                  <div key={discipline.id} className="bg-card rounded-lg border">
+                    {/* Toggle row with inline pattern selection */}
+                    <div className="w-full flex items-center gap-3 px-4 py-3 border-b">
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 hover:text-primary transition-colors"
+                        onClick={() =>
+                          setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
+                        }
+                      >
+                        <span className="font-semibold text-base">{discipline.name}</span>
+                        {groups.length > 0 && (
+                          <Badge variant="secondary" className="ml-1">
+                            {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
                           </Badge>
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-4 pb-4">
-                      {/* Discipline Pattern Selection Row */}
-                      <div className="flex items-center gap-3 mb-4 pb-4 border-b">
-                        <div className="flex-1 flex items-center gap-2 flex-wrap">
-                          <Select
-                            value={disciplinePatternSelections[disciplineIndex] || ''}
-                            onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
-                          >
-                            <SelectTrigger className="w-[280px] bg-background">
-                              <SelectValue placeholder="Select Pattern..." />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background z-50">
-                              {samplePatterns.map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name}{' '}
-                                  <Badge variant="outline" className="ml-2 text-[10px]">
-                                    {p.difficulty}
-                                  </Badge>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          
-                          <Button 
-                            onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
-                            className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
-                          >
-                            Assign Pattern Selection
-                          </Button>
+                        )}
+                        <ChevronDown
+                          className={cn(
+                            'w-4 h-4 transition-transform text-muted-foreground',
+                            isOpen ? 'rotate-180' : 'rotate-0'
+                          )}
+                        />
+                      </button>
+                      
+                      <div className="flex-1 flex items-center gap-2 flex-wrap">
+                        <Select
+                          value={disciplinePatternSelections[disciplineIndex] || ''}
+                          onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
+                        >
+                          <SelectTrigger className="w-[280px] bg-background">
+                            <SelectValue placeholder="Select Pattern..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-background z-50">
+                            {samplePatterns.map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name}{' '}
+                                <Badge variant="outline" className="ml-2 text-[10px]">
+                                  {p.difficulty}
+                                </Badge>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button 
+                          onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
+                          className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+                        >
+                          Assign Pattern Selection
+                        </Button>
 
-                          {/* Display assigned labels with values */}
-                          {formData.judgeSelections?.[disciplineIndex] && (
-                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
-                              Judge:{' '}
-                              {(() => {
-                                const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
-                                return judge?.name || formData.judgeSelections[disciplineIndex];
-                              })()}
-                            </Badge>
-                          )}
-                          {formData.staffSelections?.[disciplineIndex] && (
-                            <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
-                              Staff:{' '}
-                              {(() => {
-                                const staff = showStaff.find((s, idx) => (s.id || `staff-${idx}`) === formData.staffSelections[disciplineIndex]);
-                                return staff ? `${staff.role} - ${staff.name || 'Unnamed'}` : formData.staffSelections[disciplineIndex];
-                              })()}
-                            </Badge>
-                          )}
-                          {formData.dueDateSelections?.[disciplineIndex] && (
-                            <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
-                              Due Date: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yy')}
-                            </Badge>
-                          )}
-                        </div>
+                        {/* Display assigned labels with values */}
+                        {formData.judgeSelections?.[disciplineIndex] && (
+                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                            Judge:{' '}
+                            {(() => {
+                              const judge = judges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
+                              return judge?.name || formData.judgeSelections[disciplineIndex];
+                            })()}
+                          </Badge>
+                        )}
+                        {formData.staffSelections?.[disciplineIndex] && (
+                          <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400 border border-green-500/20 whitespace-nowrap">
+                            Staff:{' '}
+                            {(() => {
+                              const staff = showStaff.find((s, idx) => (s.id || `staff-${idx}`) === formData.staffSelections[disciplineIndex]);
+                              return staff ? `${staff.role} - ${staff.name || 'Unnamed'}` : formData.staffSelections[disciplineIndex];
+                            })()}
+                          </Badge>
+                        )}
+                        {formData.dueDateSelections?.[disciplineIndex] && (
+                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
+                            Due Date: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yy')}
+                          </Badge>
+                        )}
                       </div>
+                    </div>
 
-                      {/* Group Level Details */}
-                      <div className="space-y-3">
-...
-                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-2 space-y-4">
+                        {/* Group Level Details */}
+                        <div className="space-y-3">
+                          {groups.map((group, groupIndex) => (
+                            <div
+                              key={group.id}
+                              className="p-4 border rounded-lg bg-background/50 space-y-4"
+                            >
+                              <div>
+                                <Label className="font-semibold text-base">{group.name}</Label>
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {(group.divisions || []).map(div => (
+                                    <Badge
+                                      key={`${div.assocId}-${div.division}`}
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      {div.division}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Pattern Selection and Due Date - 50/50 split */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-sm text-muted-foreground mb-1 block">
+                                    Select Pattern
+                                  </Label>
+                                  <Select
+                                    value={
+                                      formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
+                                    }
+                                    onValueChange={value =>
+                                      handlePatternSelection(disciplineIndex, groupIndex, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-background">
+                                      <SelectValue placeholder="Select a pattern..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {samplePatterns.map(p => (
+                                        <SelectItem key={p.id} value={p.id}>
+                                          {p.name}{' '}
+                                          <Badge variant="outline" className="ml-2 text-[10px]">
+                                            {p.difficulty}
+                                          </Badge>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-sm text-muted-foreground mb-1 block">Due Date</Label>
+                                  <Popover key={`popover-${disciplineIndex}-${groupIndex}`}>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        className={cn(
+                                          'w-full justify-start text-left font-normal',
+                                          !formData.disciplineDueDates?.[disciplineIndex] && 'text-muted-foreground'
+                                        )}
+                                      >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {formData.disciplineDueDates?.[disciplineIndex] ? (
+                                          format(parseLocalDate(formData.disciplineDueDates[disciplineIndex]), 'PPP')
+                                        ) : (
+                                          <span>Pick a date</span>
+                                        )}
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        key={`calendar-${disciplineIndex}-${groupIndex}`}
+                                        mode="single"
+                                        selected={
+                                          formData.disciplineDueDates?.[disciplineIndex]
+                                            ? parseLocalDate(formData.disciplineDueDates[disciplineIndex])
+                                            : undefined
+                                        }
+                                        onSelect={(date) => {
+                                          if (date) {
+                                            const localDate = format(date, 'yyyy-MM-dd');
+                                            handleDisciplineDueDateChange(disciplineIndex, localDate);
+                                          }
+                                        }}
+                                        initialFocus
+                                        className={cn('p-3 pointer-events-auto')}
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              </div>
+
+                              {/* Judge / Staff selectors - swapped order */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Assign Judge
+                                  </Label>
+                                  <Select
+                                    value={
+                                      formData.groupJudges?.[disciplineIndex]?.[groupIndex] || ''
+                                    }
+                                    onValueChange={value =>
+                                      handleJudgeSelection(disciplineIndex, groupIndex, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-background mt-1">
+                                      <SelectValue placeholder="Select judge..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {disciplineJudges.length > 0 ? (
+                                        disciplineJudges.map((judge, idx) => (
+                                          <SelectItem
+                                            key={idx}
+                                            value={judge.id || `judge-${idx}`}
+                                          >
+                                            {judge.name || 'Unnamed Judge'}
+                                          </SelectItem>
+                                        ))
+                                      ) : (
+                                        <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Assign Staff
+                                  </Label>
+                                  <Select
+                                    value={
+                                      formData.groupStaff?.[disciplineIndex]?.[groupIndex] || ''
+                                    }
+                                    onValueChange={value =>
+                                      handleStaffSelection(disciplineIndex, groupIndex, value)
+                                    }
+                                  >
+                                    <SelectTrigger className="bg-background mt-1">
+                                      <SelectValue placeholder="Select staff..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {showStaff.map((staff, idx) => (
+                                        <SelectItem
+                                          key={idx}
+                                          value={staff.id || `staff-${idx}`}
+                                        >
+                                          {staff.role}: {staff.name || 'Unnamed'}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                             </div>
+                           ))}
+                         </div>
+                        </div>
+                    )}
+                  </div>
                 );
               })}
-            </Accordion>
+            </div>
           </section>
         )}
 
