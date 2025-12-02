@@ -19,8 +19,6 @@ import { useToast } from '@/components/ui/use-toast';
 const getPatternOptions = (disciplineName) => [
   { id: 'pat_101', name: `Pattern Set #101 - ${disciplineName}`, patternNumber: '101' },
   { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203' },
-  { id: 'pat_305', name: `Pattern Set #305 - ${disciplineName}`, patternNumber: '305' },
-  { id: 'pat_407', name: `Pattern Set #407 - ${disciplineName}`, patternNumber: '407' },
 ];
 
 // Difficulty levels for group dropdowns
@@ -37,7 +35,7 @@ const difficultyColors = {
 
 // Get group difficulty options based on selected main pattern and discipline name
 const getGroupDifficultyOptions = (patternId, disciplineName) => {
-  const patternMap = { 'pat_101': '101', 'pat_203': '203', 'pat_305': '305', 'pat_407': '407' };
+  const patternMap = { 'pat_101': '101', 'pat_203': '203' };
   const patternNumber = patternMap[patternId] || '101';
   return difficultyLevels.map((difficulty) => ({
     id: `${patternId}_${difficulty.toLowerCase().replace('-', '')}`,
