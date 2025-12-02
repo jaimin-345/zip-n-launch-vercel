@@ -22,8 +22,8 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const totalPages = groups.length;
 
   // Get association full name
-  const association = associationsData?.find(a => a.id === discipline.associationId);
-  const associationFullName = association?.name || discipline.associationId;
+  const association = associationsData?.find(a => a.id === discipline.association_id);
+  const associationFullName = association?.name || discipline.association_id;
 
   // Format discipline date
   const disciplineDate = discipline.date 
@@ -73,7 +73,7 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             <div className="mb-6 space-y-1">
               {currentGroup.divisions.map((div, idx) => (
                 <p key={idx} className="text-base text-gray-800 dark:text-gray-200">
-                  {div.classNumber} {div.divisionName} {div.divisionLevel}
+                  {div.division}
                 </p>
               ))}
             </div>
