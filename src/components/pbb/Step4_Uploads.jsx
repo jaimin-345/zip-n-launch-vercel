@@ -107,6 +107,10 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
             newFormData.lessonPlans[editingFileIndex] = updatedFileData;
         } else if (editingFileType === 'sponsor_logo') {
             newFormData.marketing.sponsorLogos[editingFileIndex] = updatedFileData;
+        } else if (editingFileType === 'show_schedule') {
+            newFormData.showSchedule = updatedFileData;
+        } else if (editingFileType === 'show_bill') {
+            newFormData.showBill = updatedFileData;
         }
         return newFormData;
     });
@@ -159,6 +163,10 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
                     newFormData.lessonPlans = [...(prev.lessonPlans || []), newFileObject];
                 } else if (type === 'sponsor_logo') {
                     newFormData.marketing = { ...prev.marketing, sponsorLogos: [...(prev.marketing?.sponsorLogos || []), newFileObject] };
+                } else if (type === 'show_schedule') {
+                    newFormData.showSchedule = newFileObject;
+                } else if (type === 'show_bill') {
+                    newFormData.showBill = newFileObject;
                 }
                 return newFormData;
             });
@@ -187,7 +195,7 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   }, [setFormData, toast, user, formData.id]);
 
   const removeFile = async (index, type) => {
-    const fileToRemove = formData[type]?.[index] || formData.marketing?.sponsorLogos?.[index];
+    const fileToRemove = formData[type]?.[index] || formData.marketing?.sponsorLogos?.[index] || (type === 'show_schedule' ? formData.showSchedule : null) || (type === 'show_bill' ? formData.showBill : null);
     if (fileToRemove?.filePath) {
         await supabase.storage.from('project_files').remove([fileToRemove.filePath]);
     }
@@ -197,6 +205,10 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
       setFormData(prev => ({ ...prev, lessonPlans: (prev.lessonPlans || []).filter((_, i) => i !== index) }));
     } else if (type === 'sponsor_logo') {
       setFormData(prev => ({ ...prev, marketing: { ...prev.marketing, sponsorLogos: (prev.marketing.sponsorLogos || []).filter((_, i) => i !== index) } }));
+    } else if (type === 'show_schedule') {
+      setFormData(prev => ({ ...prev, showSchedule: null }));
+    } else if (type === 'show_bill') {
+      setFormData(prev => ({ ...prev, showBill: null }));
     }
   };
 
@@ -204,6 +216,8 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   const generalMarketingDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'general_marketing'), accept: { 'application/pdf': ['.pdf'], 'image/*': ['.jpeg', '.png', '.jpg'] }, disabled: isUploading });
   const lessonPlanDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'lesson_plan'), disabled: isUploading });
   const sponsorLogoDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'sponsor_logo'), accept: { 'application/pdf': ['.pdf'], 'image/*': ['.jpeg', '.png', '.jpg'] }, disabled: isUploading });
+  const showScheduleDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'show_schedule'), accept: { 'application/pdf': ['.pdf'], 'application/msword': ['.doc'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }, multiple: false, disabled: isUploading });
+  const showBillDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'show_bill'), accept: { 'application/pdf': ['.pdf'], 'application/msword': ['.doc'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }, multiple: false, disabled: isUploading });
 
   return (
     <>
@@ -241,6 +255,26 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
           onEdit={(file, index) => handleEditFile(file, index, 'sponsor_logo')}
           title="Sponsor Logos (Optional)"
           description="Upload JPEGs or PDFs for sponsor logos to be included in the document."
+          isUploading={isUploading}
+        />
+
+        <FileUploadZone
+          dropzone={showScheduleDropzone}
+          files={formData.showSchedule ? [formData.showSchedule] : []}
+          onRemove={() => removeFile(0, 'show_schedule')}
+          onEdit={(file) => handleEditFile(file, 0, 'show_schedule')}
+          title="Show Schedule (Optional)"
+          description="Upload the show schedule document (PDF, DOC, or DOCX)."
+          isUploading={isUploading}
+        />
+
+        <FileUploadZone
+          dropzone={showBillDropzone}
+          files={formData.showBill ? [formData.showBill] : []}
+          onRemove={() => removeFile(0, 'show_bill')}
+          onEdit={(file) => handleEditFile(file, 0, 'show_bill')}
+          title="Show Bill (Optional)"
+          description="Upload the show bill document (PDF, DOC, or DOCX)."
           isUploading={isUploading}
         />
         
