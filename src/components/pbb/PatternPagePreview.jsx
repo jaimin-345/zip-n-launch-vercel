@@ -55,34 +55,29 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
         {/* Pattern Page */}
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700 p-8 rounded-lg shadow-lg">
           {/* Header - Association Name */}
-          <div className="border-b-2 border-gray-300 dark:border-gray-700 pb-4 mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <div className="border-b-4 border-red-500 pb-3 mb-6 text-center">
+            <h1 className="text-2xl font-bold text-red-600 dark:text-red-500">
               {associationFullName}
             </h1>
           </div>
 
           {/* Discipline Name */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
+          <div className="mb-4">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               {discipline.name.toUpperCase()}
             </h2>
-            
-            {/* Group Info */}
-            {currentGroup && (
-              <div className="mb-4">
-                <h3 className="text-xl font-medium text-gray-800 dark:text-gray-200 mb-3">
-                  Group {currentPage + 1}
-                </h3>
-                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-                  {currentGroup.divisions?.map((div, idx) => (
-                    <p key={idx}>
-                      {div.classNumber} {div.divisionName} {div.divisionLevel}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Group Data - Show actual divisions */}
+          {currentGroup && currentGroup.divisions && (
+            <div className="mb-6 space-y-1">
+              {currentGroup.divisions.map((div, idx) => (
+                <p key={idx} className="text-base text-gray-800 dark:text-gray-200">
+                  {div.classNumber} {div.divisionName} {div.divisionLevel}
+                </p>
+              ))}
+            </div>
+          )}
 
           {/* Pattern Diagram Placeholder */}
           <div className="my-8 flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg p-12 border-2 border-dashed border-gray-300 dark:border-gray-600">
@@ -95,29 +90,6 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
                 Pattern visualization will appear here
               </p>
             </div>
-          </div>
-
-          {/* Pattern Steps Placeholder */}
-          <div className="border-t-2 border-gray-300 dark:border-gray-700 pt-6">
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
-              <div>
-                <p className="mb-1">1. First maneuver description</p>
-                <p className="mb-1">2. Second maneuver description</p>
-                <p className="mb-1">3. Third maneuver description</p>
-                <p className="mb-1">4. Fourth maneuver description</p>
-                <p className="mb-1">5. Fifth maneuver description</p>
-                <p className="mb-1">6. Sixth maneuver description</p>
-              </div>
-              <div>
-                <p className="mb-1">7. Seventh maneuver description</p>
-                <p className="mb-1">8. Eighth maneuver description</p>
-                <p className="mb-1">9. Ninth maneuver description</p>
-                <p className="mb-1">10. Tenth maneuver description</p>
-                <p className="mb-1">11. Eleventh maneuver description</p>
-                <p className="mb-1">12. Twelfth maneuver description</p>
-              </div>
-            </div>
-            <p className="font-bold mt-4 text-gray-900 dark:text-gray-100">Pattern Complete</p>
           </div>
 
           {/* Footer */}
