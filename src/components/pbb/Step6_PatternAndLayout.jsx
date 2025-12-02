@@ -15,11 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 
-const samplePatterns = [
-  { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
-  { id: 'pat_2', name: 'Advanced Trail Challenge #203', difficulty: 'Advanced' },
-  { id: 'pat_3', name: 'Beginner Reining Loop', difficulty: 'Beginner' },
-  { id: 'pat_4', name: 'Smooth Equitation Flow', difficulty: 'Intermediate' },
+// Generate dynamic pattern options based on discipline name
+const getPatternOptions = (disciplineName) => [
+  { id: 'pat_101', name: `Pattern Set #101 - ${disciplineName}` },
+  { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}` },
+  { id: 'pat_305', name: `Pattern Set #305 - ${disciplineName}` },
+  { id: 'pat_407', name: `Pattern Set #407 - ${disciplineName}` },
 ];
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
@@ -479,12 +480,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             <SelectValue placeholder="Select Pattern..." />
                           </SelectTrigger>
                           <SelectContent className="bg-background z-50">
-                            {samplePatterns.map(p => (
+                            {getPatternOptions(discipline.name).map(p => (
                               <SelectItem key={p.id} value={p.id}>
-                                {p.name}{' '}
-                                <Badge variant="outline" className="ml-2 text-[10px]">
-                                  {p.difficulty}
-                                </Badge>
+                                {p.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -556,12 +554,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     <SelectValue placeholder="Select a pattern..." />
                                   </SelectTrigger>
                                   <SelectContent className="bg-background z-50">
-                                    {samplePatterns.map(p => (
+                                    {getPatternOptions(discipline.name).map(p => (
                                       <SelectItem key={p.id} value={p.id}>
-                                        {p.name}{' '}
-                                        <Badge variant="outline" className="ml-2 text-[10px]">
-                                          {p.difficulty}
-                                        </Badge>
+                                        {p.name}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
