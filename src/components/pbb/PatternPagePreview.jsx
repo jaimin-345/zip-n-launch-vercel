@@ -54,35 +54,31 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
 
         {/* Pattern Page */}
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700 p-8 rounded-lg shadow-lg">
-          {/* Header */}
+          {/* Header - Association Name */}
           <div className="border-b-2 border-gray-300 dark:border-gray-700 pb-4 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               {associationFullName}
-            </h2>
+            </h1>
           </div>
 
-          {/* Discipline Info */}
+          {/* Discipline Name */}
           <div className="mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-4">
               {discipline.name.toUpperCase()}
-            </h3>
+            </h2>
             
+            {/* Group Info */}
             {currentGroup && (
               <div className="mb-4">
-                <h4 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-3">
+                <h3 className="text-xl font-medium text-gray-800 dark:text-gray-200 mb-3">
                   Group {currentPage + 1}
-                </h4>
+                </h3>
                 <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
                   {currentGroup.divisions?.map((div, idx) => (
                     <p key={idx}>
                       {div.classNumber} {div.divisionName} {div.divisionLevel}
                     </p>
                   ))}
-                  {currentGroup.divisions && currentGroup.divisions.length > 1 && (
-                    <p className="text-xs italic mt-2 text-gray-600 dark:text-gray-400">
-                      Classes {currentGroup.divisions.map(d => d.classNumber).join(', ')} will run concurrently
-                    </p>
-                  )}
                 </div>
               </div>
             )}
