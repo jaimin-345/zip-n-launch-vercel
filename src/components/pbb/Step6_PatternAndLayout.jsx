@@ -57,7 +57,29 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+  // Get disciplines with patterns and merge duplicates by name
+  const rawPatternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+  
+  // Merge disciplines with the same name
+  const patternDisciplines = rawPatternDisciplines.reduce((acc, discipline) => {
+    const existingIndex = acc.findIndex(d => d.name === discipline.name);
+    if (existingIndex === -1) {
+      // First occurrence - add to array
+      acc.push({ ...discipline });
+    } else {
+      // Merge patternGroups from duplicate into existing
+      const existing = acc[existingIndex];
+      const existingGroups = existing.patternGroups || [];
+      const newGroups = discipline.patternGroups || [];
+      existing.patternGroups = [...existingGroups, ...newGroups];
+      // Also merge association IDs if needed
+      if (!existing.mergedAssociations) {
+        existing.mergedAssociations = [existing.association_id];
+      }
+      existing.mergedAssociations.push(discipline.association_id);
+    }
+    return acc;
+  }, []);
   
   // Get selected associations from formData
   const selectedAssociations = associationsData.filter(
