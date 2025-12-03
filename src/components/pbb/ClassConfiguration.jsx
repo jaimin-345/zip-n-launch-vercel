@@ -129,45 +129,15 @@ const MergedDisciplineItem = ({ disciplineName, disciplineGroup, children, isOpe
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-3 border-t">
-                    {disciplineGroup.length === 1 ? (
-                        <ClassTabs
-                            pbbDiscipline={disciplineGroup[0]}
-                            setFormData={setFormData}
-                            isOpenShowMode={isOpenShowMode}
-                            formData={formData}
-                            associationsData={associationsData}
-                            divisionsData={divisionsData}
-                        />
-                    ) : (
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="w-full justify-start mb-3 bg-muted/50">
-                                {disciplineGroup.map(d => {
-                                    const assoc = associationsData.find(a => a.id === d.association_id);
-                                    const isComplete = isDisciplineComplete(d, isOpenShowMode);
-                                    return (
-                                        <TabsTrigger key={d.id} value={d.id} className="flex items-center gap-2">
-                                            <span>{assoc?.abbreviation || d.association_id}</span>
-                                            <span className={`text-[10px] ${isComplete ? 'text-green-600' : 'text-red-500'}`}>
-                                                ({isComplete ? '✓' : '○'})
-                                            </span>
-                                        </TabsTrigger>
-                                    );
-                                })}
-                            </TabsList>
-                            {disciplineGroup.map(d => (
-                                <TabsContent key={d.id} value={d.id} className="mt-0">
-                                    <ClassTabs
-                                        pbbDiscipline={d}
-                                        setFormData={setFormData}
-                                        isOpenShowMode={isOpenShowMode}
-                                        formData={formData}
-                                        associationsData={associationsData}
-                                        divisionsData={divisionsData}
-                                    />
-                                </TabsContent>
-                            ))}
-                        </Tabs>
-                    )}
+                    <ClassTabs
+                        pbbDiscipline={disciplineGroup[0]}
+                        disciplineGroup={disciplineGroup}
+                        setFormData={setFormData}
+                        isOpenShowMode={isOpenShowMode}
+                        formData={formData}
+                        associationsData={associationsData}
+                        divisionsData={divisionsData}
+                    />
                 </AccordionContent>
             </AccordionItem>
         </div>
