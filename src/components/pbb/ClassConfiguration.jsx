@@ -103,15 +103,19 @@ const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formD
                         <span className={`text-xs font-semibold ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
                             - {isComplete ? 'complete' : 'incomplete'}
                         </span>
-                        <div className="flex items-center gap-1 mr-2">
+                        <div className="flex items-center gap-1.5 mr-2">
                             {divisionCounts.length > 0 ? (
                                 divisionCounts.map(item => (
-                                    <Badge key={item.id} variant={item.color || "default"} className="whitespace-nowrap text-xs px-2 py-0">
+                                    <Badge 
+                                        key={item.id} 
+                                        variant="secondary" 
+                                        className="whitespace-nowrap text-xs px-2 py-0.5 bg-sky-100 text-sky-700 border border-sky-200"
+                                    >
                                         {item.abbreviation}: {item.count}
                                     </Badge>
                                 ))
                             ) : (
-                                <Badge variant="outline" className="whitespace-nowrap text-xs px-2 py-0">0 Divisions</Badge>
+                                <Badge variant="outline" className="whitespace-nowrap text-xs px-2 py-0.5">0 Divisions</Badge>
                             )}
                         </div>
                     </div>
