@@ -126,30 +126,19 @@ import React, { useState, useMemo } from 'react';
         );
     };
 
-    export const ScheduleOrganizer = ({ pbbDiscipline, allDisciplines = [], setFormData, formData, associationsData }) => {
+    export const ScheduleOrganizer = ({ pbbDiscipline, setFormData, formData, associationsData }) => {
         const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
         const [selectedDivisions, setSelectedDivisions] = useState([]);
         const [dateForPopover, setDateForPopover] = useState(null);
 
-        // Use allDisciplines if provided, otherwise use single discipline
-        const disciplinesToUse = allDisciplines.length > 0 ? allDisciplines : [pbbDiscipline];
-
         const divisionsWithData = useMemo(() => {
-            const allDivisions = [];
-            disciplinesToUse.forEach(disc => {
-                if (!disc) return;
-                (disc.divisionOrder || []).forEach(divId => {
-                    allDivisions.push({
-                        id: divId,
-                        date: (disc.divisionDates && disc.divisionDates[divId]) || null,
-                        customTitle: (disc.divisionPrintTitles && disc.divisionPrintTitles[divId]) || '',
-                        disciplineId: disc.id,
-                        discipline: disc
-                    });
-                });
-            });
-            return allDivisions;
-        }, [disciplinesToUse]);
+            if (!pbbDiscipline) return [];
+            return (pbbDiscipline.divisionOrder || []).map(divId => ({
+                id: divId,
+                date: (pbbDiscipline.divisionDates && pbbDiscipline.divisionDates[divId]) || null,
+                customTitle: (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || ''
+            }));
+        }, [pbbDiscipline]);
 
         const groupedDivisions = useMemo(() => {
             const groups = divisionsWithData.reduce((acc, division) => {
@@ -174,43 +163,26 @@ import React, { useState, useMemo } from 'react';
             return finalGroups;
         }, [divisionsWithData]);
 
-        if (disciplinesToUse.length === 0 || !disciplinesToUse[0]) {
+        if (!pbbDiscipline) {
             return <div className="text-center p-4">Loading discipline data...</div>;
         }
 
-        // Build a map of division ID to discipline ID for quick lookups
-        const divisionToDisciplineMap = useMemo(() => {
-            const map = {};
-            divisionsWithData.forEach(div => {
-                map[div.id] = div.disciplineId;
-            });
-            return map;
-        }, [divisionsWithData]);
-
         const handleDragEnd = (event) => {
             const { active, over } = event;
-            if (!over || active.id === over.id) return;
-            
-            // Find which discipline each division belongs to
-            const activeDisciplineId = divisionToDisciplineMap[active.id];
-            const overDisciplineId = divisionToDisciplineMap[over.id];
-            
-            // Only allow reordering within the same discipline
-            if (activeDisciplineId !== overDisciplineId) return;
-            
-            setFormData(prev => {
-                const newDisciplines = prev.disciplines.map(disc => {
-                    if (disc.id === activeDisciplineId) {
-                        const oldIndex = disc.divisionOrder.findIndex(id => id === active.id);
-                        const newIndex = disc.divisionOrder.findIndex(id => id === over.id);
-                        if (oldIndex === -1 || newIndex === -1) return disc;
-                        const newDivisionOrder = arrayMove(disc.divisionOrder, oldIndex, newIndex);
-                        return { ...disc, divisionOrder: newDivisionOrder };
-                    }
-                    return disc;
+            if (active.id !== over.id) {
+                setFormData(prev => {
+                    const newDisciplines = prev.disciplines.map(disc => {
+                        if (disc.id === pbbDiscipline.id) {
+                            const oldIndex = disc.divisionOrder.findIndex(id => id === active.id);
+                            const newIndex = disc.divisionOrder.findIndex(id => id === over.id);
+                            const newDivisionOrder = arrayMove(disc.divisionOrder, oldIndex, newIndex);
+                            return { ...disc, divisionOrder: newDivisionOrder };
+                        }
+                        return disc;
+                    });
+                    return { ...prev, disciplines: newDisciplines };
                 });
-                return { ...prev, disciplines: newDisciplines };
-            });
+            }
         };
 
         const handleSelectionChange = (divisionId, isChecked) => {
@@ -219,19 +191,18 @@ import React, { useState, useMemo } from 'react';
         
         const handleApplyDateToSelected = (date) => {
             if (!date || selectedDivisions.length === 0) return;
-            const dateString = format(date, 'yyyy-MM-dd');
+            const dateString = format(date, 'yyyy-MM-dd'); // Ensure consistent date format
 
             setFormData(prev => {
                 const newDisciplines = prev.disciplines.map(disc => {
-                    // Check if any selected divisions belong to this discipline
-                    const divisionsForThisDisc = selectedDivisions.filter(divId => divisionToDisciplineMap[divId] === disc.id);
-                    if (divisionsForThisDisc.length === 0) return disc;
-                    
-                    const newDivisionDates = { ...(disc.divisionDates || {}) };
-                    divisionsForThisDisc.forEach(divId => {
-                        newDivisionDates[divId] = dateString;
-                    });
-                    return { ...disc, divisionDates: newDivisionDates };
+                    if (disc.id === pbbDiscipline.id) {
+                        const newDivisionDates = { ...(disc.divisionDates || {}) };
+                        selectedDivisions.forEach(divId => {
+                            newDivisionDates[divId] = dateString;
+                        });
+                        return { ...disc, divisionDates: newDivisionDates };
+                    }
+                    return disc;
                 });
                 return { ...prev, disciplines: newDisciplines };
             });
@@ -239,11 +210,10 @@ import React, { useState, useMemo } from 'react';
         };
         
         const handleDateClear = (divisionId) => {
-            const disciplineId = divisionToDisciplineMap[divisionId];
             setFormData(prev => ({
                 ...prev,
                 disciplines: prev.disciplines.map(disc => {
-                    if (disc.id === disciplineId) {
+                    if (disc.id === pbbDiscipline.id) {
                         const newDivisionDates = { ...(disc.divisionDates || {}) };
                         delete newDivisionDates[divisionId];
                         return { ...disc, divisionDates: newDivisionDates };
@@ -254,11 +224,10 @@ import React, { useState, useMemo } from 'react';
         };
 
         const handlePrintTitleChange = (divisionId, newTitle) => {
-            const disciplineId = divisionToDisciplineMap[divisionId];
             setFormData(prev => ({
                 ...prev,
                 disciplines: prev.disciplines.map(disc => {
-                    if (disc.id === disciplineId) {
+                    if (disc.id === pbbDiscipline.id) {
                         const newDivisionPrintTitles = { ...(disc.divisionPrintTitles || {}) };
                         if (newTitle) {
                             newDivisionPrintTitles[divisionId] = newTitle;
@@ -274,15 +243,11 @@ import React, { useState, useMemo } from 'react';
         
         const handleOverallPrintTitleChange = (e) => {
             const newTitle = e.target.value;
-            // Apply to all disciplines in the group
             setFormData(prev => ({
                 ...prev,
-                disciplines: prev.disciplines.map(disc => {
-                    if (disciplinesToUse.some(d => d.id === disc.id)) {
-                        return { ...disc, printTitle: newTitle };
-                    }
-                    return disc;
-                })
+                disciplines: prev.disciplines.map(disc => 
+                    disc.id === pbbDiscipline.id ? { ...disc, printTitle: newTitle } : disc
+                )
             }));
         };
 
@@ -306,8 +271,8 @@ import React, { useState, useMemo } from 'react';
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="flex items-center space-x-2">
-                                <Checkbox id={`select-all-merged`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
-                                <Label htmlFor={`select-all-merged`} className="text-sm font-medium">Select All</Label>
+                                <Checkbox id={`select-all-${pbbDiscipline.id}`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
+                                <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">

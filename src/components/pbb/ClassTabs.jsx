@@ -101,15 +101,10 @@ import React, { useMemo } from 'react';
         );
     };
     
-    export const ClassTabs = ({ pbbDiscipline, disciplineGroup = [], setFormData, isOpenShowMode, formData, associationsData, divisionsData }) => {
+    export const ClassTabs = ({ pbbDiscipline, setFormData, isOpenShowMode, formData, associationsData, divisionsData }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
         const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = React.useState(false);
         const [customDivisionAssocId, setCustomDivisionAssocId] = React.useState(null);
-        const [activeAssocTab, setActiveAssocTab] = React.useState(pbbDiscipline?.id);
-    
-        // Use disciplineGroup if provided, otherwise use single discipline
-        const allDisciplines = disciplineGroup.length > 0 ? disciplineGroup : [pbbDiscipline];
-        const hasMultipleAssociations = allDisciplines.length > 1;
     
         const handleDisciplineConfigChange = (disciplineId, configKey, value) => {
             setFormData(prev => ({ ...prev, disciplines: prev.disciplines.map(c => c.id === disciplineId ? { ...c, [configKey]: value } : c) }));
@@ -260,58 +255,31 @@ import React, { useMemo } from 'react';
             return divisionMap;
         }, [pbbDiscipline, associationsData, divisionsData, formData.nsbaApprovalType, formData.subAssociationSelections]);
     
-        // Check if ANY discipline in the group has selected divisions
-        const hasSelectedDivisions = allDisciplines.some(disc => 
-            disc.divisions && Object.values(disc.divisions).some(divs => {
-                if (isOpenShowMode && disc.isCustom) {
-                    return Object.values(divs || {}).some(levels => Array.isArray(levels) && levels.length > 0);
-                }
-                return Object.keys(divs || {}).length > 0;
-            })
-        );
+        const hasSelectedDivisions = pbbDiscipline.divisions && Object.values(pbbDiscipline.divisions).some(divs => {
+            if (isOpenShowMode && pbbDiscipline.isCustom) {
+                return Object.values(divs || {}).some(levels => Array.isArray(levels) && levels.length > 0);
+            }
+            return Object.keys(divs || {}).length > 0;
+        });
     
         const isCustomOpenShowDiscipline = pbbDiscipline.isCustom && isOpenShowMode;
     
-        // Check if ANY discipline in the group has scheduled divisions
-        const hasScheduled = allDisciplines.some(disc => disc.divisionOrder && disc.divisionOrder.length > 0);
-        
-        // Check if ANY discipline has pattern enabled
-        const hasPatternEnabled = allDisciplines.some(disc => disc.pattern);
+        const hasScheduled = pbbDiscipline.divisionOrder && pbbDiscipline.divisionOrder.length > 0;
 
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
-        
-        // Get the current discipline for Tab 1 based on activeAssocTab
-        const currentDisciplineForDivisions = allDisciplines.find(d => d.id === activeAssocTab) || pbbDiscipline;
 
         return (
             <Tabs defaultValue="divisions">
-                {/* Pattern/Scoresheet checkboxes for each discipline in group */}
-                {!isCustomOpenShowDiscipline && allDisciplines.some(d => d.category?.startsWith('pattern')) && (
-                    <div className="flex flex-wrap gap-4 mb-2">
-                        {allDisciplines.map(disc => {
-                            const assoc = associationsData?.find(a => a.id === disc.association_id);
-                            return (
-                                <div key={disc.id} className="flex items-center gap-3 p-1.5 border rounded-md">
-                                    {hasMultipleAssociations && (
-                                        <Badge variant={assoc?.color || 'secondary'} className="text-xs">{assoc?.abbreviation || disc.association_id}</Badge>
-                                    )}
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id={`pat-${disc.id}`} checked={disc.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(disc.id, 'pattern', c)}/>
-                                        <Label htmlFor={`pat-${disc.id}`} className="font-normal text-xs">Pattern</Label>
-                                    </div>
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox id={`sco-${disc.id}`} checked={disc.scoresheet} onCheckedChange={(c) => handleDisciplineConfigChange(disc.id, 'scoresheet', c)}/>
-                                        <Label htmlFor={`sco-${disc.id}`} className="font-normal text-xs">Scoresheet</Label>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
+                    <div className="flex gap-4 mb-2">
+                        <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>
+                        <div className="flex items-center space-x-2"><Checkbox id={`sco-${pbbDiscipline.id}`} checked={pbbDiscipline.scoresheet} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'scoresheet', c)}/><Label htmlFor={`sco-${pbbDiscipline.id}`} className="font-normal">Scoresheet</Label></div>
                     </div>
                 )}
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="divisions">1. Select Divisions</TabsTrigger>
                     <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Add Dates &amp; Arrange Classes</TabsTrigger>
-                    <TabsTrigger value="grouping" disabled={!hasPatternEnabled || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
+                    <TabsTrigger value="grouping" disabled={!pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
                     {isCustomOpenShowDiscipline ? (
@@ -733,7 +701,6 @@ import React, { useMemo } from 'react';
                 <TabsContent value="schedule" className="mt-2">
                     <ScheduleOrganizer
                         pbbDiscipline={pbbDiscipline}
-                        allDisciplines={allDisciplines}
                         setFormData={setFormData}
                         formData={formData}
                         associationsData={associationsData}
@@ -742,7 +709,6 @@ import React, { useMemo } from 'react';
                 <TabsContent value="grouping" className="mt-2">
                     <PatternGrouping
                         pbbDiscipline={pbbDiscipline}
-                        allDisciplines={allDisciplines}
                         setFormData={setFormData}
                         isCustomOpenShow={isCustomOpenShowDiscipline}
                         formData={formData}
