@@ -116,7 +116,23 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     }, [allDisciplines, isOpenShowMode]);
 
     const getDivisionCounts = () => {
-        const counts = [];
+        // Initialize counts with all selected associations from formData (count 0 by default)
+        const selectedAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+        const countsMap = {};
+        
+        // Initialize all selected associations with 0 count
+        selectedAssocIds.forEach(assocId => {
+            const assoc = associationsData.find(a => a.id === assocId);
+            if (assoc) {
+                countsMap[assocId] = {
+                    id: assocId,
+                    name: assoc.name || assocId,
+                    abbreviation: assoc.abbreviation || assocId,
+                    count: 0,
+                    color: assoc.color || 'secondary'
+                };
+            }
+        });
         
         // Aggregate division counts from all merged disciplines
         allDisciplines.forEach(disc => {
@@ -126,11 +142,10 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                 const openShowDivs = disc.divisions['open-show'] || {};
                 const count = Object.values(openShowDivs).reduce((acc, levels) => acc + (Array.isArray(levels) ? levels.length : 0), 0);
                 if (count > 0) {
-                    const existing = counts.find(c => c.id === 'open-show');
-                    if (existing) {
-                        existing.count += count;
+                    if (countsMap['open-show']) {
+                        countsMap['open-show'].count += count;
                     } else {
-                        counts.push({ id: 'open-show', name: 'Open Show', abbreviation: 'Open', count });
+                        countsMap['open-show'] = { id: 'open-show', name: 'Open Show', abbreviation: 'Open', count };
                     }
                 }
             } else {
@@ -138,24 +153,23 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                     const count = Object.keys(assocDivs || {}).length;
                     if (count === 0) return;
         
-                    const existing = counts.find(c => c.id === assocId);
-                    if (existing) {
-                        existing.count += count;
+                    if (countsMap[assocId]) {
+                        countsMap[assocId].count += count;
                     } else {
                         const assoc = associationsData.find(a => a.id === assocId);
-                        counts.push({
+                        countsMap[assocId] = {
                             id: assocId,
                             name: assoc?.name || assocId,
                             abbreviation: assoc?.abbreviation || assocId,
                             count,
                             color: assoc?.color || 'secondary'
-                        });
+                        };
                     }
                 });
             }
         });
         
-        return counts.sort((a,b) => a.name.localeCompare(b.name));
+        return Object.values(countsMap).sort((a,b) => a.name.localeCompare(b.name));
     };
 
     const divisionCounts = getDivisionCounts();
@@ -185,7 +199,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                                     </Badge>
                                 ))
                             ) : (
-                                <Badge variant="outline" className="whitespace-nowrap text-xs px-2 py-0.5">0 Divisions</Badge>
+                                <Badge variant="secondary" className="whitespace-nowrap text-xs px-2 py-0.5 bg-sky-100 text-sky-700 border border-sky-200">0 Divisions</Badge>
                             )}
                         </div>
                     </div>
