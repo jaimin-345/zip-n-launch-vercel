@@ -116,12 +116,20 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     }, [allDisciplines, isOpenShowMode]);
 
     const getDivisionCounts = () => {
-        // Initialize counts with all selected associations from formData (count 0 by default)
-        const selectedAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
-        const countsMap = {};
+        // Get associations that this discipline belongs to (from merged disciplines)
+        const disciplineAssocIds = new Set();
+        allDisciplines.forEach(disc => {
+            if (disc.selectedAssociations) {
+                Object.keys(disc.selectedAssociations).filter(id => disc.selectedAssociations[id]).forEach(id => disciplineAssocIds.add(id));
+            }
+            if (disc.association_id) {
+                disciplineAssocIds.add(disc.association_id);
+            }
+        });
         
-        // Initialize all selected associations with 0 count
-        selectedAssocIds.forEach(assocId => {
+        // Initialize counts with only discipline's associations (count 0 by default)
+        const countsMap = {};
+        disciplineAssocIds.forEach(assocId => {
             const assoc = associationsData.find(a => a.id === assocId);
             if (assoc) {
                 countsMap[assocId] = {
@@ -155,15 +163,6 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
         
                     if (countsMap[assocId]) {
                         countsMap[assocId].count += count;
-                    } else {
-                        const assoc = associationsData.find(a => a.id === assocId);
-                        countsMap[assocId] = {
-                            id: assocId,
-                            name: assoc?.name || assocId,
-                            abbreviation: assoc?.abbreviation || assocId,
-                            count,
-                            color: assoc?.color || 'secondary'
-                        };
                     }
                 });
             }
