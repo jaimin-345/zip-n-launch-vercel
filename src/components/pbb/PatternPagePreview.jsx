@@ -22,23 +22,20 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const groups = discipline.patternGroups || [];
   const totalPages = groups.length;
 
-  // Get associations for current group based on divisions
+  // Get associations for current group based on divisions only
   const getGroupAssociations = (group) => {
     if (!group?.divisions?.length) return [];
     
-    // Extract unique association IDs from the group's divisions
+    // Extract unique association IDs from the group's divisions ONLY
     const groupAssociationIds = [...new Set(
       group.divisions
         .map(div => div.association_id)
         .filter(Boolean)
     )];
     
-    // If no association_id on divisions, fall back to discipline-level associations
-    const idsToUse = groupAssociationIds.length > 0 
-      ? groupAssociationIds 
-      : (discipline.mergedAssociations || [discipline.association_id]);
-    
-    return idsToUse
+    // Only return associations that are actually in this group's divisions
+    // Do NOT fall back to discipline-level associations
+    return groupAssociationIds
       .map(id => associationsData?.find(a => a.id === id)?.name || id)
       .filter(Boolean);
   };
