@@ -266,7 +266,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     >
       <CardHeader>
         <CardTitle>
-          Step 5: Select Patterns
+          Step 5: Pattern Selection
         </CardTitle>
         <CardDescription>
           Assign patterns to each group for your book.
