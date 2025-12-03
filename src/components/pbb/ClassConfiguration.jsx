@@ -59,9 +59,61 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
         transition,
     };
     
-    // Check completion for all merged disciplines
+    // Check completion for all merged disciplines - aggregate divisions and groups across all
     const allDisciplines = mergedDisciplines || [pbbDiscipline];
-    const isComplete = allDisciplines.every(disc => isDisciplineComplete(disc, isOpenShowMode));
+    
+    const isComplete = useMemo(() => {
+        // Collect ALL selected divisions across all merged disciplines
+        const allSelectedDivisions = new Set();
+        // Collect ALL grouped divisions across all merged disciplines
+        const allGroupedDivisions = new Set();
+        
+        allDisciplines.forEach(disc => {
+            if (!disc) return;
+            
+            // Get selected divisions for this discipline
+            if (disc.divisions) {
+                if (disc.isCustom && isOpenShowMode) {
+                    const openShowDivs = disc.divisions['open-show'] || {};
+                    Object.entries(openShowDivs).forEach(([group, levels]) => {
+                        if (Array.isArray(levels)) {
+                            levels.forEach(level => allSelectedDivisions.add(`open-show-${group} - ${level}`));
+                        }
+                    });
+                } else {
+                    Object.entries(disc.divisions).forEach(([assocId, divs]) => {
+                        Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
+                            const cleanDivisionName = divisionKey.startsWith('custom-') ? divisionKey.substring(7) : divisionKey;
+                            allSelectedDivisions.add(`${assocId}-${cleanDivisionName}`);
+                        });
+                    });
+                }
+            }
+            
+            // Get grouped divisions for this discipline
+            const groups = disc.patternGroups || [];
+            groups.forEach(g => {
+                (g.divisions || []).forEach(d => allGroupedDivisions.add(d.id));
+            });
+        });
+        
+        // Check if discipline requires patterns
+        const hasNoPattern = allDisciplines.some(disc => 
+            disc.pattern_type === 'none' || disc.pattern_type === 'scoresheet_only' || !disc.pattern
+        );
+        
+        if (hasNoPattern) {
+            return allSelectedDivisions.size > 0;
+        }
+        
+        if (allSelectedDivisions.size === 0) {
+            return false;
+        }
+        
+        // All selected divisions must be grouped
+        return allSelectedDivisions.size === allGroupedDivisions.size && 
+               [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
+    }, [allDisciplines, isOpenShowMode]);
 
     const getDivisionCounts = () => {
         const counts = [];
