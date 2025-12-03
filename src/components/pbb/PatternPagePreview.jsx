@@ -22,12 +22,26 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const groups = discipline.patternGroups || [];
   const totalPages = groups.length;
 
-  // Get all association full names (handle merged disciplines)
-  const associationIds = discipline.mergedAssociations || [discipline.association_id];
-  const associationNames = associationIds
-    .map(id => associationsData?.find(a => a.id === id)?.name || id)
-    .filter(Boolean);
-  const associationFullName = associationNames.join(' • ');
+  // Get associations for current group based on divisions
+  const getGroupAssociations = (group) => {
+    if (!group?.divisions?.length) return [];
+    
+    // Extract unique association IDs from the group's divisions
+    const groupAssociationIds = [...new Set(
+      group.divisions
+        .map(div => div.association_id)
+        .filter(Boolean)
+    )];
+    
+    // If no association_id on divisions, fall back to discipline-level associations
+    const idsToUse = groupAssociationIds.length > 0 
+      ? groupAssociationIds 
+      : (discipline.mergedAssociations || [discipline.association_id]);
+    
+    return idsToUse
+      .map(id => associationsData?.find(a => a.id === id)?.name || id)
+      .filter(Boolean);
+  };
 
   // Format discipline date
   const disciplineDate = discipline.date 
@@ -58,11 +72,13 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
 
         {/* Pattern Page */}
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700 p-8 rounded-lg shadow-lg">
-          {/* Header - Association Name */}
+          {/* Header - Association Name(s) for this group */}
           <div className="border-b-4 border-red-500 pb-3 mb-6 text-center">
-            <h1 className="text-2xl font-bold text-red-600 dark:text-red-500">
-              {associationFullName}
-            </h1>
+            {getGroupAssociations(currentGroup).map((assocName, idx) => (
+              <h1 key={idx} className="text-2xl font-bold text-red-600 dark:text-red-500">
+                {assocName}
+              </h1>
+            ))}
           </div>
 
           {/* Discipline Name */}
