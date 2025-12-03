@@ -22,9 +22,12 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const groups = discipline.patternGroups || [];
   const totalPages = groups.length;
 
-  // Get association full name
-  const association = associationsData?.find(a => a.id === discipline.association_id);
-  const associationFullName = association?.name || discipline.association_id;
+  // Get all association full names (handle merged disciplines)
+  const associationIds = discipline.mergedAssociations || [discipline.association_id];
+  const associationNames = associationIds
+    .map(id => associationsData?.find(a => a.id === id)?.name || id)
+    .filter(Boolean);
+  const associationFullName = associationNames.join(' • ');
 
   // Format discipline date
   const disciplineDate = discipline.date 
