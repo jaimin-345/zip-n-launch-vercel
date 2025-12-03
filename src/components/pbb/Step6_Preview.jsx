@@ -117,7 +117,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode }) => {
   return (
     <motion.div key="step6-preview" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>Step 7: Preview & Select Patterns</CardTitle>
+        <CardTitle>Step 7: Preview</CardTitle>
         <CardDescription>Review your selected patterns and scoresheets. Use the carousel to see alternatives for each group.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
