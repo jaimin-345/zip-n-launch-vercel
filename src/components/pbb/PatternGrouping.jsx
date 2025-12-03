@@ -14,9 +14,12 @@ import DropZoneGroup from './DropZoneGroup';
 
 const UNGROUPED_ID = 'ungrouped-list';
 
-export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData }) => {
+export const PatternGrouping = ({ pbbDiscipline, allDisciplines = [], setFormData, isCustomOpenShow, formData, associationsData }) => {
     const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
     const { toast } = useToast();
+
+    // Use allDisciplines if provided, otherwise use single discipline
+    const disciplinesToUse = allDisciplines.length > 0 ? allDisciplines : [pbbDiscipline];
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
