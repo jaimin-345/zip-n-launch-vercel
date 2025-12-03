@@ -60,9 +60,11 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-300 dark:border-gray-700 p-8 rounded-lg shadow-lg">
           {/* Header - Association Name */}
           <div className="border-b-4 border-red-500 pb-3 mb-6 text-center">
-            <h1 className="text-2xl font-bold text-red-600 dark:text-red-500">
-              {associationFullName}
-            </h1>
+            {associationNames.map((name, idx) => (
+              <h1 key={idx} className="text-2xl font-bold text-red-600 dark:text-red-500">
+                {name}
+              </h1>
+            ))}
           </div>
 
           {/* Discipline Name */}
