@@ -101,10 +101,47 @@ import React, { useMemo } from 'react';
         );
     };
     
-    export const ClassTabs = ({ pbbDiscipline, setFormData, isOpenShowMode, formData, associationsData, divisionsData }) => {
+    export const ClassTabs = ({ pbbDiscipline, mergedDisciplines, setFormData, isOpenShowMode, formData, associationsData, divisionsData }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
         const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = React.useState(false);
         const [customDivisionAssocId, setCustomDivisionAssocId] = React.useState(null);
+        const [activeAssocTab, setActiveAssocTab] = React.useState(null);
+
+        // Use mergedDisciplines if provided, otherwise just the single discipline
+        const allDisciplines = mergedDisciplines && mergedDisciplines.length > 0 ? mergedDisciplines : [pbbDiscipline];
+        
+        // Get unique association IDs from all merged disciplines
+        const associationTabsData = useMemo(() => {
+            const assocMap = {};
+            allDisciplines.forEach(disc => {
+                const selectedAssocs = Object.keys(disc.selectedAssociations || {});
+                selectedAssocs.forEach(assocId => {
+                    if (!assocMap[assocId]) {
+                        const assoc = associationsData?.find(a => a.id === assocId);
+                        assocMap[assocId] = {
+                            id: assocId,
+                            name: assoc?.name || assocId,
+                            abbreviation: assoc?.abbreviation || assocId,
+                            discipline: disc
+                        };
+                    }
+                });
+            });
+            return Object.values(assocMap);
+        }, [allDisciplines, associationsData]);
+
+        // Set default active tab if not set
+        React.useEffect(() => {
+            if (!activeAssocTab && associationTabsData.length > 0) {
+                setActiveAssocTab(associationTabsData[0].id);
+            }
+        }, [activeAssocTab, associationTabsData]);
+
+        // Get the currently active discipline based on selected tab
+        const activeDiscipline = useMemo(() => {
+            const activeAssocData = associationTabsData.find(a => a.id === activeAssocTab);
+            return activeAssocData?.discipline || pbbDiscipline;
+        }, [activeAssocTab, associationTabsData, pbbDiscipline]);
     
         const handleDisciplineConfigChange = (disciplineId, configKey, value) => {
             setFormData(prev => ({ ...prev, disciplines: prev.disciplines.map(c => c.id === disciplineId ? { ...c, [configKey]: value } : c) }));
@@ -183,14 +220,25 @@ import React, { useMemo } from 'react';
         };
     
         const getDivisionsForDiscipline = useMemo(() => {
-            if (!pbbDiscipline || !associationsData || !divisionsData) return {};
+            if (!associationsData || !divisionsData) return {};
         
-            let relevantAssocIds = Object.keys(pbbDiscipline.selectedAssociations || {});
+            // Collect all relevant association IDs from all merged disciplines
+            let relevantAssocIds = [];
+            allDisciplines.forEach(disc => {
+                const assocIds = Object.keys(disc.selectedAssociations || {});
+                assocIds.forEach(id => {
+                    if (!relevantAssocIds.includes(id)) {
+                        relevantAssocIds.push(id);
+                    }
+                });
+            });
         
             const isStandaloneMode = formData.nsbaApprovalType === 'standalone' || formData.nsbaApprovalType === 'both';
-            if (isStandaloneMode && pbbDiscipline.selectedAssociations['NSBA'] && !relevantAssocIds.includes('NSBA')) {
-                relevantAssocIds.push('NSBA');
-            }
+            allDisciplines.forEach(disc => {
+                if (isStandaloneMode && disc.selectedAssociations?.['NSBA'] && !relevantAssocIds.includes('NSBA')) {
+                    relevantAssocIds.push('NSBA');
+                }
+            });
         
             const divisionMap = {};
             const noOpenDisciplines = ['Showmanship at Halter', 'Hunt Seat Equitation', 'Western Horsemanship'];
@@ -199,6 +247,8 @@ import React, { useMemo } from 'react';
                                             (pbbDiscipline.name && pbbDiscipline.name.toLowerCase().includes('amateur'));
         
             relevantAssocIds.forEach(assocId => {
+                // Find the discipline that has this association
+                const discForAssoc = allDisciplines.find(d => d.selectedAssociations?.[assocId]);
                 const assocData = associationsData.find(a => a.id === assocId);
                 if (assocData && divisionsData[assocId]) {
                     let divisions = divisionsData[assocId];
@@ -208,9 +258,9 @@ import React, { useMemo } from 'react';
                     
                     // Filter divisions based on the discipline's sub_association_type
                     // If the discipline has a sub_association_type, only show divisions for that type
-                    if (pbbDiscipline.sub_association_type) {
+                    if (discForAssoc?.sub_association_type) {
                         divisions = divisions.filter(d => 
-                            d.sub_association_type === pbbDiscipline.sub_association_type || 
+                            d.sub_association_type === discForAssoc.sub_association_type || 
                             !d.sub_association_type
                         );
                     } else if (selectedSubTypes.length > 0) {
@@ -253,20 +303,29 @@ import React, { useMemo } from 'react';
                 }
             });
             return divisionMap;
-        }, [pbbDiscipline, associationsData, divisionsData, formData.nsbaApprovalType, formData.subAssociationSelections]);
+        }, [allDisciplines, pbbDiscipline, associationsData, divisionsData, formData.nsbaApprovalType, formData.subAssociationSelections]);
     
-        const hasSelectedDivisions = pbbDiscipline.divisions && Object.values(pbbDiscipline.divisions).some(divs => {
-            if (isOpenShowMode && pbbDiscipline.isCustom) {
-                return Object.values(divs || {}).some(levels => Array.isArray(levels) && levels.length > 0);
-            }
-            return Object.keys(divs || {}).length > 0;
-        });
+        // Check hasSelectedDivisions across all merged disciplines
+        const hasSelectedDivisions = allDisciplines.some(disc => 
+            disc.divisions && Object.values(disc.divisions).some(divs => {
+                if (isOpenShowMode && disc.isCustom) {
+                    return Object.values(divs || {}).some(levels => Array.isArray(levels) && levels.length > 0);
+                }
+                return Object.keys(divs || {}).length > 0;
+            })
+        );
     
         const isCustomOpenShowDiscipline = pbbDiscipline.isCustom && isOpenShowMode;
     
-        const hasScheduled = pbbDiscipline.divisionOrder && pbbDiscipline.divisionOrder.length > 0;
+        // Check hasScheduled across all merged disciplines
+        const hasScheduled = allDisciplines.some(disc => disc.divisionOrder && disc.divisionOrder.length > 0);
 
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
+
+        // Helper to find the correct discipline for a given association ID
+        const getDisciplineForAssoc = (assocId) => {
+            return allDisciplines.find(d => d.selectedAssociations?.[assocId]) || pbbDiscipline;
+        };
 
         return (
             <Tabs defaultValue="divisions">
@@ -288,7 +347,8 @@ import React, { useMemo } from 'react';
                         <div className="space-y-3">
                             {Object.entries(getDivisionsForDiscipline).map(([assocId, divisionGroups]) => {
                                 const assoc = associationsData.find(a => a.id === assocId);
-                                const subTypeId = pbbDiscipline.sub_association_type;
+                                const discForAssoc = getDisciplineForAssoc(assocId);
+                                const subTypeId = discForAssoc.sub_association_type;
                                 const subTypeName = subTypeId && assoc?.sub_association_info?.types.find(t => t.id === subTypeId)?.name;
                                 
                                 return (
@@ -302,8 +362,8 @@ import React, { useMemo } from 'react';
                                                     {subTypeName}
                                                 </Badge>
                                             )}
-                                            {pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
-                                            {pbbDiscipline.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
+                                            {discForAssoc.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
+                                            {discForAssoc.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
                                         {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => {
                                             // Custom 4-column layout for AQHA Amateur divisions
@@ -331,8 +391,8 @@ import React, { useMemo } from 'react';
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
                                                                         <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                            <Checkbox id={`div-${discForAssoc.id}-${assocId}-${key}`} checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -343,8 +403,8 @@ import React, { useMemo } from 'react';
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
                                                                         <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                            <Checkbox id={`div-${discForAssoc.id}-${assocId}-${key}`} checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -355,8 +415,8 @@ import React, { useMemo } from 'react';
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
                                                                         <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                            <Checkbox id={`div-${discForAssoc.id}-${assocId}-${key}`} checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -367,8 +427,8 @@ import React, { useMemo } from 'react';
                                                                     const key = `${group.group} - ${level}`;
                                                                     return (
                                                                         <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
-                                                                            <Checkbox id={`div-${pbbDiscipline.id}-${assocId}-${key}`} checked={!!(pbbDiscipline.divisions && pbbDiscipline.divisions[assocId] && pbbDiscipline.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(pbbDiscipline.id, assocId, group.group, level, c, false)} />
-                                                                            <Label htmlFor={`div-${pbbDiscipline.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                            <Checkbox id={`div-${discForAssoc.id}-${assocId}-${key}`} checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
                                                                         </div>
                                                                     );
                                                                 })}

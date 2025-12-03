@@ -52,40 +52,58 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
 };
 
 
-const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formData, associationsData, divisionsData, setFormData }) => {
+const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMode, formData, associationsData, divisionsData, setFormData }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: pbbDiscipline.id });
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
     };
-    const isComplete = isDisciplineComplete(pbbDiscipline, isOpenShowMode);
+    
+    // Check completion for all merged disciplines
+    const allDisciplines = mergedDisciplines || [pbbDiscipline];
+    const isComplete = allDisciplines.every(disc => isDisciplineComplete(disc, isOpenShowMode));
 
     const getDivisionCounts = () => {
-        if (!pbbDiscipline || !pbbDiscipline.divisions) return [];
-    
-        if (isOpenShowMode) {
-            const openShowDivs = pbbDiscipline.divisions['open-show'] || {};
-            const count = Object.values(openShowDivs).reduce((acc, levels) => acc + (Array.isArray(levels) ? levels.length : 0), 0);
-            if (count === 0) return [];
-            return [{ id: 'open-show', name: 'Open Show', abbreviation: 'Open', count }];
-        }
-    
-        return Object.entries(pbbDiscipline.divisions)
-            .map(([assocId, assocDivs]) => {
-                const count = Object.keys(assocDivs || {}).length;
-                if (count === 0) return null;
-    
-                const assoc = associationsData.find(a => a.id === assocId);
-                return {
-                    id: assocId,
-                    name: assoc?.name || assocId,
-                    abbreviation: assoc?.abbreviation || assocId,
-                    count,
-                    color: assoc?.color || 'secondary'
-                };
-            })
-            .filter(Boolean)
-            .sort((a,b) => a.name.localeCompare(b.name));
+        const counts = [];
+        
+        // Aggregate division counts from all merged disciplines
+        allDisciplines.forEach(disc => {
+            if (!disc || !disc.divisions) return;
+        
+            if (isOpenShowMode) {
+                const openShowDivs = disc.divisions['open-show'] || {};
+                const count = Object.values(openShowDivs).reduce((acc, levels) => acc + (Array.isArray(levels) ? levels.length : 0), 0);
+                if (count > 0) {
+                    const existing = counts.find(c => c.id === 'open-show');
+                    if (existing) {
+                        existing.count += count;
+                    } else {
+                        counts.push({ id: 'open-show', name: 'Open Show', abbreviation: 'Open', count });
+                    }
+                }
+            } else {
+                Object.entries(disc.divisions).forEach(([assocId, assocDivs]) => {
+                    const count = Object.keys(assocDivs || {}).length;
+                    if (count === 0) return;
+        
+                    const existing = counts.find(c => c.id === assocId);
+                    if (existing) {
+                        existing.count += count;
+                    } else {
+                        const assoc = associationsData.find(a => a.id === assocId);
+                        counts.push({
+                            id: assocId,
+                            name: assoc?.name || assocId,
+                            abbreviation: assoc?.abbreviation || assocId,
+                            count,
+                            color: assoc?.color || 'secondary'
+                        });
+                    }
+                });
+            }
+        });
+        
+        return counts.sort((a,b) => a.name.localeCompare(b.name));
     };
 
     const divisionCounts = getDivisionCounts();
@@ -123,6 +141,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, children, isOpenShowMode, formD
                 <AccordionContent className="p-3 border-t">
                     <ClassTabs
                         pbbDiscipline={pbbDiscipline}
+                        mergedDisciplines={allDisciplines}
                         setFormData={setFormData}
                         isOpenShowMode={isOpenShowMode}
                         formData={formData}
@@ -154,6 +173,29 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
 
     const disciplines = formData?.disciplines || [];
 
+    // Group disciplines by name for merging display
+    const groupedDisciplines = useMemo(() => {
+        const groups = {};
+        disciplines.forEach(disc => {
+            const name = disc.name;
+            if (!groups[name]) {
+                groups[name] = [];
+            }
+            groups[name].push(disc);
+        });
+        return groups;
+    }, [disciplines]);
+
+    // Get unique discipline names in order (preserving first occurrence order)
+    const uniqueNames = useMemo(() => {
+        const seen = new Set();
+        return disciplines.map(d => d.name).filter(name => {
+            if (seen.has(name)) return false;
+            seen.add(name);
+            return true;
+        });
+    }, [disciplines]);
+
     if (!associationsData || !divisionsData) {
         return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
@@ -171,17 +213,23 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={disciplines.map(c => c.id)} strategy={verticalListSortingStrategy}>
                 <Accordion type="single" collapsible className="w-full space-y-1.5" value={openAccordion} onValueChange={setOpenAccordion}>
-                    {disciplines.map(pbbDiscipline => (
-                        <SortableDisciplineItem 
-                            key={pbbDiscipline.id} 
-                            pbbDiscipline={pbbDiscipline} 
-                            isOpenShowMode={isOpenShowMode}
-                            formData={formData}
-                            associationsData={associationsData}
-                            divisionsData={divisionsData}
-                            setFormData={setFormData}
-                        />
-                    ))}
+                    {uniqueNames.map(name => {
+                        const mergedDisciplines = groupedDisciplines[name];
+                        const primaryDiscipline = mergedDisciplines[0];
+                        
+                        return (
+                            <SortableDisciplineItem 
+                                key={primaryDiscipline.id} 
+                                pbbDiscipline={primaryDiscipline}
+                                mergedDisciplines={mergedDisciplines}
+                                isOpenShowMode={isOpenShowMode}
+                                formData={formData}
+                                associationsData={associationsData}
+                                divisionsData={divisionsData}
+                                setFormData={setFormData}
+                            />
+                        );
+                    })}
                 </Accordion>
             </SortableContext>
         </DndContext>
