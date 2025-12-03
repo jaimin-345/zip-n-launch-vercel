@@ -275,12 +275,25 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
             newPrimaryAffiliates = newPrimaryAffiliates.filter(id => id !== assocId);
         }
         
+        // Only reset disciplines if REMOVING an association (to clean up related data)
+        // When ADDING a new association, preserve existing disciplines
         let newFormData = {
             ...prev,
             associations: newAssociations,
             primaryAffiliates: newPrimaryAffiliates,
-            disciplines: [],
         };
+        
+        // If unchecking an association, filter out disciplines that were ONLY for that association
+        if (!isChecked) {
+            const remainingAssocIds = Object.keys(newAssociations);
+            newFormData.disciplines = (prev.disciplines || []).filter(disc => {
+                // Keep disciplines that have at least one remaining association selected
+                const discAssocIds = Object.keys(disc.selectedAssociations || {}).filter(
+                    id => disc.selectedAssociations[id]
+                );
+                return discAssocIds.some(id => remainingAssocIds.includes(id));
+            });
+        }
 
         if (!isChecked) {
             if (newFormData.subAssociationSelections) {
