@@ -507,6 +507,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
                             </div>
                           </div>
                         ))}
+                      </div>
                       </AccordionContent>
                     </AccordionItem>
                   )})}
