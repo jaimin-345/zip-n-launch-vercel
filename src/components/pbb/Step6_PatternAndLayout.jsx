@@ -24,6 +24,9 @@ const getPatternOptions = (disciplineName) => [
 // Difficulty levels for group dropdowns - ordered: Championship > Skilled > Intermediate > Beginner > Walk-Trot
 const difficultyLevels = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot'];
 
+// Pattern ID to number mapping
+const patternMap = { 'pat_101': '101', 'pat_203': '203' };
+
 // Difficulty badge colors
 const difficultyColors = {
   'Championship': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
@@ -57,7 +60,7 @@ const isWalkTrotGroup = (group) => {
 
 // Get group difficulty options based on selected main pattern, discipline name, and group
 const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
-  const patternMap = { 'pat_101': '101', 'pat_203': '203' };
+  const patternNumber = patternMap[patternId] || '101';
   const patternNumber = patternMap[patternId] || '101';
   const isWalkTrot = isWalkTrotGroup(group);
   
@@ -186,7 +189,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       // Auto-assign different difficulty levels per group
       groups.forEach((group, groupIndex) => {
         const isWalkTrot = isWalkTrotGroup(group);
-        const patternNumber = patternMap[patternId] || '101';
         
         if (isWalkTrot) {
           // Walk-Trot groups get Walk-Trot difficulty
