@@ -25,7 +25,7 @@ const Navigation = () => {
 
     const navItems = [
         { name: 'Home', path: '/', show: 'always' },
-        { name: 'Pattern Selector', path: '/pattern-hub', show: 'always' },
+        { name: 'Choose A Pattern', path: '/pattern-hub', show: 'always' },
         { name: 'Pattern Book Builder', path: '/pattern-book-builder', show: 'always' },
         { name: 'Horse Show Manager', path: '/horse-show-manager', show: 'always' },
         { name: 'Events', path: '/events', show: 'always' },
