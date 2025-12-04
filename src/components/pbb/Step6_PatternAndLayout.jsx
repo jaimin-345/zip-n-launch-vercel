@@ -61,7 +61,6 @@ const isWalkTrotGroup = (group) => {
 // Get group difficulty options based on selected main pattern, discipline name, and group
 const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
   const patternNumber = patternMap[patternId] || '101';
-  const patternNumber = patternMap[patternId] || '101';
   const isWalkTrot = isWalkTrotGroup(group);
   
   // Filter difficulty levels - Walk-Trot option only shows for Walk-Trot groups, all other options available for all
