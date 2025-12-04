@@ -28,6 +28,11 @@ const initialFormData = {
   groupDueDates: {},
   groupStaff: {},
   groupJudges: {},
+  patternSelections: {},
+  disciplinePatterns: {},
+  judgeSelections: [],
+  dueDateSelections: [],
+  disciplineDueDates: {},
 };
 
 export const usePatternBookBuilder = (projectId) => {

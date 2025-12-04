@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -49,13 +49,23 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
-  const [disciplinePatternSelections, setDisciplinePatternSelections] = useState({});
+  // Initialize from saved formData.disciplinePatterns if available
+  const [disciplinePatternSelections, setDisciplinePatternSelections] = useState(
+    () => formData.disciplinePatterns || {}
+  );
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
   const disciplineRefs = useRef({});
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // Sync local state with formData when project loads
+  useEffect(() => {
+    if (formData.disciplinePatterns && Object.keys(formData.disciplinePatterns).length > 0) {
+      setDisciplinePatternSelections(formData.disciplinePatterns);
+    }
+  }, [formData.disciplinePatterns]);
 
   // Get disciplines with patterns and merge duplicates by name
   const rawPatternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
@@ -146,7 +156,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || patternId;
       });
       
-      return { ...prev, patternSelections: newSelections };
+      // Save discipline-level pattern selections to formData for persistence
+      const newDisciplinePatterns = { ...(prev.disciplinePatterns || {}), [disciplineIndex]: patternId };
+      
+      return { ...prev, patternSelections: newSelections, disciplinePatterns: newDisciplinePatterns };
     });
   };
 
