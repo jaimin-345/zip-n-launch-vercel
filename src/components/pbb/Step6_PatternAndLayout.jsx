@@ -21,23 +21,40 @@ const getPatternOptions = (disciplineName) => [
   { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203' },
 ];
 
-// Difficulty levels for group dropdowns
-const difficultyLevels = ['Beginner', 'Intermediate', 'Advanced', 'Championship', 'Walk-Trot'];
+// Difficulty levels for group dropdowns - ordered: Championship > Skilled > Intermediate > Beginner > Walk-Trot
+const difficultyLevels = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot'];
 
 // Difficulty badge colors
 const difficultyColors = {
-  'Beginner': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  'Intermediate': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  'Advanced': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
   'Championship': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+  'Skilled': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  'Intermediate': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  'Beginner': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   'Walk-Trot': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
 };
 
-// Get group difficulty options based on selected main pattern and discipline name
-const getGroupDifficultyOptions = (patternId, disciplineName) => {
+// Check if a group contains Walk-Trot divisions
+const isWalkTrotGroup = (group) => {
+  if (!group?.divisions) return false;
+  return group.divisions.some(div => {
+    const divName = (div.name || div.divisionName || '').toLowerCase();
+    return divName.includes('walk-trot') || divName.includes('walk/trot') || divName.includes('w/t');
+  });
+};
+
+// Get group difficulty options based on selected main pattern, discipline name, and group
+const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
   const patternMap = { 'pat_101': '101', 'pat_203': '203' };
   const patternNumber = patternMap[patternId] || '101';
-  return difficultyLevels.map((difficulty) => ({
+  const isWalkTrot = isWalkTrotGroup(group);
+  
+  // Filter difficulty levels - Walk-Trot only shows for Walk-Trot groups
+  const filteredLevels = difficultyLevels.filter(difficulty => {
+    if (difficulty === 'Walk-Trot') return isWalkTrot;
+    return !isWalkTrot; // Non-Walk-Trot groups get all except Walk-Trot
+  });
+  
+  return filteredLevels.map((difficulty) => ({
     id: `${patternId}_${difficulty.toLowerCase().replace('-', '')}`,
     name: `Pattern Set #${patternNumber} - ${disciplineName}`,
     difficulty
@@ -144,15 +161,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       (formData.disciplines || []).findIndex(fd => fd.id === d.id) === disciplineIndex
     );
     const groups = discipline?.patternGroups || [];
-    const difficultyOptions = getGroupDifficultyOptions(patternId, discipline?.name || '');
     
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
       
-      // Auto-assign difficulty levels: Group 1 = Beginner, Group 2 = Intermediate, etc.
-      groups.forEach((_, groupIndex) => {
-        const difficultyOption = difficultyOptions[groupIndex % difficultyOptions.length];
+      // Auto-assign difficulty levels per group (Walk-Trot groups get Walk-Trot, others get regular levels)
+      groups.forEach((group, groupIndex) => {
+        const difficultyOptions = getGroupDifficultyOptions(patternId, discipline?.name || '', group);
+        const difficultyOption = difficultyOptions[0]; // First available option for this group
         newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || patternId;
       });
       
@@ -218,11 +235,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
 
       // Apply judge and staff to all groups (don't overwrite existing pattern selections)
-      groups.forEach((_, groupIndex) => {
+      groups.forEach((group, groupIndex) => {
         // Only set pattern if no existing selection for this group
         if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
-          const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '');
-          const difficultyOption = difficultyOptions[groupIndex % difficultyOptions.length];
+          const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '', group);
+          const difficultyOption = difficultyOptions[0]; // First available option for this group type
           newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || selectedPattern;
         }
         if (dialogJudge) newJudges[disciplineIndex][groupIndex] = dialogJudge;
@@ -618,7 +635,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   </SelectTrigger>
                                   <SelectContent className="bg-background z-50">
                                     {disciplinePatternSelections[disciplineIndex] ? (
-                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex], discipline.name).map(p => (
+                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex], discipline.name, group).map(p => (
                                         <SelectItem key={p.id} value={p.id}>
                                           <span className="flex items-center gap-2">
                                             {p.name}
