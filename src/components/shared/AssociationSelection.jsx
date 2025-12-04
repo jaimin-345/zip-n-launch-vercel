@@ -301,6 +301,18 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                 if (assocId.toLowerCase() === 'nsba' && newFormData.subAssociationSelections.nsba) {
                     delete newFormData.subAssociationSelections.nsba;
                 }
+                // Clean up NSBA dualApprovedWith when an association is deselected
+                if (newFormData.subAssociationSelections.nsba?.dualApprovedWith) {
+                    newFormData.subAssociationSelections = {
+                        ...newFormData.subAssociationSelections,
+                        nsba: {
+                            ...newFormData.subAssociationSelections.nsba,
+                            dualApprovedWith: newFormData.subAssociationSelections.nsba.dualApprovedWith.filter(
+                                id => id !== assocId
+                            )
+                        }
+                    };
+                }
             }
         }
       
