@@ -61,10 +61,10 @@ const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
   const patternNumber = patternMap[patternId] || '101';
   const isWalkTrot = isWalkTrotGroup(group);
   
-  // Filter difficulty levels - Walk-Trot only shows for Walk-Trot groups
+  // Filter difficulty levels - Walk-Trot option only shows for Walk-Trot groups, all other options available for all
   const filteredLevels = difficultyLevels.filter(difficulty => {
-    if (difficulty === 'Walk-Trot') return isWalkTrot;
-    return !isWalkTrot; // Non-Walk-Trot groups get all except Walk-Trot
+    if (difficulty === 'Walk-Trot') return isWalkTrot; // Walk-Trot option only for Walk-Trot groups
+    return true; // All other options (Championship, Skilled, Intermediate, Beginner) available for all groups
   });
   
   return filteredLevels.map((difficulty) => ({
