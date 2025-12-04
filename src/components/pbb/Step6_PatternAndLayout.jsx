@@ -190,12 +190,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         const isWalkTrot = isWalkTrotGroup(group);
         
         if (isWalkTrot) {
-          // Walk-Trot groups get Walk-Trot difficulty
-          newSelections[disciplineIndex][groupIndex] = `${patternId}-Walk-Trot`;
+          // Walk-Trot groups get Walk-Trot difficulty - use same ID format as getGroupDifficultyOptions
+          newSelections[disciplineIndex][groupIndex] = `${patternId}_walktrot`;
         } else {
           // Non-Walk-Trot groups get different difficulties in order (cycling if more groups than levels)
           const difficulty = regularDifficultyOrder[regularIndex % regularDifficultyOrder.length];
-          newSelections[disciplineIndex][groupIndex] = `${patternId}-${difficulty}`;
+          // Use same ID format as getGroupDifficultyOptions: lowercase, no hyphen
+          newSelections[disciplineIndex][groupIndex] = `${patternId}_${difficulty.toLowerCase()}`;
           regularIndex++;
         }
       });
