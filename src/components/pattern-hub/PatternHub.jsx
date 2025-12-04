@@ -253,7 +253,7 @@ export const PatternHub = () => {
         <div className="space-y-8">
             <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="text-center">
-                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Pattern & Scoresheet Hub</h1>
+                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Choose A Pattern</h1>
                     <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
                         Your central resource for individual patterns and score sheets. Find exactly what you need.
                     </p>
