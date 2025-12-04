@@ -36,9 +36,22 @@ const difficultyColors = {
 // Check if a group contains Walk-Trot divisions
 const isWalkTrotGroup = (group) => {
   if (!group?.divisions) return false;
+  
+  // Check group name first
+  const groupName = (group.name || group.groupName || '').toLowerCase();
+  if (groupName.includes('walk-trot') || groupName.includes('walk/trot') || groupName.includes('w/t')) {
+    return true;
+  }
+  
+  // Check each division's name
   return group.divisions.some(div => {
-    const divName = (div.name || div.divisionName || '').toLowerCase();
-    return divName.includes('walk-trot') || divName.includes('walk/trot') || divName.includes('w/t');
+    // Check multiple possible property names for division name
+    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
+    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
+    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
+    
+    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
+    return fullName.includes('walk-trot') || fullName.includes('walk/trot') || fullName.includes('walktrot') || fullName.includes('w/t');
   });
 };
 
