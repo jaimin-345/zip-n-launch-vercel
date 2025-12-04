@@ -20,7 +20,14 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY") ?? "");
+    // Try RESEND_API_KEY_NEW first, fallback to RESEND_API_KEY
+    const apiKey = Deno.env.get("RESEND_API_KEY_NEW") || Deno.env.get("RESEND_API_KEY");
+    
+    if (!apiKey) {
+      throw new Error("Resend API key not configured");
+    }
+    
+    const resend = new Resend(apiKey);
     
     const { email, pdfDataUri, bookName }: SendPatternBookRequest = await req.json();
 
@@ -54,7 +61,14 @@ serve(async (req: Request): Promise<Response> => {
       ],
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("Resend API response:", JSON.stringify(emailResponse));
+
+    // Check if there's an error in the response
+    if (emailResponse.error) {
+      throw new Error(`Resend API error: ${emailResponse.error.message}`);
+    }
+
+    console.log("Email sent successfully to:", email);
 
     return new Response(JSON.stringify({ success: true, data: emailResponse }), {
       status: 200,
