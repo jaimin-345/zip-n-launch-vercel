@@ -179,11 +179,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
       
-      // Auto-assign difficulty levels per group (Walk-Trot groups get Walk-Trot, others get regular levels)
+      // Non-Walk-Trot difficulty order for auto-assignment
+      const regularDifficultyOrder = ['Championship', 'Skilled', 'Intermediate', 'Beginner'];
+      let regularIndex = 0;
+      
+      // Auto-assign different difficulty levels per group
       groups.forEach((group, groupIndex) => {
-        const difficultyOptions = getGroupDifficultyOptions(patternId, discipline?.name || '', group);
-        const difficultyOption = difficultyOptions[0]; // First available option for this group
-        newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || patternId;
+        const isWalkTrot = isWalkTrotGroup(group);
+        const patternNumber = patternMap[patternId] || '101';
+        
+        if (isWalkTrot) {
+          // Walk-Trot groups get Walk-Trot difficulty
+          newSelections[disciplineIndex][groupIndex] = `${patternId}-Walk-Trot`;
+        } else {
+          // Non-Walk-Trot groups get different difficulties in order (cycling if more groups than levels)
+          const difficulty = regularDifficultyOrder[regularIndex % regularDifficultyOrder.length];
+          newSelections[disciplineIndex][groupIndex] = `${patternId}-${difficulty}`;
+          regularIndex++;
+        }
       });
       
       // Save discipline-level pattern selections to formData for persistence
