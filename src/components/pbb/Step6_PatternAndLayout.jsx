@@ -207,14 +207,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
-    // Filter judges by discipline's association
+    // Get all judges from all associations
     const associationJudges = [];
-    if (discipline.association_id && formData.associationJudges) {
-      const assocJudges = formData.associationJudges[discipline.association_id]?.judges || [];
-      assocJudges.forEach(judge => {
-        if (judge.name) {
-          associationJudges.push(judge);
-        }
+    if (formData.associationJudges) {
+      Object.values(formData.associationJudges).forEach(assocData => {
+        const judges = assocData?.judges || [];
+        judges.forEach(judge => {
+          if (judge.name && !associationJudges.find(j => j.name === judge.name)) {
+            associationJudges.push(judge);
+          }
+        });
       });
     }
     
