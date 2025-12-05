@@ -19,11 +19,11 @@ import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDeleg
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { useToast } from '@/components/ui/use-toast';
 
-const hubSteps = [
+const getHubSteps = (purposeName = 'Show') => [
   { id: 0, name: 'Usage Purpose', icon: Info },
   { id: 1, name: 'Book Details', icon: GitMerge },
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
-  { id: 3, name: 'Show Details', icon: Calendar },
+  { id: 3, name: `${purposeName} Details`, icon: Calendar },
   { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
   { id: 5, name: 'Uploads & Media', icon: UploadCloud },
   { id: 6, name: 'Preview', icon: Eye },
@@ -79,6 +79,11 @@ export const PatternHub = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [highestStepReached, setHighestStepReached] = useState(0);
 
+    // Get purpose name for dynamic step labels
+    const selectedPurpose = usagePurposes.find(p => p.id === formData.usageType);
+    const purposeName = selectedPurpose?.name?.replace(' Materials', '')?.replace(' Pattern Purchase', '') || 'Show';
+    const hubSteps = getHubSteps(purposeName);
+
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
 
@@ -126,7 +131,6 @@ export const PatternHub = () => {
             case 0:
                 return <UsagePurposeStep setFormData={setFormData} usageType={formData.usageType} usagePurposes={usagePurposes} isLoadingPurposes={isLoading} />;
             case 1:
-                const selectedPurpose = usagePurposes.find(p => p.id === formData.usageType);
                 return (
                     <Step1_Associations 
                       formData={formData} 
