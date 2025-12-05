@@ -19,15 +19,15 @@ import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDeleg
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { useToast } from '@/components/ui/use-toast';
 
-const getHubSteps = (purposeName) => [
-  { id: 0, name: 'Usage Purpose', icon: Info, displayNumber: 0 },
-  { id: 1, name: 'Book Details', icon: GitMerge, displayNumber: 1 },
-  { id: 2, name: 'Select Disciplines', icon: ListPlus, displayNumber: 2 },
-  { id: 3, name: `${purposeName || 'Show'} Details`, icon: Calendar, displayNumber: 3 },
-  { id: 4, name: 'Pattern Selection', icon: LayoutTemplate, displayNumber: 4 },
-  { id: 5, name: 'Uploads & Media', icon: UploadCloud, displayNumber: 5 },
-  { id: 6, name: 'Preview', icon: Eye, displayNumber: 6 },
-  { id: 7, name: 'Close Out & Review', icon: ShieldCheck, displayNumber: 7 },
+const hubSteps = [
+  { id: 0, name: 'Usage Purpose', icon: Info },
+  { id: 1, name: 'Book Details', icon: GitMerge },
+  { id: 2, name: 'Select Disciplines', icon: ListPlus },
+  { id: 3, name: 'Show Details', icon: Calendar },
+  { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
+  { id: 5, name: 'Uploads & Media', icon: UploadCloud },
+  { id: 6, name: 'Preview', icon: Eye },
+  { id: 7, name: 'Close Out & Review', icon: ShieldCheck },
 ];
 
 const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurposes }) => {
@@ -81,11 +81,6 @@ export const PatternHub = () => {
 
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
-    
-    // Get selected purpose name for dynamic step labels
-    const selectedPurpose = usagePurposes.find(p => p.id === formData.usageType);
-    const purposeName = selectedPurpose?.name?.replace(' Materials', '').replace(' Purchase', '') || 'Show';
-    const hubSteps = getHubSteps(purposeName);
 
     const handleNext = () => {
         if (currentStep < hubSteps.length - 1) {
@@ -261,7 +256,7 @@ export const PatternHub = () => {
                         isActive ? 'text-foreground' : 'text-muted-foreground',
                         isCompleted && !isActive && 'text-green-600'
                       )}>
-                        Step {usageStep.displayNumber}: {usageStep.name}
+                        {usageStep.name}
                       </p>
                     </div>
                     {/* Connector line after Usage Purpose */}
@@ -295,7 +290,7 @@ export const PatternHub = () => {
                         isActive ? 'text-foreground' : 'text-muted-foreground',
                         isCompleted && !isActive && 'text-green-600'
                       )}>
-                        Step {step.displayNumber}: {step.name}
+                        {step.name}
                       </p>
                     </div>
                     {index < hubSteps.length - 2 && (
