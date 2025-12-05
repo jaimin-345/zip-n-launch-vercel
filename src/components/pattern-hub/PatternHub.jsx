@@ -217,8 +217,8 @@ export const PatternHub = () => {
     };
     const nextStepId = getNextStepId();
 
-    // Always disable Next button for PatternHub
-    const isNextDisabled = true;
+    // Enable Next button for all steps in PatternHub
+    const isNextDisabled = currentStep === hubSteps.length - 1;
 
     return (
         <div className="space-y-8">
