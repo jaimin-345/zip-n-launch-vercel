@@ -12,7 +12,45 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey }) => {
+const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName }) => {
+    const isSelected = selectedDisciplineKeys.has(getDisciplineKey(disc));
+    const disciplineKey = getDisciplineKey(disc);
+    
+    return (
+        <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+                <Checkbox
+                    id={`disc-${disc.id}`}
+                    checked={isSelected}
+                    onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
+                />
+                <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
+                    {displayName || disc.name}
+                </Label>
+            </div>
+            {isSelected && dualApprovedAssociations && dualApprovedAssociations.length > 0 && (
+                <div className="ml-6 mt-1 space-y-1">
+                    <span className="text-xs text-muted-foreground">Dual-Approved With:</span>
+                    {dualApprovedAssociations.map(assocId => (
+                        <div key={assocId} className="flex items-center space-x-2 ml-2">
+                            <Checkbox
+                                id={`dual-${disc.id}-${assocId}`}
+                                checked={dualApprovedSelections?.[disciplineKey]?.[assocId] || false}
+                                onCheckedChange={(checked) => onDualApprovedToggle(disciplineKey, assocId, checked)}
+                                className="h-3 w-3"
+                            />
+                            <Label htmlFor={`dual-${disc.id}-${assocId}`} className="font-normal cursor-pointer text-xs text-muted-foreground">
+                                {assocId}
+                            </Label>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
     if (disciplines.length === 0) return null;
 
     // Define the custom 3-column layout based on association
@@ -52,48 +90,49 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
                 {/* Left Column */}
                 <div className="space-y-2">
                     {leftDisciplines.map(disc => (
-                        <div key={disc.id} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`disc-${disc.id}`}
-                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
-                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
-                            />
-                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
-                                {disc.name.replace(' at Halter', '')}
-                            </Label>
-                        </div>
+                        <DisciplineCheckboxWithDualApproved
+                            key={disc.id}
+                            disc={disc}
+                            selectedDisciplineKeys={selectedDisciplineKeys}
+                            onDisciplineToggle={onDisciplineToggle}
+                            getDisciplineKey={getDisciplineKey}
+                            dualApprovedAssociations={dualApprovedAssociations}
+                            dualApprovedSelections={dualApprovedSelections}
+                            onDualApprovedToggle={onDualApprovedToggle}
+                            displayName={disc.name.replace(' at Halter', '')}
+                        />
                     ))}
                 </div>
 
                 {/* Middle Column */}
                 <div className="space-y-2">
                     {middleDisciplines.map(disc => (
-                        <div key={disc.id} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`disc-${disc.id}`}
-                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
-                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
-                            />
-                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
-                                {disc.name}
-                            </Label>
-                        </div>
+                        <DisciplineCheckboxWithDualApproved
+                            key={disc.id}
+                            disc={disc}
+                            selectedDisciplineKeys={selectedDisciplineKeys}
+                            onDisciplineToggle={onDisciplineToggle}
+                            getDisciplineKey={getDisciplineKey}
+                            dualApprovedAssociations={dualApprovedAssociations}
+                            dualApprovedSelections={dualApprovedSelections}
+                            onDualApprovedToggle={onDualApprovedToggle}
+                        />
                     ))}
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-2">
                     {rightDisciplines.map(disc => (
-                        <div key={disc.id} className="flex items-center space-x-2">
-                            <Checkbox
-                                id={`disc-${disc.id}`}
-                                checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
-                                onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
-                            />
-                            <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
-                                {disc.name}
-                            </Label>
-                        </div>
+                        <DisciplineCheckboxWithDualApproved
+                            key={disc.id}
+                            disc={disc}
+                            selectedDisciplineKeys={selectedDisciplineKeys}
+                            onDisciplineToggle={onDisciplineToggle}
+                            getDisciplineKey={getDisciplineKey}
+                            dualApprovedAssociations={dualApprovedAssociations}
+                            dualApprovedSelections={dualApprovedSelections}
+                            onDualApprovedToggle={onDualApprovedToggle}
+                        />
                     ))}
                 </div>
             </div>
@@ -101,7 +140,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
     if (disciplines.length === 0) return null;
 
     return (
@@ -109,23 +148,23 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
             <h4 className="text-sm font-semibold text-muted-foreground px-1.5">{title}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1.5">
                 {disciplines.map(disc => (
-                    <div key={disc.id} className="flex items-center space-x-2">
-                        <Checkbox
-                            id={`disc-${disc.id}`}
-                            checked={selectedDisciplineKeys.has(getDisciplineKey(disc))}
-                            onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
-                        />
-                        <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
-                            {disc.name}
-                        </Label>
-                    </div>
+                    <DisciplineCheckboxWithDualApproved
+                        key={disc.id}
+                        disc={disc}
+                        selectedDisciplineKeys={selectedDisciplineKeys}
+                        onDisciplineToggle={onDisciplineToggle}
+                        getDisciplineKey={getDisciplineKey}
+                        dualApprovedAssociations={dualApprovedAssociations}
+                        dualApprovedSelections={dualApprovedSelections}
+                        onDualApprovedToggle={onDualApprovedToggle}
+                    />
                 ))}
             </div>
         </div>
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -158,11 +197,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             <AccordionContent className="p-3 space-y-3">
                 {categorized.custom.length > 0 && (
                     (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
-                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} /> :
-                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} /> :
+                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />
                 )}
-                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />}
-                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} />}
+                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />}
+                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />}
             </AccordionContent>
         </AccordionItem>
     );
@@ -177,12 +216,43 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
     const isVrhMode = formData.showType === 'versatility-ranch';
 
+    // Get dual-approved associations (when NSBA is selected with 'dual' approval type)
+    const dualApprovedAssociations = useMemo(() => {
+        const nsbaApprovalType = formData.subAssociationSelections?.nsba?.approvalType;
+        const dualApprovedWith = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+        
+        if (nsbaApprovalType === 'dual' && dualApprovedWith.length > 0) {
+            return ['NSBA']; // Return NSBA as the dual-approved option for the checkbox
+        }
+        return [];
+    }, [formData.subAssociationSelections]);
+
+    // Get dualApprovedWith associations from NSBA settings
+    const dualApprovedWithAssociations = useMemo(() => {
+        return formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+    }, [formData.subAssociationSelections]);
+
     const selectedDisciplineKeys = useMemo(() => 
         new Set((formData.disciplines || []).map(d => `${d.association_id}-${d.sub_association_type || 'none'}-${d.name}`)), 
         [formData.disciplines]
     );
     
     const getDisciplineKey = (disc) => `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
+
+    // Handler for dual-approved checkbox toggle
+    const handleDualApprovedToggle = (disciplineKey, assocId, isChecked) => {
+        setFormData(prev => {
+            const newDualApprovedSelections = { ...(prev.dualApprovedSelections || {}) };
+            
+            if (!newDualApprovedSelections[disciplineKey]) {
+                newDualApprovedSelections[disciplineKey] = {};
+            }
+            
+            newDualApprovedSelections[disciplineKey][assocId] = isChecked;
+            
+            return { ...prev, dualApprovedSelections: newDualApprovedSelections };
+        });
+    };
     
     const groupedDisciplines = useMemo(() => {
         if (!disciplineLibrary || !associationsData) return [];
@@ -382,18 +452,26 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     </div>
                     
                     <Accordion type="multiple" defaultValue={groupedDisciplines.map(g => g.groupKey)} className="w-full space-y-4">
-                        {groupedDisciplines.map(group => (
-                            <AssociationDisciplineGroup
-                                key={group.groupKey}
-                                groupKey={group.groupKey}
-                                association={group.association}
-                                disciplines={group.disciplines}
-                                selectedDisciplineKeys={selectedDisciplineKeys}
-                                onDisciplineToggle={handleDisciplineToggle}
-                                subAssociationType={group.subAssociationType}
-                                getDisciplineKey={getDisciplineKey}
-                            />
-                        ))}
+                        {groupedDisciplines.map(group => {
+                            // Only show dual-approved checkbox if current association is in the dualApprovedWith list
+                            const showDualApproved = dualApprovedWithAssociations.includes(group.association.id);
+                            
+                            return (
+                                <AssociationDisciplineGroup
+                                    key={group.groupKey}
+                                    groupKey={group.groupKey}
+                                    association={group.association}
+                                    disciplines={group.disciplines}
+                                    selectedDisciplineKeys={selectedDisciplineKeys}
+                                    onDisciplineToggle={handleDisciplineToggle}
+                                    subAssociationType={group.subAssociationType}
+                                    getDisciplineKey={getDisciplineKey}
+                                    dualApprovedAssociations={showDualApproved ? dualApprovedAssociations : []}
+                                    dualApprovedSelections={formData.dualApprovedSelections || {}}
+                                    onDualApprovedToggle={handleDualApprovedToggle}
+                                />
+                            );
+                        })}
                     </Accordion>
                 </div>
             </CardContent>
