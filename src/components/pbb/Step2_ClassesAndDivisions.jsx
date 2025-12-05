@@ -216,12 +216,13 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
     const isVrhMode = formData.showType === 'versatility-ranch';
 
-    // Get dual-approved associations (when NSBA is selected with 'dual' approval type)
+    // Get dual-approved associations (when NSBA is selected with 'dual' or 'both' approval type)
     const dualApprovedAssociations = useMemo(() => {
         const nsbaApprovalType = formData.subAssociationSelections?.nsba?.approvalType;
         const dualApprovedWith = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
         
-        if (nsbaApprovalType === 'dual' && dualApprovedWith.length > 0) {
+        // Show checkbox for both 'dual' and 'both' approval types
+        if ((nsbaApprovalType === 'dual' || nsbaApprovalType === 'both') && dualApprovedWith.length > 0) {
             return ['NSBA']; // Return NSBA as the dual-approved option for the checkbox
         }
         return [];
