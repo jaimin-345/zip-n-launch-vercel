@@ -384,17 +384,15 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         <CardDescription className="text-sm">{getDescription()}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {context !== 'hub' && (
-          <div className="space-y-1.5">
-            <Label htmlFor="showName" className="font-semibold">{getShowNameLabel()}</Label>
-            <Input
-                id="showName"
-                placeholder={getShowNamePlaceholder()}
-                value={formData.showName || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
-            />
-          </div>
-        )}
+        <div className="space-y-1.5">
+          <Label htmlFor="showName" className="font-semibold">{getShowNameLabel()}</Label>
+          <Input
+              id="showName"
+              placeholder={getShowNamePlaceholder()}
+              value={formData.showName || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
+          />
+        </div>
         
         <div className="space-y-2">
           <Label className="font-semibold">Select all hosted associations:</Label>

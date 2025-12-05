@@ -39,7 +39,7 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     };
 
     return (
-        <StepContainer title="Pattern Used For" description="Select how you intend to use the patterns or score sheets you're looking for.">
+        <StepContainer title="Purpose" description="Select how you intend to use the patterns or score sheets you're looking for.">
             {isLoadingPurposes ? (
                 <div className="flex items-center justify-center h-24">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -217,12 +217,8 @@ export const PatternHub = () => {
     };
     const nextStepId = getNextStepId();
 
-    const isNextDisabled = useMemo(() => {
-        if (isLoading) return true;
-        if (!isCurrentStepComplete) return true;
-        if (currentStep === hubSteps.length - 1) return true;
-        return false;
-    }, [currentStep, isCurrentStepComplete, isLoading]);
+    // Always disable Next button for PatternHub
+    const isNextDisabled = true;
 
     return (
         <div className="space-y-8">
