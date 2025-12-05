@@ -174,26 +174,35 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     const divisionCounts = getDivisionCounts();
 
 
-    // Get dual-approved associations for this discipline
+    // Get dual-approved info - returns which associations have dual-approved with which options
     const getDualApprovedInfo = () => {
         const dualApprovedSelections = formData.dualApprovedSelections || {};
-        const dualApprovedAssocs = [];
+        const dualApprovedWith = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+        const result = []; // { assocAbbrev: 'AQHA', dualWith: 'NSBA' }
         
         allDisciplines.forEach(disc => {
+            // Only check if this discipline's association is in the dualApprovedWith list
+            if (!dualApprovedWith.includes(disc.association_id)) return;
+            
             const disciplineKey = `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
             const dualSelections = dualApprovedSelections[disciplineKey] || {};
             
-            Object.entries(dualSelections).forEach(([assocId, isSelected]) => {
-                if (isSelected && !dualApprovedAssocs.includes(assocId)) {
-                    dualApprovedAssocs.push(assocId);
+            Object.entries(dualSelections).forEach(([dualAssocId, isSelected]) => {
+                if (isSelected) {
+                    const assoc = associationsData.find(a => a.id === disc.association_id);
+                    const assocAbbrev = assoc?.abbreviation || disc.association_id;
+                    // Check if this association is already added
+                    if (!result.some(r => r.assocAbbrev === assocAbbrev && r.dualWith === dualAssocId)) {
+                        result.push({ assocAbbrev, dualWith: dualAssocId });
+                    }
                 }
             });
         });
         
-        return dualApprovedAssocs;
+        return result;
     };
     
-    const dualApprovedAssocs = getDualApprovedInfo();
+    const dualApprovedInfo = getDualApprovedInfo();
 
     return (
         <div ref={setNodeRef} style={style} className="bg-card rounded-lg border">
@@ -209,9 +218,15 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                                 {divisionCounts.map(item => (
                                     <span key={item.id} className="text-xs text-amber-600 font-medium">{item.abbreviation}</span>
                                 ))}
-                                {dualApprovedAssocs.length > 0 && (
+                                {dualApprovedInfo.length > 0 && (
                                     <span className="text-xs text-muted-foreground">
-                                        • Dual-Approved: <span className="text-green-600 font-medium">{dualApprovedAssocs.join(', ')}</span>
+                                        • {dualApprovedInfo.map((info, idx) => (
+                                            <span key={idx}>
+                                                {idx > 0 && ', '}
+                                                <span className="text-amber-600 font-medium">{info.assocAbbrev}</span>
+                                                {' '}Dual-Approved: <span className="text-green-600 font-medium">{info.dualWith}</span>
+                                            </span>
+                                        ))}
                                     </span>
                                 )}
                             </div>
