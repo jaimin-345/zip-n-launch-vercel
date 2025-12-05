@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, Check, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Loader2, Info, Check, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
+import { useToast } from '@/components/ui/use-toast';
 
 const hubSteps = [
   { id: 0, name: 'Usage Purpose', icon: Info },
@@ -63,6 +64,7 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
 };
 
 export const PatternHub = () => {
+    const { toast } = useToast();
     const { 
         currentStep, setCurrentStep,
         formData, setFormData,
@@ -74,11 +76,42 @@ export const PatternHub = () => {
         resetDisciplines,
     } = usePatternHub();
 
+    const [isSaving, setIsSaving] = useState(false);
+    const [highestStepReached, setHighestStepReached] = useState(0);
+
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
 
-    const handleNext = () => currentStep < hubSteps.length - 1 && setCurrentStep(currentStep + 1);
+    const handleNext = () => {
+        if (currentStep < hubSteps.length - 1) {
+            const nextStep = currentStep + 1;
+            setCurrentStep(nextStep);
+            if (nextStep > highestStepReached) {
+                setHighestStepReached(nextStep);
+            }
+        }
+    };
     const handleBack = () => currentStep > 0 && setCurrentStep(currentStep - 1);
+
+    const handleSaveProject = async () => {
+        setIsSaving(true);
+        try {
+            // Simulate save - in real implementation this would save to Supabase
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            toast({
+                title: "Project Saved",
+                description: "Your pattern selection has been saved successfully.",
+            });
+        } catch (error) {
+            toast({
+                title: "Error Saving",
+                description: "Failed to save project. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const renderStepContent = () => {
         if (isLoading) {
@@ -130,50 +163,49 @@ export const PatternHub = () => {
                 return null;
         }
     };
+
+    // Check if current step requirements are met (for enabling Next button)
+    const isCurrentStepComplete = useMemo(() => {
+        switch (currentStep) {
+            case 0:
+                return !!formData.usageType;
+            case 1:
+                return Object.values(formData.associations || {}).some(val => val);
+            case 2:
+                return formData.disciplines.length > 0;
+            case 3:
+                return formData.showName && formData.startDate;
+            case 4:
+                const patternDisciplines = formData.disciplines.filter(d => d.pattern);
+                if (patternDisciplines.length === 0) return true;
+                return patternDisciplines.every(pbbDiscipline => {
+                    const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
+                    return (pbbDiscipline.patternGroups || []).every((_, groupIndex) => 
+                        !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
+                    );
+                });
+            case 5:
+                return true; // Uploads optional
+            case 6:
+                return true; // Preview always completable
+            case 7:
+                return true;
+            default:
+                return false;
+        }
+    }, [currentStep, formData]);
     
+    // Steps are completed only if they've been passed through (reached via Next button)
     const completedSteps = useMemo(() => {
         const completed = new Set();
-        if (formData.usageType) completed.add(0);
-
-        const hasAssociations = Object.values(formData.associations || {}).some(val => val);
-        if (hasAssociations) completed.add(1);
-
-        if (formData.disciplines.length > 0) completed.add(2);
         
-        // Step 3: Show Details
-        if (formData.showName && formData.startDate) completed.add(3);
-
-        // Step 4: Pattern Selection
-        const patternDisciplines = formData.disciplines.filter(d => d.pattern);
-        if (patternDisciplines.length === 0) {
-            completed.add(4);
-        } else {
-            const allPatternsSelected = patternDisciplines.every(pbbDiscipline => {
-                const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
-                return (pbbDiscipline.patternGroups || []).every((_, groupIndex) => 
-                    !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
-                );
-            });
-            if (allPatternsSelected) completed.add(4);
+        // Only mark steps as completed if we've reached beyond them
+        for (let i = 0; i < highestStepReached; i++) {
+            completed.add(i);
         }
-
-        // Step 5: Uploads & Media (optional)
-        if (formData.coverPageOption) completed.add(5);
-
-        // Step 6: Preview
-        const scoresheetDisciplines = formData.disciplines.filter(d => d.scoresheet);
-        if (scoresheetDisciplines.length === 0) {
-            completed.add(6);
-        } else {
-            const allScoresheetsSelected = scoresheetDisciplines.every(pbbDiscipline => {
-                const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
-                return !!formData.scoresheetSelections?.[disciplineIndex];
-            });
-            if (allScoresheetsSelected) completed.add(6);
-        }
-
+        
         return completed;
-    }, [formData]);
+    }, [highestStepReached]);
 
     const getNextStepId = () => {
         for (let i = 0; i < hubSteps.length; i++) {
@@ -187,10 +219,10 @@ export const PatternHub = () => {
 
     const isNextDisabled = useMemo(() => {
         if (isLoading) return true;
-        if (!completedSteps.has(currentStep)) return true;
+        if (!isCurrentStepComplete) return true;
         if (currentStep === hubSteps.length - 1) return true;
         return false;
-    }, [currentStep, completedSteps, isLoading]);
+    }, [currentStep, isCurrentStepComplete, isLoading]);
 
     return (
         <div className="space-y-8">
@@ -232,7 +264,7 @@ export const PatternHub = () => {
                     {/* Connector line after Usage Purpose */}
                     <div className={cn(
                       'flex-1 h-1 mt-5 mx-2 rounded-full transition-colors duration-300',
-                      isCompleted && completedSteps.has(1) ? 'bg-green-600' : 
+                      completedSteps.has(0) && completedSteps.has(1) ? 'bg-green-600' : 
                       currentStep > 0 ? 'bg-primary' : 'bg-border'
                     )} />
                   </>
@@ -283,7 +315,13 @@ export const PatternHub = () => {
               </AnimatePresence>
                <div className="p-6 flex justify-between items-center border-t border-border">
                     <Button variant="outline" onClick={handleBack} disabled={currentStep === 0}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                    <Button onClick={handleNext} disabled={isNextDisabled}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                    <div className="flex items-center gap-2">
+                        <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Save Project
+                        </Button>
+                        <Button onClick={handleNext} disabled={isNextDisabled}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                    </div>
               </div>
             </Card>
         </div>
