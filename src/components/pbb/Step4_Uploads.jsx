@@ -76,7 +76,7 @@ const SocialMediaInput = ({ icon: Icon, id, value, onChange, placeholder }) => (
   </div>
 );
 
-export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducationMode, stepNumber = 6 }) => {
+export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducationMode, stepNumber = 6, purposeName }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [coverImage, setCoverImage] = useState(formData.marketing?.coverImage || null);
@@ -224,8 +224,8 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
           files={formData.showDocuments}
           onRemove={(index) => removeFile(index, 'show_documents')}
           onEdit={(file, index) => handleEditFile(file, index, 'show_documents')}
-          title="Show Schedule/Show Bill (Optional)"
-          description="Upload show schedule and bill documents (PDF, DOC, or DOCX)."
+          title={purposeName ? `${purposeName} Information (Optional)` : "Show Schedule/Show Bill (Optional)"}
+          description="Upload schedule and information documents (PDF, DOC, or DOCX)."
           isUploading={isUploading}
         />
 
@@ -245,8 +245,8 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
             files={formData.generalMarketing}
             onRemove={(index) => removeFile(index, 'general_marketing')}
             onEdit={(file, index) => handleEditFile(file, index, 'general_marketing')}
-            title="Show Logos (optional)"
-            description="Upload JPEGs or PDFs of show logos and branding materials."
+            title={purposeName ? `${purposeName} Logos (Optional)` : "Show Logos (Optional)"}
+            description="Upload JPEGs or PDFs of logos and branding materials."
             isUploading={isUploading}
           />
         )}
