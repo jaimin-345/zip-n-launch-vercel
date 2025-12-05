@@ -174,13 +174,16 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     const divisionCounts = getDivisionCounts();
 
 
-    // Get dual-approved info - returns which associations have dual-approved with which options
+    // Get dual-approved info - only for disciplines within this accordion item that have checkbox checked
     const getDualApprovedInfo = () => {
         const dualApprovedSelections = formData.dualApprovedSelections || {};
         const dualApprovedWith = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
         const result = []; // { assocAbbrev: 'AQHA', dualWith: 'NSBA' }
         
-        allDisciplines.forEach(disc => {
+        // Only check disciplines that belong to this specific pbbDiscipline accordion
+        const disciplinesInThisItem = pbbDiscipline.disciplines || [];
+        
+        disciplinesInThisItem.forEach(disc => {
             // Only check if this discipline's association is in the dualApprovedWith list
             if (!dualApprovedWith.includes(disc.association_id)) return;
             
