@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, Check, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight, Save } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from "@/lib/utils";
+
 import { StepContainer } from './StepContainer';
 import { usePatternHub } from '@/hooks/usePatternHub';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
@@ -157,7 +157,7 @@ export const PatternHub = () => {
                 );
             case 5:
                 return (
-                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode} stepNumber={5} />
+                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode} stepNumber={5} purposeName={purposeName} />
                 );
             case 6:
                 return (
@@ -239,77 +239,13 @@ export const PatternHub = () => {
                 </div>
             </motion.div>
             
-            <div className="flex justify-center items-start mb-4 px-2">
-              {/* Usage Purpose Step - First step */}
-              {(() => {
-                const usageStep = hubSteps[0];
-                const isCompleted = completedSteps.has(usageStep.id);
-                const isActive = currentStep === usageStep.id;
-                const isNext = usageStep.id === nextStepId && !isActive;
-                return (
-                  <>
-                    <div className="flex flex-col items-center text-center min-w-[70px] max-w-[90px] cursor-pointer" onClick={() => setCurrentStep(usageStep.id)}>
-                      <div className={cn(
-                        'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                        isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
-                        isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
-                        isNext && 'highlight-next-step'
-                      )}>
-                        {isCompleted ? <Check className="h-4 w-4"/> : <usageStep.icon className="h-4 w-4"/>}
-                      </div>
-                      <p className={cn(
-                        'mt-2 text-xs font-medium leading-tight',
-                        isActive ? 'text-foreground' : 'text-muted-foreground',
-                        isCompleted && !isActive && 'text-green-600'
-                      )}>
-                        {usageStep.name}
-                      </p>
-                    </div>
-                    {/* Connector line after Usage Purpose */}
-                    <div className={cn(
-                      'flex-1 h-0.5 mt-5 mx-1 rounded-full transition-colors duration-300',
-                      completedSteps.has(0) && completedSteps.has(1) ? 'bg-green-600' : 
-                      currentStep > 0 ? 'bg-primary' : 'bg-border'
-                    )} />
-                  </>
-                );
-              })()}
-
-              {/* Steps 1-7 using same BuilderSteps style */}
-              {hubSteps.slice(1).map((step, index) => {
-                const isCompleted = completedSteps.has(step.id);
-                const isActive = currentStep === step.id;
-                const isNext = step.id === nextStepId && !isActive;
-                return (
-                  <React.Fragment key={step.id}>
-                    <div className="flex flex-col items-center text-center min-w-[70px] max-w-[90px] cursor-pointer" onClick={() => setCurrentStep(step.id)}>
-                      <div className={cn(
-                        'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                        isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
-                        isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
-                        isNext && 'highlight-next-step'
-                      )}>
-                        {isCompleted ? <Check className="h-4 w-4"/> : <step.icon className="h-4 w-4"/>}
-                      </div>
-                      <p className={cn(
-                        'mt-2 text-xs font-medium leading-tight',
-                        isActive ? 'text-foreground' : 'text-muted-foreground',
-                        isCompleted && !isActive && 'text-green-600'
-                      )}>
-                        {step.name}
-                      </p>
-                    </div>
-                    {index < hubSteps.length - 2 && (
-                      <div className={cn(
-                        'flex-1 h-0.5 mt-5 mx-1 rounded-full transition-colors duration-300',
-                        isCompleted && completedSteps.has(hubSteps[index + 2]?.id) ? 'bg-green-600' : 
-                        currentStep > step.id ? 'bg-primary' : 'bg-border'
-                      )} />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
+            <BuilderSteps 
+              steps={hubSteps} 
+              currentStep={currentStep} 
+              setCurrentStep={setCurrentStep} 
+              completedSteps={completedSteps}
+              nextStepId={nextStepId}
+            />
 
             <Card className="max-w-5xl mx-auto">
               <AnimatePresence mode="wait">
