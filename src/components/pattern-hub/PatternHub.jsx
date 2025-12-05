@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, Check, GitMerge, ListPlus, Calendar, UploadCloud, Eye, FileSignature, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Loader2, Info, Check, GitMerge, ListPlus, Settings2, Calendar, LayoutTemplate, UploadCloud, Eye, FileSignature, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivi
 import { Step3_Details } from '@/components/pbb/Step3_Details';
 import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
+import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step7_PreviewScoresheets } from '@/components/pbb/Step7_PreviewScoresheets';
 import { Step8_Review } from '@/components/pbb/Step8_Review';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
@@ -23,11 +24,12 @@ const hubSteps = [
   { id: 0, name: 'Usage Purpose', icon: Info },
   { id: 1, name: 'Association', icon: GitMerge },
   { id: 2, name: 'Disciplines', icon: ListPlus },
-  { id: 3, name: 'Configure', icon: Calendar },
-  { id: 4, name: 'Media', icon: UploadCloud },
-  { id: 5, name: 'Preview Patterns', icon: Eye },
-  { id: 6, name: 'Preview Scoresheets', icon: FileSignature },
-  { id: 7, name: 'Review & Pay', icon: ShieldCheck },
+  { id: 3, name: 'Configure', icon: Settings2 },
+  { id: 4, name: 'Show Details', icon: Calendar },
+  { id: 5, name: 'Pattern Selection', icon: LayoutTemplate },
+  { id: 6, name: 'Uploads & Media', icon: UploadCloud },
+  { id: 7, name: 'Preview', icon: Eye },
+  { id: 8, name: 'Review & Pay', icon: ShieldCheck },
 ];
 
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
@@ -115,7 +117,7 @@ export const PatternHub = () => {
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
 
-    const handleNext = () => currentStep < hubSteps.length -1 && setCurrentStep(currentStep + 1);
+    const handleNext = () => currentStep < hubSteps.length - 1 && setCurrentStep(currentStep + 1);
     const handleBack = () => currentStep > 0 && setCurrentStep(currentStep - 1);
 
     const renderStepContent = () => {
@@ -164,17 +166,21 @@ export const PatternHub = () => {
                 );
             case 4:
                 return (
-                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode}/>
+                    <Step3_Details formData={formData} setFormData={setFormData} />
                 );
             case 5:
                 return (
-                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={isEducationMode} />
+                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} />
                 );
             case 6:
                 return (
-                    <Step7_PreviewScoresheets formData={formData} setFormData={setFormData} />
+                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode}/>
                 );
             case 7:
+                return (
+                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={isEducationMode} />
+                );
+            case 8:
                  return (
                     <Step8_Review pbbData={formData} onSubmit={() => handlePurchase(mockPricing)} />
                 );
@@ -204,8 +210,10 @@ export const PatternHub = () => {
             completed.add(3);
         }
         
-        if (formData.coverPageOption) completed.add(4);
+        // Step 4: Show Details
+        if (formData.showName && formData.startDate) completed.add(4);
 
+        // Step 5: Pattern Selection
         const patternDisciplines = formData.disciplines.filter(d => d.pattern);
         if (patternDisciplines.length === 0) {
             completed.add(5);
@@ -219,15 +227,19 @@ export const PatternHub = () => {
             if (allPatternsSelected) completed.add(5);
         }
 
+        // Step 6: Uploads & Media (optional)
+        if (formData.coverPageOption) completed.add(6);
+
+        // Step 7: Preview (always completable)
         const scoresheetDisciplines = formData.disciplines.filter(d => d.scoresheet);
         if (scoresheetDisciplines.length === 0) {
-            completed.add(6);
+            completed.add(7);
         } else {
             const allScoresheetsSelected = scoresheetDisciplines.every(pbbDiscipline => {
                 const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
                 return !!formData.scoresheetSelections?.[disciplineIndex];
             });
-            if (allScoresheetsSelected) completed.add(6);
+            if (allScoresheetsSelected) completed.add(7);
         }
 
         return completed;
