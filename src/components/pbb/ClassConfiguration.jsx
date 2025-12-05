@@ -174,6 +174,27 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     const divisionCounts = getDivisionCounts();
 
 
+    // Get dual-approved associations for this discipline
+    const getDualApprovedInfo = () => {
+        const dualApprovedSelections = formData.dualApprovedSelections || {};
+        const dualApprovedAssocs = [];
+        
+        allDisciplines.forEach(disc => {
+            const disciplineKey = `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
+            const dualSelections = dualApprovedSelections[disciplineKey] || {};
+            
+            Object.entries(dualSelections).forEach(([assocId, isSelected]) => {
+                if (isSelected && !dualApprovedAssocs.includes(assocId)) {
+                    dualApprovedAssocs.push(assocId);
+                }
+            });
+        });
+        
+        return dualApprovedAssocs;
+    };
+    
+    const dualApprovedAssocs = getDualApprovedInfo();
+
     return (
         <div ref={setNodeRef} style={style} className="bg-card rounded-lg border">
             <AccordionItem value={pbbDiscipline.id} className="border-b-0">
@@ -182,7 +203,19 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         <div {...attributes} {...listeners} className="cursor-grab p-1">
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <span className="flex-grow text-left font-semibold text-sm">{pbbDiscipline.name}</span>
+                        <div className="flex-grow text-left">
+                            <span className="font-semibold text-sm">{pbbDiscipline.name}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                {divisionCounts.map(item => (
+                                    <span key={item.id} className="text-xs text-amber-600 font-medium">{item.abbreviation}</span>
+                                ))}
+                                {dualApprovedAssocs.length > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                        • Dual-Approved: <span className="text-green-600 font-medium">{dualApprovedAssocs.join(', ')}</span>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         <span className={`text-xs font-semibold ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
                             - {isComplete ? 'complete' : 'incomplete'}
                         </span>
