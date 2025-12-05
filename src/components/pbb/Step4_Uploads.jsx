@@ -76,7 +76,7 @@ const SocialMediaInput = ({ icon: Icon, id, value, onChange, placeholder }) => (
   </div>
 );
 
-export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducationMode }) => {
+export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducationMode, stepNumber = 6 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [coverImage, setCoverImage] = useState(formData.marketing?.coverImage || null);
@@ -215,7 +215,7 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   return (
     <>
       <CardHeader>
-        <CardTitle>Step 6: Uploads & Media</CardTitle>
+        <CardTitle>Step {stepNumber}: Uploads & Media</CardTitle>
         <CardDescription>Upload any relevant files or media for your show book. Your project must be saved first.</CardDescription>
       </CardHeader>
       <div className="space-y-6">

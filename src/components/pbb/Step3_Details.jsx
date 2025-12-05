@@ -12,54 +12,65 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
-export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false }) => {
+export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false, purposeName = null, stepNumber = 4 }) => {
   const handleUpdate = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const selectedAssociationIds = Object.keys(formData.associations);
-  const mode = isClinicMode ? 'clinic' : isEducationMode ? 'education' : 'show';
+  
+  // Determine mode based on props
+  const mode = purposeName ? 'custom' : isClinicMode ? 'clinic' : isEducationMode ? 'education' : 'show';
 
-  const titles = {
-    show: 'Show Details',
-    clinic: 'Clinic Details',
-    education: 'Lesson Details'
+  // Dynamic title based on purposeName or mode
+  const getTitle = () => {
+    if (purposeName) return `${purposeName} Details`;
+    return {
+      show: 'Show Details',
+      clinic: 'Clinic Details',
+      education: 'Lesson Details'
+    }[mode];
   };
 
   const descriptions = {
     show: "Enter the essential information for your event. This will be used to populate your pattern book.",
     clinic: "Enter the essential information for your clinic. This will be used to populate your materials.",
-    education: "Enter details for your lesson plan or educational materials. This information is optional."
+    education: "Enter details for your lesson plan or educational materials. This information is optional.",
+    custom: "Enter the essential information for your event. This will be used to populate your materials."
   };
 
   const infoTriggers = {
     show: 'Event Information',
     clinic: 'Clinic Information',
-    education: 'Lesson Information'
+    education: 'Lesson Information',
+    custom: 'Event Information'
   };
 
   const staffTriggers = {
     show: 'Judges & Staff',
     clinic: 'Clinicians & Staff',
-    education: 'Instructor(s) & Staff'
+    education: 'Instructor(s) & Staff',
+    custom: 'Judges & Staff'
   };
   
   const nameLabels = {
     show: 'Show Name',
     clinic: 'Clinic Name',
-    education: 'Lesson/Topic Name'
+    education: 'Lesson/Topic Name',
+    custom: purposeName ? `${purposeName} Name` : 'Event Name'
   };
   
   const namePlaceholders = {
     show: "E.g., Summer Sizzler",
     clinic: "E.g., Summer Horsemanship Clinic",
-    education: "E.g., Introduction to Showmanship"
+    education: "E.g., Introduction to Showmanship",
+    custom: "E.g., Summer Sizzler"
   };
 
   return (
     <motion.div key="step4" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl">Step 4: {titles[mode]}</CardTitle>
+        <CardTitle className="text-xl">Step {stepNumber}: {getTitle()}</CardTitle>
         <CardDescription className="text-sm">{descriptions[mode]}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

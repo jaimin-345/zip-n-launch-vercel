@@ -270,7 +270,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
     );
 };
 
-export const Step_CloseOutAndDelegate = ({ formData, setFormData }) => {
+export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8 }) => {
     const getAssociationNames = () => {
         if (!formData.associations) return 'N/A';
         return Object.keys(formData.associations).filter(key => formData.associations[key]).join(', ') || 'None';
@@ -326,7 +326,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData }) => {
     return (
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 8: Close Out & Review</CardTitle>
+                <CardTitle>Step {stepNumber}: Close Out & Review</CardTitle>
                 <CardDescription>Review all details and manage staff access rights for different phases.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

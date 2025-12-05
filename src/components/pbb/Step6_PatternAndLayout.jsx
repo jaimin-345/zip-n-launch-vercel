@@ -76,7 +76,7 @@ const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
   }));
 };
 
-export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5 }) => {
   const { toast } = useToast();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -353,7 +353,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     >
       <CardHeader>
         <CardTitle>
-          Step 5: Pattern Selection
+          Step {stepNumber}: Pattern Selection
         </CardTitle>
         <CardDescription>
           Assign patterns to each group for your book.
