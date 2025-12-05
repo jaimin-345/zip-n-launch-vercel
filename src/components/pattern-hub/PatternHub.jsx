@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight, Save } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight, Save, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout'
 import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { useToast } from '@/components/ui/use-toast';
+import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 
 // Base steps - step 3 name will be dynamic based on purpose
 const getHubSteps = (purposeName) => [
@@ -79,6 +80,7 @@ export const PatternHub = () => {
 
     const [isSaving, setIsSaving] = useState(false);
     const [highestStepReached, setHighestStepReached] = useState(0);
+    const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
@@ -260,10 +262,21 @@ export const PatternHub = () => {
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Save Project
                         </Button>
-                        <Button onClick={handleNext} disabled={isNextDisabled}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                        {currentStep === hubSteps.length - 1 ? (
+                            <Button onClick={() => setIsGenerateDialogOpen(true)}>
+                                <Download className="mr-2 h-4 w-4" /> Generate Book
+                            </Button>
+                        ) : (
+                            <Button onClick={handleNext} disabled={isNextDisabled}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                        )}
                     </div>
               </div>
             </Card>
+            <GenerateBookDialog
+                open={isGenerateDialogOpen}
+                onOpenChange={setIsGenerateDialogOpen}
+                pbbData={formData}
+            />
         </div>
     );
 };
