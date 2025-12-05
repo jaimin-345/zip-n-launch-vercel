@@ -20,14 +20,14 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
     };
 
     return (
-        <div className="flex justify-between items-start mb-4 px-2">
+        <div className="flex items-start mb-4 w-full">
             {steps.map((step, index) => {
                 const isCompleted = completedSteps.has(step.id);
                 const isActive = currentStep === step.id;
                 const isNext = step.id === nextStepId && !isActive;
                 return (
                     <React.Fragment key={step.id}>
-                        <div className="flex flex-col items-center text-center min-w-[70px] max-w-[90px] cursor-pointer" onClick={() => handleStepClick(step.id)}>
+                        <div className="flex flex-col items-center text-center flex-1 cursor-pointer" onClick={() => handleStepClick(step.id)}>
                             <div className={cn(
                                 'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                                 isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
@@ -44,7 +44,7 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                                 {step.name}
                             </p>
                         </div>
-                        {index < steps.length - 1 && (<div className={`flex-1 h-0.5 mt-5 mx-1 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(step.id + 1) ? 'bg-green-600' : (currentStep > index + 1 ? 'bg-primary' : 'bg-border')}`} />)}
+                        {index < steps.length - 1 && (<div className={`w-full h-0.5 mt-5 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(step.id + 1) ? 'bg-green-600' : (currentStep > index + 1 ? 'bg-primary' : 'bg-border')}`} />)}
                     </React.Fragment>
                 )
             })}
