@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, Check, GitMerge, ListPlus, Settings2, Calendar, LayoutTemplate, UploadCloud, Eye, FileSignature, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Loader2, Info, Check, GitMerge, ListPlus, Settings2, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,21 +15,20 @@ import { Step3_Details } from '@/components/pbb/Step3_Details';
 import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
-import { Step7_PreviewScoresheets } from '@/components/pbb/Step7_PreviewScoresheets';
-import { Step8_Review } from '@/components/pbb/Step8_Review';
+import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 
 const hubSteps = [
   { id: 0, name: 'Usage Purpose', icon: Info },
-  { id: 1, name: 'Association', icon: GitMerge },
-  { id: 2, name: 'Disciplines', icon: ListPlus },
-  { id: 3, name: 'Configure', icon: Settings2 },
+  { id: 1, name: 'Book Details', icon: GitMerge },
+  { id: 2, name: 'Select Disciplines', icon: ListPlus },
+  { id: 3, name: 'Configure Classes', icon: Settings2 },
   { id: 4, name: 'Show Details', icon: Calendar },
   { id: 5, name: 'Pattern Selection', icon: LayoutTemplate },
   { id: 6, name: 'Uploads & Media', icon: UploadCloud },
   { id: 7, name: 'Preview', icon: Eye },
-  { id: 8, name: 'Review & Pay', icon: ShieldCheck },
+  { id: 8, name: 'Close Out & Review', icon: ShieldCheck },
 ];
 
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
@@ -110,7 +109,6 @@ export const PatternHub = () => {
         associationsData,
         divisionsData,
         usagePurposes,
-        handlePurchase,
         resetDisciplines,
     } = usePatternHub();
 
@@ -182,19 +180,12 @@ export const PatternHub = () => {
                 );
             case 8:
                  return (
-                    <Step8_Review pbbData={formData} onSubmit={() => handlePurchase(mockPricing)} />
+                    <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />
                 );
             default:
                 return null;
         }
     };
-    
-    const mockPricing = useMemo(() => {
-        const patternCount = formData.disciplines.filter(c => c.pattern).length;
-        const scoresheetCount = formData.disciplines.filter(c => c.scoresheet && !c.pattern).length; // only count if no pattern
-        const price = (patternCount * 500) + (scoresheetCount * 200);
-        return { type: 'Individual Patterns/Scoresheets', price, id: 'prod_individual_items' };
-    }, [formData.disciplines]);
     
     const completedSteps = useMemo(() => {
         const completed = new Set();
