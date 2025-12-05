@@ -194,6 +194,12 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
             relevantAssociationIds = ['AQHA']; // Open show uses AQHA as a base
         } else {
             relevantAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+            
+            // Hide NSBA disciplines when NSBA is selected with Dual-Approved type
+            const nsbaApprovalType = formData.subAssociationSelections?.nsba?.types?.[0];
+            if (relevantAssociationIds.includes('NSBA') && nsbaApprovalType === 'dual-approved') {
+                relevantAssociationIds = relevantAssociationIds.filter(id => id !== 'NSBA');
+            }
         }
 
         const subSelections = formData.subAssociationSelections || {};
