@@ -19,15 +19,16 @@ import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDeleg
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { useToast } from '@/components/ui/use-toast';
 
-const hubSteps = [
-  { id: 0, name: 'Usage Purpose', icon: Info },
-  { id: 1, name: 'Book Details', icon: GitMerge },
-  { id: 2, name: 'Select Disciplines', icon: ListPlus },
-  { id: 3, name: 'Show Details', icon: Calendar },
-  { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
-  { id: 5, name: 'Uploads & Media', icon: UploadCloud },
-  { id: 6, name: 'Preview', icon: Eye },
-  { id: 7, name: 'Close Out & Review', icon: ShieldCheck },
+// Base steps - step 3 name will be dynamic based on purpose
+const getHubSteps = (purposeName) => [
+  { id: 0, name: 'Usage Purpose', icon: Info, displayNumber: 0 },
+  { id: 1, name: 'Book Details', icon: GitMerge, displayNumber: 1 },
+  { id: 2, name: 'Select Disciplines', icon: ListPlus, displayNumber: 2 },
+  { id: 3, name: `${purposeName || 'Show'} Details`, icon: Calendar, displayNumber: 3 },
+  { id: 4, name: 'Pattern Selection', icon: LayoutTemplate, displayNumber: 4 },
+  { id: 5, name: 'Uploads & Media', icon: UploadCloud, displayNumber: 5 },
+  { id: 6, name: 'Preview', icon: Eye, displayNumber: 6 },
+  { id: 7, name: 'Close Out & Review', icon: ShieldCheck, displayNumber: 7 },
 ];
 
 const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurposes }) => {
@@ -81,6 +82,11 @@ export const PatternHub = () => {
 
     const isClinicMode = formData.usageType === 'clinic';
     const isEducationMode = formData.usageType === 'educational';
+
+    // Get selected purpose name for dynamic step naming
+    const selectedPurpose = usagePurposes.find(p => p.id === formData.usageType);
+    const purposeName = selectedPurpose?.name?.replace(' Materials', '').replace(' Purchase', '') || 'Show';
+    const hubSteps = useMemo(() => getHubSteps(purposeName), [purposeName]);
 
     const handleNext = () => {
         if (currentStep < hubSteps.length - 1) {
@@ -143,23 +149,23 @@ export const PatternHub = () => {
                 );
             case 3:
                 return (
-                    <Step3_Details formData={formData} setFormData={setFormData} />
+                    <Step3_Details formData={formData} setFormData={setFormData} purposeName={purposeName} stepNumber={3} />
                 );
             case 4:
                 return (
-                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} />
+                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} stepNumber={4} />
                 );
             case 5:
                 return (
-                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode}/>
+                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode} stepNumber={5} />
                 );
             case 6:
                 return (
-                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={isEducationMode} />
+                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={isEducationMode} stepNumber={6} />
                 );
             case 7:
                  return (
-                    <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />
+                    <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} stepNumber={7} />
                 );
             default:
                 return null;
