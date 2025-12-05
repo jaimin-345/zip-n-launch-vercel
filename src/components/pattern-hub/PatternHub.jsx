@@ -260,29 +260,72 @@ export const PatternHub = () => {
                 </div>
             </motion.div>
             
-            <div className="flex justify-between items-start mb-8 px-4 max-w-4xl mx-auto">
-              {hubSteps.map((step, index) => {
-                 const isCompleted = completedSteps.has(step.id);
-                 const isActive = currentStep === step.id;
-                 const isNext = step.id === nextStepId && !isActive;
-                 return(
-                <React.Fragment key={step.id}>
-                    <div className="flex flex-col items-center text-center w-24 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
+            <div className="flex justify-center items-start mb-4 px-4">
+              {/* Usage Purpose Step - Separate */}
+              {(() => {
+                const usageStep = hubSteps[0];
+                const isCompleted = completedSteps.has(usageStep.id);
+                const isActive = currentStep === usageStep.id;
+                const isNext = usageStep.id === nextStepId && !isActive;
+                return (
+                  <div className="flex flex-col items-center text-center w-20 cursor-pointer mr-6" onClick={() => setCurrentStep(usageStep.id)}>
+                    <div className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                      isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                      isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
+                      isNext && 'highlight-next-step'
+                    )}>
+                      {isCompleted ? <Check className="h-4 w-4"/> : <usageStep.icon className="h-4 w-4"/>}
+                    </div>
+                    <p className={cn(
+                      'mt-1.5 text-xs font-medium',
+                      isActive ? 'text-foreground' : 'text-muted-foreground',
+                      isCompleted && !isActive && 'text-green-600'
+                    )}>
+                      {usageStep.name}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Separator dash */}
+              <div className="h-0.5 w-4 bg-border mt-5 mr-2" />
+
+              {/* Remaining Steps - Pattern Book Builder Style */}
+              {hubSteps.slice(1).map((step, index) => {
+                const isCompleted = completedSteps.has(step.id);
+                const isActive = currentStep === step.id;
+                const isNext = step.id === nextStepId && !isActive;
+                const prevStepCompleted = completedSteps.has(hubSteps[index].id);
+                return (
+                  <React.Fragment key={step.id}>
+                    <div className="flex flex-col items-center text-center w-20 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
                       <div className={cn(
-                        'w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                        'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                         isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
                         isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
                         isNext && 'highlight-next-step'
                       )}>
-                        {isCompleted ? <Check className="h-6 w-6"/> : <step.icon className="h-6 w-6"/>}
+                        {isCompleted ? <Check className="h-4 w-4"/> : <step.icon className="h-4 w-4"/>}
                       </div>
-                      <p className={cn('mt-2 text-xs font-medium', currentStep === step.id ? 'text-foreground' : 'text-muted-foreground', isCompleted && 'text-green-600')}>
+                      <p className={cn(
+                        'mt-1.5 text-xs font-medium',
+                        isActive ? 'text-foreground' : 'text-muted-foreground',
+                        isCompleted && !isActive && 'text-green-600'
+                      )}>
                         {step.name}
                       </p>
                     </div>
-                    {index < hubSteps.length - 1 && (<div className={`flex-1 h-1 mt-6 rounded-full transition-colors duration-300 ${completedSteps.has(hubSteps[index].id) ? 'bg-green-600' : 'bg-border'}`} />)}
+                    {index < hubSteps.length - 2 && (
+                      <div className={cn(
+                        'flex-1 h-1 mt-5 mx-2 rounded-full transition-colors duration-300',
+                        isCompleted && completedSteps.has(hubSteps[index + 2]?.id) ? 'bg-green-600' : 
+                        currentStep > step.id ? 'bg-primary' : 'bg-border'
+                      )} />
+                    )}
                   </React.Fragment>
-                )})}
+                );
+              })}
             </div>
 
             <Card className="max-w-5xl mx-auto">
