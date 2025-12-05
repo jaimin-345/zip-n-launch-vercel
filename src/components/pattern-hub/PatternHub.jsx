@@ -126,6 +126,7 @@ export const PatternHub = () => {
             case 0:
                 return <UsagePurposeStep setFormData={setFormData} usageType={formData.usageType} usagePurposes={usagePurposes} isLoadingPurposes={isLoading} />;
             case 1:
+                const selectedPurpose = usagePurposes.find(p => p.id === formData.usageType);
                 return (
                     <Step1_Associations 
                       formData={formData} 
@@ -133,6 +134,7 @@ export const PatternHub = () => {
                       associationsData={associationsData}
                       onShowTypeChange={resetDisciplines}
                       isHub={true}
+                      selectedPurposeName={selectedPurpose?.name || 'Pattern'}
                     />
                 );
             case 2:

@@ -257,7 +257,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
   );
 };
 
-export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default' }) => {
+export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName }) => {
     
   const handleAssociationSelection = (assocId, isChecked) => {
     setFormData(prev => {
@@ -336,10 +336,8 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getShowNameLabel = () => {
-    if (context === 'hub') {
-        if (formData.usageType === 'clinic') return "Clinic Name";
-        if (formData.usageType === 'educational') return "Topic / Lesson Name";
-        return "Purchase Name";
+    if (context === 'hub' && selectedPurposeName) {
+        return `${selectedPurposeName} Name`;
     }
     if (context === 'pbb') return "Horse Show Name";
     return "Horse Show Name";
