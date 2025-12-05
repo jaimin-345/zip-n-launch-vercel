@@ -220,13 +220,8 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                                 ))}
                                 {dualApprovedInfo.length > 0 && (
                                     <span className="text-xs text-muted-foreground">
-                                        • {dualApprovedInfo.map((info, idx) => (
-                                            <span key={idx}>
-                                                {idx > 0 && ', '}
-                                                <span className="text-amber-600 font-medium">{info.assocAbbrev}</span>
-                                                {' '}Dual-Approved: <span className="text-green-600 font-medium">{info.dualWith}</span>
-                                            </span>
-                                        ))}
+                                        • <span className="text-amber-600 font-medium">{dualApprovedInfo[0].assocAbbrev}</span>
+                                        {' '}Dual-Approved: <span className="text-green-600 font-medium">{dualApprovedInfo[0].dualWith}</span>
                                     </span>
                                 )}
                             </div>
