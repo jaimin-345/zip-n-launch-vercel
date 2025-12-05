@@ -247,7 +247,7 @@ export const PatternHub = () => {
               nextStepId={nextStepId}
             />
 
-            <Card className="max-w-5xl mx-auto">
+            <Card className="w-full">
               <AnimatePresence mode="wait">
                 <CardContent className="p-0 sm:p-6">
                     {renderStepContent()}
