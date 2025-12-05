@@ -195,9 +195,9 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         } else {
             relevantAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
             
-            // Hide NSBA disciplines when NSBA is selected with Dual-Approved type
-            const nsbaApprovalType = formData.subAssociationSelections?.nsba?.types?.[0];
-            if (relevantAssociationIds.includes('NSBA') && nsbaApprovalType === 'dual-approved') {
+            // Hide NSBA disciplines when NSBA is selected with Dual-Approved type only
+            const nsbaApprovalType = formData.subAssociationSelections?.nsba?.approvalType;
+            if (relevantAssociationIds.includes('NSBA') && nsbaApprovalType === 'dual') {
                 relevantAssociationIds = relevantAssociationIds.filter(id => id !== 'NSBA');
             }
         }
