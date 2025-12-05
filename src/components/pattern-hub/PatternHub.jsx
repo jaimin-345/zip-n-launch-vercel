@@ -17,6 +17,7 @@ import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 import { Step7_PreviewScoresheets } from '@/components/pbb/Step7_PreviewScoresheets';
 import { Step8_Review } from '@/components/pbb/Step8_Review';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
+import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 
 const hubSteps = [
   { id: 0, name: 'Usage Purpose', icon: Info },
@@ -261,42 +262,46 @@ export const PatternHub = () => {
             </motion.div>
             
             <div className="flex justify-center items-start mb-4 px-4">
-              {/* Usage Purpose Step - Separate */}
+              {/* Usage Purpose Step - First step */}
               {(() => {
                 const usageStep = hubSteps[0];
                 const isCompleted = completedSteps.has(usageStep.id);
                 const isActive = currentStep === usageStep.id;
                 const isNext = usageStep.id === nextStepId && !isActive;
                 return (
-                  <div className="flex flex-col items-center text-center w-20 cursor-pointer mr-6" onClick={() => setCurrentStep(usageStep.id)}>
-                    <div className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                      isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
-                      isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
-                      isNext && 'highlight-next-step'
-                    )}>
-                      {isCompleted ? <Check className="h-4 w-4"/> : <usageStep.icon className="h-4 w-4"/>}
+                  <>
+                    <div className="flex flex-col items-center text-center w-20 cursor-pointer" onClick={() => setCurrentStep(usageStep.id)}>
+                      <div className={cn(
+                        'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                        isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                        isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
+                        isNext && 'highlight-next-step'
+                      )}>
+                        {isCompleted ? <Check className="h-4 w-4"/> : <usageStep.icon className="h-4 w-4"/>}
+                      </div>
+                      <p className={cn(
+                        'mt-1.5 text-xs font-medium',
+                        isActive ? 'text-foreground' : 'text-muted-foreground',
+                        isCompleted && !isActive && 'text-green-600'
+                      )}>
+                        {usageStep.name}
+                      </p>
                     </div>
-                    <p className={cn(
-                      'mt-1.5 text-xs font-medium',
-                      isActive ? 'text-foreground' : 'text-muted-foreground',
-                      isCompleted && !isActive && 'text-green-600'
-                    )}>
-                      {usageStep.name}
-                    </p>
-                  </div>
+                    {/* Connector line after Usage Purpose */}
+                    <div className={cn(
+                      'flex-1 h-1 mt-5 mx-2 rounded-full transition-colors duration-300',
+                      isCompleted && completedSteps.has(1) ? 'bg-green-600' : 
+                      currentStep > 0 ? 'bg-primary' : 'bg-border'
+                    )} />
+                  </>
                 );
               })()}
 
-              {/* Separator dash */}
-              <div className="h-0.5 w-4 bg-border mt-5 mr-2" />
-
-              {/* Remaining Steps - Pattern Book Builder Style */}
+              {/* Steps 1-7 using same BuilderSteps style */}
               {hubSteps.slice(1).map((step, index) => {
                 const isCompleted = completedSteps.has(step.id);
                 const isActive = currentStep === step.id;
                 const isNext = step.id === nextStepId && !isActive;
-                const prevStepCompleted = completedSteps.has(hubSteps[index].id);
                 return (
                   <React.Fragment key={step.id}>
                     <div className="flex flex-col items-center text-center w-20 cursor-pointer" onClick={() => setCurrentStep(step.id)}>
