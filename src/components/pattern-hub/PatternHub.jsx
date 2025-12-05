@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, Check, GitMerge, ListPlus, Settings2, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Loader2, Info, Check, GitMerge, ListPlus, Calendar, LayoutTemplate, UploadCloud, Eye, ShieldCheck, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,56 +16,18 @@ import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDelegate';
-import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 
 const hubSteps = [
   { id: 0, name: 'Usage Purpose', icon: Info },
   { id: 1, name: 'Book Details', icon: GitMerge },
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
-  { id: 3, name: 'Configure Classes', icon: Settings2 },
-  { id: 4, name: 'Show Details', icon: Calendar },
-  { id: 5, name: 'Pattern Selection', icon: LayoutTemplate },
-  { id: 6, name: 'Uploads & Media', icon: UploadCloud },
-  { id: 7, name: 'Preview', icon: Eye },
-  { id: 8, name: 'Close Out & Review', icon: ShieldCheck },
+  { id: 3, name: 'Show Details', icon: Calendar },
+  { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
+  { id: 5, name: 'Uploads & Media', icon: UploadCloud },
+  { id: 6, name: 'Preview', icon: Eye },
+  { id: 7, name: 'Close Out & Review', icon: ShieldCheck },
 ];
-
-const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
-    if (!pbbDiscipline) return false;
-    
-    const getSelectedDivisionsSet = () => {
-        const divisions = new Set();
-        if (!pbbDiscipline.divisions) return divisions;
-
-        if (pbbDiscipline.isCustom && isOpenShowMode) {
-            const openShowDivs = pbbDiscipline.divisions['open-show'] || {};
-            Object.entries(openShowDivs).forEach(([group, levels]) => {
-                if (Array.isArray(levels)) {
-                    levels.forEach(level => divisions.add(`open-show-${group} - ${level}`));
-                }
-            });
-        } else {
-            Object.entries(pbbDiscipline.divisions).forEach(([assocId, divs]) => {
-                Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
-                     divisions.add(`${assocId}-${divisionKey}`);
-                });
-            });
-        }
-        return divisions;
-    };
-    
-    const selectedDivisions = getSelectedDivisionsSet();
-    const groupedDivisions = new Set((pbbDiscipline.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
-    
-    if (selectedDivisions.size === 0 && (pbbDiscipline.patternGroups || []).length > 0 && (pbbDiscipline.patternGroups[0].divisions || []).length === 0 ) {
-         return true; 
-    }
-    
-    if(selectedDivisions.size === 0) return false;
-
-    return selectedDivisions.size === groupedDivisions.size && [...selectedDivisions].every(d => groupedDivisions.has(d));
-};
 
 const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurposes }) => {
     
@@ -126,7 +88,6 @@ export const PatternHub = () => {
                 </div>
             );
         }
-        const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
         switch (currentStep) {
             case 0:
@@ -143,42 +104,25 @@ export const PatternHub = () => {
                 );
             case 2:
                 return (
-                    <StepContainer 
-                        title={isClinicMode ? "What disciplines are you teaching at your clinic?" : isEducationMode ? "Select Learning Topics" : "Select Disciplines"} 
-                        description={isClinicMode ? "Choose the disciplines you'll be teaching." : isEducationMode ? "Choose the disciplines or maneuvers you are focusing on." : "Choose the disciplines for which you need patterns or score sheets."}
-                    >
-                        <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />
-                    </StepContainer>
+                    <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />
                 );
             case 3:
-                 return (
-                    <StepContainer title="Configure Your Selections" description="Configure divisions and patterns for your selected disciplines.">
-                        <ClassConfiguration 
-                            formData={formData} 
-                            setFormData={setFormData} 
-                            isOpenShowMode={isOpenShowMode}
-                            associationsData={associationsData}
-                            divisionsData={divisionsData}
-                        />
-                    </StepContainer>
-                );
-            case 4:
                 return (
                     <Step3_Details formData={formData} setFormData={setFormData} />
                 );
-            case 5:
+            case 4:
                 return (
                     <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} />
                 );
-            case 6:
+            case 5:
                 return (
                     <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinicMode} isEducationMode={isEducationMode}/>
                 );
-            case 7:
+            case 6:
                 return (
                     <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={isEducationMode} />
                 );
-            case 8:
+            case 7:
                  return (
                     <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />
                 );
@@ -195,19 +139,14 @@ export const PatternHub = () => {
         if (hasAssociations) completed.add(1);
 
         if (formData.disciplines.length > 0) completed.add(2);
-
-        const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
-        if (formData.disciplines.length > 0 && formData.disciplines.every(disc => isDisciplineComplete(disc, isOpenShowMode))) {
-            completed.add(3);
-        }
         
-        // Step 4: Show Details
-        if (formData.showName && formData.startDate) completed.add(4);
+        // Step 3: Show Details
+        if (formData.showName && formData.startDate) completed.add(3);
 
-        // Step 5: Pattern Selection
+        // Step 4: Pattern Selection
         const patternDisciplines = formData.disciplines.filter(d => d.pattern);
         if (patternDisciplines.length === 0) {
-            completed.add(5);
+            completed.add(4);
         } else {
             const allPatternsSelected = patternDisciplines.every(pbbDiscipline => {
                 const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
@@ -215,22 +154,22 @@ export const PatternHub = () => {
                     !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
                 );
             });
-            if (allPatternsSelected) completed.add(5);
+            if (allPatternsSelected) completed.add(4);
         }
 
-        // Step 6: Uploads & Media (optional)
-        if (formData.coverPageOption) completed.add(6);
+        // Step 5: Uploads & Media (optional)
+        if (formData.coverPageOption) completed.add(5);
 
-        // Step 7: Preview (always completable)
+        // Step 6: Preview
         const scoresheetDisciplines = formData.disciplines.filter(d => d.scoresheet);
         if (scoresheetDisciplines.length === 0) {
-            completed.add(7);
+            completed.add(6);
         } else {
             const allScoresheetsSelected = scoresheetDisciplines.every(pbbDiscipline => {
                 const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
                 return !!formData.scoresheetSelections?.[disciplineIndex];
             });
-            if (allScoresheetsSelected) completed.add(7);
+            if (allScoresheetsSelected) completed.add(6);
         }
 
         return completed;
