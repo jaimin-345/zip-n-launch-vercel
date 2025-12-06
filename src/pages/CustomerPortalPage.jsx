@@ -330,7 +330,7 @@ const CustomerPortalPage = () => {
 
     const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel) => (
         <div className="mb-16">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-6 p-4 rounded-lg border-2 border-red-500 bg-background/50">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
                     <p className="text-muted-foreground mt-1">{description}</p>
