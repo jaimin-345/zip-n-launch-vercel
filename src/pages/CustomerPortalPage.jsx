@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, Tag, Users, ImageIcon, Calendar, MoveRight, Copy, Link2, Archive } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, Calendar, Copy, Link2, Archive, X } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     DropdownMenu,
@@ -15,25 +15,114 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
 
-const ProjectCard = ({ project }) => {
+const COVER_COLORS = [
+    '#4BCE97', '#F5CD47', '#FEA362', '#F87168', '#E774BB', '#C59CDF',
+    '#579DFF', '#6CC3E0', '#94C748', '#E388A3'
+];
+
+const CoverColorDialog = ({ open, onClose, currentColor, onSelectColor, onRemoveCover }) => {
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[320px]">
+                <DialogHeader>
+                    <DialogTitle>Cover</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-2">Size</p>
+                        <div className="flex gap-2">
+                            <div className="flex-1 h-12 bg-muted rounded border-2 border-primary flex items-center justify-center">
+                                <div className="w-full h-2 bg-primary/30 mx-4 rounded" />
+                            </div>
+                            <div className="flex-1 h-12 bg-muted rounded border flex items-center justify-center">
+                                <div className="w-full h-full bg-primary/20 rounded" />
+                            </div>
+                        </div>
+                    </div>
+                    <Button variant="ghost" className="w-full" onClick={onRemoveCover}>
+                        Remove cover
+                    </Button>
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-2">Colors</p>
+                        <div className="grid grid-cols-5 gap-2">
+                            {COVER_COLORS.map((color) => (
+                                <button
+                                    key={color}
+                                    onClick={() => onSelectColor(color)}
+                                    className={`w-10 h-8 rounded cursor-pointer transition-all hover:scale-110 ${currentColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
+                                    style={{ backgroundColor: color }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const ProjectCard = ({ project, onUpdateCover }) => {
     const navigate = useNavigate();
+    const { toast } = useToast();
+    const [coverDialogOpen, setCoverDialogOpen] = useState(false);
+    const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
+    
     const isPatternBook = project.project_type === 'pattern_book';
     const editPath = isPatternBook
         ? `/pattern-book-builder/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
 
-    const handleMenuAction = (action) => {
+    const handleMenuAction = async (action) => {
         switch (action) {
             case 'open':
                 navigate(editPath);
                 break;
+            case 'cover':
+                setCoverDialogOpen(true);
+                break;
+            case 'link':
+                const link = `${window.location.origin}${editPath}`;
+                await navigator.clipboard.writeText(link);
+                toast({ title: "Link copied", description: "Project link copied to clipboard" });
+                break;
             case 'archive':
-                console.log('Archive project:', project.id);
+                await supabase
+                    .from('projects')
+                    .update({ status: 'archived' })
+                    .eq('id', project.id);
+                toast({ title: "Project archived", description: "Project has been archived" });
                 break;
             default:
                 console.log('Action:', action, project.id);
         }
+    };
+
+    const handleSelectColor = async (color) => {
+        setCoverColor(color);
+        const updatedData = { ...project.project_data, coverColor: color };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        setCoverDialogOpen(false);
+    };
+
+    const handleRemoveCover = async () => {
+        setCoverColor(null);
+        const updatedData = { ...project.project_data, coverColor: null };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        setCoverDialogOpen(false);
     };
 
     return (
@@ -44,6 +133,14 @@ const ProjectCard = ({ project }) => {
             whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
             className="flex flex-col h-full relative"
         >
+            {/* Cover Color Bar */}
+            {coverColor && (
+                <div 
+                    className="h-8 w-full rounded-t-lg" 
+                    style={{ backgroundColor: coverColor }}
+                />
+            )}
+            
             {/* Edit Menu Button */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -59,20 +156,11 @@ const ProjectCard = ({ project }) => {
                     <DropdownMenuItem onClick={() => handleMenuAction('open')}>
                         <Pencil className="mr-2 h-4 w-4" /> Open card
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('labels')}>
-                        <Tag className="mr-2 h-4 w-4" /> Edit labels
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('members')}>
-                        <Users className="mr-2 h-4 w-4" /> Change members
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                         <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
                         <Calendar className="mr-2 h-4 w-4" /> Edit dates
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('move')}>
-                        <MoveRight className="mr-2 h-4 w-4" /> Move
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('copy')}>
                         <Copy className="mr-2 h-4 w-4" /> Copy card
@@ -86,7 +174,7 @@ const ProjectCard = ({ project }) => {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            <Card className="flex flex-col flex-grow glass-effect">
+            <Card className={`flex flex-col flex-grow glass-effect ${coverColor ? 'rounded-t-none' : ''}`}>
                 <CardHeader>
                     <div className="flex items-center gap-4">
                         <div className="p-3 bg-primary/10 rounded-lg">
@@ -110,6 +198,14 @@ const ProjectCard = ({ project }) => {
                     </Button>
                 </CardFooter>
             </Card>
+
+            <CoverColorDialog
+                open={coverDialogOpen}
+                onClose={() => setCoverDialogOpen(false)}
+                currentColor={coverColor}
+                onSelectColor={handleSelectColor}
+                onRemoveCover={handleRemoveCover}
+            />
         </motion.div>
     );
 };
