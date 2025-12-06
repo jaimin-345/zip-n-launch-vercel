@@ -69,11 +69,52 @@ const CoverColorDialog = ({ open, onClose, currentColor, onSelectColor, onRemove
     );
 };
 
+const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
+    const [selectedDate, setSelectedDate] = useState(currentDate || '');
+    
+    const handleSave = () => {
+        onSaveDate(selectedDate);
+        onClose();
+    };
+    
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-[320px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Due Date</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div>
+                        <p className="text-sm text-muted-foreground mb-2">Due Date</p>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1" onClick={() => { setSelectedDate(''); }}>
+                            Clear
+                        </Button>
+                        <Button className="flex-1" onClick={handleSave}>
+                            Save
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 const ProjectCard = ({ project, onUpdateCover }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
+    const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
+    const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
+    const [isHovered, setIsHovered] = useState(false);
     
     const isPatternBook = project.project_type === 'pattern_book';
     const editPath = isPatternBook
@@ -87,6 +128,9 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                 break;
             case 'cover':
                 setCoverDialogOpen(true);
+                break;
+            case 'dates':
+                setDueDateDialogOpen(true);
                 break;
             case 'link':
                 const link = `${window.location.origin}${editPath}`;
@@ -125,13 +169,25 @@ const ProjectCard = ({ project, onUpdateCover }) => {
         setCoverDialogOpen(false);
     };
 
+    const handleSaveDueDate = async (date) => {
+        setDueDate(date);
+        const updatedData = { ...project.project_data, dueDate: date };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
             whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-            className="flex flex-col h-full relative"
+            className="flex flex-col h-full relative group"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             {/* Cover Color Bar */}
             {coverColor && (
@@ -141,13 +197,13 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                 />
             )}
             
-            {/* Edit Menu Button */}
+            {/* Edit Menu Button - Only visible on hover */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border"
+                        className={`absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
@@ -191,6 +247,11 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                         Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                    {dueDate && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
+                        </p>
+                    )}
                 </CardContent>
                 <CardFooter>
                     <Button onClick={() => navigate(editPath)} className="w-full">
@@ -205,6 +266,13 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                 currentColor={coverColor}
                 onSelectColor={handleSelectColor}
                 onRemoveCover={handleRemoveCover}
+            />
+            
+            <DueDateDialog
+                open={dueDateDialogOpen}
+                onClose={() => setDueDateDialogOpen(false)}
+                currentDate={dueDate}
+                onSaveDate={handleSaveDueDate}
             />
         </motion.div>
     );
