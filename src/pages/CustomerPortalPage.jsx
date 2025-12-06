@@ -228,10 +228,7 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                         <Pencil className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem className="bg-red-500 text-white hover:bg-red-600 focus:bg-red-600 focus:text-white rounded-md mb-1">
-                        <BookCopy className="mr-2 h-4 w-4" /> Pattern Books
-                    </DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-44">
                     <DropdownMenuItem onClick={() => handleMenuAction('open')}>
                         <Pencil className="mr-2 h-4 w-4" /> Open card
                     </DropdownMenuItem>
