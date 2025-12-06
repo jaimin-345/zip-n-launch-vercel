@@ -228,7 +228,10 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                         <Pencil className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem className="bg-red-500 text-white hover:bg-red-600 focus:bg-red-600 focus:text-white rounded-md mb-1">
+                        <BookCopy className="mr-2 h-4 w-4" /> Pattern Books
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('open')}>
                         <Pencil className="mr-2 h-4 w-4" /> Open card
                     </DropdownMenuItem>
@@ -330,7 +333,7 @@ const CustomerPortalPage = () => {
 
     const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel) => (
         <div className="mb-16">
-            <div className="flex justify-between items-center mb-6 p-4 rounded-lg border-2 border-red-500 bg-background/50">
+            <div className="flex justify-between items-center mb-6">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
                     <p className="text-muted-foreground mt-1">{description}</p>
