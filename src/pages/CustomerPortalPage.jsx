@@ -7,8 +7,14 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, SquarePen, Tag, Users, Image, Calendar, MoveRight, Copy, Link, Archive } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const ProjectCard = ({ project }) => {
     const navigate = useNavigate();
@@ -17,14 +23,69 @@ const ProjectCard = ({ project }) => {
         ? `/pattern-book-builder/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
 
+    const handleMenuAction = (action) => {
+        switch (action) {
+            case 'open':
+                navigate(editPath);
+                break;
+            case 'archive':
+                console.log('Archive project:', project.id);
+                break;
+            default:
+                console.log('Action:', action, project.id);
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
             whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-            className="flex flex-col h-full"
+            className="flex flex-col h-full relative"
         >
+            {/* Edit Menu Button */}
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border"
+                    >
+                        <SquarePen className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                        <SquarePen className="mr-2 h-4 w-4" /> Open card
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('labels')}>
+                        <Tag className="mr-2 h-4 w-4" /> Edit labels
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('members')}>
+                        <Users className="mr-2 h-4 w-4" /> Change members
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                        <Image className="mr-2 h-4 w-4" /> Change cover
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
+                        <Calendar className="mr-2 h-4 w-4" /> Edit dates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('move')}>
+                        <MoveRight className="mr-2 h-4 w-4" /> Move
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('copy')}>
+                        <Copy className="mr-2 h-4 w-4" /> Copy card
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('link')}>
+                        <Link className="mr-2 h-4 w-4" /> Copy link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                        <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
             <Card className="flex flex-col flex-grow glass-effect">
                 <CardHeader>
                     <div className="flex items-center gap-4">
