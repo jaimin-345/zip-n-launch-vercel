@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive, ChevronDown, ChevronRight } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -327,28 +327,49 @@ const CustomerPortalPage = () => {
 
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
     const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book');
+    
+    const [expandedSections, setExpandedSections] = useState({
+        patternBooks: true,
+        horseShows: true
+    });
+    
+    const toggleSection = (section) => {
+        setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+    };
 
-    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel) => (
+    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey) => (
         <div className="mb-16">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
-                    <p className="text-muted-foreground mt-1">{description}</p>
-                </div>
+            <div className="flex justify-between items-center mb-4">
+                <button 
+                    onClick={() => toggleSection(sectionKey)}
+                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                    {expandedSections[sectionKey] ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div className="text-left">
+                        <h2 className="text-3xl font-bold tracking-tight">{title}</h2>
+                        <p className="text-muted-foreground mt-1">{description}</p>
+                    </div>
+                </button>
                 <Button onClick={() => navigate(newProjectPath)}>
                     <PlusCircle className="mr-2 h-4 w-4" /> {newProjectLabel}
                 </Button>
             </div>
-            {projectList.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                    {projectList.map(project => (
-                        <ProjectCard key={project.id} project={project} />
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <p className="text-muted-foreground">You haven't created any projects here yet.</p>
-                </div>
+            {expandedSections[sectionKey] && (
+                projectList.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                        {projectList.map(project => (
+                            <ProjectCard key={project.id} project={project} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                        <p className="text-muted-foreground">You haven't created any projects here yet.</p>
+                    </div>
+                )
             )}
         </div>
     );
@@ -382,14 +403,16 @@ const CustomerPortalPage = () => {
                                 "Pattern Books",
                                 "Create and manage your professional pattern books.",
                                 "/pattern-book-builder",
-                                "New Pattern Book"
+                                "New Pattern Book",
+                                "patternBooks"
                             )}
                             {renderProjectList(
                                 showManagerProjects,
                                 "Horse Shows",
                                 "Build and organize your complete horse show schedules.",
                                 "/horse-show-manager/create",
-                                "New Horse Show"
+                                "New Horse Show",
+                                "horseShows"
                             )}
                         </div>
                     )}
