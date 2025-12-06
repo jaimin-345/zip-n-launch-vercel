@@ -7,7 +7,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, Calendar, Copy, Link2, Archive, X } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import {
     DropdownMenu,
@@ -70,10 +73,10 @@ const CoverColorDialog = ({ open, onClose, currentColor, onSelectColor, onRemove
 };
 
 const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
-    const [selectedDate, setSelectedDate] = useState(currentDate || '');
+    const [selectedDate, setSelectedDate] = useState(currentDate ? new Date(currentDate) : undefined);
     
     const handleSave = () => {
-        onSaveDate(selectedDate);
+        onSaveDate(selectedDate ? format(selectedDate, 'yyyy-MM-dd') : '');
         onClose();
     };
     
@@ -86,15 +89,32 @@ const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
                 <div className="space-y-4">
                     <div>
                         <p className="text-sm text-muted-foreground mb-2">Due Date</p>
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
-                        />
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !selectedDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    onSelect={setSelectedDate}
+                                    initialFocus
+                                    className={cn("p-3 pointer-events-auto")}
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" className="flex-1" onClick={() => { setSelectedDate(''); }}>
+                        <Button variant="outline" className="flex-1" onClick={() => setSelectedDate(undefined)}>
                             Clear
                         </Button>
                         <Button className="flex-1" onClick={handleSave}>
@@ -216,7 +236,7 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                         <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
-                        <Calendar className="mr-2 h-4 w-4" /> Edit dates
+                        <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('copy')}>
                         <Copy className="mr-2 h-4 w-4" /> Copy card
