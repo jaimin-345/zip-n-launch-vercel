@@ -42,8 +42,9 @@ const COVER_COLORS = [
 const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
+        // Check for approval/locked status
+        if (accessPhase.includes('approval') || accessPhase.includes('locked')) return 'Pending Approval';
         if (accessPhase.includes('publication')) return 'Published';
-        if (accessPhase.includes('approval')) return 'Pending Approval';
         if (accessPhase.includes('draft')) return 'Review';
         return 'Pending';
     };
@@ -73,7 +74,7 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
                     size="sm"
                     onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
                 >
-                    Preview Only
+                    <Edit className="h-4 w-4 mr-1" /> Edit
                 </Button>
             </div>
         </div>
