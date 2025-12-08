@@ -54,7 +54,7 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
     return (
-        <div className="border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
+        <div className="border border-border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                     <Eye className="h-5 w-5 text-orange-400" />
@@ -71,7 +71,6 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
                 <Button 
                     variant="outline" 
                     size="sm"
-                    className="border-orange-400 text-orange-500 hover:bg-orange-50"
                     onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
                 >
                     Preview Only
@@ -144,7 +143,6 @@ const PatternFolderItem = ({ project }) => {
                     <Folder className="h-5 w-5" style={{ color: coverColor }} />
                     <span className="font-semibold">{project.project_name || 'Untitled Project'}</span>
                 </div>
-                <span className="text-sm text-muted-foreground">{patternCount} patterns</span>
             </div>
             
             {/* Expanded Content - Staff Cards */}
@@ -586,7 +584,7 @@ const CustomerPortalPage = () => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey, menuType = 'full') => (
+    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey, menuType = 'full', hideNewButton = false) => (
         <div className="mb-16">
             <div className="flex justify-between items-center mb-4">
                 <button 
@@ -603,15 +601,17 @@ const CustomerPortalPage = () => {
                         <p className="text-muted-foreground mt-1">{description}</p>
                     </div>
                 </button>
-                <Button onClick={() => navigate(newProjectPath)}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> {newProjectLabel}
-                </Button>
+                {!hideNewButton && (
+                    <Button onClick={() => navigate(newProjectPath)}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> {newProjectLabel}
+                    </Button>
+                )}
             </div>
             {expandedSections[sectionKey] && (
                 projectList.length > 0 ? (
                     menuType === 'folder' ? (
-                        // Folder-style layout for Pattern Folders
-                        <div className="space-y-2">
+                        // Folder-style layout for Pattern Portal - 3 folders per row
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {projectList.map(project => (
                                 <PatternFolderItem key={project.id} project={project} />
                             ))}
@@ -659,12 +659,13 @@ const CustomerPortalPage = () => {
                         <div>
                             {renderProjectList(
                                 patternBookProjects,
-                                "Pattern Folder",
+                                "Pattern Portal",
                                 "Organize and store your pattern collections.",
-                                "/pattern-folder/new",
-                                "New Pattern Folder",
+                                "",
+                                "",
                                 "patternFolders",
-                                "folder"
+                                "folder",
+                                true
                             )}
                             {renderProjectList(
                                 patternBookProjects,
