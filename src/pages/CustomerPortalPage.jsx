@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive, ChevronDown, ChevronRight, FolderOpen, Eye } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -127,7 +127,7 @@ const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
     );
 };
 
-const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
+const ProjectCard = ({ project, menuType = 'full' }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
@@ -154,11 +154,6 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                 break;
             case 'dates':
                 setDueDateDialogOpen(true);
-                break;
-            case 'link':
-                const link = `${window.location.origin}${editPath}`;
-                await navigator.clipboard.writeText(link);
-                toast({ title: "Link copied", description: "Project link copied to clipboard" });
                 break;
             case 'archive':
                 await supabase
@@ -222,26 +217,8 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                     </DropdownMenuItem>
                 </>
             );
-        } else if (menuType === 'patternBook') {
-            // Pattern Books: remove copy card and copy link
-            return (
-                <>
-                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
-                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
-                        <Archive className="mr-2 h-4 w-4" /> Archive
-                    </DropdownMenuItem>
-                </>
-            );
         } else {
-            // Full menu for Horse Shows
+            // Pattern Books and Horse Shows: open card, change cover, edit dates, archive
             return (
                 <>
                     <DropdownMenuItem onClick={() => handleMenuAction('open')}>
@@ -273,10 +250,10 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Folder Tab - like a file folder */}
+                {/* Folder Tab */}
                 <div className="flex">
                     <div 
-                        className="h-4 w-16 rounded-t-md"
+                        className="h-4 w-20 rounded-t-lg"
                         style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
                     />
                     <div 
@@ -304,45 +281,38 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                 </DropdownMenu>
 
                 {/* Folder Body */}
-                <div 
-                    className="flex flex-col flex-grow rounded-lg rounded-tl-none border-2 cursor-pointer overflow-hidden"
-                    style={{ 
-                        backgroundColor: coverColor ? `${coverColor}15` : 'hsl(var(--card))',
-                        borderColor: coverColor || 'hsl(var(--primary))'
-                    }}
-                    onClick={() => navigate(editPath)}
-                >
-                    {/* Folder top edge */}
-                    <div 
-                        className="h-2 w-full"
-                        style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
-                    />
-                    
-                    <div className="p-4 flex flex-col flex-grow">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${coverColor || 'hsl(var(--primary))'}20` }}>
-                                <FolderOpen className="h-6 w-6" style={{ color: coverColor || 'hsl(var(--primary))' }} />
+                <Card className="flex flex-col flex-grow rounded-tl-none border-t-0" style={{ borderColor: coverColor || undefined }}>
+                    {coverColor && (
+                        <div className="h-2 w-full rounded-tr-lg" style={{ backgroundColor: coverColor }} />
+                    )}
+                    <CardHeader>
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-primary/10 rounded-lg">
+                                <FolderOpen className="h-6 w-6 text-primary" />
                             </div>
                             <div>
-                                <h3 className="font-semibold leading-tight text-foreground">{project.project_name || 'Untitled Folder'}</h3>
-                                <p className="text-xs text-muted-foreground">Pattern Folder</p>
+                                <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
+                                <CardDescription>Pattern Folder</CardDescription>
                             </div>
                         </div>
-                        
-                        <div className="mt-auto space-y-1">
-                            <p className="text-sm text-muted-foreground">
-                                Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                        <p className="text-sm text-muted-foreground">
+                            Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                        {dueDate && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
                             </p>
-                            <p className="text-sm text-muted-foreground">
-                                Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span>
-                            </p>
-                        </div>
-                        
-                        <Button onClick={(e) => { e.stopPropagation(); navigate(editPath); }} className="w-full mt-4">
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button onClick={() => navigate(editPath)} className="w-full">
                             Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
-                    </div>
-                </div>
+                    </CardFooter>
+                </Card>
 
                 <CoverColorDialog
                     open={coverDialogOpen}
@@ -555,7 +525,7 @@ const CustomerPortalPage = () => {
                                 "/pattern-book-builder",
                                 "New Pattern Book",
                                 "patternBooks",
-                                "patternBook"
+                                "default"
                             )}
                             {renderProjectList(
                                 showManagerProjects,
@@ -564,7 +534,7 @@ const CustomerPortalPage = () => {
                                 "/horse-show-manager/create",
                                 "New Horse Show",
                                 "horseShows",
-                                "full"
+                                "default"
                             )}
                         </div>
                     )}
