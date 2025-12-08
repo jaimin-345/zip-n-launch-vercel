@@ -39,7 +39,7 @@ const COVER_COLORS = [
 ];
 
 // Staff Access Card inside folder - uses same card design as Pattern Books
-const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
+const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, projectUpdatedAt }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
         if (accessPhase.includes('publication')) return 'Published';
@@ -53,46 +53,49 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
                         status === 'Pending Approval' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
+    const formattedDate = projectUpdatedAt 
+        ? format(new Date(projectUpdatedAt), "MMMM d, yyyy 'at' h:mm a")
+        : 'N/A';
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col"
+            whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+            className="flex flex-col h-full"
         >
             {coverColor && (
                 <div 
-                    className="h-6 w-full rounded-t-lg" 
+                    className="h-8 w-full rounded-t-lg" 
                     style={{ backgroundColor: coverColor }}
                 />
             )}
-            <Card className={`flex flex-col ${coverColor ? 'rounded-t-none' : ''}`}>
+            <Card className={`flex flex-col flex-grow ${coverColor ? 'rounded-t-none' : ''}`}>
                 <CardHeader className="pb-2">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/10 rounded-lg">
-                            <Eye className="h-5 w-5 text-primary" />
+                            <BookCopy className="h-5 w-5 text-primary" />
                         </div>
-                        <div>
-                            <CardTitle className="text-base leading-tight">{staffMember.name || 'Staff Member'}</CardTitle>
-                            <CardDescription>{staffMember.role || 'Staff'}</CardDescription>
+                        <div className="flex-1 min-w-0">
+                            <CardTitle className="text-base leading-tight truncate">{staffMember.name || 'Staff Member'}</CardTitle>
+                            <Badge variant="secondary" className="text-xs mt-1">{staffMember.role || 'Staff'}</Badge>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="py-2">
-                    <p className="text-sm text-muted-foreground">
-                        Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                <CardContent className="py-2 space-y-1 flex-grow">
+                    <p className="text-xs text-muted-foreground">
+                        Last saved: {formattedDate}
                     </p>
-                    <p className="text-sm mt-1">
+                    <p className="text-sm">
                         Status: <span className={cn("font-medium", statusColor)}>{status}</span>
                     </p>
                 </CardContent>
                 <CardFooter className="pt-2">
                     <Button 
-                        variant="outline" 
-                        size="sm"
                         className="w-full"
                         onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
                     >
-                        Preview Only
+                        Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </CardFooter>
             </Card>
@@ -178,6 +181,7 @@ const PatternFolderItem = ({ project }) => {
                                     navigate={navigate}
                                     projectId={project.id}
                                     coverColor={coverColor}
+                                    projectUpdatedAt={project.updated_at}
                                 />
                             ))}
                         </div>
