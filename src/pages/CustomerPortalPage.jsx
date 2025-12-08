@@ -43,7 +43,7 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
         // Check for approval/locked status
-        if (accessPhase.includes('approval') || accessPhase.includes('locked')) return 'Pending Approval';
+        if (accessPhase.includes('approval') || accessPhase.includes('locked')) return 'Approval and Locked';
         if (accessPhase.includes('publication')) return 'Published';
         if (accessPhase.includes('draft')) return 'Review';
         return 'Pending';
@@ -51,7 +51,7 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
 
     const status = getStatusFromAccessPhase(staffMember.delegation?.accessPhase);
     const statusColor = status === 'Review' ? 'text-orange-500' : 
-                        status === 'Pending Approval' ? 'text-amber-500' :
+                        status === 'Approval and Locked' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
     return (
@@ -124,7 +124,11 @@ const PatternFolderItem = ({ project, onRefresh }) => {
     
     const staffList = getStaffList();
 
-    const handleMenuAction = async (action) => {
+    // Check if all staff have locked or published status (hide Open card if true)
+    const allStaffLockedOrPublished = staffList.length > 0 && staffList.every(staff => {
+        const accessPhase = staff.delegation?.accessPhase || [];
+        return accessPhase.includes('approval') || accessPhase.includes('locked') || accessPhase.includes('publication');
+    });
         switch (action) {
             case 'open':
                 navigate(`/pattern-book-builder/${project.id}?step=8`);
@@ -210,9 +214,11 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                                <Pencil className="mr-2 h-4 w-4" /> Open card
-                            </DropdownMenuItem>
+                            {!allStaffLockedOrPublished && (
+                                <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Open card
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                                 <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                             </DropdownMenuItem>
