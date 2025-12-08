@@ -129,6 +129,8 @@ const PatternFolderItem = ({ project, onRefresh }) => {
         const accessPhase = staff.delegation?.accessPhase || [];
         return accessPhase.includes('approval') || accessPhase.includes('locked') || accessPhase.includes('publication');
     });
+
+    const handleMenuAction = async (action) => {
         switch (action) {
             case 'open':
                 navigate(`/pattern-book-builder/${project.id}?step=8`);
