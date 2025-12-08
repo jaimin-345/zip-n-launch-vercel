@@ -81,7 +81,7 @@ const PatternFolderItem = ({ project, onRefresh }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
-    const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || '#F5CD47');
+    const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     
     // Get staff list from project_data (Step 8 Staff Access & Delegation)
@@ -159,8 +159,8 @@ const PatternFolderItem = ({ project, onRefresh }) => {
     };
 
     const handleRemoveCover = async () => {
-        setCoverColor('#F5CD47');
-        const updatedData = { ...project.project_data, coverColor: '#F5CD47' };
+        setCoverColor(null);
+        const updatedData = { ...project.project_data, coverColor: null };
         await supabase
             .from('projects')
             .update({ project_data: updatedData })
@@ -183,27 +183,27 @@ const PatternFolderItem = ({ project, onRefresh }) => {
             <div className="border rounded-lg overflow-hidden bg-transparent mb-4">
                 {/* Folder Header */}
                 <div 
-                    className="flex items-center justify-between p-4 cursor-pointer transition-colors"
-                    style={{ backgroundColor: coverColor }}
+                    className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${!coverColor ? 'bg-muted border-b' : ''}`}
+                    style={coverColor ? { backgroundColor: coverColor } : undefined}
                 >
                     <div 
                         className="flex items-center gap-3 flex-1"
                         onClick={() => setIsExpanded(!isExpanded)}
                     >
                         {isExpanded ? (
-                            <ChevronDown className="h-5 w-5 text-white/80" />
+                            <ChevronDown className={`h-5 w-5 ${coverColor ? 'text-white/80' : 'text-muted-foreground'}`} />
                         ) : (
-                            <ChevronRight className="h-5 w-5 text-white/80" />
+                            <ChevronRight className={`h-5 w-5 ${coverColor ? 'text-white/80' : 'text-muted-foreground'}`} />
                         )}
-                        <Folder className="h-5 w-5 text-white" />
-                        <span className="font-semibold text-white">{project.project_name || 'Untitled Project'}</span>
+                        <Folder className={`h-5 w-5 ${coverColor ? 'text-white' : 'text-primary'}`} />
+                        <span className={`font-semibold ${coverColor ? 'text-white' : 'text-foreground'}`}>{project.project_name || 'Untitled Project'}</span>
                     </div>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-white hover:bg-white/20"
+                                className={`h-8 w-8 ${coverColor ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:bg-muted'}`}
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <Pencil className="h-4 w-4" />
