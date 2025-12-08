@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Loader2, FileText } from 'lucide-react';
+import { Loader2, FileText, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import PatternGroupPreview from './PatternGroupPreview';
 import ScoresheetGroupPreview from './ScoresheetGroupPreview';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
 
-export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7 }) => {
+export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7, onGoToStep }) => {
   const [availablePatterns, setAvailablePatterns] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -228,7 +229,14 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         {/* Patterns Section */}
         {patternDisciplines.length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-foreground">Pattern Preview</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-foreground">Pattern Preview</h3>
+              {onGoToStep && (
+                <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
+                  <RotateCcw className="mr-2 h-4 w-4" /> Re-assign
+                </Button>
+              )}
+            </div>
             <div className="space-y-6">
               {patternDisciplines.map((pbbDiscipline) => {
                 const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
