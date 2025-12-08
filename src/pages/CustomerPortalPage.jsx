@@ -224,12 +224,6 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                             <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                                 <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
-                                <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
-                                <Archive className="mr-2 h-4 w-4" /> Archive
-                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
