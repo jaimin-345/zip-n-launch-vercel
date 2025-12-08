@@ -59,45 +59,41 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, project
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
-            className="flex flex-col h-full"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex flex-col"
         >
             {coverColor && (
                 <div 
-                    className="h-8 w-full rounded-t-lg" 
+                    className="h-6 w-full rounded-t-lg" 
                     style={{ backgroundColor: coverColor }}
                 />
             )}
-            <Card className={`flex flex-col flex-grow ${coverColor ? 'rounded-t-none' : ''}`}>
-                <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                            <BookCopy className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <CardTitle className="text-base leading-tight truncate">{staffMember.name || 'Staff Member'}</CardTitle>
-                            <Badge variant="secondary" className="text-xs mt-1">{staffMember.role || 'Staff'}</Badge>
-                        </div>
+            <Card className={`${coverColor ? 'rounded-t-none' : ''}`}>
+                <div className="p-3 flex items-center gap-4">
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+                        <BookCopy className="h-5 w-5 text-primary" />
                     </div>
-                </CardHeader>
-                <CardContent className="py-2 space-y-1 flex-grow">
-                    <p className="text-xs text-muted-foreground">
-                        Last saved: {formattedDate}
-                    </p>
-                    <p className="text-sm">
-                        Status: <span className={cn("font-medium", statusColor)}>{status}</span>
-                    </p>
-                </CardContent>
-                <CardFooter className="pt-2">
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm truncate">{staffMember.name || 'Staff Member'}</h4>
+                        <Badge variant="secondary" className="text-xs">{staffMember.role || 'Staff'}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground text-center shrink-0">
+                        <p>Last saved:</p>
+                        <p>{formattedDate}</p>
+                    </div>
+                    <div className="shrink-0 text-center">
+                        <p className="text-xs text-muted-foreground">Status:</p>
+                        <span className={cn("text-sm font-medium", statusColor)}>{status}</span>
+                    </div>
                     <Button 
-                        className="w-full"
+                        size="sm"
                         onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
+                        className="shrink-0"
                     >
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                </CardFooter>
+                </div>
             </Card>
         </motion.div>
     );
@@ -169,11 +165,11 @@ const PatternFolderItem = ({ project }) => {
                 <Badge variant="outline">{patternCount} patterns</Badge>
             </div>
             
-            {/* Expanded Content - Staff Cards in 3-column grid */}
+            {/* Expanded Content - Staff Cards in row format */}
             {isExpanded && (
                 <div className="px-4 pb-4">
                     {staffList.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex flex-col gap-3">
                             {staffList.map((staff, index) => (
                                 <StaffAccessCard 
                                     key={staff.id || index} 
@@ -457,7 +453,7 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                             </div>
                             <div>
                                 <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
-                                <CardDescription>Pattern Folder</CardDescription>
+                                <CardDescription>Pattern Portal</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -687,7 +683,7 @@ const CustomerPortalPage = () => {
                         <div>
                             {renderProjectList(
                                 patternBookProjects,
-                                "Pattern Folder",
+                                "Pattern Portal",
                                 "Organize and store your pattern collections.",
                                 "",
                                 "",
