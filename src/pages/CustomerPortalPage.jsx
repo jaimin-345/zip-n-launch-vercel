@@ -38,8 +38,8 @@ const COVER_COLORS = [
     '#579DFF', '#6CC3E0', '#94C748', '#E388A3'
 ];
 
-// Staff Access Card inside folder - uses same card design as Pattern Books
-const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
+// Staff Access Card inside folder
+const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
         if (accessPhase.includes('publication')) return 'Published';
@@ -54,49 +54,30 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col"
-        >
-            {coverColor && (
-                <div 
-                    className="h-6 w-full rounded-t-lg" 
-                    style={{ backgroundColor: coverColor }}
-                />
-            )}
-            <Card className={`flex flex-col ${coverColor ? 'rounded-t-none' : ''}`}>
-                <CardHeader className="pb-2">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                            <Eye className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-base leading-tight">{staffMember.name || 'Staff Member'}</CardTitle>
-                            <CardDescription>{staffMember.role || 'Staff'}</CardDescription>
-                        </div>
+        <div className="border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                    <Eye className="h-5 w-5 text-orange-400" />
+                    <div>
+                        <p className="font-semibold">{staffMember.name || 'Staff Member'}</p>
+                        <p className="text-sm text-muted-foreground">
+                            Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                        </p>
+                        <p className="text-sm">
+                            Status: <span className={cn("font-medium", statusColor)}>{status}</span>
+                        </p>
                     </div>
-                </CardHeader>
-                <CardContent className="py-2">
-                    <p className="text-sm text-muted-foreground">
-                        Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                    </p>
-                    <p className="text-sm mt-1">
-                        Status: <span className={cn("font-medium", statusColor)}>{status}</span>
-                    </p>
-                </CardContent>
-                <CardFooter className="pt-2">
-                    <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="w-full"
-                        onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
-                    >
-                        Preview Only
-                    </Button>
-                </CardFooter>
-            </Card>
-        </motion.div>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-orange-400 text-orange-500 hover:bg-orange-50"
+                    onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
+                >
+                    Preview Only
+                </Button>
+            </div>
+        </div>
     );
 };
 
@@ -148,10 +129,10 @@ const PatternFolderItem = ({ project }) => {
     const patternCount = staffList.length || 0;
 
     return (
-        <div className="border rounded-lg overflow-hidden bg-secondary/30 mb-4">
+        <div className="border rounded-lg overflow-hidden bg-orange-50/50 dark:bg-orange-900/10 mb-4">
             {/* Folder Header */}
             <div 
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
             >
                 <div className="flex items-center gap-3">
@@ -163,24 +144,21 @@ const PatternFolderItem = ({ project }) => {
                     <Folder className="h-5 w-5" style={{ color: coverColor }} />
                     <span className="font-semibold">{project.project_name || 'Untitled Project'}</span>
                 </div>
-                <Badge variant="outline">{patternCount} patterns</Badge>
+                <span className="text-sm text-muted-foreground">{patternCount} patterns</span>
             </div>
             
-            {/* Expanded Content - Staff Cards in 3-column grid */}
+            {/* Expanded Content - Staff Cards */}
             {isExpanded && (
-                <div className="px-4 pb-4">
+                <div className="px-4 pb-4 space-y-3">
                     {staffList.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {staffList.map((staff, index) => (
-                                <StaffAccessCard 
-                                    key={staff.id || index} 
-                                    staffMember={staff} 
-                                    navigate={navigate}
-                                    projectId={project.id}
-                                    coverColor={coverColor}
-                                />
-                            ))}
-                        </div>
+                        staffList.map((staff, index) => (
+                            <StaffAccessCard 
+                                key={staff.id || index} 
+                                staffMember={staff} 
+                                navigate={navigate}
+                                projectId={project.id}
+                            />
+                        ))
                     ) : (
                         <div className="text-center py-6 text-muted-foreground">
                             No staff delegations configured. Configure in Step 8: Close Out & Review.
@@ -608,7 +586,7 @@ const CustomerPortalPage = () => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey, menuType = 'full', hideButton = false) => (
+    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey, menuType = 'full') => (
         <div className="mb-16">
             <div className="flex justify-between items-center mb-4">
                 <button 
@@ -625,17 +603,15 @@ const CustomerPortalPage = () => {
                         <p className="text-muted-foreground mt-1">{description}</p>
                     </div>
                 </button>
-                {!hideButton && (
-                    <Button onClick={() => navigate(newProjectPath)}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> {newProjectLabel}
-                    </Button>
-                )}
+                <Button onClick={() => navigate(newProjectPath)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> {newProjectLabel}
+                </Button>
             </div>
             {expandedSections[sectionKey] && (
                 projectList.length > 0 ? (
                     menuType === 'folder' ? (
-                        // Folder-style layout for Pattern Folders - 3 folders per row
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        // Folder-style layout for Pattern Folders
+                        <div className="space-y-2">
                             {projectList.map(project => (
                                 <PatternFolderItem key={project.id} project={project} />
                             ))}
@@ -685,11 +661,10 @@ const CustomerPortalPage = () => {
                                 patternBookProjects,
                                 "Pattern Folder",
                                 "Organize and store your pattern collections.",
-                                "",
-                                "",
+                                "/pattern-folder/new",
+                                "New Pattern Folder",
                                 "patternFolders",
-                                "folder",
-                                true
+                                "folder"
                             )}
                             {renderProjectList(
                                 patternBookProjects,
