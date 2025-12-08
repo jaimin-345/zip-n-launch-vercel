@@ -238,7 +238,7 @@ const PatternBookBuilderPage = () => {
                                             </Button>
                                             {currentStep === steps.length ? (
                                                 <Button onClick={() => setIsGenerateDialogOpen(true)} disabled={isNextDisabled}>
-                                                    <Download className="mr-2 h-4 w-4" /> Generate Book
+                                                    <Download className="mr-2 h-4 w-4" /> Pay & Publish Pattern Book Folder
                                                 </Button>
                                             ) : (
                                                 <Button onClick={handleNext} disabled={isNextDisabled}>

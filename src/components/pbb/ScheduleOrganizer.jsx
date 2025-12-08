@@ -272,7 +272,7 @@ import React, { useState, useMemo } from 'react';
                         <div className="flex items-center gap-4">
                             <div className="flex items-center space-x-2">
                                 <Checkbox id={`select-all-${pbbDiscipline.id}`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
-                                <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
+                                <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All Dates</Label>
                             </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
