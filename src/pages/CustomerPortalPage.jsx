@@ -434,7 +434,6 @@ const CustomerPortalPage = () => {
         fetchProjects();
     }, [user]);
 
-    const patternFolderProjects = projects.filter(p => p.project_type === 'pattern_folder');
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
     const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
     
@@ -510,7 +509,7 @@ const CustomerPortalPage = () => {
                     ) : (
                         <div>
                             {renderProjectList(
-                                patternFolderProjects,
+                                patternBookProjects,
                                 "Pattern Folder",
                                 "Organize and store your pattern collections.",
                                 "/pattern-folder/new",
