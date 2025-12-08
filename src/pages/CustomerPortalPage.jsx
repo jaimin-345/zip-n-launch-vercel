@@ -100,11 +100,12 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
     );
 };
 
-// Collapsible Folder for Pattern Folder section
+// Collapsible Folder for Pattern Folder section - Card design matching Pattern Books
 const PatternFolderItem = ({ project }) => {
     const navigate = useNavigate();
     const [isExpanded, setIsExpanded] = useState(false);
-    const coverColor = project.project_data?.coverColor || '#F5CD47';
+    const coverColor = project.project_data?.coverColor || '#4BCE97';
+    const dueDate = project.project_data?.dueDate;
     
     // Get staff list from project_data (Step 8 Staff Access & Delegation)
     const getStaffList = () => {
@@ -148,47 +149,88 @@ const PatternFolderItem = ({ project }) => {
     const patternCount = staffList.length || 0;
 
     return (
-        <div className="border rounded-lg overflow-hidden bg-secondary/30 mb-4">
-            {/* Folder Header */}
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="flex flex-col"
+        >
+            {/* Color Header Bar */}
             <div 
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/50 transition-colors"
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
-                <div className="flex items-center gap-3">
-                    {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    )}
-                    <Folder className="h-5 w-5" style={{ color: coverColor }} />
-                    <span className="font-semibold">{project.project_name || 'Untitled Project'}</span>
-                </div>
-                <Badge variant="outline">{patternCount} patterns</Badge>
-            </div>
+                className="h-8 w-full rounded-t-lg" 
+                style={{ backgroundColor: coverColor }}
+            />
             
-            {/* Expanded Content - Staff Cards in 3-column grid */}
-            {isExpanded && (
-                <div className="px-4 pb-4">
-                    {staffList.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {staffList.map((staff, index) => (
-                                <StaffAccessCard 
-                                    key={staff.id || index} 
-                                    staffMember={staff} 
-                                    navigate={navigate}
-                                    projectId={project.id}
-                                    coverColor={coverColor}
-                                />
-                            ))}
+            {/* Card Content */}
+            <Card className="rounded-t-none border-t-0">
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <BookCopy className="h-5 w-5 text-primary" />
                         </div>
-                    ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                            No staff delegations configured. Configure in Step 8: Close Out & Review.
+                        <div>
+                            <CardTitle className="text-base leading-tight">{project.project_name || 'Untitled'}</CardTitle>
+                            <CardDescription>Pattern Book</CardDescription>
                         </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="py-2 space-y-1">
+                    <p className="text-sm text-muted-foreground">
+                        Last saved: {project.updated_at ? format(new Date(project.updated_at), 'MMMM d, yyyy') + ' at ' + format(new Date(project.updated_at), 'h:mm a') : 'N/A'}
+                    </p>
+                    <p className="text-sm">
+                        Status: <span className="text-amber-500 font-medium">{project.status === 'archived' ? 'Archived' : 'Draft'}</span>
+                    </p>
+                    {dueDate && (
+                        <p className="text-sm">
+                            Due: <span className="text-primary font-medium">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
+                        </p>
                     )}
-                </div>
-            )}
-        </div>
+                </CardContent>
+                <CardFooter className="pt-2 flex flex-col gap-2">
+                    <Button 
+                        className="w-full"
+                        onClick={() => navigate(`/pattern-book-builder/${project.id}`)}
+                    >
+                        Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                    
+                    {/* Folder Expand Button */}
+                    <Button 
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                    >
+                        <Folder className="mr-2 h-4 w-4" />
+                        Staff Delegations ({patternCount})
+                        {isExpanded ? <ChevronDown className="ml-2 h-4 w-4" /> : <ChevronRight className="ml-2 h-4 w-4" />}
+                    </Button>
+                </CardFooter>
+                
+                {/* Expanded Staff List */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 border-t mt-2 pt-4">
+                        {staffList.length > 0 ? (
+                            <div className="space-y-2">
+                                {staffList.map((staff, index) => (
+                                    <StaffAccessCard 
+                                        key={staff.id || index} 
+                                        staffMember={staff} 
+                                        navigate={navigate}
+                                        projectId={project.id}
+                                        coverColor={coverColor}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-4 text-sm text-muted-foreground">
+                                No staff delegations configured.
+                            </div>
+                        )}
+                    </div>
+                )}
+            </Card>
+        </motion.div>
     );
 };
 
