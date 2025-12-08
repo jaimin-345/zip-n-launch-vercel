@@ -135,19 +135,11 @@ const PatternFolderItem = ({ project, onRefresh }) => {
             case 'open':
                 navigate(`/pattern-book-builder/${project.id}?step=8`);
                 break;
+            case 'preview':
+                navigate(`/pattern-book-builder/${project.id}?step=1&mode=preview`);
+                break;
             case 'cover':
                 setCoverDialogOpen(true);
-                break;
-            case 'dates':
-                setDueDateDialogOpen(true);
-                break;
-            case 'archive':
-                await supabase
-                    .from('projects')
-                    .update({ status: 'archived' })
-                    .eq('id', project.id);
-                toast({ title: "Project archived", description: "Project has been archived" });
-                if (onRefresh) onRefresh();
                 break;
             default:
                 console.log('Action:', action, project.id);
@@ -221,6 +213,9 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                                     <Pencil className="mr-2 h-4 w-4" /> Open card
                                 </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
+                                <Eye className="mr-2 h-4 w-4" /> Preview
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                                 <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                             </DropdownMenuItem>
