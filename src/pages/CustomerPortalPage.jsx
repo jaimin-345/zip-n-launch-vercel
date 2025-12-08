@@ -39,12 +39,7 @@ const COVER_COLORS = [
 ];
 
 // Staff Access Card inside folder - uses same card design as Pattern Books
-const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, projectUpdatedAt }) => {
-    const { toast } = useToast();
-    const [isHovered, setIsHovered] = useState(false);
-    const [coverDialogOpen, setCoverDialogOpen] = useState(false);
-    const [currentCoverColor, setCurrentCoverColor] = useState(coverColor);
-
+const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
         if (accessPhase.includes('publication')) return 'Published';
@@ -58,108 +53,49 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, project
                         status === 'Pending Approval' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
-    const handleMenuAction = (action) => {
-        switch (action) {
-            case 'open':
-                navigate(`/pattern-book-builder/${projectId}?step=8`);
-                break;
-            case 'cover':
-                setCoverDialogOpen(true);
-                break;
-            case 'preview':
-                navigate(`/pattern-book-builder/${projectId}?step=8&preview=true`);
-                break;
-            default:
-                break;
-        }
-    };
-
-    const handleSelectColor = (color) => {
-        setCurrentCoverColor(color);
-        setCoverDialogOpen(false);
-    };
-
-    const handleRemoveCover = () => {
-        setCurrentCoverColor(null);
-        setCoverDialogOpen(false);
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col relative group"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            className="flex flex-col"
         >
-            {currentCoverColor && (
+            {coverColor && (
                 <div 
-                    className="h-8 w-full rounded-t-lg" 
-                    style={{ backgroundColor: currentCoverColor }}
+                    className="h-6 w-full rounded-t-lg" 
+                    style={{ backgroundColor: coverColor }}
                 />
             )}
-            
-            {/* Edit Menu Button */}
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                    >
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
-                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
-                        <Eye className="mr-2 h-4 w-4" /> Preview
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Card className={`flex flex-col glass-effect ${currentCoverColor ? 'rounded-t-none' : ''}`}>
-                <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                            <Eye className="h-6 w-6 text-primary" />
+            <Card className={`flex flex-col ${coverColor ? 'rounded-t-none' : ''}`}>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Eye className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                            <CardTitle className="leading-tight">{staffMember.name || 'Staff Member'}</CardTitle>
+                            <CardTitle className="text-base leading-tight">{staffMember.name || 'Staff Member'}</CardTitle>
                             <CardDescription>{staffMember.role || 'Staff'}</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="flex-grow">
+                <CardContent className="py-2">
                     <p className="text-sm text-muted-foreground">
-                        Last saved: {projectUpdatedAt ? format(new Date(projectUpdatedAt), "MMMM d, yyyy 'at' h:mm a") : 'N/A'}
+                        Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        Status: <span className={cn("font-medium capitalize", statusColor)}>{status}</span>
+                    <p className="text-sm mt-1">
+                        Status: <span className={cn("font-medium", statusColor)}>{status}</span>
                     </p>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="pt-2">
                     <Button 
-                        onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
+                        variant="outline" 
+                        size="sm"
                         className="w-full"
+                        onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
                     >
-                        Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                        Preview Only
                     </Button>
                 </CardFooter>
             </Card>
-
-            <CoverColorDialog
-                open={coverDialogOpen}
-                onClose={() => setCoverDialogOpen(false)}
-                currentColor={currentCoverColor}
-                onSelectColor={handleSelectColor}
-                onRemoveCover={handleRemoveCover}
-            />
         </motion.div>
     );
 };
@@ -230,11 +166,11 @@ const PatternFolderItem = ({ project }) => {
                 <Badge variant="outline">{patternCount} patterns</Badge>
             </div>
             
-            {/* Expanded Content - Staff Cards in single column row layout */}
+            {/* Expanded Content - Staff Cards in 3-column grid */}
             {isExpanded && (
                 <div className="px-4 pb-4">
                     {staffList.length > 0 ? (
-                        <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {staffList.map((staff, index) => (
                                 <StaffAccessCard 
                                     key={staff.id || index} 
@@ -242,7 +178,6 @@ const PatternFolderItem = ({ project }) => {
                                     navigate={navigate}
                                     projectId={project.id}
                                     coverColor={coverColor}
-                                    projectUpdatedAt={project.updated_at}
                                 />
                             ))}
                         </div>
