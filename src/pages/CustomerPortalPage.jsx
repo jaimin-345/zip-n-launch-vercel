@@ -39,7 +39,7 @@ const COVER_COLORS = [
 ];
 
 // Staff Access Card inside folder - uses same card design as Pattern Books
-const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, projectUpdatedAt }) => {
+const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor }) => {
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
         if (accessPhase.includes('publication')) return 'Published';
@@ -53,47 +53,48 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, project
                         status === 'Pending Approval' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
-    const formattedDate = projectUpdatedAt 
-        ? format(new Date(projectUpdatedAt), "MMMM d, yyyy 'at' h:mm a")
-        : 'N/A';
-
     return (
         <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             className="flex flex-col"
         >
             {coverColor && (
                 <div 
-                    className="h-4 w-full rounded-t-lg" 
+                    className="h-6 w-full rounded-t-lg" 
                     style={{ backgroundColor: coverColor }}
                 />
             )}
-            <Card className={`${coverColor ? 'rounded-t-none' : ''}`}>
-                <div className="p-3 flex flex-wrap md:flex-nowrap items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                        <BookCopy className="h-4 w-4 text-primary" />
+            <Card className={`flex flex-col ${coverColor ? 'rounded-t-none' : ''}`}>
+                <CardHeader className="pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                            <Eye className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-base leading-tight">{staffMember.name || 'Staff Member'}</CardTitle>
+                            <CardDescription>{staffMember.role || 'Staff'}</CardDescription>
+                        </div>
                     </div>
-                    <div className="min-w-0 flex-1 md:flex-none md:w-32">
-                        <h4 className="font-semibold text-sm truncate">{staffMember.name || 'Staff Member'}</h4>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{staffMember.role || 'Staff'}</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground flex-1 md:flex-none">
-                        <span className="block">Last saved:</span>
-                        <span className="block">{formattedDate}</span>
-                    </div>
-                    <div className="text-center">
-                        <span className="text-xs text-muted-foreground block">Status:</span>
-                        <span className={cn("text-xs font-medium", statusColor)}>{status}</span>
-                    </div>
+                </CardHeader>
+                <CardContent className="py-2">
+                    <p className="text-sm text-muted-foreground">
+                        Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                    </p>
+                    <p className="text-sm mt-1">
+                        Status: <span className={cn("font-medium", statusColor)}>{status}</span>
+                    </p>
+                </CardContent>
+                <CardFooter className="pt-2">
                     <Button 
+                        variant="outline" 
                         size="sm"
+                        className="w-full"
                         onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
-                        className="shrink-0 text-xs px-3"
                     >
-                        Continue Editing <ArrowRight className="ml-1 h-3 w-3" />
+                        Preview Only
                     </Button>
-                </div>
+                </CardFooter>
             </Card>
         </motion.div>
     );
@@ -165,11 +166,11 @@ const PatternFolderItem = ({ project }) => {
                 <Badge variant="outline">{patternCount} patterns</Badge>
             </div>
             
-            {/* Expanded Content - Staff Cards in row format */}
+            {/* Expanded Content - Staff Cards in 3-column grid */}
             {isExpanded && (
                 <div className="px-4 pb-4">
                     {staffList.length > 0 ? (
-                        <div className="flex flex-col gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {staffList.map((staff, index) => (
                                 <StaffAccessCard 
                                     key={staff.id || index} 
@@ -177,7 +178,6 @@ const PatternFolderItem = ({ project }) => {
                                     navigate={navigate}
                                     projectId={project.id}
                                     coverColor={coverColor}
-                                    projectUpdatedAt={project.updated_at}
                                 />
                             ))}
                         </div>
@@ -453,7 +453,7 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                             </div>
                             <div>
                                 <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
-                                <CardDescription>Pattern Portal</CardDescription>
+                                <CardDescription>Pattern Folder</CardDescription>
                             </div>
                         </div>
                     </CardHeader>
@@ -683,7 +683,7 @@ const CustomerPortalPage = () => {
                         <div>
                             {renderProjectList(
                                 patternBookProjects,
-                                "Pattern Portal",
+                                "Pattern Folder",
                                 "Organize and store your pattern collections.",
                                 "",
                                 "",
