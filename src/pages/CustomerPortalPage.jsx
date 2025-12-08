@@ -75,10 +75,14 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
 };
 
 // Collapsible Folder for Pattern Folder section
-const PatternFolderItem = ({ project }) => {
+const PatternFolderItem = ({ project, onRefresh }) => {
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
-    const coverColor = project.project_data?.coverColor || '#F5CD47';
+    const [coverDialogOpen, setCoverDialogOpen] = useState(false);
+    const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
+    const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || '#F5CD47');
+    const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     
     // Get staff list from project_data (Step 8 Staff Access & Delegation)
     const getStaffList = () => {
@@ -119,60 +123,144 @@ const PatternFolderItem = ({ project }) => {
     };
     
     const staffList = getStaffList();
-    const patternCount = staffList.length || 0;
+
+    const handleMenuAction = async (action) => {
+        switch (action) {
+            case 'open':
+                navigate(`/pattern-book-builder/${project.id}?step=8`);
+                break;
+            case 'cover':
+                setCoverDialogOpen(true);
+                break;
+            case 'dates':
+                setDueDateDialogOpen(true);
+                break;
+            case 'archive':
+                await supabase
+                    .from('projects')
+                    .update({ status: 'archived' })
+                    .eq('id', project.id);
+                toast({ title: "Project archived", description: "Project has been archived" });
+                if (onRefresh) onRefresh();
+                break;
+            default:
+                console.log('Action:', action, project.id);
+        }
+    };
+
+    const handleSelectColor = async (color) => {
+        setCoverColor(color);
+        const updatedData = { ...project.project_data, coverColor: color };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        setCoverDialogOpen(false);
+    };
+
+    const handleRemoveCover = async () => {
+        setCoverColor('#F5CD47');
+        const updatedData = { ...project.project_data, coverColor: '#F5CD47' };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        setCoverDialogOpen(false);
+    };
+
+    const handleSaveDueDate = async (date) => {
+        setDueDate(date);
+        const updatedData = { ...project.project_data, dueDate: date };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
+    };
 
     return (
-        <div className="border rounded-lg overflow-hidden bg-orange-50/50 dark:bg-orange-900/10 mb-4">
-            {/* Folder Header */}
-            <div 
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
-                style={{ backgroundColor: coverColor }}
-            >
+        <>
+            <div className="border rounded-lg overflow-hidden bg-transparent mb-4">
+                {/* Folder Header */}
                 <div 
-                    className="flex items-center gap-3 flex-1"
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center justify-between p-4 cursor-pointer transition-colors"
+                    style={{ backgroundColor: coverColor }}
                 >
-                    {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-white/80" />
-                    ) : (
-                        <ChevronRight className="h-5 w-5 text-white/80" />
-                    )}
-                    <Folder className="h-5 w-5 text-white" />
-                    <span className="font-semibold text-white">{project.project_name || 'Untitled Project'}</span>
+                    <div 
+                        className="flex items-center gap-3 flex-1"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                    >
+                        {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-white/80" />
+                        ) : (
+                            <ChevronRight className="h-5 w-5 text-white/80" />
+                        )}
+                        <Folder className="h-5 w-5 text-white" />
+                        <span className="font-semibold text-white">{project.project_name || 'Untitled Project'}</span>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-white hover:bg-white/20"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                                <Pencil className="mr-2 h-4 w-4" /> Open card
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                                <ImageIcon className="mr-2 h-4 w-4" /> Change cover
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
+                                <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                                <Archive className="mr-2 h-4 w-4" /> Archive
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-white hover:bg-white/20"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/pattern-book-builder/${project.id}?step=8`);
-                    }}
-                >
-                    <Pencil className="h-4 w-4" />
-                </Button>
+                
+                {/* Expanded Content - Staff Cards */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 pt-3 space-y-3 bg-background">
+                        {staffList.length > 0 ? (
+                            staffList.map((staff, index) => (
+                                <StaffAccessCard 
+                                    key={staff.id || index} 
+                                    staffMember={staff} 
+                                    navigate={navigate}
+                                    projectId={project.id}
+                                />
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-muted-foreground">
+                                No staff delegations configured. Configure in Step 8: Close Out & Review.
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
             
-            {/* Expanded Content - Staff Cards */}
-            {isExpanded && (
-                <div className="px-4 pb-4 space-y-3">
-                    {staffList.length > 0 ? (
-                        staffList.map((staff, index) => (
-                            <StaffAccessCard 
-                                key={staff.id || index} 
-                                staffMember={staff} 
-                                navigate={navigate}
-                                projectId={project.id}
-                            />
-                        ))
-                    ) : (
-                        <div className="text-center py-6 text-muted-foreground">
-                            No staff delegations configured. Configure in Step 8: Close Out & Review.
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
+            <CoverColorDialog
+                open={coverDialogOpen}
+                onClose={() => setCoverDialogOpen(false)}
+                currentColor={coverColor}
+                onSelectColor={handleSelectColor}
+                onRemoveCover={handleRemoveCover}
+            />
+            <DueDateDialog
+                open={dueDateDialogOpen}
+                onClose={() => setDueDateDialogOpen(false)}
+                currentDate={dueDate}
+                onSaveDate={handleSaveDueDate}
+            />
+        </>
     );
 };
 
