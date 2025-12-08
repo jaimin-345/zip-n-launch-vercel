@@ -3,15 +3,17 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users, UserCog, Crown, Mail, Phone } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const accessPhases = [
     { id: 'draft', name: 'Draft, Build, Review' },
@@ -270,7 +272,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
     );
 };
 
-export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8 }) => {
+export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8, isReadOnly = false }) => {
     const getAssociationNames = () => {
         if (!formData.associations) return 'N/A';
         return Object.keys(formData.associations).filter(key => formData.associations[key]).join(', ') || 'None';
@@ -309,6 +311,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     }, [formData.officials, formData.associationJudges, formData.delegations]);
 
     const handleUpdateStaffDelegation = (staffId, updates) => {
+        if (isReadOnly) return;
         setFormData(prev => {
             const newDelegations = {
                 ...(prev.delegations || {}),
@@ -321,19 +324,222 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
         });
     };
 
+    const handleAdminOwnerUpdate = (field, value) => {
+        if (isReadOnly) return;
+        setFormData(prev => ({
+            ...prev,
+            adminOwner: {
+                ...(prev.adminOwner || {}),
+                [field]: value
+            }
+        }));
+    };
+
+    const handlePublicationDateChange = (date) => {
+        if (isReadOnly) return;
+        setFormData(prev => ({
+            ...prev,
+            publicationDate: date ? format(date, 'yyyy-MM-dd') : null
+        }));
+    };
+
     const disciplines = formData.disciplines || [];
+    const adminOwner = formData.adminOwner || {};
 
     return (
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-            <CardHeader>
+            <CardHeader className="pb-4">
                 <CardTitle>Step {stepNumber}: Close Out & Review</CardTitle>
-                <CardDescription>Review all details and manage staff access rights for different phases.</CardDescription>
+                <CardDescription>Assign admin/owner, set publication date, and manage staff access.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                {/* Review Section */}
-                <div className="space-y-4 pb-6 border-b">
-                    <h3 className="text-lg font-semibold">Review & Finalize</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* 1. Admin & Owner Assignment - TOP PRIORITY */}
+                <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="destructive" className="text-xs">MANDATORY</Badge>
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <Crown className="h-5 w-5 text-red-600" />
+                            Admin & Owner Assignment
+                        </h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Must assign Admin and Owner (EquiPatterns members). Both default to creator but can be delegated.</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Admin Assignment */}
+                        <div className="space-y-3 p-3 bg-background rounded-md border">
+                            <div className="flex items-center gap-2">
+                                <UserCog className="h-4 w-4 text-primary" />
+                                <Label className="font-semibold">Admin (Required)</Label>
+                            </div>
+                            <Input
+                                placeholder="Admin Name"
+                                value={adminOwner.adminName || ''}
+                                onChange={(e) => handleAdminOwnerUpdate('adminName', e.target.value)}
+                                disabled={isReadOnly}
+                            />
+                            <div className="flex gap-2">
+                                <div className="flex-1 relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Email"
+                                        className="pl-9"
+                                        value={adminOwner.adminEmail || ''}
+                                        onChange={(e) => handleAdminOwnerUpdate('adminEmail', e.target.value)}
+                                        disabled={isReadOnly}
+                                    />
+                                </div>
+                                <div className="flex-1 relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Phone"
+                                        className="pl-9"
+                                        value={adminOwner.adminPhone || ''}
+                                        onChange={(e) => handleAdminOwnerUpdate('adminPhone', e.target.value)}
+                                        disabled={isReadOnly}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Owner Assignment */}
+                        <div className="space-y-3 p-3 bg-background rounded-md border">
+                            <div className="flex items-center gap-2">
+                                <Crown className="h-4 w-4 text-amber-500" />
+                                <Label className="font-semibold">Owner (Required)</Label>
+                            </div>
+                            <Input
+                                placeholder="Owner Name"
+                                value={adminOwner.ownerName || ''}
+                                onChange={(e) => handleAdminOwnerUpdate('ownerName', e.target.value)}
+                                disabled={isReadOnly}
+                            />
+                            <div className="flex gap-2">
+                                <div className="flex-1 relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Email"
+                                        className="pl-9"
+                                        value={adminOwner.ownerEmail || ''}
+                                        onChange={(e) => handleAdminOwnerUpdate('ownerEmail', e.target.value)}
+                                        disabled={isReadOnly}
+                                    />
+                                </div>
+                                <div className="flex-1 relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Phone"
+                                        className="pl-9"
+                                        value={adminOwner.ownerPhone || ''}
+                                        onChange={(e) => handleAdminOwnerUpdate('ownerPhone', e.target.value)}
+                                        disabled={isReadOnly}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Optional Second Admin */}
+                    <div className="space-y-3 p-3 bg-background rounded-md border">
+                        <div className="flex items-center gap-2">
+                            <UserCog className="h-4 w-4 text-muted-foreground" />
+                            <Label className="font-medium text-muted-foreground">Second Admin (Optional)</Label>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <Input
+                                placeholder="Name"
+                                value={adminOwner.secondAdminName || ''}
+                                onChange={(e) => handleAdminOwnerUpdate('secondAdminName', e.target.value)}
+                                disabled={isReadOnly}
+                            />
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Email"
+                                    className="pl-9"
+                                    value={adminOwner.secondAdminEmail || ''}
+                                    onChange={(e) => handleAdminOwnerUpdate('secondAdminEmail', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Phone"
+                                    className="pl-9"
+                                    value={adminOwner.secondAdminPhone || ''}
+                                    onChange={(e) => handleAdminOwnerUpdate('secondAdminPhone', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Publication Date - OPTIONAL */}
+                <div className="space-y-3 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">OPTIONAL</Badge>
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <CalendarIcon className="h-5 w-5 text-blue-600" />
+                            Publication Date
+                        </h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Not required to close out, but recommended to set early.</p>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn("w-full md:w-[280px] justify-start text-left font-normal", !formData.publicationDate && "text-muted-foreground")}
+                                disabled={isReadOnly}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {formData.publicationDate ? format(new Date(formData.publicationDate), "PPP") : <span>Select publication date</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={formData.publicationDate ? new Date(formData.publicationDate) : null}
+                                onSelect={handlePublicationDateChange}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+
+                {/* 3. Staff Access & Delegation */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <Users className="h-5 w-5 text-purple-600" />
+                        Staff Access & Delegation
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Manage staff members' access rights and delegation settings.</p>
+                    {staffList.length > 0 ? (
+                        staffList.map(staff => (
+                            <StaffDelegationCard
+                                key={staff.id}
+                                staffMember={staff}
+                                disciplines={disciplines}
+                                onUpdate={handleUpdateStaffDelegation}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-8 border-2 border-dashed rounded-lg">
+                            <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
+                            <p className="text-muted-foreground">No staff members found.</p>
+                            <p className="text-sm text-muted-foreground mt-1">Go back to Step 4 to add judges and staff.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* 4. Review & Finalize Summary - BOTTOM */}
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-green-600" />
+                        Review & Finalize Summary
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Information">
                             <p><strong>Name:</strong> {formData.showName || 'N/A'}</p>
                             <p><strong>Type:</strong> {formData.showType || 'N/A'}</p>
@@ -366,26 +572,6 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             <p><strong>Estimated Custom Fees:</strong> ${((formData.disciplines || []).filter(d => d.isCustom).length * 50).toFixed(2)}</p>
                         </ReviewItem>
                     </div>
-                </div>
-
-                {/* Staff Delegation Section */}
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Staff Access & Delegation</h3>
-                    {staffList.length > 0 ? (
-                        staffList.map(staff => (
-                            <StaffDelegationCard
-                                key={staff.id}
-                                staffMember={staff}
-                                disciplines={disciplines}
-                                onUpdate={handleUpdateStaffDelegation}
-                            />
-                        ))
-                    ) : (
-                        <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                            <p className="text-muted-foreground">No staff members found.</p>
-                            <p className="text-sm text-muted-foreground mt-1">Go back to Step 4 to add judges and staff.</p>
-                        </div>
-                    )}
                 </div>
             </CardContent>
         </motion.div>
