@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive, ChevronDown, ChevronRight } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Copy, Link2, Archive, ChevronDown, ChevronRight, FolderOpen, Eye } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -127,7 +127,7 @@ const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
     );
 };
 
-const ProjectCard = ({ project, onUpdateCover }) => {
+const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
@@ -137,8 +137,11 @@ const ProjectCard = ({ project, onUpdateCover }) => {
     const [isHovered, setIsHovered] = useState(false);
     
     const isPatternBook = project.project_type === 'pattern_book';
+    const isPatternFolder = project.project_type === 'pattern_folder';
     const editPath = isPatternBook
         ? `/pattern-book-builder/${project.id}`
+        : isPatternFolder
+        ? `/pattern-folder/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
 
     const handleMenuAction = async (action) => {
@@ -163,6 +166,9 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                     .update({ status: 'archived' })
                     .eq('id', project.id);
                 toast({ title: "Project archived", description: "Project has been archived" });
+                break;
+            case 'preview':
+                navigate(`${editPath}?preview=true`);
                 break;
             default:
                 console.log('Action:', action, project.id);
@@ -199,6 +205,124 @@ const ProjectCard = ({ project, onUpdateCover }) => {
         toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
     };
 
+    // Render menu items based on menuType
+    const renderMenuItems = () => {
+        if (menuType === 'folder') {
+            // Pattern Folder: open card, change cover, preview only
+            return (
+                <>
+                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                        <Pencil className="mr-2 h-4 w-4" /> Open card
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
+                        <Eye className="mr-2 h-4 w-4" /> Preview
+                    </DropdownMenuItem>
+                </>
+            );
+        } else if (menuType === 'patternBook') {
+            // Pattern Books: remove copy card and copy link
+            return (
+                <>
+                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                        <Pencil className="mr-2 h-4 w-4" /> Open card
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
+                        <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                        <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                </>
+            );
+        } else {
+            // Full menu for Horse Shows
+            return (
+                <>
+                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                        <Pencil className="mr-2 h-4 w-4" /> Open card
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
+                        <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                        <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                </>
+            );
+        }
+    };
+
+    // Folder-style card for Pattern Folder
+    if (isPatternFolder) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+                className="flex flex-col h-full relative group"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* Folder Tab */}
+                <div 
+                    className="h-6 w-1/3 rounded-t-lg ml-2"
+                    style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
+                />
+                
+                {/* Edit Menu Button */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`absolute top-8 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                        {renderMenuItems()}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div 
+                    className="flex flex-col flex-grow rounded-lg rounded-tl-none p-4 cursor-pointer border border-border"
+                    style={{ backgroundColor: coverColor ? `${coverColor}20` : 'hsl(var(--card))' }}
+                    onClick={() => navigate(editPath)}
+                >
+                    <div className="flex items-center gap-3 mb-3">
+                        <FolderOpen className="h-8 w-8" style={{ color: coverColor || 'hsl(var(--primary))' }} />
+                        <div>
+                            <h3 className="font-semibold leading-tight">{project.project_name || 'Untitled Folder'}</h3>
+                            <p className="text-xs text-muted-foreground">Pattern Folder</p>
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-auto">
+                        Last updated: {format(new Date(project.updated_at), "MMM d, yyyy")}
+                    </p>
+                </div>
+
+                <CoverColorDialog
+                    open={coverDialogOpen}
+                    onClose={() => setCoverDialogOpen(false)}
+                    currentColor={coverColor}
+                    onSelectColor={handleSelectColor}
+                    onRemoveCover={handleRemoveCover}
+                />
+            </motion.div>
+        );
+    }
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -229,24 +353,7 @@ const ProjectCard = ({ project, onUpdateCover }) => {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
-                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
-                        <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('copy')}>
-                        <Copy className="mr-2 h-4 w-4" /> Copy card
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('link')}>
-                        <Link2 className="mr-2 h-4 w-4" /> Copy link
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
-                        <Archive className="mr-2 h-4 w-4" /> Archive
-                    </DropdownMenuItem>
+                    {renderMenuItems()}
                 </DropdownMenuContent>
             </DropdownMenu>
 
@@ -325,10 +432,12 @@ const CustomerPortalPage = () => {
         fetchProjects();
     }, [user]);
 
+    const patternFolderProjects = projects.filter(p => p.project_type === 'pattern_folder');
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
-    const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book');
+    const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
     
     const [expandedSections, setExpandedSections] = useState({
+        patternFolders: true,
         patternBooks: true,
         horseShows: true
     });
@@ -337,7 +446,7 @@ const CustomerPortalPage = () => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey) => (
+    const renderProjectList = (projectList, title, description, newProjectPath, newProjectLabel, sectionKey, menuType = 'full') => (
         <div className="mb-16">
             <div className="flex justify-between items-center mb-4">
                 <button 
@@ -362,7 +471,7 @@ const CustomerPortalPage = () => {
                 projectList.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                         {projectList.map(project => (
-                            <ProjectCard key={project.id} project={project} />
+                            <ProjectCard key={project.id} project={project} menuType={menuType} />
                         ))}
                     </div>
                 ) : (
@@ -399,20 +508,31 @@ const CustomerPortalPage = () => {
                     ) : (
                         <div>
                             {renderProjectList(
+                                patternFolderProjects,
+                                "Pattern Folder",
+                                "Organize and store your pattern collections.",
+                                "/pattern-folder/new",
+                                "New Pattern Folder",
+                                "patternFolders",
+                                "folder"
+                            )}
+                            {renderProjectList(
                                 patternBookProjects,
                                 "Pattern Books",
-                                "Create and manage your professional pattern books.",
+                                "Build and manage your horse show pattern books.",
                                 "/pattern-book-builder",
                                 "New Pattern Book",
-                                "patternBooks"
+                                "patternBooks",
+                                "patternBook"
                             )}
                             {renderProjectList(
                                 showManagerProjects,
                                 "Horse Shows",
-                                "Build and organize your complete horse show schedules.",
+                                "Manage your horse show schedules and events.",
                                 "/horse-show-manager/create",
                                 "New Horse Show",
-                                "horseShows"
+                                "horseShows",
+                                "full"
                             )}
                         </div>
                     )}
