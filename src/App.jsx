@@ -42,6 +42,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import AuthModal from '@/components/AuthModal';
 import CustomerAssetLibraryPage from '@/pages/CustomerAssetLibraryPage';
 import CustomerPortalPage from '@/pages/CustomerPortalPage';
+import ArchivePatternsPage from '@/pages/ArchivePatternsPage';
 import PatternUploadLandingPage from '@/pages/PatternUploadLandingPage';
 import HorseShowManagerPage from '@/pages/HorseShowManagerPage';
 import CreateShowPage from '@/pages/CreateShowPage';
@@ -143,6 +144,7 @@ function App() {
                 <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
 
                 <Route path="/customer-portal" element={<CustomerPortalPage />} />
+                <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
                 <Route path="/pattern-hub" element={<PatternHubPage />} />
                 <Route path="/store" element={<StorePage />} />
                 <Route path="/product/:id" element={<ProductDetailPage />} />
