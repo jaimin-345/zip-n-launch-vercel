@@ -357,7 +357,6 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                 {/* 1. Admin & Owner Assignment - TOP PRIORITY */}
                 <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
                     <div className="flex items-center gap-2">
-                        <Badge variant="destructive" className="text-xs">MANDATORY</Badge>
                         <h3 className="text-lg font-semibold flex items-center gap-2">
                             <Crown className="h-5 w-5 text-red-600" />
                             Admin & Owner Assignment

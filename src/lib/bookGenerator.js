@@ -205,10 +205,7 @@ export const generatePatternBookPdf = async (pbbData) => {
         
     } else {
         // LAYOUT A: Default TOC Style
-        doc.setFontSize(24);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(0, 0, 0);
-        doc.text('Table of Contents', margin, margin + 40);
+        // Header is added in the finalize step to include Show Name
     }
 
     // --- Pattern List (Layout B Only) ---
@@ -224,6 +221,10 @@ export const generatePatternBookPdf = async (pbbData) => {
         yPos = margin + 50;
         
         for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
+            // Check if discipline has any valid groups
+            const hasValidGroups = (discipline.patternGroups || []).some(g => g.divisions && g.divisions.length > 0);
+            if (!hasValidGroups) continue;
+
             if (yPos > pageHeight - margin - 50) {
                 addNewPage();
                 yPos = margin + 30;
@@ -251,6 +252,8 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.setFontSize(10);
             
             for (const [groupIndex, group] of (discipline.patternGroups || []).entries()) {
+                if (!group.divisions || group.divisions.length === 0) continue;
+
                 if (yPos > pageHeight - margin) {
                     addNewPage();
                     yPos = margin + 30;
@@ -295,6 +298,8 @@ export const generatePatternBookPdf = async (pbbData) => {
     let sequentialClassNumber = 0;
     for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
         for (const [groupIndex, group] of (discipline.patternGroups || []).entries()) {
+            if (!group.divisions || group.divisions.length === 0) continue;
+
             const patternId = pbbData.patternSelections?.[discIndex]?.[groupIndex];
             
             // Get competition date from groupDueDates
@@ -311,7 +316,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             const className = `${discipline.name} - ${group.divisions.map(d => d.division).join('/')}`;
             toc.push({ 
                 title: className,
-                page: doc.internal.getNumberOfPages(),
+                page: doc.internal.getNumberOfPages() - 1,
                 date: competitionDate,
                 classNumber: sequentialClassNumber.toString()
             });
