@@ -69,13 +69,6 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
                         </p>
                     </div>
                 </div>
-                <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
-                >
-                    <Edit className="h-4 w-4 mr-1" /> Edit
-                </Button>
             </div>
         </div>
     );
@@ -133,17 +126,31 @@ const PatternFolderItem = ({ project }) => {
             {/* Folder Header */}
             <div 
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
-                onClick={() => setIsExpanded(!isExpanded)}
+                style={{ backgroundColor: coverColor }}
             >
-                <div className="flex items-center gap-3">
+                <div 
+                    className="flex items-center gap-3 flex-1"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                >
                     {isExpanded ? (
-                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        <ChevronDown className="h-5 w-5 text-white/80" />
                     ) : (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        <ChevronRight className="h-5 w-5 text-white/80" />
                     )}
-                    <Folder className="h-5 w-5" style={{ color: coverColor }} />
-                    <span className="font-semibold">{project.project_name || 'Untitled Project'}</span>
+                    <Folder className="h-5 w-5 text-white" />
+                    <span className="font-semibold text-white">{project.project_name || 'Untitled Project'}</span>
                 </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/pattern-book-builder/${project.id}?step=8`);
+                    }}
+                >
+                    <Pencil className="h-4 w-4" />
+                </Button>
             </div>
             
             {/* Expanded Content - Staff Cards */}
