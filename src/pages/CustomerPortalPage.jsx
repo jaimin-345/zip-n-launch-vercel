@@ -65,33 +65,33 @@ const StaffAccessCard = ({ staffMember, navigate, projectId, coverColor, project
         >
             {coverColor && (
                 <div 
-                    className="h-6 w-full rounded-t-lg" 
+                    className="h-4 w-full rounded-t-lg" 
                     style={{ backgroundColor: coverColor }}
                 />
             )}
             <Card className={`${coverColor ? 'rounded-t-none' : ''}`}>
-                <div className="p-3 flex items-center gap-4">
+                <div className="p-3 flex flex-wrap md:flex-nowrap items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                        <BookCopy className="h-5 w-5 text-primary" />
+                        <BookCopy className="h-4 w-4 text-primary" />
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1 md:flex-none md:w-32">
                         <h4 className="font-semibold text-sm truncate">{staffMember.name || 'Staff Member'}</h4>
-                        <Badge variant="secondary" className="text-xs">{staffMember.role || 'Staff'}</Badge>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{staffMember.role || 'Staff'}</Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground text-center shrink-0">
-                        <p>Last saved:</p>
-                        <p>{formattedDate}</p>
+                    <div className="text-xs text-muted-foreground flex-1 md:flex-none">
+                        <span className="block">Last saved:</span>
+                        <span className="block">{formattedDate}</span>
                     </div>
-                    <div className="shrink-0 text-center">
-                        <p className="text-xs text-muted-foreground">Status:</p>
-                        <span className={cn("text-sm font-medium", statusColor)}>{status}</span>
+                    <div className="text-center">
+                        <span className="text-xs text-muted-foreground block">Status:</span>
+                        <span className={cn("text-xs font-medium", statusColor)}>{status}</span>
                     </div>
                     <Button 
                         size="sm"
                         onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
-                        className="shrink-0"
+                        className="shrink-0 text-xs px-3"
                     >
-                        Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                        Continue Editing <ArrowRight className="ml-1 h-3 w-3" />
                     </Button>
                 </div>
             </Card>
