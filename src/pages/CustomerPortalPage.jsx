@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -25,11 +25,150 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { Badge } from '@/components/ui/badge';
+
+const accessPhaseLabels = {
+    draft: 'Draft, Build, Review',
+    approval: 'Approval and Locked',
+    publication: 'Publication',
+};
 
 const COVER_COLORS = [
     '#4BCE97', '#F5CD47', '#FEA362', '#F87168', '#E774BB', '#C59CDF',
     '#579DFF', '#6CC3E0', '#94C748', '#E388A3'
 ];
+
+// Staff Access Card inside folder
+const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
+    const getStatusFromAccessPhase = (accessPhase) => {
+        if (!accessPhase || accessPhase.length === 0) return 'Pending';
+        if (accessPhase.includes('publication')) return 'Published';
+        if (accessPhase.includes('approval')) return 'Pending Approval';
+        if (accessPhase.includes('draft')) return 'Review';
+        return 'Pending';
+    };
+
+    const status = getStatusFromAccessPhase(staffMember.delegation?.accessPhase);
+    const statusColor = status === 'Review' ? 'text-orange-500' : 
+                        status === 'Pending Approval' ? 'text-amber-500' :
+                        status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
+
+    return (
+        <div className="border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                    <Eye className="h-5 w-5 text-orange-400" />
+                    <div>
+                        <p className="font-semibold">{staffMember.name || 'Staff Member'}</p>
+                        <p className="text-sm text-muted-foreground">
+                            Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                        </p>
+                        <p className="text-sm">
+                            Status: <span className={cn("font-medium", statusColor)}>{status}</span>
+                        </p>
+                    </div>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-orange-400 text-orange-500 hover:bg-orange-50"
+                    onClick={() => navigate(`/pattern-book-builder/${projectId}?step=8`)}
+                >
+                    Preview Only
+                </Button>
+            </div>
+        </div>
+    );
+};
+
+// Collapsible Folder for Pattern Folder section
+const PatternFolderItem = ({ project }) => {
+    const navigate = useNavigate();
+    const [isExpanded, setIsExpanded] = useState(false);
+    const coverColor = project.project_data?.coverColor || '#F5CD47';
+    
+    // Get staff list from project_data (Step 8 Staff Access & Delegation)
+    const getStaffList = () => {
+        const formData = project.project_data || {};
+        const delegations = formData.delegations || {};
+        const staffList = [];
+        
+        // Get officials
+        (formData.officials || []).forEach(official => {
+            if (official && official.name) {
+                staffList.push({
+                    id: official.id,
+                    name: official.name,
+                    role: official.role,
+                    delegation: delegations[official.id] || { accessPhase: [], roles: [] },
+                    updatedAt: project.updated_at
+                });
+            }
+        });
+        
+        // Get judges from associationJudges
+        Object.entries(formData.associationJudges || {}).forEach(([assocId, assocData]) => {
+            (assocData.judges || []).forEach((judge, index) => {
+                if (judge && judge.name) {
+                    const judgeId = `judge-${assocId}-${index}`;
+                    staffList.push({
+                        id: judgeId,
+                        name: judge.name,
+                        role: 'Judge',
+                        delegation: delegations[judgeId] || { accessPhase: [], roles: [] },
+                        updatedAt: project.updated_at
+                    });
+                }
+            });
+        });
+        
+        return staffList;
+    };
+    
+    const staffList = getStaffList();
+    const patternCount = staffList.length || 0;
+
+    return (
+        <div className="border rounded-lg overflow-hidden bg-orange-50/50 dark:bg-orange-900/10 mb-4">
+            {/* Folder Header */}
+            <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-orange-100/50 dark:hover:bg-orange-900/20 transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <div className="flex items-center gap-3">
+                    {isExpanded ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <Folder className="h-5 w-5" style={{ color: coverColor }} />
+                    <span className="font-semibold">{project.project_name || 'Untitled Project'}</span>
+                </div>
+                <span className="text-sm text-muted-foreground">{patternCount} patterns</span>
+            </div>
+            
+            {/* Expanded Content - Staff Cards */}
+            {isExpanded && (
+                <div className="px-4 pb-4 space-y-3">
+                    {staffList.length > 0 ? (
+                        staffList.map((staff, index) => (
+                            <StaffAccessCard 
+                                key={staff.id || index} 
+                                staffMember={staff} 
+                                navigate={navigate}
+                                projectId={project.id}
+                            />
+                        ))
+                    ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                            No staff delegations configured. Configure in Step 8: Close Out & Review.
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const CoverColorDialog = ({ open, onClose, currentColor, onSelectColor, onRemoveCover }) => {
     return (
@@ -470,11 +609,21 @@ const CustomerPortalPage = () => {
             </div>
             {expandedSections[sectionKey] && (
                 projectList.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-                        {projectList.map(project => (
-                            <ProjectCard key={project.id} project={project} menuType={menuType} />
-                        ))}
-                    </div>
+                    menuType === 'folder' ? (
+                        // Folder-style layout for Pattern Folders
+                        <div className="space-y-2">
+                            {projectList.map(project => (
+                                <PatternFolderItem key={project.id} project={project} />
+                            ))}
+                        </div>
+                    ) : (
+                        // Grid layout for Pattern Books and Horse Shows
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                            {projectList.map(project => (
+                                <ProjectCard key={project.id} project={project} menuType={menuType} />
+                            ))}
+                        </div>
+                    )
                 ) : (
                     <div className="text-center py-12 border-2 border-dashed rounded-lg">
                         <p className="text-muted-foreground">You haven't created any projects here yet.</p>
