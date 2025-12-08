@@ -273,11 +273,19 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Folder Tab */}
-                <div 
-                    className="h-6 w-1/3 rounded-t-lg ml-2"
-                    style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
-                />
+                {/* Folder Tab - like a file folder */}
+                <div className="flex">
+                    <div 
+                        className="h-4 w-16 rounded-t-md"
+                        style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
+                    />
+                    <div 
+                        className="h-4 w-4"
+                        style={{ 
+                            background: `linear-gradient(135deg, ${coverColor || 'hsl(var(--primary))'} 50%, transparent 50%)`
+                        }}
+                    />
+                </div>
                 
                 {/* Edit Menu Button */}
                 <DropdownMenu>
@@ -285,7 +293,7 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className={`absolute top-8 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                            className={`absolute top-6 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
                         >
                             <Pencil className="h-4 w-4" />
                         </Button>
@@ -295,21 +303,45 @@ const ProjectCard = ({ project, onUpdateCover, menuType = 'full' }) => {
                     </DropdownMenuContent>
                 </DropdownMenu>
 
+                {/* Folder Body */}
                 <div 
-                    className="flex flex-col flex-grow rounded-lg rounded-tl-none p-4 cursor-pointer border border-border"
-                    style={{ backgroundColor: coverColor ? `${coverColor}20` : 'hsl(var(--card))' }}
+                    className="flex flex-col flex-grow rounded-lg rounded-tl-none border-2 cursor-pointer overflow-hidden"
+                    style={{ 
+                        backgroundColor: coverColor ? `${coverColor}15` : 'hsl(var(--card))',
+                        borderColor: coverColor || 'hsl(var(--primary))'
+                    }}
                     onClick={() => navigate(editPath)}
                 >
-                    <div className="flex items-center gap-3 mb-3">
-                        <FolderOpen className="h-8 w-8" style={{ color: coverColor || 'hsl(var(--primary))' }} />
-                        <div>
-                            <h3 className="font-semibold leading-tight">{project.project_name || 'Untitled Folder'}</h3>
-                            <p className="text-xs text-muted-foreground">Pattern Folder</p>
+                    {/* Folder top edge */}
+                    <div 
+                        className="h-2 w-full"
+                        style={{ backgroundColor: coverColor || 'hsl(var(--primary))' }}
+                    />
+                    
+                    <div className="p-4 flex flex-col flex-grow">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 rounded-lg" style={{ backgroundColor: `${coverColor || 'hsl(var(--primary))'}20` }}>
+                                <FolderOpen className="h-6 w-6" style={{ color: coverColor || 'hsl(var(--primary))' }} />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold leading-tight text-foreground">{project.project_name || 'Untitled Folder'}</h3>
+                                <p className="text-xs text-muted-foreground">Pattern Folder</p>
+                            </div>
                         </div>
+                        
+                        <div className="mt-auto space-y-1">
+                            <p className="text-sm text-muted-foreground">
+                                Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span>
+                            </p>
+                        </div>
+                        
+                        <Button onClick={(e) => { e.stopPropagation(); navigate(editPath); }} className="w-full mt-4">
+                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-auto">
-                        Last updated: {format(new Date(project.updated_at), "MMM d, yyyy")}
-                    </p>
                 </div>
 
                 <CoverColorDialog
