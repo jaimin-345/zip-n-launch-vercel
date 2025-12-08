@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
-export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false, purposeName = null, stepNumber = 4 }) => {
+export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false, purposeName = null, stepNumber = 4, isReadOnly = false }) => {
   const handleUpdate = (key, value) => {
+    if (isReadOnly) return;
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
@@ -81,7 +82,7 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <Label htmlFor="showName">{nameLabels[mode]}</Label>
-                            <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} />
+                            <Input id="showName" value={formData.showName} onChange={(e) => handleUpdate('showName', e.target.value)} placeholder={namePlaceholders[mode]} disabled={isReadOnly} />
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -94,19 +95,22 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                                 "w-full justify-start text-left font-normal",
                                                 !formData.startDate && "text-muted-foreground"
                                             )}
+                                            disabled={isReadOnly}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                             {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={formData.startDate ? parseLocalDate(formData.startDate) : null}
-                                            onSelect={(date) => handleUpdate('startDate', date ? format(date, 'yyyy-MM-dd') : null)}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
+                                    {!isReadOnly && (
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar
+                                                mode="single"
+                                                selected={formData.startDate ? parseLocalDate(formData.startDate) : null}
+                                                onSelect={(date) => handleUpdate('startDate', date ? format(date, 'yyyy-MM-dd') : null)}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    )}
                                 </Popover>
                             </div>
                             <div>
@@ -119,30 +123,33 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                                 "w-full justify-start text-left font-normal",
                                                 !formData.endDate && "text-muted-foreground"
                                             )}
+                                            disabled={isReadOnly}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                             {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={formData.endDate ? parseLocalDate(formData.endDate) : null}
-                                            onSelect={(date) => handleUpdate('endDate', date ? format(date, 'yyyy-MM-dd') : null)}
-                                            disabled={{ before: formData.startDate ? parseLocalDate(formData.startDate) : null }}
-                                            initialFocus
-                                        />
-                                    </PopoverContent>
+                                    {!isReadOnly && (
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar
+                                                mode="single"
+                                                selected={formData.endDate ? parseLocalDate(formData.endDate) : null}
+                                                onSelect={(date) => handleUpdate('endDate', date ? format(date, 'yyyy-MM-dd') : null)}
+                                                disabled={{ before: formData.startDate ? parseLocalDate(formData.startDate) : null }}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    )}
                                 </Popover>
                             </div>
                         </div>
                         <div>
                             <Label htmlFor="venueName">Venue Name</Label>
-                            <Input id="venueName" value={formData.venueName} onChange={(e) => handleUpdate('venueName', e.target.value)} placeholder="E.g., Grand Oak Arena" />
+                            <Input id="venueName" value={formData.venueName} onChange={(e) => handleUpdate('venueName', e.target.value)} placeholder="E.g., Grand Oak Arena" disabled={isReadOnly} />
                         </div>
                         <div>
                             <Label htmlFor="venueAddress">Venue Address</Label>
-                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" />
+                            <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" disabled={isReadOnly} />
                         </div>
                     </div>
                 </AccordionContent>
@@ -156,6 +163,7 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                         selectedAssociationIds={selectedAssociationIds}
                         isClinicMode={isClinicMode}
                         isEducationMode={isEducationMode}
+                        isReadOnly={isReadOnly}
                     />
                  </AccordionContent>
             </AccordionItem>

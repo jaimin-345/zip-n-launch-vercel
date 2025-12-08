@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setFormData, allAssociations }) => {
+const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setFormData, allAssociations, isReadOnly = false }) => {
 
   const handleSubAssociationChange = (assocId, key, value) => {
     setFormData(prev => ({
@@ -257,9 +257,10 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
   );
 };
 
-export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName }) => {
+export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName, isReadOnly = false }) => {
     
   const handleAssociationSelection = (assocId, isChecked) => {
+    if (isReadOnly) return;
     setFormData(prev => {
         let newAssociations = { ...prev.associations };
         let newPrimaryAffiliates = [...(prev.primaryAffiliates || [])];
@@ -389,6 +390,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
               placeholder={getShowNamePlaceholder()}
               value={formData.showName || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
+              disabled={isReadOnly}
           />
         </div>
         
@@ -401,10 +403,11 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                   key={assoc.id}
                   association={assoc}
                   isSelected={!!formData.associations?.[assoc.id]}
-                  onSelect={handleAssociationSelection}
+                  onSelect={isReadOnly ? () => {} : handleAssociationSelection}
                   formData={formData}
-                  setFormData={setFormData}
+                  setFormData={isReadOnly ? () => {} : setFormData}
                   allAssociations={allAssociations}
+                  isReadOnly={isReadOnly}
                 />
               ))}
             </div>
@@ -414,10 +417,11 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                   key={assoc.id}
                   association={assoc}
                   isSelected={!!formData.associations?.[assoc.id]}
-                  onSelect={handleAssociationSelection}
+                  onSelect={isReadOnly ? () => {} : handleAssociationSelection}
                   formData={formData}
-                  setFormData={setFormData}
+                  setFormData={isReadOnly ? () => {} : setFormData}
                   allAssociations={allAssociations}
+                  isReadOnly={isReadOnly}
                 />
               ))}
             </div>

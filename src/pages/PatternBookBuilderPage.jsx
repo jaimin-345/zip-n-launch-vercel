@@ -5,6 +5,7 @@ import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, Layou
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
@@ -16,7 +17,7 @@ import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { usePatternBookBuilder } from '@/hooks/usePatternBookBuilder';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 
@@ -75,6 +76,8 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
 const PatternBookBuilderPage = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const isPreviewMode = searchParams.get('mode') === 'preview';
     const {
         step: currentStep,
         setCurrentStep,
@@ -155,8 +158,8 @@ const PatternBookBuilderPage = () => {
         const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
         switch (currentStep) {
-            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} />;
-            case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />;
+            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isPreviewMode} />;
+            case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} isReadOnly={isPreviewMode} />;
             case 3: return (
                 <>
                     <CardHeader className="pb-3">
@@ -170,15 +173,16 @@ const PatternBookBuilderPage = () => {
                             isOpenShowMode={isOpenShowMode}
                             associationsData={associationsData}
                             divisionsData={divisionsData}
+                            isReadOnly={isPreviewMode}
                         />
                     </CardContent>
                 </>
             );
-            case 4: return <Step3_Details formData={formData} setFormData={setFormData} />;
-            case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} />;
-            case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} />;
-            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} />;
-            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} />;
+            case 4: return <Step3_Details formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
+            case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} isReadOnly={isPreviewMode} />;
+            case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
+            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
+            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
             default: return null;
         }
     };
@@ -210,22 +214,40 @@ const PatternBookBuilderPage = () => {
                                 )}
                             </AnimatePresence>
                             <CardFooter className="p-4 flex justify-between items-center border-t border-border">
-                                <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                                <div className="flex items-center gap-2">
-                                    <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                        Save Project
-                                    </Button>
-                                    {currentStep === steps.length ? (
-                                        <Button onClick={() => setIsGenerateDialogOpen(true)} disabled={isNextDisabled}>
-                                            <Download className="mr-2 h-4 w-4" /> Generate Book
-                                        </Button>
-                                    ) : (
-                                        <Button onClick={handleNext} disabled={isNextDisabled}>
-                                            Next <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Button>
-                                    )}
-                                </div>
+                                {isPreviewMode ? (
+                                    <>
+                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="secondary" className="px-3 py-1">
+                                                <Eye className="mr-2 h-4 w-4" /> Preview Mode (Read Only)
+                                            </Badge>
+                                            {currentStep < steps.length && (
+                                                <Button onClick={handleNext}>
+                                                    Next <ArrowRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
+                                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                                Save Project
+                                            </Button>
+                                            {currentStep === steps.length ? (
+                                                <Button onClick={() => setIsGenerateDialogOpen(true)} disabled={isNextDisabled}>
+                                                    <Download className="mr-2 h-4 w-4" /> Generate Book
+                                                </Button>
+                                            ) : (
+                                                <Button onClick={handleNext} disabled={isNextDisabled}>
+                                                    Next <ArrowRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </CardFooter>
                         </Card>
                     </div>
