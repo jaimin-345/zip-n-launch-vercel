@@ -79,6 +79,7 @@ const PatternFolderItem = ({ project, onRefresh }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
@@ -178,7 +179,11 @@ const PatternFolderItem = ({ project, onRefresh }) => {
 
     return (
         <>
-            <div className="border rounded-lg overflow-hidden bg-transparent mb-4">
+            <div 
+                className="border rounded-lg overflow-hidden bg-transparent mb-4"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
                 {/* Folder Header */}
                 <div 
                     className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${!coverColor ? 'bg-muted border-b' : ''}`}
@@ -201,7 +206,7 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className={`h-8 w-8 ${coverColor ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:bg-muted'}`}
+                                className={`h-8 w-8 transition-opacity duration-200 ${coverColor ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:bg-muted'} ${isHovered ? 'opacity-100' : 'opacity-0'}`}
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <Pencil className="h-4 w-4" />
