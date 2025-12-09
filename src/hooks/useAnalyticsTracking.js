@@ -62,9 +62,47 @@ export const useAnalyticsTracking = () => {
                     sessionIdRef.current = data.id;
                     sessionStartRef.current = Date.now();
                     console.log('Analytics session started:', data.id);
+                    
+                    // Track page load performance automatically
+                    trackPageLoadPerformance();
                 }
             } catch (err) {
                 console.error('Failed to start analytics session:', err);
+            }
+        };
+
+        // Track initial page load performance
+        const trackPageLoadPerformance = async () => {
+            try {
+                // Use Performance API if available
+                const perfEntries = performance.getEntriesByType('navigation');
+                const navTiming = perfEntries[0] || performance.timing;
+                
+                let loadTime = 0;
+                if (navTiming) {
+                    if (navTiming.loadEventEnd && navTiming.startTime !== undefined) {
+                        // Modern Performance API
+                        loadTime = Math.round(navTiming.loadEventEnd - navTiming.startTime);
+                    } else if (navTiming.loadEventEnd && navTiming.navigationStart) {
+                        // Legacy timing API
+                        loadTime = navTiming.loadEventEnd - navTiming.navigationStart;
+                    }
+                }
+                
+                // Only log if we got a valid load time
+                if (loadTime > 0) {
+                    await supabase.from('analytics_performance_logs').insert({
+                        user_id: user.id,
+                        metric_type: 'page_load',
+                        page_path: window.location.pathname,
+                        load_time_ms: loadTime,
+                        device_type: getDeviceType(),
+                        browser: getBrowserInfo(),
+                        network_type: navigator.connection?.effectiveType || 'unknown'
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to track page load performance:', err);
             }
         };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,9 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { format } from 'date-fns';
-import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet, ChevronDown, User } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet, ChevronDown, User, BarChart3, TrendingUp, Zap } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const AdminTrackingUserPage = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -232,6 +233,314 @@ const AdminTrackingUserPage = () => {
 
         return Object.values(grouped).filter(user => 
             !searchTerm || user.userName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    };
+
+    // Performance Tab Component with Graphs
+    const PerformanceTab = ({ performanceLogs, isLoading, profiles, searchTerm, getUserDisplayName, getDeviceIcon }) => {
+        const COLORS = ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+        
+        // Calculate stats for charts
+        const chartData = useMemo(() => {
+            // Load time distribution by page
+            const pageLoadTimes = {};
+            const metricCounts = {};
+            const deviceCounts = {};
+            const browserCounts = {};
+            const dailyMetrics = {};
+            
+            performanceLogs.forEach(log => {
+                // Page load times
+                if (log.page_path && log.load_time_ms) {
+                    const pageName = log.page_path.split('/').filter(Boolean).slice(0, 2).join('/') || 'home';
+                    if (!pageLoadTimes[pageName]) {
+                        pageLoadTimes[pageName] = { total: 0, count: 0 };
+                    }
+                    pageLoadTimes[pageName].total += log.load_time_ms;
+                    pageLoadTimes[pageName].count += 1;
+                }
+                
+                // Metric type counts
+                metricCounts[log.metric_type] = (metricCounts[log.metric_type] || 0) + 1;
+                
+                // Device counts
+                const device = log.device_type || 'unknown';
+                deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+                
+                // Browser counts
+                const browser = log.browser || 'unknown';
+                browserCounts[browser] = (browserCounts[browser] || 0) + 1;
+                
+                // Daily metrics
+                const day = format(new Date(log.created_at), 'MMM d');
+                if (!dailyMetrics[day]) {
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, api_call: 0 };
+                }
+                dailyMetrics[day][log.metric_type] = (dailyMetrics[day][log.metric_type] || 0) + 1;
+            });
+            
+            return {
+                avgLoadTimeByPage: Object.entries(pageLoadTimes).map(([page, data]) => ({
+                    page: page.length > 15 ? page.substring(0, 15) + '...' : page,
+                    avgTime: Math.round(data.total / data.count)
+                })).slice(0, 8),
+                metricDistribution: Object.entries(metricCounts).map(([name, value]) => ({ name, value })),
+                deviceDistribution: Object.entries(deviceCounts).map(([name, value]) => ({ name, value })),
+                browserDistribution: Object.entries(browserCounts).map(([name, value]) => ({ name, value })),
+                dailyTrend: Object.values(dailyMetrics).slice(-7)
+            };
+        }, [performanceLogs]);
+
+        // Summary stats
+        const summaryStats = useMemo(() => {
+            const pageLogs = performanceLogs.filter(l => l.metric_type === 'page_load' && l.load_time_ms);
+            const avgLoadTime = pageLogs.length > 0 
+                ? Math.round(pageLogs.reduce((acc, l) => acc + l.load_time_ms, 0) / pageLogs.length)
+                : 0;
+            const errorCount = performanceLogs.filter(l => l.metric_type === 'error').length;
+            const totalLogs = performanceLogs.length;
+            
+            return { avgLoadTime, errorCount, totalLogs };
+        }, [performanceLogs]);
+
+        if (isLoading) {
+            return (
+                <Card>
+                    <CardContent className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        // Show placeholder with example data when no logs
+        const hasData = performanceLogs.length > 0;
+        const displayData = hasData ? chartData : {
+            avgLoadTimeByPage: [
+                { page: '/dashboard', avgTime: 245 },
+                { page: '/pattern-hub', avgTime: 320 },
+                { page: '/pattern-book', avgTime: 180 },
+                { page: '/admin', avgTime: 150 }
+            ],
+            metricDistribution: [
+                { name: 'page_load', value: 45 },
+                { name: 'api_call', value: 30 },
+                { name: 'error', value: 5 }
+            ],
+            deviceDistribution: [
+                { name: 'desktop', value: 60 },
+                { name: 'mobile', value: 30 },
+                { name: 'tablet', value: 10 }
+            ],
+            dailyTrend: [
+                { date: 'Dec 3', page_load: 12, error: 1 },
+                { date: 'Dec 4', page_load: 18, error: 2 },
+                { date: 'Dec 5', page_load: 15, error: 0 },
+                { date: 'Dec 6', page_load: 22, error: 1 },
+                { date: 'Dec 7', page_load: 20, error: 0 }
+            ]
+        };
+
+        return (
+            <div className="space-y-6">
+                {!hasData && (
+                    <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                        <CardContent className="py-4">
+                            <p className="text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                No performance data yet. Charts below show sample data for preview. Real data will appear as users interact with the app.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Summary Stats */}
+                <div className="grid grid-cols-3 gap-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Avg Load Time</CardTitle>
+                            <Zap className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{hasData ? `${summaryStats.avgLoadTime}ms` : '235ms'}</div>
+                            <p className="text-xs text-muted-foreground">Average page load</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
+                            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{hasData ? summaryStats.totalLogs : 80}</div>
+                            <p className="text-xs text-muted-foreground">Performance events</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Errors</CardTitle>
+                            <AlertTriangle className="h-4 w-4 text-destructive" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-destructive">{hasData ? summaryStats.errorCount : 4}</div>
+                            <p className="text-xs text-muted-foreground">Total errors logged</p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Charts Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Load Time by Page */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <TrendingUp className="h-4 w-4" />
+                                Average Load Time by Page
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={displayData.avgLoadTimeByPage} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                    <XAxis type="number" unit="ms" className="text-xs" />
+                                    <YAxis dataKey="page" type="category" width={100} className="text-xs" />
+                                    <Tooltip 
+                                        formatter={(value) => [`${value}ms`, 'Avg Load Time']}
+                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                                    />
+                                    <Bar dataKey="avgTime" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Daily Trend */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Activity className="h-4 w-4" />
+                                Daily Performance Trend
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <LineChart data={displayData.dailyTrend}>
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                    <XAxis dataKey="date" className="text-xs" />
+                                    <YAxis className="text-xs" />
+                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                                    <Legend />
+                                    <Line type="monotone" dataKey="page_load" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} name="Page Loads" />
+                                    <Line type="monotone" dataKey="error" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 4 }} name="Errors" />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Device Distribution */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <Monitor className="h-4 w-4" />
+                                Device Distribution
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={200}>
+                                <PieChart>
+                                    <Pie
+                                        data={displayData.deviceDistribution}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        outerRadius={70}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {displayData.deviceDistribution.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Metric Type Distribution */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4" />
+                                Metric Types
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ResponsiveContainer width="100%" height={200}>
+                                <BarChart data={displayData.metricDistribution}>
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                    <XAxis dataKey="name" className="text-xs" />
+                                    <YAxis className="text-xs" />
+                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                                    <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Logs Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Performance Logs</CardTitle>
+                        <CardDescription>Detailed log entries with load times and errors.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Metric</TableHead>
+                                    <TableHead>Page</TableHead>
+                                    <TableHead>Load Time</TableHead>
+                                    <TableHead>Error</TableHead>
+                                    <TableHead>Device</TableHead>
+                                    <TableHead>Date</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {performanceLogs.filter(l => {
+                                    const userName = getUserDisplayName(l.user_id);
+                                    if (!userName) return false;
+                                    return !searchTerm || 
+                                        userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        l.page_path?.toLowerCase().includes(searchTerm.toLowerCase());
+                                }).map((log) => (
+                                    <TableRow key={log.id}>
+                                        <TableCell className="font-medium">{profiles[log.user_id]}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={log.metric_type === 'error' ? 'destructive' : 'outline'}>
+                                                {log.metric_type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-[150px] truncate">{log.page_path || '-'}</TableCell>
+                                        <TableCell>{log.load_time_ms ? `${log.load_time_ms}ms` : '-'}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate text-xs text-destructive">
+                                            {log.error_message || '-'}
+                                        </TableCell>
+                                        <TableCell className="flex items-center gap-1">{getDeviceIcon(log.device_type)}{log.device_type || 'Unknown'}</TableCell>
+                                        <TableCell>{format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
+                                    </TableRow>
+                                ))}
+                                {performanceLogs.filter(l => getUserDisplayName(l.user_id)).length === 0 && (
+                                    <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No performance logs recorded yet.</TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
         );
     };
 
@@ -485,59 +794,14 @@ const AdminTrackingUserPage = () => {
 
                     {/* Performance Tab */}
                     <TabsContent value="performance">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Performance Logs</CardTitle>
-                                <CardDescription>Monitor page load times, API latency, and errors.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {isLoading ? (
-                                    <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>User</TableHead>
-                                                <TableHead>Metric</TableHead>
-                                                <TableHead>Page</TableHead>
-                                                <TableHead>Load Time</TableHead>
-                                                <TableHead>Error</TableHead>
-                                                <TableHead>Device</TableHead>
-                                                <TableHead>Date</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {performanceLogs.filter(l => {
-                                                const userName = getUserDisplayName(l.user_id);
-                                                if (!userName) return false; // Hide anonymous/unknown users
-                                                return !searchTerm || 
-                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                    l.page_path?.toLowerCase().includes(searchTerm.toLowerCase());
-                                            }).map((log) => (
-                                                <TableRow key={log.id}>
-                                                    <TableCell className="font-medium">{profiles[log.user_id]}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={log.metric_type === 'error' ? 'destructive' : 'outline'}>
-                                                            {log.metric_type}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="max-w-[150px] truncate">{log.page_path || '-'}</TableCell>
-                                                    <TableCell>{log.load_time_ms ? `${log.load_time_ms}ms` : '-'}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate text-xs text-destructive">
-                                                        {log.error_message || '-'}
-                                                    </TableCell>
-                                                    <TableCell className="flex items-center gap-1">{getDeviceIcon(log.device_type)}{log.device_type || 'Unknown'}</TableCell>
-                                                    <TableCell>{format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {performanceLogs.filter(l => getUserDisplayName(l.user_id)).length === 0 && (
-                                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No performance logs recorded yet.</TableCell></TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </CardContent>
-                        </Card>
+                        <PerformanceTab 
+                            performanceLogs={performanceLogs}
+                            isLoading={isLoading}
+                            profiles={profiles}
+                            searchTerm={searchTerm}
+                            getUserDisplayName={getUserDisplayName}
+                            getDeviceIcon={getDeviceIcon}
+                        />
                     </TabsContent>
                 </Tabs>
             </main>
