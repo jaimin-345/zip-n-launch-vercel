@@ -11,12 +11,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
-import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet, ChevronDown } from 'lucide-react';
+import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet, ChevronDown, User } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AdminTrackingUserPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('pattern-events');
+    const [selectedUserId, setSelectedUserId] = useState('all'); // For Pattern Events user filter
     const { toast } = useToast();
 
     // Data states
@@ -147,6 +149,33 @@ const AdminTrackingUserPage = () => {
         return profiles[userId] || null; // Return null if no profile found
     };
 
+    // Get unique users from pattern events for dropdown
+    const getPatternEventUsers = () => {
+        const uniqueUsers = new Map();
+        patternEvents.forEach(event => {
+            if (event.user_id && profiles[event.user_id]) {
+                uniqueUsers.set(event.user_id, profiles[event.user_id]);
+            }
+        });
+        return Array.from(uniqueUsers, ([id, name]) => ({ id, name }));
+    };
+
+    // Filter pattern events by selected user
+    const getFilteredPatternEvents = () => {
+        return patternEvents.filter(event => {
+            const userName = getUserDisplayName(event.user_id);
+            if (!userName) return false; // Hide anonymous/unknown users
+            
+            // Filter by selected user
+            if (selectedUserId !== 'all' && event.user_id !== selectedUserId) return false;
+            
+            // Filter by search term
+            return !searchTerm || 
+                userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                event.discipline?.toLowerCase().includes(searchTerm.toLowerCase());
+        });
+    };
+
     // Group sessions by user (excluding anonymous)
     const getGroupedSessions = () => {
         const grouped = {};
@@ -270,9 +299,28 @@ const AdminTrackingUserPage = () => {
                     {/* Pattern Events Tab */}
                     <TabsContent value="pattern-events">
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Pattern Events</CardTitle>
-                                <CardDescription>Track views, downloads, saves, and practice sessions.</CardDescription>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle>Pattern Events</CardTitle>
+                                    <CardDescription>Track views, downloads, saves, and practice sessions.</CardDescription>
+                                </div>
+                                {/* User Filter Dropdown */}
+                                <div className="flex items-center gap-2">
+                                    <User className="h-4 w-4 text-muted-foreground" />
+                                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                        <SelectTrigger className="w-[200px]">
+                                            <SelectValue placeholder="Select User" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Users</SelectItem>
+                                            {getPatternEventUsers().map(user => (
+                                                <SelectItem key={user.id} value={user.id}>
+                                                    {user.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {isLoading ? (
@@ -291,13 +339,7 @@ const AdminTrackingUserPage = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {patternEvents.filter(e => {
-                                                const userName = getUserDisplayName(e.user_id);
-                                                if (!userName) return false; // Hide anonymous/unknown users
-                                                return !searchTerm || 
-                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                    e.discipline?.toLowerCase().includes(searchTerm.toLowerCase());
-                                            }).map((event) => (
+                                            {getFilteredPatternEvents().map((event) => (
                                                 <TableRow key={event.id}>
                                                     <TableCell className="font-medium">{profiles[event.user_id]}</TableCell>
                                                     <TableCell>{getActionBadge(event.action)}</TableCell>
@@ -308,7 +350,7 @@ const AdminTrackingUserPage = () => {
                                                     <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
                                                 </TableRow>
                                             ))}
-                                            {patternEvents.filter(e => getUserDisplayName(e.user_id)).length === 0 && (
+                                            {getFilteredPatternEvents().length === 0 && (
                                                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No pattern events recorded yet.</TableCell></TableRow>
                                             )}
                                         </TableBody>
