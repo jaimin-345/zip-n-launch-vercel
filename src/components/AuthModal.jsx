@@ -389,52 +389,115 @@ const AuthModal = () => {
                 {/* Primary Disciplines */}
                 <div className="space-y-2">
                     <Label className="text-xs flex items-center gap-1"><Award className="h-3 w-3" /> Primary Disciplines</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {DISCIPLINES.map(disc => (
-                            <Badge 
-                                key={disc}
-                                variant={primaryDisciplines.includes(disc) ? "default" : "outline"}
-                                className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={(e) => { e.preventDefault(); toggleDiscipline(disc); }}
-                            >
-                                {disc}
-                            </Badge>
-                        ))}
-                    </div>
+                    <Select 
+                        value={primaryDisciplines[primaryDisciplines.length - 1] || ''} 
+                        onValueChange={(value) => {
+                            if (!primaryDisciplines.includes(value)) {
+                                setPrimaryDisciplines(prev => [...prev, value]);
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select disciplines" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {DISCIPLINES.map(disc => (
+                                <SelectItem key={disc} value={disc} disabled={primaryDisciplines.includes(disc)}>
+                                    {disc} {primaryDisciplines.includes(disc) && '✓'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {primaryDisciplines.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {primaryDisciplines.map(disc => (
+                                <Badge 
+                                    key={disc}
+                                    variant="default"
+                                    className="text-xs py-0.5 px-2 cursor-pointer hover:bg-destructive"
+                                    onClick={(e) => { e.preventDefault(); toggleDiscipline(disc); }}
+                                >
+                                    {disc} ×
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Level Designations */}
                 <div className="space-y-2">
                     <Label className="text-xs">Level Designation</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {LEVEL_DESIGNATIONS.map(level => (
-                            <Badge 
-                                key={level}
-                                variant={levelDesignations.includes(level) ? "default" : "outline"}
-                                className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={(e) => { e.preventDefault(); toggleLevel(level); }}
-                            >
-                                {level}
-                            </Badge>
-                        ))}
-                    </div>
+                    <Select 
+                        value={levelDesignations[levelDesignations.length - 1] || ''} 
+                        onValueChange={(value) => {
+                            if (!levelDesignations.includes(value)) {
+                                setLevelDesignations(prev => [...prev, value]);
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select level designations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {LEVEL_DESIGNATIONS.map(level => (
+                                <SelectItem key={level} value={level} disabled={levelDesignations.includes(level)}>
+                                    {level} {levelDesignations.includes(level) && '✓'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {levelDesignations.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {levelDesignations.map(level => (
+                                <Badge 
+                                    key={level}
+                                    variant="default"
+                                    className="text-xs py-0.5 px-2 cursor-pointer hover:bg-destructive"
+                                    onClick={(e) => { e.preventDefault(); toggleLevel(level); }}
+                                >
+                                    {level} ×
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Association Memberships */}
                 <div className="space-y-2">
                     <Label className="text-xs flex items-center gap-1"><Users className="h-3 w-3" /> Association Memberships</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                        {ASSOCIATIONS.map(assoc => (
-                            <Badge 
-                                key={assoc.id}
-                                variant={associationMemberships.includes(assoc.id) ? "default" : "outline"}
-                                className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={(e) => { e.preventDefault(); toggleAssociation(assoc.id); }}
-                            >
-                                {assoc.id}
-                            </Badge>
-                        ))}
-                    </div>
+                    <Select 
+                        value={associationMemberships[associationMemberships.length - 1] || ''} 
+                        onValueChange={(value) => {
+                            if (!associationMemberships.includes(value)) {
+                                setAssociationMemberships(prev => [...prev, value]);
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select associations" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {ASSOCIATIONS.map(assoc => (
+                                <SelectItem key={assoc.id} value={assoc.id} disabled={associationMemberships.includes(assoc.id)}>
+                                    {assoc.name} {associationMemberships.includes(assoc.id) && '✓'}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {associationMemberships.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                            {associationMemberships.map(assocId => (
+                                <Badge 
+                                    key={assocId}
+                                    variant="default"
+                                    className="text-xs py-0.5 px-2 cursor-pointer hover:bg-destructive"
+                                    onClick={(e) => { e.preventDefault(); toggleAssociation(assocId); }}
+                                >
+                                    {assocId} ×
+                                </Badge>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </ScrollArea>
@@ -502,18 +565,39 @@ const AuthModal = () => {
 
                         <div className="space-y-1">
                             <Label className="text-xs">Horse's Disciplines</Label>
-                            <div className="flex flex-wrap gap-1">
-                                {DISCIPLINES.slice(0, 12).map(disc => (
-                                    <Badge 
-                                        key={disc}
-                                        variant={horse.disciplines.includes(disc) ? "default" : "outline"}
-                                        className="cursor-pointer text-[10px] py-0 px-1.5 hover:bg-primary/80"
-                                        onClick={(e) => { e.preventDefault(); toggleHorseDiscipline(horse.id, disc); }}
-                                    >
-                                        {disc}
-                                    </Badge>
-                                ))}
-                            </div>
+                            <Select 
+                                value={horse.disciplines[horse.disciplines.length - 1] || ''} 
+                                onValueChange={(value) => {
+                                    if (!horse.disciplines.includes(value)) {
+                                        toggleHorseDiscipline(horse.id, value);
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Select disciplines" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {DISCIPLINES.map(disc => (
+                                        <SelectItem key={disc} value={disc} disabled={horse.disciplines.includes(disc)}>
+                                            {disc} {horse.disciplines.includes(disc) && '✓'}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {horse.disciplines.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {horse.disciplines.map(disc => (
+                                        <Badge 
+                                            key={disc}
+                                            variant="default"
+                                            className="text-[10px] py-0 px-1.5 cursor-pointer hover:bg-destructive"
+                                            onClick={(e) => { e.preventDefault(); toggleHorseDiscipline(horse.id, disc); }}
+                                        >
+                                            {disc} ×
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
