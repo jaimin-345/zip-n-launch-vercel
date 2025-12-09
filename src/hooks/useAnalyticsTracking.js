@@ -14,9 +14,9 @@ const getDeviceType = () => {
 // Get browser info
 const getBrowserInfo = () => {
     const ua = navigator.userAgent;
-    if (ua.includes('Chrome')) return 'Chrome';
+    if (ua.includes('Chrome') && !ua.includes('Edge')) return 'Chrome';
     if (ua.includes('Firefox')) return 'Firefox';
-    if (ua.includes('Safari')) return 'Safari';
+    if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
     if (ua.includes('Edge')) return 'Edge';
     return 'Unknown';
 };
@@ -27,9 +27,13 @@ export const useAnalyticsTracking = () => {
     const sessionIdRef = useRef(null);
     const sessionStartRef = useRef(null);
     const previousPageRef = useRef(null);
+    const isInitializedRef = useRef(false);
 
     // Start session on mount
     useEffect(() => {
+        if (isInitializedRef.current) return;
+        isInitializedRef.current = true;
+
         const startSession = async () => {
             try {
                 const { data, error } = await supabase
@@ -45,6 +49,7 @@ export const useAnalyticsTracking = () => {
                 if (!error && data) {
                     sessionIdRef.current = data.id;
                     sessionStartRef.current = Date.now();
+                    console.log('Analytics session started:', data.id);
                 }
             } catch (err) {
                 console.error('Failed to start analytics session:', err);
@@ -57,13 +62,17 @@ export const useAnalyticsTracking = () => {
         const endSession = async () => {
             if (sessionIdRef.current && sessionStartRef.current) {
                 const duration = Math.round((Date.now() - sessionStartRef.current) / 1000);
-                await supabase
-                    .from('analytics_user_sessions')
-                    .update({
-                        session_end: new Date().toISOString(),
-                        duration_seconds: duration
-                    })
-                    .eq('id', sessionIdRef.current);
+                try {
+                    await supabase
+                        .from('analytics_user_sessions')
+                        .update({
+                            session_end: new Date().toISOString(),
+                            duration_seconds: duration
+                        })
+                        .eq('id', sessionIdRef.current);
+                } catch (err) {
+                    console.error('Failed to end session:', err);
+                }
             }
         };
 
@@ -77,6 +86,8 @@ export const useAnalyticsTracking = () => {
     // Track page views
     useEffect(() => {
         const trackPageView = async () => {
+            if (!location.pathname) return;
+            
             try {
                 await supabase.from('analytics_behavior_events').insert({
                     user_id: user?.id || null,
@@ -92,7 +103,9 @@ export const useAnalyticsTracking = () => {
             }
         };
 
-        trackPageView();
+        // Small delay to ensure session is initialized
+        const timeout = setTimeout(trackPageView, 100);
+        return () => clearTimeout(timeout);
     }, [location.pathname, user?.id]);
 
     // Track pattern events
@@ -101,12 +114,12 @@ export const useAnalyticsTracking = () => {
             await supabase.from('analytics_pattern_events').insert({
                 user_id: user?.id || null,
                 action,
-                pattern_id: patternData.patternId,
-                association_id: patternData.associationId,
-                discipline: patternData.discipline,
-                difficulty_level: patternData.difficultyLevel,
-                time_spent_seconds: patternData.timeSpent,
-                version_id: patternData.versionId,
+                pattern_id: patternData.patternId || null,
+                association_id: patternData.associationId || null,
+                discipline: patternData.discipline || null,
+                difficulty_level: patternData.difficultyLevel || null,
+                time_spent_seconds: patternData.timeSpent || null,
+                version_id: patternData.versionId || null,
                 device_type: getDeviceType(),
                 browser: getBrowserInfo()
             });
@@ -147,9 +160,9 @@ export const useAnalyticsTracking = () => {
                 user_id: user?.id || null,
                 metric_type: metricType,
                 page_path: location.pathname,
-                load_time_ms: data.loadTime,
-                error_message: data.errorMessage,
-                error_stack: data.errorStack,
+                load_time_ms: data.loadTime || null,
+                error_message: data.errorMessage || null,
+                error_stack: data.errorStack || null,
                 device_type: getDeviceType(),
                 browser: getBrowserInfo(),
                 network_type: navigator.connection?.effectiveType || 'unknown'
@@ -178,3 +191,4 @@ export const useAnalyticsTracking = () => {
 };
 
 export default useAnalyticsTracking;
+
