@@ -1,82 +1,111 @@
 import React, { useState } from 'react';
-    import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-    import { Button } from '@/components/ui/button';
-    import { Input } from '@/components/ui/input';
-    import { Label } from '@/components/ui/label';
-    import { useToast } from '@/components/ui/use-toast';
-    import { Loader2 } from 'lucide-react';
-    import { generatePatternBookPdf } from '@/lib/bookGenerator';
-    import { supabase } from '@/lib/supabaseClient';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
+import { generatePatternBookPdf } from '@/lib/bookGenerator';
+import { supabase } from '@/lib/supabaseClient';
+import { useAnalytics } from '@/components/AnalyticsProvider';
+
+const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
+  const [email, setEmail] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
+  const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
+
+  const handleSend = async () => {
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Email required',
+        description: 'Please enter an email address to send the book to.',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    const startTime = Date.now();
     
-    const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
-      const [email, setEmail] = useState('');
-      const [isGenerating, setIsGenerating] = useState(false);
-      const { toast } = useToast();
-    
-      const handleSend = async () => {
-        if (!email) {
-          toast({
-            variant: 'destructive',
-            title: 'Email required',
-            description: 'Please enter an email address to send the book to.',
-          });
-          return;
-        }
-    
-        setIsGenerating(true);
-        try {
-          toast({
-            title: 'Generating PDF...',
-            description: 'Your pattern book is being created. This may take a moment.',
-          });
-    
-          const pdfDataUri = await generatePatternBookPdf(pbbData);
-    
-          // Trigger download
-          const link = document.createElement('a');
-          link.href = pdfDataUri;
-          const fileName = (pbbData.showName || 'Pattern-Book').replace(/ /g, '_') + '.pdf';
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-    
-          toast({
-            title: 'Sending Email...',
-            description: 'Attaching the PDF and sending it to your inbox.',
-          });
-    
-          const { data, error } = await supabase.functions.invoke('send-pattern-book', {
-            body: JSON.stringify({
-              email,
-              pdfDataUri,
-              bookName: pbbData.showName || 'My Pattern Book',
-            }),
-          });
-    
-          if (error) {
-            throw new Error(error.message);
-          }
-    
-          toast({
-            title: 'Success!',
-            description: `Pattern book sent to ${email} and downloaded.`,
-          });
-          onOpenChange(false);
-          setEmail('');
-    
-        } catch (error) {
-          console.error('Failed to generate or send book:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Uh oh! Something went wrong.',
-            description: error.message || 'There was a problem generating or sending your book.',
-          });
-        } finally {
-          setIsGenerating(false);
-        }
-      };
-    
+    try {
+      toast({
+        title: 'Generating PDF...',
+        description: 'Your pattern book is being created. This may take a moment.',
+      });
+
+      const pdfDataUri = await generatePatternBookPdf(pbbData);
+
+      // Track pattern book generation
+      trackPatternEvent('download', {
+        patternId: pbbData.id,
+        discipline: pbbData.disciplines?.map(d => d.name).join(', '),
+        associationId: Object.keys(pbbData.associations || {}).filter(k => pbbData.associations[k]).join(', '),
+        timeSpent: Math.round((Date.now() - startTime) / 1000),
+      });
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = pdfDataUri;
+      const fileName = (pbbData.showName || 'Pattern-Book').replace(/ /g, '_') + '.pdf';
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Track behavior event for PDF download
+      trackBehaviorEvent('pattern_book_download', {
+        showName: pbbData.showName,
+        fileName,
+        email,
+      });
+
+      toast({
+        title: 'Sending Email...',
+        description: 'Attaching the PDF and sending it to your inbox.',
+      });
+
+      const { data, error } = await supabase.functions.invoke('send-pattern-book', {
+        body: JSON.stringify({
+          email,
+          pdfDataUri,
+          bookName: pbbData.showName || 'My Pattern Book',
+        }),
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Track email sent event
+      trackBehaviorEvent('pattern_book_email_sent', {
+        showName: pbbData.showName,
+        recipientEmail: email,
+      });
+
+      toast({
+        title: 'Success!',
+        description: `Pattern book sent to ${email} and downloaded.`,
+      });
+      onOpenChange(false);
+      setEmail('');
+
+    } catch (error) {
+      console.error('Failed to generate or send book:', error);
+      trackBehaviorEvent('pattern_book_error', {
+        showName: pbbData.showName,
+        error: error.message,
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Uh oh! Something went wrong.',
+        description: error.message || 'There was a problem generating or sending your book.',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
       return (
         <Dialog open={open} onOpenChange={onOpenChange}>
           <DialogContent className="sm:max-w-[425px]">

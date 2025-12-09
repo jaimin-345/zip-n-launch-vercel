@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, LayoutTemplate, Eye, FileSignature, ShieldCheck, BookCopy, Save, Loader2, Download, Settings2, Share2 } from 'lucide-react';
@@ -20,6 +20,7 @@ import { usePatternBookBuilder } from '@/hooks/usePatternBookBuilder';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
+import { useAnalytics } from '@/components/AnalyticsProvider';
 
 const steps = [
     { id: 1, name: 'Book Details', icon: GitMerge },
@@ -98,6 +99,24 @@ const PatternBookBuilderPage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const { toast } = useToast();
+    const { trackBehaviorEvent, trackPatternEvent } = useAnalytics();
+
+    // Track when user enters PBB
+    useEffect(() => {
+        trackBehaviorEvent('pbb_session_start', {
+            projectId: projectId || 'new',
+            isPreviewMode,
+        });
+    }, [projectId, isPreviewMode]);
+
+    // Track step changes
+    useEffect(() => {
+        trackBehaviorEvent('pbb_step_change', {
+            step: currentStep,
+            stepName: steps[currentStep - 1]?.name,
+            projectId: projectId || 'new',
+        });
+    }, [currentStep, projectId]);
 
     const handleNext = () => {
         setCompletedSteps(prev => new Set([...prev, currentStep]));
@@ -111,12 +130,30 @@ const PatternBookBuilderPage = () => {
         setIsSaving(true);
         try {
             const savedProjectId = await createOrUpdateProject();
+            
+            // Track save event
+            trackPatternEvent('save', {
+                patternId: savedProjectId || projectId,
+                associationId: Object.keys(formData.associations || {}).filter(k => formData.associations[k]).join(', '),
+                discipline: formData.disciplines?.map(d => d.name).join(', '),
+            });
+            
+            trackBehaviorEvent('pbb_project_saved', {
+                projectId: savedProjectId || projectId,
+                step: currentStep,
+                showName: formData.showName,
+            });
+            
             // Only navigate if we're creating a new project (no projectId before)
             if (savedProjectId && !projectId) {
                 navigate(`/pattern-book-builder/${savedProjectId}`, { replace: true });
             }
             // Don't show duplicate toast - it's already shown in the hook
         } catch (error) {
+            trackBehaviorEvent('pbb_save_error', {
+                projectId: projectId || 'new',
+                error: error?.message,
+            });
             // Error toast is handled in the hook
         } finally {
             setIsSaving(false);
