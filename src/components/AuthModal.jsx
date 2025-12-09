@@ -558,7 +558,12 @@ const AuthModal = () => {
                                         </form>
                                     </TabsContent>
                                     <TabsContent value="signup" className="pt-3">
-                                        <form onSubmit={handleSignUp}>
+                                        <form onSubmit={(e) => {
+                                            e.preventDefault();
+                                            if (signUpStep === 3) {
+                                                handleSignUp(e);
+                                            }
+                                        }}>
                                             {/* Step Indicators */}
                                             <div className="flex items-center justify-center gap-2 mb-4">
                                                 {[1, 2, 3].map(step => (
