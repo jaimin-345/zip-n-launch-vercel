@@ -111,6 +111,7 @@ const AuthModal = () => {
     }]);
 
     const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (isAuthModalOpen) {
@@ -133,12 +134,14 @@ const AuthModal = () => {
 
     const handleSignUp = async (e) => {
         e.preventDefault();
-        // Only allow signup on step 3
-        if (signUpStep !== 3) {
+        // Only allow signup on step 3 AND when explicitly submitting
+        if (signUpStep !== 3 || !isSubmitting) {
+            setIsSubmitting(false);
             return;
         }
         if (signUpPassword.length < 6) {
             toast({ title: "Weak Password", description: "Your password must be at least 6 characters long.", variant: "destructive" });
+            setIsSubmitting(false);
             return;
         }
         setIsLoading(true);
@@ -160,6 +163,7 @@ const AuthModal = () => {
             closeAuthModal();
         }
         setIsLoading(false);
+        setIsSubmitting(false);
     };
 
     const handleForgotPassword = async (e) => {
@@ -193,6 +197,7 @@ const AuthModal = () => {
             setLevelDesignations([]);
             setAssociationMemberships([]);
             setHorses([{ id: 1, name: '', breed: '', ageDivision: '', disciplines: [] }]);
+            setIsSubmitting(false);
         }
     };
 
@@ -562,9 +567,10 @@ const AuthModal = () => {
                                         </form>
                                     </TabsContent>
                                     <TabsContent value="signup" className="pt-3">
-                                        <form onSubmit={(e) => {
+                                        <form data-signup-form onSubmit={(e) => {
                                             e.preventDefault();
-                                            if (signUpStep === 3) {
+                                            // Only proceed if isSubmitting was set by button click
+                                            if (signUpStep === 3 && isSubmitting) {
                                                 handleSignUp(e);
                                             }
                                         }}>
@@ -605,7 +611,18 @@ const AuthModal = () => {
                                                         Next <ChevronRight className="h-4 w-4 ml-1" />
                                                     </Button>
                                                 ) : (
-                                                    <Button type="submit" className="flex-1" disabled={isLoading}>
+                                                    <Button 
+                                                        type="button" 
+                                                        className="flex-1" 
+                                                        disabled={isLoading}
+                                                        onClick={() => {
+                                                            setIsSubmitting(true);
+                                                            setTimeout(() => {
+                                                                const form = document.querySelector('form[data-signup-form]');
+                                                                if (form) form.requestSubmit();
+                                                            }, 0);
+                                                        }}
+                                                    >
                                                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Create Account'}
                                                     </Button>
                                                 )}
