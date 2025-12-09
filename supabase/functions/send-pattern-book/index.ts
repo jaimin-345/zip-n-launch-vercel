@@ -41,8 +41,13 @@ serve(async (req: Request): Promise<Response> => {
 
     const fileName = `${bookName.replace(/\s+/g, '_')}.pdf`;
 
+    // Get custom from email if configured, otherwise use default
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Pattern Book Builder <onboarding@resend.dev>";
+    
+    console.log(`Attempting to send email from: ${fromEmail} to: ${email}`);
+
     const emailResponse = await resend.emails.send({
-      from: "Pattern Book Builder <onboarding@resend.dev>",
+      from: fromEmail,
       to: [email],
       subject: `Your Pattern Book: ${bookName}`,
       html: `
@@ -65,7 +70,12 @@ serve(async (req: Request): Promise<Response> => {
 
     // Check if there's an error in the response
     if (emailResponse.error) {
-      throw new Error(`Resend API error: ${emailResponse.error.message}`);
+      // Provide more helpful error messages for common issues
+      const errorMessage = emailResponse.error.message;
+      if (errorMessage.includes("only send testing emails")) {
+        throw new Error(`Email delivery restricted: Resend is in testing mode. Please verify a domain at resend.com/domains or send to the account owner's email only.`);
+      }
+      throw new Error(`Email sending failed: ${errorMessage}`);
     }
 
     console.log("Email sent successfully to:", email);
