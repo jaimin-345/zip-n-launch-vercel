@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
-import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet } from 'lucide-react';
+import { Loader2, Search, Eye, Download, MousePointer, Clock, AlertTriangle, Activity, Users, Monitor, Smartphone, Tablet, ChevronDown } from 'lucide-react';
 
 const AdminTrackingUserPage = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -140,6 +141,43 @@ const AdminTrackingUserPage = () => {
         </Card>
     );
 
+    // Get user display name - only show users with actual profiles
+    const getUserDisplayName = (userId) => {
+        if (!userId) return null; // Skip anonymous users
+        return profiles[userId] || null; // Return null if no profile found
+    };
+
+    // Group sessions by user (excluding anonymous)
+    const getGroupedSessions = () => {
+        const grouped = {};
+        
+        userSessions.forEach(session => {
+            if (!session.user_id) return; // Skip sessions without user_id
+            
+            const userName = profiles[session.user_id];
+            if (!userName) return; // Skip if user not found in profiles
+            
+            if (!grouped[session.user_id]) {
+                grouped[session.user_id] = {
+                    userName,
+                    userId: session.user_id,
+                    sessions: [],
+                    totalDuration: 0,
+                    sessionCount: 0
+                };
+            }
+            
+            grouped[session.user_id].sessions.push(session);
+            grouped[session.user_id].totalDuration += session.duration_seconds || 0;
+            grouped[session.user_id].sessionCount += 1;
+        });
+
+        // Filter by search term
+        return Object.values(grouped).filter(user => 
+            !searchTerm || user.userName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    };
+
     return (
         <>
             <Helmet>
@@ -225,13 +263,15 @@ const AdminTrackingUserPage = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {patternEvents.filter(e => 
-                                                !searchTerm || 
-                                                profiles[e.user_id]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                e.discipline?.toLowerCase().includes(searchTerm.toLowerCase())
-                                            ).map((event) => (
+                                            {patternEvents.filter(e => {
+                                                const userName = getUserDisplayName(e.user_id);
+                                                if (!userName) return false; // Hide anonymous/unknown users
+                                                return !searchTerm || 
+                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    e.discipline?.toLowerCase().includes(searchTerm.toLowerCase());
+                                            }).map((event) => (
                                                 <TableRow key={event.id}>
-                                                    <TableCell className="font-medium">{profiles[event.user_id] || 'Anonymous'}</TableCell>
+                                                    <TableCell className="font-medium">{profiles[event.user_id]}</TableCell>
                                                     <TableCell>{getActionBadge(event.action)}</TableCell>
                                                     <TableCell>{event.association_id || '-'}</TableCell>
                                                     <TableCell>{event.discipline || '-'}</TableCell>
@@ -240,7 +280,7 @@ const AdminTrackingUserPage = () => {
                                                     <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
                                                 </TableRow>
                                             ))}
-                                            {patternEvents.length === 0 && (
+                                            {patternEvents.filter(e => getUserDisplayName(e.user_id)).length === 0 && (
                                                 <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No pattern events recorded yet.</TableCell></TableRow>
                                             )}
                                         </TableBody>
@@ -250,46 +290,65 @@ const AdminTrackingUserPage = () => {
                         </Card>
                     </TabsContent>
 
-                    {/* Sessions Tab */}
+                    {/* Sessions Tab - Grouped by User */}
                     <TabsContent value="sessions">
                         <Card>
                             <CardHeader>
                                 <CardTitle>User Sessions</CardTitle>
-                                <CardDescription>Monitor login timestamps and session durations.</CardDescription>
+                                <CardDescription>Monitor login timestamps and session durations grouped by user.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {isLoading ? (
                                     <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                                ) : getGroupedSessions().length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">No user sessions recorded yet.</div>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>User</TableHead>
-                                                <TableHead>Session Start</TableHead>
-                                                <TableHead>Session End</TableHead>
-                                                <TableHead>Duration</TableHead>
-                                                <TableHead>Device</TableHead>
-                                                <TableHead>Browser</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {userSessions.filter(s => 
-                                                !searchTerm || profiles[s.user_id]?.toLowerCase().includes(searchTerm.toLowerCase())
-                                            ).map((session) => (
-                                                <TableRow key={session.id}>
-                                                    <TableCell className="font-medium">{profiles[session.user_id] || 'Anonymous'}</TableCell>
-                                                    <TableCell>{format(new Date(session.session_start), 'MMM d, yyyy HH:mm')}</TableCell>
-                                                    <TableCell>{session.session_end ? format(new Date(session.session_end), 'MMM d, yyyy HH:mm') : <Badge variant="outline">Active</Badge>}</TableCell>
-                                                    <TableCell>{session.duration_seconds ? `${Math.round(session.duration_seconds / 60)} min` : '-'}</TableCell>
-                                                    <TableCell className="flex items-center gap-1">{getDeviceIcon(session.device_type)}{session.device_type || 'Unknown'}</TableCell>
-                                                    <TableCell>{session.browser || '-'}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {userSessions.length === 0 && (
-                                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No sessions recorded yet.</TableCell></TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                    <Accordion type="single" collapsible className="w-full">
+                                        {getGroupedSessions().map((userGroup) => (
+                                            <AccordionItem key={userGroup.userId} value={userGroup.userId}>
+                                                <AccordionTrigger className="hover:no-underline">
+                                                    <div className="flex items-center justify-between w-full pr-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <Users className="h-5 w-5 text-primary" />
+                                                            <span className="font-semibold">{userGroup.userName}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <Badge variant="outline" className="text-xs">
+                                                                {userGroup.sessionCount} session{userGroup.sessionCount !== 1 ? 's' : ''}
+                                                            </Badge>
+                                                            <Badge variant="secondary" className="text-xs">
+                                                                Total: {Math.round(userGroup.totalDuration / 60)} min
+                                                            </Badge>
+                                                        </div>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Session Start</TableHead>
+                                                                <TableHead>Session End</TableHead>
+                                                                <TableHead>Duration</TableHead>
+                                                                <TableHead>Device</TableHead>
+                                                                <TableHead>Browser</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {userGroup.sessions.map((session) => (
+                                                                <TableRow key={session.id}>
+                                                                    <TableCell>{format(new Date(session.session_start), 'MMM d, yyyy HH:mm')}</TableCell>
+                                                                    <TableCell>{session.session_end ? format(new Date(session.session_end), 'MMM d, yyyy HH:mm') : <Badge variant="outline">Active</Badge>}</TableCell>
+                                                                    <TableCell>{session.duration_seconds ? `${Math.round(session.duration_seconds / 60)} min` : '-'}</TableCell>
+                                                                    <TableCell className="flex items-center gap-1">{getDeviceIcon(session.device_type)}{session.device_type || 'Unknown'}</TableCell>
+                                                                    <TableCell>{session.browser || '-'}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
                                 )}
                             </CardContent>
                         </Card>
@@ -317,20 +376,24 @@ const AdminTrackingUserPage = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {behaviorEvents.filter(b => 
-                                                !searchTerm || 
-                                                profiles[b.user_id]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                b.page_path?.toLowerCase().includes(searchTerm.toLowerCase())
-                                            ).map((event) => (
+                                            {behaviorEvents.filter(b => {
+                                                const userName = getUserDisplayName(b.user_id);
+                                                if (!userName) return false; // Hide anonymous/unknown users
+                                                return !searchTerm || 
+                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    b.page_path?.toLowerCase().includes(searchTerm.toLowerCase());
+                                            }).map((event) => (
                                                 <TableRow key={event.id}>
-                                                    <TableCell className="font-medium">{profiles[event.user_id] || 'Anonymous'}</TableCell>
+                                                    <TableCell className="font-medium">{profiles[event.user_id]}</TableCell>
                                                     <TableCell><Badge variant="outline">{event.event_type}</Badge></TableCell>
-                                                    <TableCell className="max-w-xs truncate">{event.page_path || '-'}</TableCell>
-                                                    <TableCell className="max-w-xs truncate text-xs">{event.event_data ? JSON.stringify(event.event_data) : '-'}</TableCell>
+                                                    <TableCell className="max-w-[200px] truncate">{event.page_path || '-'}</TableCell>
+                                                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
+                                                        {event.event_data ? JSON.stringify(event.event_data) : '-'}
+                                                    </TableCell>
                                                     <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
                                                 </TableRow>
                                             ))}
-                                            {behaviorEvents.length === 0 && (
+                                            {behaviorEvents.filter(b => getUserDisplayName(b.user_id)).length === 0 && (
                                                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No behavior events recorded yet.</TableCell></TableRow>
                                             )}
                                         </TableBody>
@@ -345,7 +408,7 @@ const AdminTrackingUserPage = () => {
                         <Card>
                             <CardHeader>
                                 <CardTitle>Performance Logs</CardTitle>
-                                <CardDescription>Monitor page load times, errors, and API performance.</CardDescription>
+                                <CardDescription>Monitor page load times, API latency, and errors.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 {isLoading ? (
@@ -354,7 +417,8 @@ const AdminTrackingUserPage = () => {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>Type</TableHead>
+                                                <TableHead>User</TableHead>
+                                                <TableHead>Metric</TableHead>
                                                 <TableHead>Page</TableHead>
                                                 <TableHead>Load Time</TableHead>
                                                 <TableHead>Error</TableHead>
@@ -363,20 +427,31 @@ const AdminTrackingUserPage = () => {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {performanceLogs.map((log) => (
-                                                <TableRow key={log.id} className={log.metric_type === 'error' ? 'bg-destructive/10' : ''}>
+                                            {performanceLogs.filter(l => {
+                                                const userName = getUserDisplayName(l.user_id);
+                                                if (!userName) return false; // Hide anonymous/unknown users
+                                                return !searchTerm || 
+                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    l.page_path?.toLowerCase().includes(searchTerm.toLowerCase());
+                                            }).map((log) => (
+                                                <TableRow key={log.id}>
+                                                    <TableCell className="font-medium">{profiles[log.user_id]}</TableCell>
                                                     <TableCell>
-                                                        <Badge variant={log.metric_type === 'error' ? 'destructive' : 'outline'}>{log.metric_type}</Badge>
+                                                        <Badge variant={log.metric_type === 'error' ? 'destructive' : 'outline'}>
+                                                            {log.metric_type}
+                                                        </Badge>
                                                     </TableCell>
-                                                    <TableCell className="max-w-xs truncate">{log.page_path || '-'}</TableCell>
+                                                    <TableCell className="max-w-[150px] truncate">{log.page_path || '-'}</TableCell>
                                                     <TableCell>{log.load_time_ms ? `${log.load_time_ms}ms` : '-'}</TableCell>
-                                                    <TableCell className="max-w-xs truncate text-xs text-destructive">{log.error_message || '-'}</TableCell>
+                                                    <TableCell className="max-w-[200px] truncate text-xs text-destructive">
+                                                        {log.error_message || '-'}
+                                                    </TableCell>
                                                     <TableCell className="flex items-center gap-1">{getDeviceIcon(log.device_type)}{log.device_type || 'Unknown'}</TableCell>
                                                     <TableCell>{format(new Date(log.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
                                                 </TableRow>
                                             ))}
-                                            {performanceLogs.length === 0 && (
-                                                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No performance logs recorded yet.</TableCell></TableRow>
+                                            {performanceLogs.filter(l => getUserDisplayName(l.user_id)).length === 0 && (
+                                                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No performance logs recorded yet.</TableCell></TableRow>
                                             )}
                                         </TableBody>
                                     </Table>
