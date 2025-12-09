@@ -22,16 +22,19 @@ const getBrowserInfo = () => {
 };
 
 export const useAnalyticsTracking = () => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const location = useLocation();
     const sessionIdRef = useRef(null);
     const sessionStartRef = useRef(null);
     const previousPageRef = useRef(null);
     const isInitializedRef = useRef(false);
 
-    // Start session on mount
+    // Check if user is admin - skip tracking for admins
+    const isAdmin = profile?.role?.toLowerCase() === 'admin';
+
+    // Start session on mount (skip for admins)
     useEffect(() => {
-        if (isInitializedRef.current) return;
+        if (isInitializedRef.current || isAdmin) return;
         isInitializedRef.current = true;
 
         const startSession = async () => {
@@ -81,10 +84,12 @@ export const useAnalyticsTracking = () => {
             endSession();
             window.removeEventListener('beforeunload', endSession);
         };
-    }, [user?.id]);
+    }, [user?.id, isAdmin]);
 
-    // Track page views
+    // Track page views (skip for admins)
     useEffect(() => {
+        if (isAdmin) return;
+        
         const trackPageView = async () => {
             if (!location.pathname) return;
             
@@ -106,10 +111,12 @@ export const useAnalyticsTracking = () => {
         // Small delay to ensure session is initialized
         const timeout = setTimeout(trackPageView, 100);
         return () => clearTimeout(timeout);
-    }, [location.pathname, user?.id]);
+    }, [location.pathname, user?.id, isAdmin]);
 
-    // Track pattern events
+    // Track pattern events (skip for admins)
     const trackPatternEvent = useCallback(async (action, patternData = {}) => {
+        if (isAdmin) return; // Skip tracking for admins
+        
         try {
             await supabase.from('analytics_pattern_events').insert({
                 user_id: user?.id || null,
@@ -126,10 +133,12 @@ export const useAnalyticsTracking = () => {
         } catch (err) {
             console.error('Failed to track pattern event:', err);
         }
-    }, [user?.id]);
+    }, [user?.id, isAdmin]);
 
-    // Track behavior events
+    // Track behavior events (skip for admins)
     const trackBehaviorEvent = useCallback(async (eventType, eventData = {}) => {
+        if (isAdmin) return; // Skip tracking for admins
+        
         try {
             await supabase.from('analytics_behavior_events').insert({
                 user_id: user?.id || null,
@@ -141,20 +150,24 @@ export const useAnalyticsTracking = () => {
         } catch (err) {
             console.error('Failed to track behavior event:', err);
         }
-    }, [user?.id, location.pathname]);
+    }, [user?.id, location.pathname, isAdmin]);
 
-    // Track search
+    // Track search (skip for admins)
     const trackSearch = useCallback((searchTerm) => {
+        if (isAdmin) return;
         trackBehaviorEvent('search', { searchTerm });
-    }, [trackBehaviorEvent]);
+    }, [trackBehaviorEvent, isAdmin]);
 
-    // Track click flow
+    // Track click flow (skip for admins)
     const trackClick = useCallback((elementId, elementType) => {
+        if (isAdmin) return;
         trackBehaviorEvent('click', { elementId, elementType });
-    }, [trackBehaviorEvent]);
+    }, [trackBehaviorEvent, isAdmin]);
 
-    // Track performance
+    // Track performance (skip for admins)
     const trackPerformance = useCallback(async (metricType, data = {}) => {
+        if (isAdmin) return; // Skip tracking for admins
+        
         try {
             await supabase.from('analytics_performance_logs').insert({
                 user_id: user?.id || null,
@@ -170,15 +183,16 @@ export const useAnalyticsTracking = () => {
         } catch (err) {
             console.error('Failed to track performance:', err);
         }
-    }, [user?.id, location.pathname]);
+    }, [user?.id, location.pathname, isAdmin]);
 
-    // Track errors
+    // Track errors (skip for admins)
     const trackError = useCallback((error) => {
+        if (isAdmin) return;
         trackPerformance('error', {
             errorMessage: error.message,
             errorStack: error.stack
         });
-    }, [trackPerformance]);
+    }, [trackPerformance, isAdmin]);
 
     return {
         trackPatternEvent,
@@ -191,4 +205,3 @@ export const useAnalyticsTracking = () => {
 };
 
 export default useAnalyticsTracking;
-
