@@ -307,6 +307,17 @@ const AuthModal = () => {
         </div>
     );
 
+    const handleProfilePictureChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfilePicture(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const renderSignUpStep2 = () => (
         <ScrollArea className="h-[400px] pr-3">
             <div className="space-y-4">
@@ -314,10 +325,40 @@ const AuthModal = () => {
                 <div className="space-y-2">
                     <Label className="text-xs flex items-center gap-1"><Camera className="h-3 w-3" /> Profile Picture</Label>
                     <div className="flex items-center gap-3">
-                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30">
-                            <User className="h-6 w-6 text-muted-foreground" />
+                        <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-muted-foreground/30 overflow-hidden">
+                            {profilePicture ? (
+                                <img src={profilePicture} alt="Profile" className="h-full w-full object-cover" />
+                            ) : (
+                                <User className="h-6 w-6 text-muted-foreground" />
+                            )}
                         </div>
-                        <Button type="button" variant="outline" size="sm">Upload Photo</Button>
+                        <div className="flex gap-2">
+                            <input
+                                type="file"
+                                id="profile-picture-upload"
+                                accept="image/*"
+                                onChange={handleProfilePictureChange}
+                                className="hidden"
+                            />
+                            <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => document.getElementById('profile-picture-upload')?.click()}
+                            >
+                                {profilePicture ? 'Change Photo' : 'Upload Photo'}
+                            </Button>
+                            {profilePicture && (
+                                <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => setProfilePicture(null)}
+                                >
+                                    Remove
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -345,7 +386,7 @@ const AuthModal = () => {
                                 key={disc}
                                 variant={primaryDisciplines.includes(disc) ? "default" : "outline"}
                                 className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={() => toggleDiscipline(disc)}
+                                onClick={(e) => { e.preventDefault(); toggleDiscipline(disc); }}
                             >
                                 {disc}
                             </Badge>
@@ -362,7 +403,7 @@ const AuthModal = () => {
                                 key={level}
                                 variant={levelDesignations.includes(level) ? "default" : "outline"}
                                 className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={() => toggleLevel(level)}
+                                onClick={(e) => { e.preventDefault(); toggleLevel(level); }}
                             >
                                 {level}
                             </Badge>
@@ -379,7 +420,7 @@ const AuthModal = () => {
                                 key={assoc.id}
                                 variant={associationMemberships.includes(assoc.id) ? "default" : "outline"}
                                 className="cursor-pointer text-xs py-0.5 px-2 hover:bg-primary/80"
-                                onClick={() => toggleAssociation(assoc.id)}
+                                onClick={(e) => { e.preventDefault(); toggleAssociation(assoc.id); }}
                             >
                                 {assoc.id}
                             </Badge>
@@ -458,7 +499,7 @@ const AuthModal = () => {
                                         key={disc}
                                         variant={horse.disciplines.includes(disc) ? "default" : "outline"}
                                         className="cursor-pointer text-[10px] py-0 px-1.5 hover:bg-primary/80"
-                                        onClick={() => toggleHorseDiscipline(horse.id, disc)}
+                                        onClick={(e) => { e.preventDefault(); toggleHorseDiscipline(horse.id, disc); }}
                                     >
                                         {disc}
                                     </Badge>
