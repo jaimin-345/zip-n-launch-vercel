@@ -51,6 +51,20 @@ const AdminTrackingUserPage = () => {
             profilesData?.forEach(p => { profilesMap[p.id] = p.full_name || 'Unknown User'; });
             setProfiles(profilesMap);
 
+            // Always fetch error count for overview stats
+            const { data: perfData } = await supabase
+                .from('analytics_performance_logs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+            
+            const errors = perfData?.filter(l => l.metric_type === 'error' || l.error_message).length || 0;
+            setStats(prev => ({ ...prev, errorCount: errors }));
+            
+            if (activeTab === 'performance') {
+                setPerformanceLogs(perfData || []);
+            }
+
             if (activeTab === 'pattern-events') {
                 const { data, error } = await supabase
                     .from('analytics_pattern_events')
@@ -89,19 +103,6 @@ const AdminTrackingUserPage = () => {
                     .limit(100);
                 if (error) throw error;
                 setBehaviorEvents(data || []);
-            }
-
-            if (activeTab === 'performance') {
-                const { data, error } = await supabase
-                    .from('analytics_performance_logs')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
-                if (error) throw error;
-                setPerformanceLogs(data || []);
-
-                const errors = data?.filter(l => l.metric_type === 'error').length || 0;
-                setStats(prev => ({ ...prev, errorCount: errors }));
             }
 
         } catch (error) {
@@ -313,48 +314,64 @@ const AdminTrackingUserPage = () => {
             );
         }
 
-        // Show placeholder with example data when no logs
+        // Use real data only - no dummy/placeholder data
         const hasData = performanceLogs.length > 0;
-        const displayData = hasData ? chartData : {
-            avgLoadTimeByPage: [
-                { page: '/dashboard', avgTime: 245 },
-                { page: '/pattern-hub', avgTime: 320 },
-                { page: '/pattern-book', avgTime: 180 },
-                { page: '/admin', avgTime: 150 }
-            ],
-            metricDistribution: [
-                { name: 'page_load', value: 45 },
-                { name: 'api_call', value: 30 },
-                { name: 'error', value: 5 }
-            ],
-            deviceDistribution: [
-                { name: 'desktop', value: 60 },
-                { name: 'mobile', value: 30 },
-                { name: 'tablet', value: 10 }
-            ],
-            dailyTrend: [
-                { date: 'Dec 3', page_load: 12, error: 1 },
-                { date: 'Dec 4', page_load: 18, error: 2 },
-                { date: 'Dec 5', page_load: 15, error: 0 },
-                { date: 'Dec 6', page_load: 22, error: 1 },
-                { date: 'Dec 7', page_load: 20, error: 0 }
-            ]
-        };
 
-        return (
-            <div className="space-y-6">
-                {!hasData && (
-                    <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
-                        <CardContent className="py-4">
-                            <p className="text-amber-700 dark:text-amber-300 text-sm flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" />
-                                No performance data yet. Charts below show sample data for preview. Real data will appear as users interact with the app.
+        // No data state
+        if (!hasData) {
+            return (
+                <div className="space-y-6">
+                    {/* Summary Stats - Show zeros when no data */}
+                    <div className="grid grid-cols-3 gap-4">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-sm font-medium">Avg Load Time</CardTitle>
+                                <Zap className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">0ms</div>
+                                <p className="text-xs text-muted-foreground">Average page load</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
+                                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">0</div>
+                                <p className="text-xs text-muted-foreground">Performance events</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="text-sm font-medium">Errors</CardTitle>
+                                <AlertTriangle className="h-4 w-4 text-destructive" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-destructive">0</div>
+                                <p className="text-xs text-muted-foreground">Total errors logged</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <Card className="border-dashed">
+                        <CardContent className="flex flex-col items-center justify-center py-16">
+                            <Activity className="h-12 w-12 text-muted-foreground mb-4" />
+                            <h3 className="text-lg font-medium mb-2">No Performance Data Yet</h3>
+                            <p className="text-sm text-muted-foreground text-center max-w-md">
+                                Performance metrics will appear here as users interact with the application. 
+                                Data includes page load times, API calls, and error tracking.
                             </p>
                         </CardContent>
                     </Card>
-                )}
+                </div>
+            );
+        }
 
-                {/* Summary Stats */}
+        return (
+            <div className="space-y-6">
+                {/* Summary Stats - Real Data */}
                 <div className="grid grid-cols-3 gap-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -362,7 +379,7 @@ const AdminTrackingUserPage = () => {
                             <Zap className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{hasData ? `${summaryStats.avgLoadTime}ms` : '235ms'}</div>
+                            <div className="text-2xl font-bold">{summaryStats.avgLoadTime}ms</div>
                             <p className="text-xs text-muted-foreground">Average page load</p>
                         </CardContent>
                     </Card>
@@ -372,7 +389,7 @@ const AdminTrackingUserPage = () => {
                             <BarChart3 className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{hasData ? summaryStats.totalLogs : 80}</div>
+                            <div className="text-2xl font-bold">{summaryStats.totalLogs}</div>
                             <p className="text-xs text-muted-foreground">Performance events</p>
                         </CardContent>
                     </Card>
@@ -382,7 +399,7 @@ const AdminTrackingUserPage = () => {
                             <AlertTriangle className="h-4 w-4 text-destructive" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-destructive">{hasData ? summaryStats.errorCount : 4}</div>
+                            <div className="text-2xl font-bold text-destructive">{summaryStats.errorCount}</div>
                             <p className="text-xs text-muted-foreground">Total errors logged</p>
                         </CardContent>
                     </Card>
@@ -399,18 +416,22 @@ const AdminTrackingUserPage = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={displayData.avgLoadTimeByPage} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                    <XAxis type="number" unit="ms" className="text-xs" />
-                                    <YAxis dataKey="page" type="category" width={100} className="text-xs" />
-                                    <Tooltip 
-                                        formatter={(value) => [`${value}ms`, 'Avg Load Time']}
-                                        contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                                    />
-                                    <Bar dataKey="avgTime" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            {chartData.avgLoadTimeByPage.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <BarChart data={chartData.avgLoadTimeByPage} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                        <XAxis type="number" unit="ms" className="text-xs" />
+                                        <YAxis dataKey="page" type="category" width={100} className="text-xs" />
+                                        <Tooltip 
+                                            formatter={(value) => [`${value}ms`, 'Avg Load Time']}
+                                            contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                                        />
+                                        <Bar dataKey="avgTime" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-[250px] text-muted-foreground">No page load data</div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -423,17 +444,21 @@ const AdminTrackingUserPage = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveContainer width="100%" height={250}>
-                                <LineChart data={displayData.dailyTrend}>
-                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                    <XAxis dataKey="date" className="text-xs" />
-                                    <YAxis className="text-xs" />
-                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
-                                    <Legend />
-                                    <Line type="monotone" dataKey="page_load" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} name="Page Loads" />
-                                    <Line type="monotone" dataKey="error" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 4 }} name="Errors" />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            {chartData.dailyTrend.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <LineChart data={chartData.dailyTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                        <XAxis dataKey="date" className="text-xs" />
+                                        <YAxis className="text-xs" />
+                                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="page_load" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} name="Page Loads" />
+                                        <Line type="monotone" dataKey="error" stroke="hsl(var(--destructive))" strokeWidth={2} dot={{ r: 4 }} name="Errors" />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-[250px] text-muted-foreground">No trend data</div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -446,25 +471,29 @@ const AdminTrackingUserPage = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <PieChart>
-                                    <Pie
-                                        data={displayData.deviceDistribution}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                                        outerRadius={70}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                    >
-                                        {displayData.deviceDistribution.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            {chartData.deviceDistribution.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={200}>
+                                    <PieChart>
+                                        <Pie
+                                            data={chartData.deviceDistribution}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                            outerRadius={70}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                        >
+                                            {chartData.deviceDistribution.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-[200px] text-muted-foreground">No device data</div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -477,15 +506,19 @@ const AdminTrackingUserPage = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={displayData.metricDistribution}>
-                                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                    <XAxis dataKey="name" className="text-xs" />
-                                    <YAxis className="text-xs" />
-                                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
-                                    <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            {chartData.metricDistribution.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={200}>
+                                    <BarChart data={chartData.metricDistribution}>
+                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                        <XAxis dataKey="name" className="text-xs" />
+                                        <YAxis className="text-xs" />
+                                        <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                                        <Bar dataKey="value" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex items-center justify-center h-[200px] text-muted-foreground">No metric data</div>
+                            )}
                         </CardContent>
                     </Card>
                 </div>
