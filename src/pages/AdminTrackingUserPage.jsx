@@ -51,15 +51,30 @@ const AdminTrackingUserPage = () => {
             profilesData?.forEach(p => { profilesMap[p.id] = p.full_name || 'Unknown User'; });
             setProfiles(profilesMap);
 
-            // Always fetch error count for overview stats
+            // Always fetch performance logs for error counting
             const { data: perfData } = await supabase
                 .from('analytics_performance_logs')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(100);
             
-            const errors = perfData?.filter(l => l.metric_type === 'error' || l.error_message).length || 0;
-            setStats(prev => ({ ...prev, errorCount: errors }));
+            // Always fetch behavior events for error counting (errors like pattern_book_error)
+            const { data: behaviorData } = await supabase
+                .from('analytics_behavior_events')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+            
+            setBehaviorEvents(behaviorData || []);
+            
+            // Count errors from BOTH performance logs AND behavior events
+            const perfErrors = perfData?.filter(l => l.metric_type === 'error' || l.error_message).length || 0;
+            const behaviorErrors = behaviorData?.filter(e => 
+                e.event_type?.toLowerCase().includes('error') || e.event_data?.error
+            ).length || 0;
+            const totalErrors = perfErrors + behaviorErrors;
+            
+            setStats(prev => ({ ...prev, errorCount: totalErrors }));
             
             if (activeTab === 'performance') {
                 setPerformanceLogs(perfData || []);
@@ -93,16 +108,6 @@ const AdminTrackingUserPage = () => {
                     ? data.reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / data.length 
                     : 0;
                 setStats(prev => ({ ...prev, totalSessions: data?.length || 0, avgSessionDuration: Math.round(avgDuration) }));
-            }
-
-            if (activeTab === 'behavior') {
-                const { data, error } = await supabase
-                    .from('analytics_behavior_events')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
-                if (error) throw error;
-                setBehaviorEvents(data || []);
             }
 
         } catch (error) {
@@ -237,21 +242,28 @@ const AdminTrackingUserPage = () => {
         );
     };
 
-    // Performance Tab Component with Graphs
-    const PerformanceTab = ({ performanceLogs, isLoading, profiles, searchTerm, getUserDisplayName, getDeviceIcon }) => {
+    // Performance Tab Component with Graphs - now uses behavior events for errors
+    const PerformanceTab = ({ performanceLogs, behaviorEvents, isLoading, profiles, searchTerm, getUserDisplayName, getDeviceIcon }) => {
         const COLORS = ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
         
-        // Calculate stats for charts
+        // Get error events from behavior events
+        const errorEvents = useMemo(() => {
+            return behaviorEvents.filter(e => 
+                e.event_type?.toLowerCase().includes('error') || 
+                e.event_data?.error
+            );
+        }, [behaviorEvents]);
+
+        // Calculate stats for charts - combining performance logs and behavior events
         const chartData = useMemo(() => {
-            // Load time distribution by page
             const pageLoadTimes = {};
             const metricCounts = {};
             const deviceCounts = {};
             const browserCounts = {};
             const dailyMetrics = {};
             
+            // Process performance logs
             performanceLogs.forEach(log => {
-                // Page load times
                 if (log.page_path && log.load_time_ms) {
                     const pageName = log.page_path.split('/').filter(Boolean).slice(0, 2).join('/') || 'home';
                     if (!pageLoadTimes[pageName]) {
@@ -261,23 +273,45 @@ const AdminTrackingUserPage = () => {
                     pageLoadTimes[pageName].count += 1;
                 }
                 
-                // Metric type counts
                 metricCounts[log.metric_type] = (metricCounts[log.metric_type] || 0) + 1;
                 
-                // Device counts
                 const device = log.device_type || 'unknown';
                 deviceCounts[device] = (deviceCounts[device] || 0) + 1;
                 
-                // Browser counts
                 const browser = log.browser || 'unknown';
                 browserCounts[browser] = (browserCounts[browser] || 0) + 1;
                 
-                // Daily metrics
                 const day = format(new Date(log.created_at), 'MMM d');
                 if (!dailyMetrics[day]) {
-                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, api_call: 0 };
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0 };
                 }
                 dailyMetrics[day][log.metric_type] = (dailyMetrics[day][log.metric_type] || 0) + 1;
+            });
+
+            // Process behavior events for metrics
+            behaviorEvents.forEach(event => {
+                const day = format(new Date(event.created_at), 'MMM d');
+                if (!dailyMetrics[day]) {
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0 };
+                }
+
+                // Count errors from behavior events
+                if (event.event_type?.toLowerCase().includes('error') || event.event_data?.error) {
+                    dailyMetrics[day].error = (dailyMetrics[day].error || 0) + 1;
+                    metricCounts['error'] = (metricCounts['error'] || 0) + 1;
+                }
+
+                // Count downloads
+                if (event.event_type?.toLowerCase().includes('download')) {
+                    dailyMetrics[day].download = (dailyMetrics[day].download || 0) + 1;
+                    metricCounts['download'] = (metricCounts['download'] || 0) + 1;
+                }
+
+                // Count page views
+                if (event.event_type === 'page_view') {
+                    dailyMetrics[day].page_view = (dailyMetrics[day].page_view || 0) + 1;
+                    metricCounts['page_view'] = (metricCounts['page_view'] || 0) + 1;
+                }
             });
             
             return {
@@ -290,19 +324,24 @@ const AdminTrackingUserPage = () => {
                 browserDistribution: Object.entries(browserCounts).map(([name, value]) => ({ name, value })),
                 dailyTrend: Object.values(dailyMetrics).slice(-7)
             };
-        }, [performanceLogs]);
+        }, [performanceLogs, behaviorEvents]);
 
-        // Summary stats
+        // Summary stats - including behavior event errors
         const summaryStats = useMemo(() => {
             const pageLogs = performanceLogs.filter(l => l.metric_type === 'page_load' && l.load_time_ms);
             const avgLoadTime = pageLogs.length > 0 
                 ? Math.round(pageLogs.reduce((acc, l) => acc + l.load_time_ms, 0) / pageLogs.length)
                 : 0;
-            const errorCount = performanceLogs.filter(l => l.metric_type === 'error').length;
-            const totalLogs = performanceLogs.length;
+            
+            // Count errors from both performance logs AND behavior events
+            const perfErrors = performanceLogs.filter(l => l.metric_type === 'error' || l.error_message).length;
+            const behaviorErrors = errorEvents.length;
+            const errorCount = perfErrors + behaviorErrors;
+            
+            const totalLogs = performanceLogs.length + behaviorEvents.length;
             
             return { avgLoadTime, errorCount, totalLogs };
-        }, [performanceLogs]);
+        }, [performanceLogs, errorEvents, behaviorEvents]);
 
         if (isLoading) {
             return (
@@ -314,8 +353,8 @@ const AdminTrackingUserPage = () => {
             );
         }
 
-        // Use real data only - no dummy/placeholder data
-        const hasData = performanceLogs.length > 0;
+        // Use real data only - check both performance logs and behavior events
+        const hasData = performanceLogs.length > 0 || behaviorEvents.length > 0;
 
         // No data state
         if (!hasData) {
@@ -573,6 +612,47 @@ const AdminTrackingUserPage = () => {
                         </Table>
                     </CardContent>
                 </Card>
+
+                {/* Error Events from Behavior Logs */}
+                {errorEvents.length > 0 && (
+                    <Card className="border-destructive/50">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2 text-destructive">
+                                <AlertTriangle className="h-5 w-5" />
+                                Error Events ({errorEvents.length})
+                            </CardTitle>
+                            <CardDescription>Errors captured from user behavior events.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>User</TableHead>
+                                        <TableHead>Error Type</TableHead>
+                                        <TableHead>Page</TableHead>
+                                        <TableHead>Error Details</TableHead>
+                                        <TableHead>Date</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {errorEvents.map((event) => (
+                                        <TableRow key={event.id}>
+                                            <TableCell className="font-medium">{profiles[event.user_id] || 'Unknown'}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="destructive">{event.event_type}</Badge>
+                                            </TableCell>
+                                            <TableCell className="max-w-[200px] truncate">{event.page_path || '-'}</TableCell>
+                                            <TableCell className="max-w-[300px] truncate text-xs text-destructive">
+                                                {event.event_data?.error || JSON.stringify(event.event_data)?.substring(0, 100)}
+                                            </TableCell>
+                                            <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         );
     };
@@ -829,6 +909,7 @@ const AdminTrackingUserPage = () => {
                     <TabsContent value="performance">
                         <PerformanceTab 
                             performanceLogs={performanceLogs}
+                            behaviorEvents={behaviorEvents}
                             isLoading={isLoading}
                             profiles={profiles}
                             searchTerm={searchTerm}
