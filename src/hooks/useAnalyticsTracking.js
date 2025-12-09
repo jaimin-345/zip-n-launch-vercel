@@ -21,6 +21,11 @@ const getBrowserInfo = () => {
     return 'Unknown';
 };
 
+// Admin user IDs to exclude from tracking
+const ADMIN_USER_IDS = [
+    '09f47f1a-5ecd-4d99-8994-a9499990ee8b' // John Doe
+];
+
 export const useAnalyticsTracking = () => {
     const { user, profile } = useAuth();
     const location = useLocation();
@@ -31,7 +36,9 @@ export const useAnalyticsTracking = () => {
 
     // Check if user is admin or administrator - skip tracking for these roles
     const roleLC = profile?.role?.toLowerCase() || '';
-    const isAdmin = roleLC === 'admin' || roleLC === 'administrator' || roleLC.includes('admin');
+    const isAdminRole = roleLC === 'admin' || roleLC === 'administrator' || roleLC.includes('admin');
+    const isAdminById = user?.id && ADMIN_USER_IDS.includes(user.id);
+    const isAdmin = isAdminRole || isAdminById;
 
     // Start session on mount (skip for admins)
     useEffect(() => {
