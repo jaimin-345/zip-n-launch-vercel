@@ -133,6 +133,10 @@ const AuthModal = () => {
 
     const handleSignUp = async (e) => {
         e.preventDefault();
+        // Only allow signup on step 3
+        if (signUpStep !== 3) {
+            return;
+        }
         if (signUpPassword.length < 6) {
             toast({ title: "Weak Password", description: "Your password must be at least 6 characters long.", variant: "destructive" });
             return;
