@@ -30,8 +30,8 @@ export const useAnalyticsTracking = () => {
     const isInitializedRef = useRef(false);
 
     // Check if user is admin or administrator - skip tracking for these roles
-    const roleLC = profile?.role?.toLowerCase();
-    const isAdmin = roleLC === 'admin' || roleLC === 'administrator';
+    const roleLC = profile?.role?.toLowerCase() || '';
+    const isAdmin = roleLC === 'admin' || roleLC === 'administrator' || roleLC.includes('admin');
 
     // Start session on mount (skip for admins)
     useEffect(() => {
