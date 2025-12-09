@@ -40,9 +40,10 @@ export const useAnalyticsTracking = () => {
     const isAdminById = user?.id && ADMIN_USER_IDS.includes(user.id);
     const isAdmin = isAdminRole || isAdminById;
 
-    // Start session on mount (skip for admins)
+    // Start session on mount (skip for admins and anonymous users)
     useEffect(() => {
-        if (isInitializedRef.current || isAdmin) return;
+        // Only start session when user is authenticated (has user_id)
+        if (isInitializedRef.current || isAdmin || !user?.id) return;
         isInitializedRef.current = true;
 
         const startSession = async () => {
@@ -50,7 +51,7 @@ export const useAnalyticsTracking = () => {
                 const { data, error } = await supabase
                     .from('analytics_user_sessions')
                     .insert({
-                        user_id: user?.id || null,
+                        user_id: user.id, // Now guaranteed to have user.id
                         device_type: getDeviceType(),
                         browser: getBrowserInfo()
                     })
@@ -94,16 +95,16 @@ export const useAnalyticsTracking = () => {
         };
     }, [user?.id, isAdmin]);
 
-    // Track page views (skip for admins)
+    // Track page views (skip for admins and anonymous users)
     useEffect(() => {
-        if (isAdmin) return;
+        if (isAdmin || !user?.id) return; // Skip if no user_id
         
         const trackPageView = async () => {
             if (!location.pathname) return;
             
             try {
                 await supabase.from('analytics_behavior_events').insert({
-                    user_id: user?.id || null,
+                    user_id: user.id, // Now guaranteed to have user.id
                     session_id: sessionIdRef.current,
                     event_type: 'page_view',
                     page_path: location.pathname,
@@ -121,13 +122,13 @@ export const useAnalyticsTracking = () => {
         return () => clearTimeout(timeout);
     }, [location.pathname, user?.id, isAdmin]);
 
-    // Track pattern events (skip for admins)
+    // Track pattern events (skip for admins and anonymous users)
     const trackPatternEvent = useCallback(async (action, patternData = {}) => {
-        if (isAdmin) return; // Skip tracking for admins
+        if (isAdmin || !user?.id) return; // Skip tracking for admins and anonymous
         
         try {
             await supabase.from('analytics_pattern_events').insert({
-                user_id: user?.id || null,
+                user_id: user.id, // Now guaranteed to have user.id
                 action,
                 pattern_id: patternData.patternId || null,
                 association_id: patternData.associationId || null,
@@ -143,13 +144,13 @@ export const useAnalyticsTracking = () => {
         }
     }, [user?.id, isAdmin]);
 
-    // Track behavior events (skip for admins)
+    // Track behavior events (skip for admins and anonymous users)
     const trackBehaviorEvent = useCallback(async (eventType, eventData = {}) => {
-        if (isAdmin) return; // Skip tracking for admins
+        if (isAdmin || !user?.id) return; // Skip tracking for admins and anonymous
         
         try {
             await supabase.from('analytics_behavior_events').insert({
-                user_id: user?.id || null,
+                user_id: user.id, // Now guaranteed to have user.id
                 session_id: sessionIdRef.current,
                 event_type: eventType,
                 page_path: location.pathname,
@@ -172,13 +173,13 @@ export const useAnalyticsTracking = () => {
         trackBehaviorEvent('click', { elementId, elementType });
     }, [trackBehaviorEvent, isAdmin]);
 
-    // Track performance (skip for admins)
+    // Track performance (skip for admins and anonymous users)
     const trackPerformance = useCallback(async (metricType, data = {}) => {
-        if (isAdmin) return; // Skip tracking for admins
+        if (isAdmin || !user?.id) return; // Skip tracking for admins and anonymous
         
         try {
             await supabase.from('analytics_performance_logs').insert({
-                user_id: user?.id || null,
+                user_id: user.id, // Now guaranteed to have user.id
                 metric_type: metricType,
                 page_path: location.pathname,
                 load_time_ms: data.loadTime || null,
