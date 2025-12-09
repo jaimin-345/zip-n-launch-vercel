@@ -9,6 +9,7 @@ import ScoresheetGroupPreview from './ScoresheetGroupPreview';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
@@ -16,6 +17,7 @@ import { parseLocalDate } from '@/lib/utils';
 export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7, onGoToStep }) => {
   const [availablePatterns, setAvailablePatterns] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [previewType, setPreviewType] = useState('pattern');
   const { toast } = useToast();
   
   const patternDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.pattern), [formData.disciplines]);
@@ -226,17 +228,31 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           </RadioGroup>
         </section>
 
+        {/* Preview Type Dropdown */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Label htmlFor="preview-type" className="text-sm font-medium">Preview Type:</Label>
+            <Select value={previewType} onValueChange={setPreviewType}>
+              <SelectTrigger id="preview-type" className="w-[200px]">
+                <SelectValue placeholder="Select preview type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pattern">Pattern Preview</SelectItem>
+                <SelectItem value="scoresheet">Scoresheet Preview</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {previewType === 'pattern' && onGoToStep && (
+            <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
+              <RotateCcw className="mr-2 h-4 w-4" /> Re-assign
+            </Button>
+          )}
+        </div>
+
         {/* Patterns Section */}
-        {patternDisciplines.length > 0 && (
+        {previewType === 'pattern' && patternDisciplines.length > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-foreground">Pattern Preview</h3>
-              {onGoToStep && (
-                <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> Re-assign
-                </Button>
-              )}
-            </div>
+            <h3 className="text-xl font-semibold text-foreground">Pattern Preview</h3>
             <div className="space-y-6">
               {patternDisciplines.map((pbbDiscipline) => {
                 const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
@@ -282,8 +298,14 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           </div>
         )}
 
+        {previewType === 'pattern' && patternDisciplines.length === 0 && (
+          <div className="text-center py-10 border-2 border-dashed rounded-lg">
+            <p className="text-muted-foreground">No disciplines require pattern selections.</p>
+          </div>
+        )}
+
         {/* Scoresheets Section */}
-        {scoresheetDisciplines.length > 0 && (
+        {previewType === 'scoresheet' && scoresheetDisciplines.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-foreground">Scoresheet Preview</h3>
             <div className="space-y-6">
@@ -310,11 +332,12 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           </div>
         )}
 
-        {patternDisciplines.length === 0 && scoresheetDisciplines.length === 0 && (
+        {previewType === 'scoresheet' && scoresheetDisciplines.length === 0 && (
           <div className="text-center py-10 border-2 border-dashed rounded-lg">
-            <p className="text-muted-foreground">No disciplines require pattern or scoresheet selections.</p>
+            <p className="text-muted-foreground">No disciplines require scoresheet selections.</p>
           </div>
         )}
+
       </CardContent>
     </motion.div>
   );
