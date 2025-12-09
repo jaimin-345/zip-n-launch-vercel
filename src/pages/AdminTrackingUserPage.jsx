@@ -65,7 +65,15 @@ const AdminTrackingUserPage = () => {
                 .order('created_at', { ascending: false })
                 .limit(100);
             
+            // Always fetch pattern events for pattern views count
+            const { data: patternData } = await supabase
+                .from('analytics_pattern_events')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+            
             setBehaviorEvents(behaviorData || []);
+            setPatternEvents(patternData || []);
             
             // Count errors from BOTH performance logs AND behavior events
             const perfErrors = perfData?.filter(l => l.metric_type === 'error' || l.error_message).length || 0;
@@ -74,25 +82,14 @@ const AdminTrackingUserPage = () => {
             ).length || 0;
             const totalErrors = perfErrors + behaviorErrors;
             
-            setStats(prev => ({ ...prev, errorCount: totalErrors }));
+            // Calculate pattern views
+            const views = patternData?.filter(e => e.action === 'view').length || 0;
+            const downloads = patternData?.filter(e => e.action === 'download').length || 0;
+            
+            setStats(prev => ({ ...prev, errorCount: totalErrors, totalViews: views, totalDownloads: downloads }));
             
             if (activeTab === 'performance') {
                 setPerformanceLogs(perfData || []);
-            }
-
-            if (activeTab === 'pattern-events') {
-                const { data, error } = await supabase
-                    .from('analytics_pattern_events')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(100);
-                if (error) throw error;
-                setPatternEvents(data || []);
-
-                // Calculate stats
-                const views = data?.filter(e => e.action === 'view').length || 0;
-                const downloads = data?.filter(e => e.action === 'download').length || 0;
-                setStats(prev => ({ ...prev, totalViews: views, totalDownloads: downloads }));
             }
 
             if (activeTab === 'sessions') {
@@ -243,7 +240,7 @@ const AdminTrackingUserPage = () => {
     };
 
     // Performance Tab Component with Graphs - now uses behavior events for errors
-    const PerformanceTab = ({ performanceLogs, behaviorEvents, isLoading, profiles, searchTerm, getUserDisplayName, getDeviceIcon }) => {
+    const PerformanceTab = ({ performanceLogs, behaviorEvents, patternEvents, isLoading, profiles, searchTerm, getUserDisplayName, getDeviceIcon }) => {
         const COLORS = ['hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
         
         // Get error events from behavior events
@@ -254,7 +251,12 @@ const AdminTrackingUserPage = () => {
             );
         }, [behaviorEvents]);
 
-        // Calculate stats for charts - combining performance logs and behavior events
+        // Get pattern view count
+        const patternViewCount = useMemo(() => {
+            return patternEvents.filter(e => e.action === 'view').length;
+        }, [patternEvents]);
+
+        // Calculate stats for charts - combining performance logs, behavior events, and pattern events
         const chartData = useMemo(() => {
             const pageLoadTimes = {};
             const metricCounts = {};
@@ -283,7 +285,7 @@ const AdminTrackingUserPage = () => {
                 
                 const day = format(new Date(log.created_at), 'MMM d');
                 if (!dailyMetrics[day]) {
-                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0 };
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0, pattern_view: 0 };
                 }
                 dailyMetrics[day][log.metric_type] = (dailyMetrics[day][log.metric_type] || 0) + 1;
             });
@@ -292,7 +294,7 @@ const AdminTrackingUserPage = () => {
             behaviorEvents.forEach(event => {
                 const day = format(new Date(event.created_at), 'MMM d');
                 if (!dailyMetrics[day]) {
-                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0 };
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0, pattern_view: 0 };
                 }
 
                 // Count errors from behavior events
@@ -313,6 +315,30 @@ const AdminTrackingUserPage = () => {
                     metricCounts['page_view'] = (metricCounts['page_view'] || 0) + 1;
                 }
             });
+
+            // Process pattern events for metrics
+            patternEvents.forEach(event => {
+                const day = format(new Date(event.created_at), 'MMM d');
+                if (!dailyMetrics[day]) {
+                    dailyMetrics[day] = { date: day, page_load: 0, error: 0, download: 0, page_view: 0, pattern_view: 0 };
+                }
+
+                // Count pattern views
+                if (event.action === 'view') {
+                    dailyMetrics[day].pattern_view = (dailyMetrics[day].pattern_view || 0) + 1;
+                    metricCounts['pattern_view'] = (metricCounts['pattern_view'] || 0) + 1;
+                }
+
+                // Count pattern downloads
+                if (event.action === 'download') {
+                    metricCounts['pattern_download'] = (metricCounts['pattern_download'] || 0) + 1;
+                }
+
+                // Count pattern saves
+                if (event.action === 'save') {
+                    metricCounts['pattern_save'] = (metricCounts['pattern_save'] || 0) + 1;
+                }
+            });
             
             return {
                 avgLoadTimeByPage: Object.entries(pageLoadTimes).map(([page, data]) => ({
@@ -324,9 +350,9 @@ const AdminTrackingUserPage = () => {
                 browserDistribution: Object.entries(browserCounts).map(([name, value]) => ({ name, value })),
                 dailyTrend: Object.values(dailyMetrics).slice(-7)
             };
-        }, [performanceLogs, behaviorEvents]);
+        }, [performanceLogs, behaviorEvents, patternEvents]);
 
-        // Summary stats - including behavior event errors
+        // Summary stats - including behavior event errors and pattern views
         const summaryStats = useMemo(() => {
             const pageLogs = performanceLogs.filter(l => l.metric_type === 'page_load' && l.load_time_ms);
             const avgLoadTime = pageLogs.length > 0 
@@ -338,10 +364,10 @@ const AdminTrackingUserPage = () => {
             const behaviorErrors = errorEvents.length;
             const errorCount = perfErrors + behaviorErrors;
             
-            const totalLogs = performanceLogs.length + behaviorEvents.length;
+            const totalLogs = performanceLogs.length + behaviorEvents.length + patternEvents.length;
             
-            return { avgLoadTime, errorCount, totalLogs };
-        }, [performanceLogs, errorEvents, behaviorEvents]);
+            return { avgLoadTime, errorCount, totalLogs, patternViewCount };
+        }, [performanceLogs, errorEvents, behaviorEvents, patternEvents, patternViewCount]);
 
         if (isLoading) {
             return (
@@ -411,7 +437,17 @@ const AdminTrackingUserPage = () => {
         return (
             <div className="space-y-6">
                 {/* Summary Stats - Real Data */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-sm font-medium">Pattern Views</CardTitle>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{summaryStats.patternViewCount}</div>
+                            <p className="text-xs text-muted-foreground">Total pattern views</p>
+                        </CardContent>
+                    </Card>
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium">Avg Load Time</CardTitle>
@@ -910,6 +946,7 @@ const AdminTrackingUserPage = () => {
                         <PerformanceTab 
                             performanceLogs={performanceLogs}
                             behaviorEvents={behaviorEvents}
+                            patternEvents={patternEvents}
                             isLoading={isLoading}
                             profiles={profiles}
                             searchTerm={searchTerm}
