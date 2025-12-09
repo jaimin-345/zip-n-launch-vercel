@@ -157,7 +157,12 @@ export const AuthProvider = ({ children }) => {
       error = err;
     }
 
-    if (error && error.message !== 'Failed to fetch') {
+    // Handle session not found error gracefully - this means session is already invalid
+    const isSessionNotFoundError = error?.message?.includes('session_id') || 
+                                   error?.message?.includes('Session not found') ||
+                                   error?.message?.includes('JWT');
+
+    if (error && error.message !== 'Failed to fetch' && !isSessionNotFoundError) {
       toast({
         variant: "destructive",
         title: "Sign out Failed",
@@ -166,7 +171,7 @@ export const AuthProvider = ({ children }) => {
       return { error };
     }
 
-    // Always clear local auth state even if network sign-out failed
+    // Always clear local auth state even if network sign-out failed or session was already invalid
     setUser(null);
     setSession(null);
     setProfile(null);
