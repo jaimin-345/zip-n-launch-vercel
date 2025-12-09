@@ -178,6 +178,34 @@ const AdminTrackingUserPage = () => {
         );
     };
 
+    // Group behavior events by user (excluding anonymous)
+    const getGroupedBehaviorEvents = () => {
+        const grouped = {};
+        
+        behaviorEvents.forEach(event => {
+            if (!event.user_id) return;
+            
+            const userName = profiles[event.user_id];
+            if (!userName) return;
+            
+            if (!grouped[event.user_id]) {
+                grouped[event.user_id] = {
+                    userName,
+                    userId: event.user_id,
+                    events: [],
+                    eventCount: 0
+                };
+            }
+            
+            grouped[event.user_id].events.push(event);
+            grouped[event.user_id].eventCount += 1;
+        });
+
+        return Object.values(grouped).filter(user => 
+            !searchTerm || user.userName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    };
+
     return (
         <>
             <Helmet>
@@ -364,40 +392,50 @@ const AdminTrackingUserPage = () => {
                             <CardContent>
                                 {isLoading ? (
                                     <div className="flex justify-center py-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
+                                ) : getGroupedBehaviorEvents().length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">No behavior events recorded yet.</div>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>User</TableHead>
-                                                <TableHead>Event Type</TableHead>
-                                                <TableHead>Page</TableHead>
-                                                <TableHead>Event Data</TableHead>
-                                                <TableHead>Date</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {behaviorEvents.filter(b => {
-                                                const userName = getUserDisplayName(b.user_id);
-                                                if (!userName) return false; // Hide anonymous/unknown users
-                                                return !searchTerm || 
-                                                    userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                                    b.page_path?.toLowerCase().includes(searchTerm.toLowerCase());
-                                            }).map((event) => (
-                                                <TableRow key={event.id}>
-                                                    <TableCell className="font-medium">{profiles[event.user_id]}</TableCell>
-                                                    <TableCell><Badge variant="outline">{event.event_type}</Badge></TableCell>
-                                                    <TableCell className="max-w-[200px] truncate">{event.page_path || '-'}</TableCell>
-                                                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
-                                                        {event.event_data ? JSON.stringify(event.event_data) : '-'}
-                                                    </TableCell>
-                                                    <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                            {behaviorEvents.filter(b => getUserDisplayName(b.user_id)).length === 0 && (
-                                                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No behavior events recorded yet.</TableCell></TableRow>
-                                            )}
-                                        </TableBody>
-                                    </Table>
+                                    <Accordion type="single" collapsible className="w-full">
+                                        {getGroupedBehaviorEvents().map((userGroup) => (
+                                            <AccordionItem key={userGroup.userId} value={userGroup.userId}>
+                                                <AccordionTrigger className="hover:no-underline">
+                                                    <div className="flex items-center justify-between w-full pr-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <MousePointer className="h-5 w-5 text-primary" />
+                                                            <span className="font-semibold">{userGroup.userName}</span>
+                                                        </div>
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {userGroup.eventCount} event{userGroup.eventCount !== 1 ? 's' : ''}
+                                                        </Badge>
+                                                    </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Event Type</TableHead>
+                                                                <TableHead>Page</TableHead>
+                                                                <TableHead>Event Data</TableHead>
+                                                                <TableHead>Date</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {userGroup.events.map((event) => (
+                                                                <TableRow key={event.id}>
+                                                                    <TableCell><Badge variant="outline">{event.event_type}</Badge></TableCell>
+                                                                    <TableCell className="max-w-[200px] truncate">{event.page_path || '-'}</TableCell>
+                                                                    <TableCell className="max-w-[200px] truncate text-xs text-muted-foreground">
+                                                                        {event.event_data ? JSON.stringify(event.event_data) : '-'}
+                                                                    </TableCell>
+                                                                    <TableCell>{format(new Date(event.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
                                 )}
                             </CardContent>
                         </Card>
