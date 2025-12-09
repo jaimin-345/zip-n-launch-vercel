@@ -14,6 +14,170 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_behavior_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          page_path: string | null
+          previous_page: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page_path?: string | null
+          previous_page?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page_path?: string | null
+          previous_page?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_behavior_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_user_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_pattern_events: {
+        Row: {
+          action: string
+          association_id: string | null
+          browser: string | null
+          created_at: string
+          device_type: string | null
+          difficulty_level: string | null
+          discipline: string | null
+          id: string
+          pattern_id: string | null
+          time_spent_seconds: number | null
+          user_id: string | null
+          version_id: string | null
+        }
+        Insert: {
+          action: string
+          association_id?: string | null
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          difficulty_level?: string | null
+          discipline?: string | null
+          id?: string
+          pattern_id?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string | null
+          version_id?: string | null
+        }
+        Update: {
+          action?: string
+          association_id?: string | null
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          difficulty_level?: string | null
+          discipline?: string | null
+          id?: string
+          pattern_id?: string | null
+          time_spent_seconds?: number | null
+          user_id?: string | null
+          version_id?: string | null
+        }
+        Relationships: []
+      }
+      analytics_performance_logs: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_type: string | null
+          error_message: string | null
+          error_stack: string | null
+          id: string
+          load_time_ms: number | null
+          metric_type: string
+          network_type: string | null
+          page_path: string | null
+          user_id: string | null
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          error_message?: string | null
+          error_stack?: string | null
+          id?: string
+          load_time_ms?: number | null
+          metric_type: string
+          network_type?: string | null
+          page_path?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          error_message?: string | null
+          error_stack?: string | null
+          id?: string
+          load_time_ms?: number | null
+          metric_type?: string
+          network_type?: string | null
+          page_path?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      analytics_user_sessions: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_type: string | null
+          duration_seconds: number | null
+          id: string
+          ip_hash: string | null
+          session_end: string | null
+          session_start: string
+          user_id: string | null
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          duration_seconds?: number | null
+          id?: string
+          ip_hash?: string | null
+          session_end?: string | null
+          session_start?: string
+          user_id?: string | null
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          duration_seconds?: number | null
+          id?: string
+          ip_hash?: string | null
+          session_end?: string | null
+          session_start?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       arenas: {
         Row: {
           created_at: string | null

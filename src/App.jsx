@@ -78,6 +78,7 @@ import AuditReportsPage from '@/pages/AuditReportsPage';
 import AdminRoleManagementPage from '@/pages/AdminRoleManagementPage';
 import AdminPatternExtractorPage from '@/pages/AdminPatternExtractorPage';
 import ManualPatternEntryPage from '@/pages/ManualPatternEntryPage';
+import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
 
 function App() {
   return (
@@ -140,6 +141,7 @@ function App() {
                 <Route path="/admin/pattern-review" element={<AdminRoute><AdminPatternReviewPage /></AdminRoute>} />
                 <Route path="/admin/pattern-extractor" element={<AdminRoute><AdminPatternExtractorPage /></AdminRoute>} />
                 <Route path="/admin/manual-pattern-entry" element={<AdminRoute><ManualPatternEntryPage /></AdminRoute>} />
+                <Route path="/admin/tracking-user" element={<AdminRoute><AdminTrackingUserPage /></AdminRoute>} />
                 <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                 <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
 
