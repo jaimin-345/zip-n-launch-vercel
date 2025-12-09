@@ -237,9 +237,9 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 <Badge variant="secondary" className="ml-2">{patternDisciplines.length}</Badge>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pt-4">
+            <AccordionContent className="pt-2">
               {patternDisciplines.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex justify-end">
                     {onGoToStep && (
                       <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
@@ -247,7 +247,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                       </Button>
                     )}
                   </div>
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {patternDisciplines.map((pbbDiscipline) => {
                       const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
                       return (
@@ -306,9 +306,9 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 <Badge variant="secondary" className="ml-2">{scoresheetDisciplines.length}</Badge>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="pt-4">
+            <AccordionContent className="pt-2">
               {scoresheetDisciplines.length > 0 ? (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {scoresheetDisciplines.map((pbbDiscipline) => {
                     const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
                     return (
