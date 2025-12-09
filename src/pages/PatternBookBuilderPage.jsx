@@ -100,13 +100,29 @@ const PatternBookBuilderPage = () => {
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const { toast } = useToast();
     const { trackBehaviorEvent, trackPatternEvent } = useAnalytics();
+    const sessionStartRef = React.useRef(Date.now());
 
-    // Track when user enters PBB
+    // Track when user enters PBB with time tracking
     useEffect(() => {
+        sessionStartRef.current = Date.now();
+        
         trackBehaviorEvent('pbb_session_start', {
             projectId: projectId || 'new',
             isPreviewMode,
         });
+
+        // Track time spent when leaving PBB
+        return () => {
+            const timeSpent = Math.round((Date.now() - sessionStartRef.current) / 1000);
+            if (timeSpent > 0) {
+                trackPatternEvent('pbb_session_end', {
+                    patternId: projectId || 'new',
+                    timeSpent: timeSpent,
+                    discipline: formData.disciplines?.map(d => d.name).join(', '),
+                    associationId: Object.keys(formData.associations || {}).filter(k => formData.associations[k]).join(', '),
+                });
+            }
+        };
     }, [projectId, isPreviewMode]);
 
     // Track step changes
@@ -131,11 +147,15 @@ const PatternBookBuilderPage = () => {
         try {
             const savedProjectId = await createOrUpdateProject();
             
-            // Track save event
+            // Calculate time spent since session start
+            const timeSpent = Math.round((Date.now() - sessionStartRef.current) / 1000);
+            
+            // Track save event with time spent
             trackPatternEvent('save', {
                 patternId: savedProjectId || projectId,
                 associationId: Object.keys(formData.associations || {}).filter(k => formData.associations[k]).join(', '),
                 discipline: formData.disciplines?.map(d => d.name).join(', '),
+                timeSpent: timeSpent,
             });
             
             trackBehaviorEvent('pbb_project_saved', {

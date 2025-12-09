@@ -1,12 +1,48 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Download, FileText, FileSignature } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { useAnalytics } from '@/components/AnalyticsProvider';
 
 export const PatternResultCard = ({ item }) => {
     const { toast } = useToast();
+    const { trackPatternEvent } = useAnalytics();
+    const viewStartTimeRef = useRef(null);
+    const hasTrackedViewRef = useRef(false);
+
+    // Track when card becomes visible (view event)
+    useEffect(() => {
+        if (!hasTrackedViewRef.current && item?.id) {
+            viewStartTimeRef.current = Date.now();
+            hasTrackedViewRef.current = true;
+            
+            // Track view event
+            trackPatternEvent('view', {
+                patternId: item.id,
+                discipline: item.class_name || item.class,
+                difficultyLevel: item.difficulty,
+                associationId: item.association_id || item.association,
+            });
+        }
+
+        return () => {
+            // Track time spent when unmounting
+            if (viewStartTimeRef.current && item?.id) {
+                const timeSpent = Math.round((Date.now() - viewStartTimeRef.current) / 1000);
+                if (timeSpent > 0) {
+                    trackPatternEvent('view_end', {
+                        patternId: item.id,
+                        discipline: item.class_name || item.class,
+                        difficultyLevel: item.difficulty,
+                        associationId: item.association_id || item.association,
+                        timeSpent: timeSpent,
+                    });
+                }
+            }
+        };
+    }, [item?.id, trackPatternEvent]);
 
     const handleDownload = () => {
         if (!item.file_url && !item.pdf_url) {
@@ -17,6 +53,21 @@ export const PatternResultCard = ({ item }) => {
             });
             return;
         }
+        
+        // Calculate time spent before download
+        const timeSpent = viewStartTimeRef.current 
+            ? Math.round((Date.now() - viewStartTimeRef.current) / 1000) 
+            : 0;
+        
+        // Track download event with time spent
+        trackPatternEvent('download', {
+            patternId: item.id,
+            discipline: item.class_name || item.class,
+            difficultyLevel: item.difficulty,
+            associationId: item.association_id || item.association,
+            timeSpent: timeSpent,
+        });
+        
         window.open(item.file_url || item.pdf_url, '_blank');
     };
 
