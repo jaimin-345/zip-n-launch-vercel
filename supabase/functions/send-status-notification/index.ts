@@ -22,9 +22,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY_NEW") || Deno.env.get("RESEND_API_KEY");
+    const resendApiKey = Deno.env.get("RESEND_API_KEY_NEW");
     
     if (!resendApiKey) {
+      console.error("RESEND_API_KEY_NEW not found");
       console.error("No Resend API key found");
       return new Response(
         JSON.stringify({ error: "Email service not configured" }),
