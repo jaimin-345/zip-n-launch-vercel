@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, LayoutTemplate, Eye, FileSignature, ShieldCheck, BookCopy, Save, Loader2, Download, Settings2, Share2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, LayoutTemplate, Eye, FileSignature, ShieldCheck, BookCopy, Save, Loader2, Download, Settings2, Share2, RotateCcw } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -94,6 +94,7 @@ const PatternBookBuilderPage = () => {
         associationsData,
         divisionsData,
         handleShowTypeChange,
+        resetCurrentStep,
     } = usePatternBookBuilder(projectId);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -178,6 +179,14 @@ const PatternBookBuilderPage = () => {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleResetStep = () => {
+        resetCurrentStep(currentStep);
+        toast({
+            title: 'Step Reset',
+            description: `Step ${currentStep} has been reset to default values.`,
+        });
     };
 
     const isNextDisabled = useMemo(() => {
@@ -287,7 +296,14 @@ const PatternBookBuilderPage = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                            {currentStep <= 5 && (
+                                                <Button variant="ghost" size="sm" onClick={handleResetStep} className="text-muted-foreground hover:text-destructive">
+                                                    <RotateCcw className="mr-1 h-4 w-4" /> Reset Step
+                                                </Button>
+                                            )}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
                                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
