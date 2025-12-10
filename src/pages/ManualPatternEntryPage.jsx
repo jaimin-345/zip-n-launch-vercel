@@ -17,6 +17,7 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
+import { useMemo } from 'react';
 
 const ManualPatternEntryPage = () => {
     const { toast } = useToast();
@@ -54,6 +55,18 @@ const ManualPatternEntryPage = () => {
         if (discError) toast({ title: 'Error fetching disciplines', description: discError.message, variant: 'destructive' });
         else setDisciplines(discData);
     }, [toast]);
+
+    const sortedDisciplineTypes = useMemo(() => {
+        const unique = [];
+        const seen = new Set();
+        for (const item of disciplines) {
+            if (!seen.has(item.name)) {
+            seen.add(item.name);
+            unique.push(item);
+            }
+        }
+        return unique.sort((a, b) => a.name.localeCompare(b.name));
+    }, [disciplines]);
 
     useEffect(() => {
         fetchPatterns();
@@ -316,7 +329,7 @@ const ManualPatternEntryPage = () => {
                                 </Select>
                                 <Select name="discipline" onValueChange={value => setFormData(p => ({...p, discipline: value}))} value={formData.discipline}>
                                     <SelectTrigger><SelectValue placeholder="Select Discipline*" /></SelectTrigger>
-                                    <SelectContent>{disciplines.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent>{sortedDisciplineTypes.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                                 </Select>
                                 <Input name="division" placeholder="Division*" value={formData.division} onChange={handleInputChange} />
                                 <Input name="division_level" placeholder="Division Level (Optional)" value={formData.division_level} onChange={handleInputChange} />
