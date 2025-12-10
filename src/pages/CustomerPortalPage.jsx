@@ -45,7 +45,7 @@ const accessPhases = [
 ];
 
 // Staff Access Card inside folder
-const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => {
+const StaffAccessCard = ({ staffMember, projectId, projectData, projectName, currentUserName, onRefresh }) => {
     const { toast } = useToast();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
     const [selectedPhases, setSelectedPhases] = useState(staffMember.delegation?.accessPhase || []);
@@ -73,6 +73,42 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
         );
     };
 
+    const sendStatusNotificationEmail = async (newPhases) => {
+        try {
+            // Determine the primary status to send
+            const primaryStatus = newPhases.includes('publication') ? 'publication' :
+                                  newPhases.includes('approval') ? 'approval' :
+                                  newPhases.includes('draft') ? 'draft' : 'pending';
+            
+            const staffEmail = staffMember.email || staffMember.delegation?.email;
+            const staffRole = staffMember.role || staffMember.delegation?.role || 'Staff';
+            
+            if (!staffEmail) {
+                console.log("No email found for staff member, skipping notification");
+                return;
+            }
+
+            const response = await supabase.functions.invoke('send-status-notification', {
+                body: {
+                    staffEmail,
+                    staffName: staffMember.name || 'Staff Member',
+                    staffRole,
+                    projectName: projectName || 'Pattern Book',
+                    newStatus: primaryStatus,
+                    changedBy: currentUserName || 'System'
+                }
+            });
+
+            if (response.error) {
+                console.error("Error sending notification email:", response.error);
+            } else {
+                console.log("Status notification email sent successfully");
+            }
+        } catch (error) {
+            console.error("Failed to send status notification:", error);
+        }
+    };
+
     const handleSaveStatus = async () => {
         setIsSaving(true);
         try {
@@ -97,7 +133,10 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
             // Update local state immediately for UI refresh
             setCurrentPhases(selectedPhases);
             
-            toast({ title: "Status updated", description: "Staff access phase has been updated." });
+            // Send email notification for status change
+            await sendStatusNotificationEmail(selectedPhases);
+            
+            toast({ title: "Status updated", description: "Staff access phase has been updated and notification sent." });
             setStatusDialogOpen(false);
             if (onRefresh) onRefresh();
         } catch (error) {
@@ -172,7 +211,7 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
 };
 
 // Collapsible Folder for Pattern Folder section
-const PatternFolderItem = ({ project, onRefresh }) => {
+const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
@@ -194,6 +233,7 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                 staffList.push({
                     id: official.id,
                     name: official.name,
+                    email: official.email || delegations[official.id]?.email,
                     role: official.role,
                     delegation: delegations[official.id] || { accessPhase: [], roles: [] },
                     updatedAt: project.updated_at
@@ -209,6 +249,7 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                     staffList.push({
                         id: judgeId,
                         name: judge.name,
+                        email: judge.email || delegations[judgeId]?.email,
                         role: 'Judge',
                         delegation: delegations[judgeId] || { accessPhase: [], roles: [] },
                         updatedAt: project.updated_at
@@ -335,6 +376,8 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                                     staffMember={staff} 
                                     projectId={project.id}
                                     projectData={project.project_data || {}}
+                                    projectName={project.project_name || 'Pattern Book'}
+                                    currentUserName={currentUserName}
                                     onRefresh={onRefresh}
                                 />
                             ))
@@ -741,7 +784,7 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
 };
 
 const CustomerPortalPage = () => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const navigate = useNavigate();
     const [projects, setProjects] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -809,7 +852,7 @@ const CustomerPortalPage = () => {
                         // Folder-style layout for Pattern Portal - 3 folders per row
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {projectList.map(project => (
-                                <PatternFolderItem key={project.id} project={project} />
+                                <PatternFolderItem key={project.id} project={project} currentUserName={profile?.full_name || user?.email || 'User'} />
                             ))}
                         </div>
                     ) : (
