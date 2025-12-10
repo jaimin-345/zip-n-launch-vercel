@@ -298,7 +298,7 @@ const PatternBookBuilderPage = () => {
                                     <>
                                         <div className="flex items-center gap-2">
                                             <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                                            {currentStep <= 5 && (
+                                            {(currentStep <= 5 || currentStep === 8) && (
                                                 <Button variant="ghost" size="sm" onClick={handleResetStep} className="text-muted-foreground hover:text-destructive">
                                                     <RotateCcw className="mr-1 h-4 w-4" /> Reset Step
                                                 </Button>

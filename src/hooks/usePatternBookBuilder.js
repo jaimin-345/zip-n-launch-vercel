@@ -272,6 +272,14 @@ export const usePatternBookBuilder = (projectId) => {
             judgeSelections: [],
             dueDateSelections: [],
           };
+        case 8:
+          return {
+            ...prev,
+            delegations: {},
+            adminOwner: null,
+            secondAdmin: null,
+            publicationDate: null,
+          };
         default:
           return prev;
       }
