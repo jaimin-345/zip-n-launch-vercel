@@ -92,41 +92,43 @@ import React, { useState, useEffect } from 'react';
 
         return (
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex-shrink-0">
                         <DialogTitle>Send Email to Contributor(s)</DialogTitle>
                         <DialogDescription>
                             Compose and send an email regarding the pattern set: "{patternSet.setName}".
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
+                    <div className="space-y-3 py-2 flex-1 overflow-y-auto">
+                        <div className="space-y-1.5">
                             <Label htmlFor="to">To</Label>
                             <Input id="to" value={to} onChange={(e) => setTo(e.target.value)} placeholder="contributor@example.com, another@example.com" />
-                            <p className="text-sm text-muted-foreground">Separate multiple email addresses with a comma.</p>
+                            <p className="text-xs text-muted-foreground">Separate multiple email addresses with a comma.</p>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label htmlFor="subject">Subject</Label>
                             <Input id="subject" value={subject} onChange={(e) => setSubject(e.target.value)} />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label htmlFor="body">Body</Label>
-                            <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} rows={12} />
+                            <Textarea id="body" value={body} onChange={(e) => setBody(e.target.value)} rows={8} className="resize-none" />
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <Label>Attachments</Label>
-                            <div className="p-3 border rounded-md bg-secondary/50 space-y-2">
+                            <div className="p-2.5 border rounded-md bg-secondary/50 space-y-1.5">
                                 {patternSet.patterns.map(p => (
-                                    <div key={p.id} className="flex items-center gap-2 text-sm">
-                                        <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                        <span className="font-medium">{p.name}.pdf</span>
-                                        <span className="text-muted-foreground"> (Auto-attached)</span>
+                                    <div key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <Paperclip className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <span className="font-medium truncate">{p.name}.pdf</span>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground flex-shrink-0">(Auto-attached)</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0 gap-2 sm:gap-0">
                         <Button variant="outline" onClick={onClose} disabled={isSending}>Cancel</Button>
                         <Button onClick={handleSendEmail} disabled={isSending}>
                             {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
