@@ -38,11 +38,21 @@ const COVER_COLORS = [
     '#579DFF', '#6CC3E0', '#94C748', '#E388A3'
 ];
 
+const accessPhases = [
+    { id: 'draft', name: 'Draft, Build, Review' },
+    { id: 'approval', name: 'Approval and Locked' },
+    { id: 'publication', name: 'Publication' },
+];
+
 // Staff Access Card inside folder
-const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
+const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => {
+    const { toast } = useToast();
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [selectedPhases, setSelectedPhases] = useState(staffMember.delegation?.accessPhase || []);
+    const [isSaving, setIsSaving] = useState(false);
+
     const getStatusFromAccessPhase = (accessPhase) => {
         if (!accessPhase || accessPhase.length === 0) return 'Pending';
-        // Check for approval/locked status
         if (accessPhase.includes('approval') || accessPhase.includes('locked')) return 'Approval and Locked';
         if (accessPhase.includes('publication')) return 'Published';
         if (accessPhase.includes('draft')) return 'Review';
@@ -54,23 +64,106 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
                         status === 'Approval and Locked' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
 
+    const handlePhaseToggle = (phaseId) => {
+        setSelectedPhases(prev => 
+            prev.includes(phaseId) 
+                ? prev.filter(p => p !== phaseId) 
+                : [...prev, phaseId]
+        );
+    };
+
+    const handleSaveStatus = async () => {
+        setIsSaving(true);
+        try {
+            const updatedDelegations = {
+                ...(projectData.delegations || {}),
+                [staffMember.id]: {
+                    ...(projectData.delegations?.[staffMember.id] || {}),
+                    accessPhase: selectedPhases
+                }
+            };
+
+            const updatedProjectData = {
+                ...projectData,
+                delegations: updatedDelegations
+            };
+
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedProjectData })
+                .eq('id', projectId);
+
+            toast({ title: "Status updated", description: "Staff access phase has been updated." });
+            setStatusDialogOpen(false);
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
-        <div className="border border-border rounded-lg p-4 bg-background hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                    <Eye className="h-5 w-5 text-orange-400" />
-                    <div>
-                        <p className="font-semibold">{staffMember.name || 'Staff Member'}</p>
-                        <p className="text-sm text-muted-foreground">
-                            Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
-                        </p>
-                        <p className="text-sm">
-                            Status: <span className={cn("font-medium", statusColor)}>{status}</span>
-                        </p>
+        <>
+            <div 
+                className="border border-border rounded-lg p-4 bg-background hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setStatusDialogOpen(true)}
+            >
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                        <Eye className="h-5 w-5 text-orange-400" />
+                        <div>
+                            <p className="font-semibold">{staffMember.name || 'Staff Member'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                Last saved: {staffMember.updatedAt ? format(new Date(staffMember.updatedAt), 'MMM d, yyyy') : 'N/A'}
+                            </p>
+                            <p className="text-sm">
+                                Status: <span className={cn("font-medium", statusColor)}>{status}</span>
+                            </p>
+                        </div>
                     </div>
+                    <Edit className="h-4 w-4 text-muted-foreground" />
                 </div>
             </div>
-        </div>
+
+            <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+                <DialogContent className="sm:max-w-[350px]">
+                    <DialogHeader>
+                        <DialogTitle>Edit Status - {staffMember.name}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <p className="text-sm font-medium">Access Per Phase</p>
+                        <div className="space-y-3">
+                            {accessPhases.map(phase => (
+                                <div key={phase.id} className="flex items-center space-x-3">
+                                    <input
+                                        type="checkbox"
+                                        id={`status-${staffMember.id}-${phase.id}`}
+                                        checked={selectedPhases.includes(phase.id)}
+                                        onChange={() => handlePhaseToggle(phase.id)}
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    />
+                                    <label 
+                                        htmlFor={`status-${staffMember.id}-${phase.id}`}
+                                        className="text-sm cursor-pointer"
+                                    >
+                                        {phase.name}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button variant="outline" className="flex-1" onClick={() => setStatusDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button className="flex-1" onClick={handleSaveStatus} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
 
@@ -236,8 +329,9 @@ const PatternFolderItem = ({ project, onRefresh }) => {
                                 <StaffAccessCard 
                                     key={staff.id || index} 
                                     staffMember={staff} 
-                                    navigate={navigate}
                                     projectId={project.id}
+                                    projectData={project.project_data || {}}
+                                    onRefresh={onRefresh}
                                 />
                             ))
                         ) : (
