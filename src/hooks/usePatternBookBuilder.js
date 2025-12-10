@@ -222,6 +222,62 @@ export const usePatternBookBuilder = (projectId) => {
     setFormData(prev => ({ ...prev, disciplines: [] }));
   }, [setFormData]);
 
+  const resetCurrentStep = useCallback((currentStep) => {
+    setFormData(prev => {
+      switch (currentStep) {
+        case 1:
+          return {
+            ...prev,
+            showName: '',
+            associations: {},
+            subAssociationSelections: {},
+            customAssociations: [],
+            primaryAffiliates: [],
+            nsbaApprovalType: '',
+            nsbaCategory: '',
+            nsbaDualApprovedWith: [],
+            phbaHorseType: 'stock',
+            pthaHorseType: 'stock',
+          };
+        case 2:
+          return { ...prev, disciplines: [] };
+        case 3:
+          return {
+            ...prev,
+            disciplines: prev.disciplines.map(d => ({
+              ...d,
+              divisions: {},
+              patternGroups: [{ id: `pg-${Date.now()}`, name: 'Group 1', divisions: [], competitionDate: null }],
+            })),
+          };
+        case 4:
+          return {
+            ...prev,
+            startDate: null,
+            endDate: null,
+            venueName: '',
+            venueAddress: '',
+            officials: [],
+            associationJudges: [],
+          };
+        case 5:
+          return {
+            ...prev,
+            patternSelections: {},
+            disciplinePatterns: {},
+            groupDueDates: {},
+            groupStaff: {},
+            groupJudges: {},
+            disciplineDueDates: {},
+            judgeSelections: [],
+            dueDateSelections: [],
+          };
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
   return {
     step,
     setCurrentStep,
@@ -237,6 +293,7 @@ export const usePatternBookBuilder = (projectId) => {
     associationsData,
     divisionsData,
     handleShowTypeChange,
-    resetDisciplines
+    resetDisciplines,
+    resetCurrentStep,
   };
 };
