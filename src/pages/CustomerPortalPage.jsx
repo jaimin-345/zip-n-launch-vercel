@@ -49,6 +49,7 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
     const { toast } = useToast();
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
     const [selectedPhases, setSelectedPhases] = useState(staffMember.delegation?.accessPhase || []);
+    const [currentPhases, setCurrentPhases] = useState(staffMember.delegation?.accessPhase || []);
     const [isSaving, setIsSaving] = useState(false);
 
     const getStatusFromAccessPhase = (accessPhase) => {
@@ -59,7 +60,7 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
         return 'Pending';
     };
 
-    const status = getStatusFromAccessPhase(staffMember.delegation?.accessPhase);
+    const status = getStatusFromAccessPhase(currentPhases);
     const statusColor = status === 'Review' ? 'text-orange-500' : 
                         status === 'Approval and Locked' ? 'text-amber-500' :
                         status === 'Published' ? 'text-green-500' : 'text-muted-foreground';
@@ -93,6 +94,9 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, onRefresh }) => 
                 .update({ project_data: updatedProjectData })
                 .eq('id', projectId);
 
+            // Update local state immediately for UI refresh
+            setCurrentPhases(selectedPhases);
+            
             toast({ title: "Status updated", description: "Staff access phase has been updated." });
             setStatusDialogOpen(false);
             if (onRefresh) onRefresh();
