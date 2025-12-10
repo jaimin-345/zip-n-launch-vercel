@@ -708,16 +708,12 @@ const CustomerPortalPage = () => {
             {expandedSections[sectionKey] && (
                 projectList.length > 0 ? (
                     menuType === 'folder' ? (
-                        // Card with Folder-style layout for Pattern Portal
-                        <Card className="border shadow-sm">
-                            <CardContent className="p-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {projectList.map(project => (
-                                        <PatternFolderItem key={project.id} project={project} />
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        // Folder-style layout for Pattern Portal - 3 folders per row
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {projectList.map(project => (
+                                <PatternFolderItem key={project.id} project={project} />
+                            ))}
+                        </div>
                     ) : (
                         // Grid layout for Pattern Books and Horse Shows
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
