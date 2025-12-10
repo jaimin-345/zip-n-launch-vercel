@@ -74,24 +74,70 @@ const StaffAccessCard = ({ staffMember, navigate, projectId }) => {
     );
 };
 
-// Pattern Portal Card - Clean card design with collapsible folder
-const PatternPortalCard = ({ project, onRefresh }) => {
+// Collapsible Folder for Pattern Folder section
+const PatternFolderItem = ({ project, onRefresh }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
+    const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
+    const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     
-    const editPath = `/pattern-book-builder/${project.id}`;
+    // Get staff list from project_data (Step 8 Staff Access & Delegation)
+    const getStaffList = () => {
+        const formData = project.project_data || {};
+        const delegations = formData.delegations || {};
+        const staffList = [];
+        
+        // Get officials
+        (formData.officials || []).forEach(official => {
+            if (official && official.name) {
+                staffList.push({
+                    id: official.id,
+                    name: official.name,
+                    role: official.role,
+                    delegation: delegations[official.id] || { accessPhase: [], roles: [] },
+                    updatedAt: project.updated_at
+                });
+            }
+        });
+        
+        // Get judges from associationJudges
+        Object.entries(formData.associationJudges || {}).forEach(([assocId, assocData]) => {
+            (assocData.judges || []).forEach((judge, index) => {
+                if (judge && judge.name) {
+                    const judgeId = `judge-${assocId}-${index}`;
+                    staffList.push({
+                        id: judgeId,
+                        name: judge.name,
+                        role: 'Judge',
+                        delegation: delegations[judgeId] || { accessPhase: [], roles: [] },
+                        updatedAt: project.updated_at
+                    });
+                }
+            });
+        });
+        
+        return staffList;
+    };
+    
+    const staffList = getStaffList();
+
+    // Check if all staff have locked or published status (hide Open card if true)
+    const allStaffLockedOrPublished = staffList.length > 0 && staffList.every(staff => {
+        const accessPhase = staff.delegation?.accessPhase || [];
+        return accessPhase.includes('approval') || accessPhase.includes('locked') || accessPhase.includes('publication');
+    });
 
     const handleMenuAction = async (action) => {
         switch (action) {
             case 'open':
-                navigate(editPath);
+                navigate(`/pattern-book-builder/${project.id}?step=8`);
                 break;
             case 'preview':
-                navigate(`${editPath}?step=1&mode=preview`);
+                navigate(`/pattern-book-builder/${project.id}?step=1&mode=preview`);
                 break;
             case 'cover':
                 setCoverDialogOpen(true);
@@ -121,96 +167,100 @@ const PatternPortalCard = ({ project, onRefresh }) => {
         setCoverDialogOpen(false);
     };
 
+    const handleSaveDueDate = async (date) => {
+        setDueDate(date);
+        const updatedData = { ...project.project_data, dueDate: date };
+        await supabase
+            .from('projects')
+            .update({ project_data: updatedData })
+            .eq('id', project.id);
+        toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
+    };
+
     return (
         <>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="relative"
+            <div 
+                className="border rounded-lg overflow-hidden bg-transparent mb-4"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                    {/* Header with Icon and Edit Button */}
-                    <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-primary/10 rounded-lg">
-                                    <BookCopy className="h-6 w-6 text-primary" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
-                                    <CardDescription className="text-sm">Pattern Book</CardDescription>
-                                </div>
-                            </div>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className={`h-8 w-8 text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
-                                        <Eye className="mr-2 h-4 w-4" /> Preview
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
-                                        <ImageIcon className="mr-2 h-4 w-4" /> Change cover
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </CardHeader>
-                    
-                    <CardContent className="pt-0 pb-3">
-                        {/* Collapsible Folder Section */}
-                        <div 
-                            className="flex items-center gap-2 py-2 px-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
-                            onClick={() => setIsExpanded(!isExpanded)}
-                        >
-                            {isExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                {/* Folder Header */}
+                <div 
+                    className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${!coverColor ? 'bg-muted border-b' : ''}`}
+                    style={coverColor ? { backgroundColor: coverColor } : undefined}
+                >
+                    <div 
+                        className="flex items-center gap-3 flex-1"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                    >
+                        {isExpanded ? (
+                            <ChevronDown className={`h-5 w-5 ${coverColor ? 'text-white/80' : 'text-muted-foreground'}`} />
+                        ) : (
+                            <ChevronRight className={`h-5 w-5 ${coverColor ? 'text-white/80' : 'text-muted-foreground'}`} />
+                        )}
+                        <Folder className={`h-5 w-5 ${coverColor ? 'text-white' : 'text-primary'}`} />
+                        <span className={`font-semibold ${coverColor ? 'text-white' : 'text-foreground'}`}>{project.project_name || 'Untitled Project'}</span>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 transition-opacity duration-200 ${coverColor ? 'text-white hover:bg-white/20' : 'text-muted-foreground hover:bg-muted'} ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {!allStaffLockedOrPublished && (
+                                <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Open card
+                                </DropdownMenuItem>
                             )}
-                            <Folder className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium text-foreground">{project.project_name || 'Untitled Project'}</span>
-                        </div>
-                        
-                        {/* Expanded Content */}
-                        {isExpanded && (
-                            <div className="mt-2 pl-9 space-y-2">
-                                <p className="text-xs text-muted-foreground">
-                                    Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span>
-                                </p>
+                            <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
+                                <Eye className="mr-2 h-4 w-4" /> Preview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
+                                <ImageIcon className="mr-2 h-4 w-4" /> Change cover
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                
+                {/* Expanded Content - Staff Cards */}
+                {isExpanded && (
+                    <div className="px-4 pb-4 pt-3 space-y-3 bg-background">
+                        {staffList.length > 0 ? (
+                            staffList.map((staff, index) => (
+                                <StaffAccessCard 
+                                    key={staff.id || index} 
+                                    staffMember={staff} 
+                                    navigate={navigate}
+                                    projectId={project.id}
+                                />
+                            ))
+                        ) : (
+                            <div className="text-center py-6 text-muted-foreground">
+                                No staff delegations configured. Configure in Step 8: Close Out & Review.
                             </div>
                         )}
-                    </CardContent>
-                    
-                    <CardFooter className="pt-2">
-                        <Button onClick={() => navigate(editPath)} className="w-full">
-                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardFooter>
-                </Card>
-            </motion.div>
-
+                    </div>
+                )}
+            </div>
+            
             <CoverColorDialog
                 open={coverDialogOpen}
                 onClose={() => setCoverDialogOpen(false)}
                 currentColor={coverColor}
                 onSelectColor={handleSelectColor}
                 onRemoveCover={handleRemoveCover}
+            />
+            <DueDateDialog
+                open={dueDateDialogOpen}
+                onClose={() => setDueDateDialogOpen(false)}
+                currentDate={dueDate}
+                onSaveDate={handleSaveDueDate}
             />
         </>
     );
@@ -658,10 +708,10 @@ const CustomerPortalPage = () => {
             {expandedSections[sectionKey] && (
                 projectList.length > 0 ? (
                     menuType === 'folder' ? (
-                        // Pattern Portal card layout - 3 per row
+                        // Folder-style layout for Pattern Portal - 3 folders per row
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {projectList.map(project => (
-                                <PatternPortalCard key={project.id} project={project} />
+                                <PatternFolderItem key={project.id} project={project} />
                             ))}
                         </div>
                     ) : (
