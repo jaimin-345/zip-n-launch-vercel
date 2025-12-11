@@ -79,6 +79,7 @@ import AdminRoleManagementPage from '@/pages/AdminRoleManagementPage';
 import AdminPatternExtractorPage from '@/pages/AdminPatternExtractorPage';
 import ManualPatternEntryPage from '@/pages/ManualPatternEntryPage';
 import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
+import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagementPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -144,6 +145,7 @@ function App() {
                   <Route path="/admin/pattern-extractor" element={<AdminRoute><AdminPatternExtractorPage /></AdminRoute>} />
                   <Route path="/admin/manual-pattern-entry" element={<AdminRoute><ManualPatternEntryPage /></AdminRoute>} />
                   <Route path="/admin/tracking-user" element={<AdminRoute><AdminTrackingUserPage /></AdminRoute>} />
+                  <Route path="/admin/pattern-levels" element={<AdminRoute><AdminPatternLevelManagementPage /></AdminRoute>} />
                   <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
 
