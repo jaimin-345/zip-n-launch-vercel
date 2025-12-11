@@ -15,12 +15,35 @@ import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-    const samplePatterns = [
-      { id: 'pat_1', name: 'Classic Horsemanship #101', difficulty: 'Intermediate' },
-      { id: 'pat_2', name: 'Advanced Trail Challenge #203', difficulty: 'Advanced' },
-      { id: 'pat_3', name: 'Beginner Reining Loop', difficulty: 'Beginner' },
-      { id: 'pat_4', name: 'Smooth Equitation Flow', difficulty: 'Intermediate' },
-    ];
+// Pattern Sets with version categories (ALL = universal, GR/NOV = Green/Novice simplified)
+const PATTERN_SETS = [
+  { setNumber: 1, name: 'Pattern 1-9', maneuvers: { ALL: 11, 'GR/NOV': 9 } },
+  { setNumber: 2, name: 'Pattern 1-15', maneuvers: { ALL: 11, 'GR/NOV': 9 } },
+  { setNumber: 3, name: 'Pattern 1-20', maneuvers: { ALL: 12, 'GR/NOV': 10 } },
+];
+
+// Pattern version categories
+const PATTERN_VERSIONS = [
+  { id: 'ALL', label: 'ALL (Universal)', description: 'Valid for every class', color: 'bg-blue-100 text-blue-800' },
+  { id: 'GR/NOV', label: 'GR/NOV (Green/Novice)', description: 'Simplified for Green/Novice', color: 'bg-teal-100 text-teal-800' },
+  { id: 'L1', label: 'L1 (Level 1)', description: 'Simplified for Level 1', color: 'bg-green-100 text-green-800' },
+  { id: 'Beginner', label: 'Beginner', description: 'For beginner classes', color: 'bg-purple-100 text-purple-800' },
+];
+
+// Helper to detect group type based on division names
+const detectGroupType = (divisions) => {
+  const divisionNames = (divisions || []).map(d => d.name?.toLowerCase() || '');
+  const hasGreen = divisionNames.some(n => n.includes('green'));
+  const hasNovice = divisionNames.some(n => n.includes('novice') || n.includes('rookie'));
+  const hasL1 = divisionNames.some(n => n.includes('level 1') || n.includes('l1'));
+  const hasBeginner = divisionNames.some(n => n.includes('beginner'));
+  const hasWalkTrot = divisionNames.some(n => n.includes('walk-trot') || n.includes('walk trot'));
+  
+  if (hasGreen || hasNovice) return 'GR/NOV';
+  if (hasL1) return 'L1';
+  if (hasBeginner || hasWalkTrot) return 'Beginner';
+  return 'ALL';
+};
 
     export const Step5_PatternAndLayout = ({ formData, setFormData }) => {
   const { toast } = useToast();
@@ -129,13 +152,15 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
         ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
         : 'Dates not set';
 
-      // Check if a discipline is complete (all groups have patterns assigned)
+      // Check if a discipline is complete (all groups have patterns assigned with setNumber and version)
       const isDisciplineComplete = (pbbDiscipline, disciplineIndex) => {
         const groups = pbbDiscipline.patternGroups || [];
         if (groups.length === 0) return false;
         
         return groups.every((group, groupIndex) => {
-          return formData.patternSelections?.[disciplineIndex]?.[groupIndex];
+          const selection = formData.patternSelections?.[disciplineIndex]?.[groupIndex];
+          // Check if selection has both setNumber and version
+          return selection?.setNumber && selection?.version;
         });
       };
 
@@ -443,21 +468,106 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
                                 </Popover>
                               </div>
                               
-                              <div>
-                                <Label className="text-sm text-muted-foreground">Select Pattern</Label>
-                                <Select 
-                                  value={formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex] || ''}
-                                  onValueChange={(value) => handlePatternSelection(originalDisciplineIndex, groupIndex, value)}
-                                >
-                                  <SelectTrigger className="mt-1">
-                                    <SelectValue placeholder="Select a pattern..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {samplePatterns.map(p => (
-                                      <SelectItem key={p.id} value={p.id}>{p.name} <Badge variant="outline" className="ml-2">{p.difficulty}</Badge></SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              {/* Two-step Pattern Selection: Set → Version */}
+                              <div className="col-span-1 md:col-span-2 space-y-3">
+                                <Label className="text-sm font-medium">Pattern Selection</Label>
+                                
+                                {/* Suggested version based on group divisions */}
+                                {(() => {
+                                  const suggestedVersion = detectGroupType(group.divisions);
+                                  return suggestedVersion !== 'ALL' && (
+                                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                      <AlertCircle className="h-3 w-3" />
+                                      Suggested: <Badge variant="outline" className="text-xs">{suggestedVersion}</Badge> based on divisions
+                                    </div>
+                                  );
+                                })()}
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {/* Step 1: Select Pattern Set */}
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">1. Pattern Set</Label>
+                                    <Select 
+                                      value={formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex]?.setNumber?.toString() || ''}
+                                      onValueChange={(value) => {
+                                        const setNum = parseInt(value);
+                                        const suggestedVersion = detectGroupType(group.divisions);
+                                        setFormData(prev => {
+                                          const newSelections = { ...(prev.patternSelections || {}) };
+                                          if (!newSelections[originalDisciplineIndex]) newSelections[originalDisciplineIndex] = {};
+                                          newSelections[originalDisciplineIndex][groupIndex] = {
+                                            setNumber: setNum,
+                                            version: suggestedVersion, // Auto-suggest version
+                                            patternId: `pattern-${setNum}-${suggestedVersion}`
+                                          };
+                                          return { ...prev, patternSelections: newSelections };
+                                        });
+                                      }}
+                                    >
+                                      <SelectTrigger className="mt-1">
+                                        <SelectValue placeholder="Select pattern set..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PATTERN_SETS.map(set => (
+                                          <SelectItem key={set.setNumber} value={set.setNumber.toString()}>
+                                            {pbbDiscipline.name} {set.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  {/* Step 2: Select Pattern Version */}
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">2. Pattern Version</Label>
+                                    <Select 
+                                      value={formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex]?.version || ''}
+                                      onValueChange={(value) => {
+                                        setFormData(prev => {
+                                          const newSelections = { ...(prev.patternSelections || {}) };
+                                          if (!newSelections[originalDisciplineIndex]) newSelections[originalDisciplineIndex] = {};
+                                          const current = newSelections[originalDisciplineIndex][groupIndex] || {};
+                                          newSelections[originalDisciplineIndex][groupIndex] = {
+                                            ...current,
+                                            version: value,
+                                            patternId: `pattern-${current.setNumber || 1}-${value}`
+                                          };
+                                          return { ...prev, patternSelections: newSelections };
+                                        });
+                                      }}
+                                      disabled={!formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex]?.setNumber}
+                                    >
+                                      <SelectTrigger className="mt-1">
+                                        <SelectValue placeholder="Select version..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {PATTERN_VERSIONS.map(version => (
+                                          <SelectItem key={version.id} value={version.id}>
+                                            <div className="flex items-center gap-2">
+                                              <span>{version.label}</span>
+                                              <Badge variant="outline" className={`text-xs ${version.color}`}>
+                                                {version.description}
+                                              </Badge>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                                
+                                {/* Show selected pattern summary */}
+                                {formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex]?.setNumber && (
+                                  <div className="text-sm bg-muted/50 p-2 rounded flex items-center justify-between">
+                                    <span>
+                                      <strong>{pbbDiscipline.name} Pattern {formData.patternSelections[originalDisciplineIndex][groupIndex].setNumber}</strong>
+                                      {' '}
+                                      <Badge className={PATTERN_VERSIONS.find(v => v.id === formData.patternSelections[originalDisciplineIndex][groupIndex].version)?.color || ''}>
+                                        {formData.patternSelections[originalDisciplineIndex][groupIndex].version || 'ALL'}
+                                      </Badge>
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
