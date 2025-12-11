@@ -80,6 +80,7 @@ import AdminPatternExtractorPage from '@/pages/AdminPatternExtractorPage';
 import ManualPatternEntryPage from '@/pages/ManualPatternEntryPage';
 import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
 import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagementPage';
+import AccountSecurityPage from '@/pages/AccountSecurityPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -92,6 +93,7 @@ function App() {
                   <Route path="/" element={<HomePage />} />
                   <Route path="/update-password" element={<UpdatePasswordPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/account-security" element={<AccountSecurityPage />} />
                   <Route path="/customize/:id" element={<CustomizePage />} />
                   <Route path="/contributors" element={<ContributorsPage />} />
                   <Route path="/contributor-portal" element={<RoleBasedRoute requiredPermission="patterns:upload"><ContributorPortalPage /></RoleBasedRoute>} />
