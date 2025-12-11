@@ -1103,10 +1103,12 @@ export type Database = {
           division: string | null
           id: string
           level: string | null
+          level_category: string | null
           meta: Json | null
           obstacles: Json | null
           optional_maneuvers: string | null
           parent_pattern_id: string | null
+          pattern_set_number: number | null
           pdf_asset_url: string | null
           preview_image_url: string | null
           required_maneuvers: string | null
@@ -1132,10 +1134,12 @@ export type Database = {
           division?: string | null
           id?: string
           level?: string | null
+          level_category?: string | null
           meta?: Json | null
           obstacles?: Json | null
           optional_maneuvers?: string | null
           parent_pattern_id?: string | null
+          pattern_set_number?: number | null
           pdf_asset_url?: string | null
           preview_image_url?: string | null
           required_maneuvers?: string | null
@@ -1161,10 +1165,12 @@ export type Database = {
           division?: string | null
           id?: string
           level?: string | null
+          level_category?: string | null
           meta?: Json | null
           obstacles?: Json | null
           optional_maneuvers?: string | null
           parent_pattern_id?: string | null
+          pattern_set_number?: number | null
           pdf_asset_url?: string | null
           preview_image_url?: string | null
           required_maneuvers?: string | null

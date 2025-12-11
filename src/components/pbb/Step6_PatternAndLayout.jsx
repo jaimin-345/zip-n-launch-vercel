@@ -15,17 +15,45 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 
-// Generate dynamic pattern options based on discipline name
-const getPatternOptions = (disciplineName) => [
-  { id: 'pat_101', name: `Pattern Set #101 - ${disciplineName}`, patternNumber: '101' },
-  { id: 'pat_203', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203' },
-];
+// Generate dynamic pattern options based on discipline name and level category
+// ALL patterns are available for all divisions, L1/L2 patterns only for matching level classes
+const getPatternOptions = (disciplineName, levelCategory = 'ALL') => {
+  // Base pattern options - ALL patterns
+  const baseOptions = [
+    { id: 'pat_101_all', name: `Pattern Set #101 - ${disciplineName}`, patternNumber: '101', levelCategory: 'ALL' },
+    { id: 'pat_203_all', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203', levelCategory: 'ALL' },
+  ];
+
+  // If division is L1 or L2, also include the matching level patterns
+  if (levelCategory === 'L1') {
+    return [
+      ...baseOptions,
+      { id: 'pat_101_l1', name: `Pattern Set #101 - ${disciplineName} (L1)`, patternNumber: '101', levelCategory: 'L1' },
+      { id: 'pat_203_l1', name: `Pattern Set #203 - ${disciplineName} (L1)`, patternNumber: '203', levelCategory: 'L1' },
+    ];
+  }
+  if (levelCategory === 'L2') {
+    return [
+      ...baseOptions,
+      { id: 'pat_101_l2', name: `Pattern Set #101 - ${disciplineName} (L2)`, patternNumber: '101', levelCategory: 'L2' },
+      { id: 'pat_203_l2', name: `Pattern Set #203 - ${disciplineName} (L2)`, patternNumber: '203', levelCategory: 'L2' },
+    ];
+  }
+
+  // Non-L1/L2 classes only get ALL patterns
+  return baseOptions;
+};
 
 // Difficulty levels for group dropdowns - ordered: Championship > Skilled > Intermediate > Beginner > Walk-Trot
 const difficultyLevels = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot'];
 
-// Pattern ID to number mapping
-const patternMap = { 'pat_101': '101', 'pat_203': '203' };
+// Pattern ID to number mapping (handles both old and new format)
+const patternMap = { 
+  'pat_101': '101', 'pat_203': '203',
+  'pat_101_all': '101', 'pat_203_all': '203',
+  'pat_101_l1': '101', 'pat_203_l1': '203',
+  'pat_101_l2': '101', 'pat_203_l2': '203',
+};
 
 // Difficulty badge colors
 const difficultyColors = {
@@ -34,6 +62,49 @@ const difficultyColors = {
   'Intermediate': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   'Beginner': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   'Walk-Trot': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+};
+
+// Level category badge colors
+const levelCategoryColors = {
+  'ALL': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  'L1': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  'L2': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+  'L3': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+};
+
+// Check if a group contains L1 (Level 1) divisions
+const isL1Group = (group) => {
+  if (!group?.divisions) return false;
+  
+  return group.divisions.some(div => {
+    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
+    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
+    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
+    
+    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
+    return fullName.includes('level 1') || fullName.includes('level1') || fullName.includes(' l1 ') || fullName.includes('-l1') || fullName.includes('l1-');
+  });
+};
+
+// Check if a group contains L2 (Level 2) divisions
+const isL2Group = (group) => {
+  if (!group?.divisions) return false;
+  
+  return group.divisions.some(div => {
+    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
+    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
+    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
+    
+    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
+    return fullName.includes('level 2') || fullName.includes('level2') || fullName.includes(' l2 ') || fullName.includes('-l2') || fullName.includes('l2-');
+  });
+};
+
+// Get the level category for a group (ALL, L1, L2, etc.)
+const getGroupLevelCategory = (group) => {
+  if (isL1Group(group)) return 'L1';
+  if (isL2Group(group)) return 'L2';
+  return 'ALL';
 };
 
 // Check if a group contains Walk-Trot divisions
@@ -586,15 +657,28 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           value={disciplinePatternSelections[disciplineIndex] || ''}
                           onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
                         >
-                          <SelectTrigger className="w-[280px] bg-background">
+                          <SelectTrigger className="w-[320px] bg-background">
                             <SelectValue placeholder="Select Pattern..." />
                           </SelectTrigger>
                           <SelectContent className="bg-background z-50">
-                            {getPatternOptions(discipline.name).map(p => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
+                            {/* Determine the highest level category needed (L1/L2 groups get extended options) */}
+                            {(() => {
+                              const hasL1Groups = groups.some(g => isL1Group(g));
+                              const hasL2Groups = groups.some(g => isL2Group(g));
+                              const levelCategory = hasL1Groups ? 'L1' : (hasL2Groups ? 'L2' : 'ALL');
+                              return getPatternOptions(discipline.name, levelCategory).map(p => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  <span className="flex items-center gap-2">
+                                    {p.name}
+                                    {p.levelCategory && (
+                                      <Badge className={cn("text-[10px] px-1.5 py-0", levelCategoryColors[p.levelCategory])}>
+                                        {p.levelCategory}
+                                      </Badge>
+                                    )}
+                                  </span>
+                                </SelectItem>
+                              ));
+                            })()}
                           </SelectContent>
                         </Select>
                         
@@ -633,7 +717,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               className="p-4 border rounded-lg bg-background/50 space-y-4"
                             >
                               <div>
-                                <Label className="font-semibold text-base">{group.name}</Label>
+                                <div className="flex items-center gap-2">
+                                  <Label className="font-semibold text-base">{group.name}</Label>
+                                  {/* Show level category badge */}
+                                  {(() => {
+                                    const levelCat = getGroupLevelCategory(group);
+                                    return levelCat !== 'ALL' && (
+                                      <Badge className={cn("text-xs", levelCategoryColors[levelCat])}>
+                                        {levelCat} Class
+                                      </Badge>
+                                    );
+                                  })()}
+                                </div>
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {(group.divisions || []).map(div => (
                                     <Badge
@@ -647,10 +742,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 </div>
                               </div>
 
-                              {/* Pattern Selection */}
+                              {/* Pattern Selection - shows patterns based on group's level category */}
                               <div>
                                 <Label className="text-sm text-muted-foreground mb-1 block">
-                                  Select Pattern
+                                  Select Pattern {getGroupLevelCategory(group) !== 'ALL' && (
+                                    <span className={cn("ml-1 text-xs px-1 rounded", levelCategoryColors[getGroupLevelCategory(group)])}>
+                                      ({getGroupLevelCategory(group)} eligible)
+                                    </span>
+                                  )}
                                 </Label>
                                 <Select
                                   value={

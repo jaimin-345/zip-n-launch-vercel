@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool } from 'lucide-react';
+import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 
 const AdminPage = () => {
@@ -13,6 +13,7 @@ const AdminPage = () => {
     { name: 'Discipline Management', path: '/admin/disciplines', icon: Code, description: 'Administer show disciplines.' },
     { name: 'Division Management', path: '/admin/divisions', icon: HardDrive, description: 'Organize and manage divisions.' },
     { name: 'Division Level Management', path: '/admin/division-levels', icon: BarChart2, description: 'Set up levels within divisions.' },
+    { name: 'Pattern Level Management', path: '/admin/pattern-levels', icon: Gauge, description: 'Manage pattern levels (ALL, L1, L2, etc.).' },
     { name: 'Sponsorship Packages', path: '/admin/sponsorship-packages', icon: DollarSign, description: 'Create and manage sponsorship tiers.' },
     { name: 'Pattern Extractor', path: '/admin/pattern-extractor', icon: Bot, description: 'AI-powered PDF pattern data extraction.' },
     { name: 'Manual Pattern Entry', path: '/admin/manual-pattern-entry', icon: PenTool, description: 'Manually input pattern data.' },
