@@ -36,41 +36,18 @@ const steps = [
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
     if (!pbbDiscipline) return false;
 
-    const getSelectedDivisionsSet = () => {
-        const divisions = new Set();
-        if (!pbbDiscipline.divisions) return divisions;
-
-        if (pbbDiscipline.isCustom && isOpenShowMode) {
-            const openShowDivs = pbbDiscipline.divisions['open-show'] || {};
-            Object.entries(openShowDivs).forEach(([group, levels]) => {
-                if (Array.isArray(levels)) {
-                    levels.forEach(level => divisions.add(`open-show-${group} - ${level}`));
-                }
-            });
-        } else {
-            Object.entries(pbbDiscipline.divisions).forEach(([assocId, divs]) => {
-                Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
-                    divisions.add(`${assocId}-${divisionKey}`);
-                });
-            });
-        }
-        return divisions;
-    };
-
-    const selectedDivisions = getSelectedDivisionsSet();
-    const hasPattern = !(pbbDiscipline.pattern_type === 'none' || pbbDiscipline.pattern_type === 'scoresheet_only' || !pbbDiscipline.pattern);
-
-    if (!hasPattern) {
-        return selectedDivisions.size > 0;
-    }
-
+    // Use divisionOrder as source of truth - same as PatternGrouping.jsx
+    const selectedDivisions = new Set(pbbDiscipline.divisionOrder || []);
     const groupedDivisions = new Set((pbbDiscipline.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
 
+    // If no divisions selected, not complete
     if (selectedDivisions.size === 0) {
-        return (pbbDiscipline.patternGroups || []).length > 0 && (pbbDiscipline.patternGroups[0].divisions || []).length === 0;
+        return false;
     }
 
-    return selectedDivisions.size === groupedDivisions.size && [...selectedDivisions].every(d => groupedDivisions.has(d));
+    // All selected divisions must be grouped
+    return selectedDivisions.size === groupedDivisions.size && 
+           [...selectedDivisions].every(d => groupedDivisions.has(d));
 };
 
 
