@@ -227,21 +227,21 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         return { ...div, id, date, customTitle };
     });
 
-    // Get current pattern selection for this group
-    const disciplineIndex = formData?.disciplines?.findIndex(d => d.id === pbbDiscipline.id) ?? -1;
-    const currentPatternSelection = disciplineIndex >= 0 
-        ? formData?.patternSelections?.[disciplineIndex]?.[index] 
+    // Get current pattern selection for this group using discipline ID as key
+    const disciplineId = pbbDiscipline?.id;
+    const currentPatternSelection = disciplineId 
+        ? formData?.patternSelections?.[disciplineId]?.[group.id] 
         : null;
 
     // Pattern selection handlers
     const handlePatternSetChange = (setNumber) => {
-        if (disciplineIndex < 0 || !setFormData) return;
+        if (!disciplineId || !setFormData) return;
         const setNum = parseInt(setNumber);
         const suggestedVersion = detectGroupType(group.divisions);
         setFormData(prev => {
             const newSelections = { ...(prev.patternSelections || {}) };
-            if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
-            newSelections[disciplineIndex][index] = {
+            if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+            newSelections[disciplineId][group.id] = {
                 setNumber: setNum,
                 version: suggestedVersion,
                 patternId: `pattern-${setNum}-${suggestedVersion}`
@@ -251,12 +251,12 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     };
 
     const handlePatternVersionChange = (version) => {
-        if (disciplineIndex < 0 || !setFormData) return;
+        if (!disciplineId || !setFormData) return;
         setFormData(prev => {
             const newSelections = { ...(prev.patternSelections || {}) };
-            if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
-            const current = newSelections[disciplineIndex][index] || {};
-            newSelections[disciplineIndex][index] = {
+            if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+            const current = newSelections[disciplineId][group.id] || {};
+            newSelections[disciplineId][group.id] = {
                 ...current,
                 version: version,
                 patternId: `pattern-${current.setNumber || 1}-${version}`
