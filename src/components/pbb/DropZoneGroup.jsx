@@ -4,12 +4,44 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles } from 'lucide-react';
+import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
+
+// Pattern Sets with version categories
+const PATTERN_SETS = [
+  { setNumber: 1, name: 'Pattern 1-9', maneuvers: { ALL: 11, 'GR/NOV': 9 } },
+  { setNumber: 2, name: 'Pattern 1-15', maneuvers: { ALL: 11, 'GR/NOV': 9 } },
+  { setNumber: 3, name: 'Pattern 1-20', maneuvers: { ALL: 12, 'GR/NOV': 10 } },
+];
+
+// Pattern version categories
+const PATTERN_VERSIONS = [
+  { id: 'ALL', label: 'ALL (Universal)', description: 'Valid for every class', color: 'bg-blue-100 text-blue-800' },
+  { id: 'GR/NOV', label: 'GR/NOV (Green/Novice)', description: 'Simplified for Green/Novice', color: 'bg-teal-100 text-teal-800' },
+  { id: 'L1', label: 'L1 (Level 1)', description: 'Simplified for Level 1', color: 'bg-green-100 text-green-800' },
+  { id: 'Beginner', label: 'Beginner', description: 'For beginner classes', color: 'bg-purple-100 text-purple-800' },
+];
+
+// Helper to detect group type based on division names
+const detectGroupType = (divisions) => {
+  const divisionNames = (divisions || []).map(d => d.division?.toLowerCase() || '');
+  const hasGreen = divisionNames.some(n => n.includes('green'));
+  const hasNovice = divisionNames.some(n => n.includes('novice') || n.includes('rookie'));
+  const hasL1 = divisionNames.some(n => n.includes('level 1') || n.includes('l1'));
+  const hasBeginner = divisionNames.some(n => n.includes('beginner'));
+  const hasWalkTrot = divisionNames.some(n => n.includes('walk-trot') || n.includes('walk trot'));
+  
+  if (hasGreen || hasNovice) return 'GR/NOV';
+  if (hasL1) return 'L1';
+  if (hasBeginner || hasWalkTrot) return 'Beginner';
+  return 'ALL';
+};
 
 const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -195,6 +227,50 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         return { ...div, id, date, customTitle };
     });
 
+    // Get current pattern selection for this group
+    const disciplineIndex = formData?.disciplines?.findIndex(d => d.id === pbbDiscipline.id) ?? -1;
+    const currentPatternSelection = disciplineIndex >= 0 
+        ? formData?.patternSelections?.[disciplineIndex]?.[index] 
+        : null;
+
+    // Pattern selection handlers
+    const handlePatternSetChange = (setNumber) => {
+        if (disciplineIndex < 0 || !setFormData) return;
+        const setNum = parseInt(setNumber);
+        const suggestedVersion = detectGroupType(group.divisions);
+        setFormData(prev => {
+            const newSelections = { ...(prev.patternSelections || {}) };
+            if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
+            newSelections[disciplineIndex][index] = {
+                setNumber: setNum,
+                version: suggestedVersion,
+                patternId: `pattern-${setNum}-${suggestedVersion}`
+            };
+            return { ...prev, patternSelections: newSelections };
+        });
+    };
+
+    const handlePatternVersionChange = (version) => {
+        if (disciplineIndex < 0 || !setFormData) return;
+        setFormData(prev => {
+            const newSelections = { ...(prev.patternSelections || {}) };
+            if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
+            const current = newSelections[disciplineIndex][index] || {};
+            newSelections[disciplineIndex][index] = {
+                ...current,
+                version: version,
+                patternId: `pattern-${current.setNumber || 1}-${version}`
+            };
+            return { ...prev, patternSelections: newSelections };
+        });
+    };
+
+    const suggestedVersion = detectGroupType(group.divisions);
+    const hasPattern = currentPatternSelection?.setNumber && currentPatternSelection?.version;
+    const displayName = hasPattern 
+        ? `Pattern ${currentPatternSelection.setNumber} (${currentPatternSelection.version})`
+        : group.name;
+
     return (
         <div ref={setSortableNodeRef} style={style} className="p-4 border border-border rounded-lg bg-card shadow-sm">
             <div className="flex items-center justify-between mb-3 gap-3">
@@ -202,17 +278,88 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 shrink-0">
                         <GripVertical className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <Input
-                        value={group.name}
-                        onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
-                        className="font-semibold h-9 flex-1"
-                    />
+                    <div className="flex-1">
+                        <Input
+                            value={displayName}
+                            onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
+                            className="font-semibold h-9"
+                            disabled={hasPattern}
+                        />
+                    </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleAiAssistClick()}><Sparkles className="h-4 w-4 text-primary" /></Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
             </div>
+
+            {/* Pattern Selection Panel - similar to Step 5 */}
+            {group.divisions.length > 0 && (
+                <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
+                    <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
+                    
+                    {suggestedVersion !== 'ALL' && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 mb-2">
+                            <AlertCircle className="h-3 w-3" />
+                            Suggested: <Badge variant="outline" className="text-xs">{suggestedVersion}</Badge> based on divisions
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* Pattern Set Dropdown */}
+                        <div>
+                            <Label className="text-xs text-muted-foreground">1. Pattern Set</Label>
+                            <Select 
+                                value={currentPatternSelection?.setNumber?.toString() || ''}
+                                onValueChange={handlePatternSetChange}
+                            >
+                                <SelectTrigger className="mt-1 h-9">
+                                    <SelectValue placeholder="Select pattern set..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PATTERN_SETS.map(set => (
+                                        <SelectItem key={set.setNumber} value={set.setNumber.toString()}>
+                                            {pbbDiscipline.name} {set.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        {/* Pattern Version Dropdown */}
+                        <div>
+                            <Label className="text-xs text-muted-foreground">2. Pattern Version</Label>
+                            <Select 
+                                value={currentPatternSelection?.version || ''}
+                                onValueChange={handlePatternVersionChange}
+                                disabled={!currentPatternSelection?.setNumber}
+                            >
+                                <SelectTrigger className="mt-1 h-9">
+                                    <SelectValue placeholder="Select version..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PATTERN_VERSIONS.map(version => (
+                                        <SelectItem key={version.id} value={version.id}>
+                                            <div className="flex items-center gap-2">
+                                                <span>{version.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    
+                    {hasPattern && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <Badge className="bg-green-100 text-green-800 border-green-200">
+                                {displayName}
+                            </Badge>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div ref={setNodeRef} className={cn('min-h-[80px] p-3 rounded-md bg-muted/30 transition-colors border-2 border-dashed border-border', { 'border-primary bg-primary/10': isOver })}>
                 <SortableContext items={divisionsWithDetails.map(d => d.id)} strategy={verticalListSortingStrategy} id={group.id}>
                     <div className="space-y-2">
