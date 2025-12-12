@@ -62,6 +62,29 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     // Check completion for all merged disciplines - aggregate divisions and groups across all
     const allDisciplines = mergedDisciplines || [pbbDiscipline];
     
+    // Get pattern selection info for this discipline
+    const patternSelectionInfo = useMemo(() => {
+        const disciplineId = pbbDiscipline?.id;
+        const selections = formData?.patternSelections?.[disciplineId];
+        if (!selections) return null;
+        
+        // Find the first group with a pattern selection
+        const groupsWithPatterns = Object.entries(selections).filter(([_, sel]) => sel?.setNumber && sel?.version);
+        if (groupsWithPatterns.length === 0) return null;
+        
+        // Get unique pattern sets used
+        const patternSets = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.setNumber))];
+        const versions = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.version))];
+        
+        return {
+            count: groupsWithPatterns.length,
+            patternSets,
+            versions,
+            displayText: patternSets.map(set => `Pattern ${set}`).join(', '),
+            versionText: versions.join(', ')
+        };
+    }, [pbbDiscipline?.id, formData?.patternSelections]);
+    
     const isComplete = useMemo(() => {
         // Collect ALL selected divisions across all merged disciplines
         const allSelectedDivisions = new Set();
@@ -110,9 +133,11 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             return false;
         }
         
-        // All selected divisions must be grouped
-        return allSelectedDivisions.size === allGroupedDivisions.size && 
+        // All selected divisions must be grouped (pattern selection is done inside groups, so grouping = complete)
+        const allGrouped = allSelectedDivisions.size === allGroupedDivisions.size && 
                [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
+        
+        return allGrouped;
     }, [allDisciplines, isOpenShowMode]);
 
     const getDivisionCounts = () => {
@@ -212,7 +237,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         <div {...attributes} {...listeners} className="cursor-grab p-1">
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </div>
-                        <div className="flex-grow text-left">
+                        <div className="flex-grow text-left min-w-0">
                             <span className="font-semibold text-sm">{pbbDiscipline.name}</span>
                             <div className="flex items-center gap-2 mt-0.5">
                                 {divisionCounts.map(item => (
@@ -226,6 +251,19 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                                 )}
                             </div>
                         </div>
+                        
+                        {/* Pattern Selection Display */}
+                        {patternSelectionInfo && (
+                            <div className="flex items-center gap-1.5">
+                                <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+                                    {patternSelectionInfo.displayText}
+                                </Badge>
+                                <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-xs">
+                                    {patternSelectionInfo.versionText}
+                                </Badge>
+                            </div>
+                        )}
+                        
                         <span className={`text-xs font-semibold ${isComplete ? 'text-green-600' : 'text-red-600'}`}>
                             - {isComplete ? 'complete' : 'incomplete'}
                         </span>
