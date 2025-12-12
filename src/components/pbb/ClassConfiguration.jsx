@@ -86,31 +86,17 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     }, [pbbDiscipline?.id, formData?.patternSelections]);
     
     const isComplete = useMemo(() => {
-        // Collect ALL selected divisions across all merged disciplines
+        // Use divisionOrder as source of truth - if divisions exist in divisionOrder, 
+        // they are "selected". If they're all in patternGroups, they're "complete"
         const allSelectedDivisions = new Set();
-        // Collect ALL grouped divisions across all merged disciplines
         const allGroupedDivisions = new Set();
         
         allDisciplines.forEach(disc => {
             if (!disc) return;
             
-            // Get selected divisions for this discipline
-            if (disc.divisions) {
-                if (disc.isCustom && isOpenShowMode) {
-                    const openShowDivs = disc.divisions['open-show'] || {};
-                    Object.entries(openShowDivs).forEach(([group, levels]) => {
-                        if (Array.isArray(levels)) {
-                            levels.forEach(level => allSelectedDivisions.add(`open-show-${group} - ${level}`));
-                        }
-                    });
-                } else {
-                    Object.entries(disc.divisions).forEach(([assocId, divs]) => {
-                        Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
-                            const cleanDivisionName = divisionKey.startsWith('custom-') ? divisionKey.substring(7) : divisionKey;
-                            allSelectedDivisions.add(`${assocId}-${cleanDivisionName}`);
-                        });
-                    });
-                }
+            // Use divisionOrder as the definitive list of selected divisions
+            if (disc.divisionOrder && disc.divisionOrder.length > 0) {
+                disc.divisionOrder.forEach(divId => allSelectedDivisions.add(divId));
             }
             
             // Get grouped divisions for this discipline
@@ -120,20 +106,12 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             });
         });
         
-        // Check if discipline requires patterns
-        const hasNoPattern = allDisciplines.some(disc => 
-            disc.pattern_type === 'none' || disc.pattern_type === 'scoresheet_only' || !disc.pattern
-        );
-        
-        if (hasNoPattern) {
-            return allSelectedDivisions.size > 0;
-        }
-        
+        // If no divisions selected, mark as incomplete
         if (allSelectedDivisions.size === 0) {
             return false;
         }
         
-        // All selected divisions must be grouped (pattern selection is done inside groups, so grouping = complete)
+        // All selected divisions must be grouped
         const allGrouped = allSelectedDivisions.size === allGroupedDivisions.size && 
                [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
         
