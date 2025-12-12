@@ -107,11 +107,12 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
     };
 
     // Parse division name to extract tag and clean name
-    const originalDivisionName = division.division.startsWith('custom') ? division.division.substring(7) : division.division;
+    const divisionName = division.division || '';
+    const originalDivisionName = divisionName.startsWith('custom') ? divisionName.substring(7) : divisionName;
     const dashIndex = originalDivisionName.indexOf(' - ');
     const divisionTag = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
     const cleanedName = dashIndex > -1 ? originalDivisionName.substring(dashIndex + 3).trim() : originalDivisionName;
-    const displayName = division.customTitle || cleanedName;
+    const displayName = division.customTitle || cleanedName || 'Unknown Division';
 
     const getAssociationBadges = () => {
         if (!pbbDiscipline || !formData) return [];
