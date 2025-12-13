@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
-import { supabase } from '@/lib/supabaseClient';
 
 // Pattern Sets with version categories (fallback)
 const PATTERN_SETS = [
