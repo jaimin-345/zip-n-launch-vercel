@@ -247,16 +247,41 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [selectedManeuversRange, setSelectedManeuversRange] = useState('');
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
-    // Fetch patterns from tbl_patterns based on discipline name
+    // Get association name from discipline or divisions
+    const getAssociationName = () => {
+        // Try to get from discipline's association_id first
+        if (pbbDiscipline?.association_id) {
+            const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
+            if (assoc) return assoc.name || assoc.abbreviation;
+        }
+        // Fallback: get from first division's assocId
+        if (group.divisions?.length > 0) {
+            const firstDivAssocId = group.divisions[0].assocId;
+            const assoc = associationsData?.find(a => a.id === firstDivAssocId);
+            if (assoc) return assoc.name || assoc.abbreviation;
+        }
+        return null;
+    };
+
+    const associationName = getAssociationName();
+
+    // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
         const fetchPatterns = async () => {
             if (!pbbDiscipline?.name) return;
             setLoadingPatterns(true);
             try {
-                const { data, error } = await supabase
+                let query = supabase
                     .from('tbl_patterns')
-                    .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline')
+                    .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
                     .ilike('discipline', `%${pbbDiscipline.name}%`);
+                
+                // Filter by association if available
+                if (associationName) {
+                    query = query.ilike('association_name', `%${associationName}%`);
+                }
+                
+                const { data, error } = await query;
                 
                 if (error) throw error;
                 setDbPatterns(data || []);
@@ -268,7 +293,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name]);
+    }, [pbbDiscipline?.name, associationName]);
 
     // Filter patterns when maneuvers range is selected
     useEffect(() => {
