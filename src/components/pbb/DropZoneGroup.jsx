@@ -266,6 +266,13 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const associationName = getAssociationName();
 
+    // Current pattern selection for this group/discipline
+    const disciplineId = pbbDiscipline?.id;
+    const currentPatternSelection = disciplineId
+        ? formData?.patternSelections?.[disciplineId]?.[group.id]
+        : null;
+    const currentPatternId = currentPatternSelection?.patternId;
+
     // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
         const fetchPatterns = async () => {
@@ -309,8 +316,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     // Fetch maneuvers when pattern is selected
     useEffect(() => {
         const fetchManeuvers = async () => {
-            const patternId = currentPatternSelection?.patternId;
-            if (!patternId) {
+            if (!currentPatternId) {
                 setPatternManeuvers([]);
                 return;
             }
@@ -318,7 +324,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 const { data, error } = await supabase
                     .from('tbl_maneuvers')
                     .select('step_no, instruction')
-                    .eq('pattern_id', patternId)
+                    .eq('pattern_id', currentPatternId)
                     .order('step_no');
                 
                 if (error) throw error;
@@ -329,7 +335,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchManeuvers();
-    }, [currentPatternSelection?.patternId]);
+    }, [currentPatternId]);
 
     // Get unique maneuvers ranges from database patterns
     const availableManeuversRanges = [...new Set(dbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
@@ -340,12 +346,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[id]) || null;
         return { ...div, id, date, customTitle };
     });
-
-    // Get current pattern selection for this group using discipline ID as key
-    const disciplineId = pbbDiscipline?.id;
-    const currentPatternSelection = disciplineId 
-        ? formData?.patternSelections?.[disciplineId]?.[group.id] 
-        : null;
 
     // Pattern selection handlers
     const handleManeuversRangeChange = (range) => {
@@ -363,8 +363,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 return { ...prev, patternSelections: newSelections };
             });
         }
-    };
-
     const handlePatternSelect = (patternId) => {
         if (!disciplineId || !setFormData) return;
         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
