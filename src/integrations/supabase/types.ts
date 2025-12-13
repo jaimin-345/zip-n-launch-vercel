@@ -2493,6 +2493,7 @@ export type Database = {
           division: string
           division_level: string | null
           id: number
+          maneuvers_range: string | null
           page_no: number | null
           pattern_date: string | null
           pattern_version: string | null
@@ -2505,6 +2506,7 @@ export type Database = {
           division: string
           division_level?: string | null
           id?: never
+          maneuvers_range?: string | null
           page_no?: number | null
           pattern_date?: string | null
           pattern_version?: string | null
@@ -2517,6 +2519,7 @@ export type Database = {
           division?: string
           division_level?: string | null
           id?: never
+          maneuvers_range?: string | null
           page_no?: number | null
           pattern_date?: string | null
           pattern_version?: string | null

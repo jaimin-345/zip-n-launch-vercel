@@ -361,6 +361,14 @@ const ManualPatternEntryPage = () => {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <Select name="maneuvers_range" onValueChange={value => setFormData(p => ({...p, maneuvers_range: value}))} value={formData.maneuvers_range}>
+                                    <SelectTrigger><SelectValue placeholder="Select Maneuvers" /></SelectTrigger>
+                                    <SelectContent>
+                                        {maneuversRangeOptions.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant={"outline"} className={cn("justify-start text-left font-normal", !formData.pattern_date && "text-muted-foreground")}>
