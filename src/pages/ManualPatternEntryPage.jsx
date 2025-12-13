@@ -40,10 +40,17 @@ const ManualPatternEntryPage = () => {
         division: '',
         division_level: '',
         pattern_version: '',
+        maneuvers_range: '',
         pattern_date: null,
         pdf_file_name: '',
         page_no: '',
     });
+
+    const maneuversRangeOptions = [
+        { value: '1-9', label: '1-9' },
+        { value: '1-15', label: '1-15' },
+        { value: '1-20', label: '1-20' },
+    ];
 
     const patternVersionOptions = [
         { value: 'ALL', label: 'ALL', color: 'bg-blue-100 text-blue-700' },
@@ -100,7 +107,7 @@ const ManualPatternEntryPage = () => {
     const resetForm = () => {
         setFormData({
             association_name: '', discipline: '', division: '', division_level: '',
-            pattern_version: '', pattern_date: null, pdf_file_name: '', page_no: '',
+            pattern_version: '', maneuvers_range: '', pattern_date: null, pdf_file_name: '', page_no: '',
         });
         setManeuvers([{ step_no: 1, instruction: '' }]);
         setImages([]);
@@ -240,6 +247,7 @@ const ManualPatternEntryPage = () => {
             division: pattern.division,
             division_level: pattern.division_level || '',
             pattern_version: pattern.pattern_version || '',
+            maneuvers_range: pattern.maneuvers_range || '',
             pattern_date: pattern.pattern_date,
             pdf_file_name: pattern.pdf_file_name || '',
             page_no: pattern.page_no || '',
