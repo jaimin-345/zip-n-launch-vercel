@@ -10,7 +10,6 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
@@ -266,7 +265,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const associationName = getAssociationName();
 
-    // Fetch patterns from tbl_patterns based on discipline name AND association, with maneuvers
+    // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
         const fetchPatterns = async () => {
             if (!pbbDiscipline?.name) return;
@@ -282,39 +281,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     query = query.ilike('association_name', `%${associationName}%`);
                 }
                 
-                const { data: patternsData, error: patternsError } = await query;
+                const { data, error } = await query;
                 
-                if (patternsError) throw patternsError;
-                
-                // Fetch maneuvers/instructions for each pattern
-                if (patternsData && patternsData.length > 0) {
-                    const patternIds = patternsData.map(p => p.id);
-                    const { data: maneuversData, error: maneuversError } = await supabase
-                        .from('tbl_maneuvers')
-                        .select('pattern_id, instruction, step_no')
-                        .in('pattern_id', patternIds)
-                        .order('step_no', { ascending: true });
-                    
-                    if (!maneuversError && maneuversData) {
-                        // Group maneuvers by pattern_id
-                        const maneuversByPattern = maneuversData.reduce((acc, m) => {
-                            if (!acc[m.pattern_id]) acc[m.pattern_id] = [];
-                            acc[m.pattern_id].push(m.instruction);
-                            return acc;
-                        }, {});
-                        
-                        // Attach instructions to patterns
-                        const patternsWithInstructions = patternsData.map(p => ({
-                            ...p,
-                            instructions: maneuversByPattern[p.id] || []
-                        }));
-                        setDbPatterns(patternsWithInstructions);
-                    } else {
-                        setDbPatterns(patternsData || []);
-                    }
-                } else {
-                    setDbPatterns([]);
-                }
+                if (error) throw error;
+                setDbPatterns(data || []);
             } catch (err) {
                 console.error('Error fetching patterns:', err);
                 setDbPatterns([]);
@@ -372,12 +342,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const handlePatternSelect = (patternId) => {
         if (!disciplineId || !setFormData) return;
         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
-        
-        // Generate short pattern name (e.g., "Pattern L1 2" or "Pattern 2")
-        const version = selectedPattern?.pattern_version || 'ALL';
-        const shortVersion = version !== 'ALL' ? ` ${version}` : '';
-        const shortName = `Pattern${shortVersion} ${selectedPattern?.id || patternId}`;
-        
         setFormData(prev => {
             const newSelections = { ...(prev.patternSelections || {}) };
             if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
@@ -385,9 +349,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 maneuversRange: selectedManeuversRange,
                 patternId: parseInt(patternId),
                 patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-                shortName: shortName,
-                version: version,
-                instructions: selectedPattern?.instructions || []
+                version: selectedPattern?.pattern_version || 'ALL'
             };
             return { ...prev, patternSelections: newSelections };
         });
@@ -395,16 +357,9 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const suggestedVersion = detectGroupType(group.divisions);
     const hasPattern = currentPatternSelection?.patternId;
-    
-    // Short display name with tooltip for instructions
-    const shortDisplayName = hasPattern 
-        ? currentPatternSelection.shortName || `Pattern ${currentPatternSelection.patternId}`
-        : null;
-    const fullPatternName = hasPattern 
+    const displayName = hasPattern 
         ? currentPatternSelection.patternName || `Pattern ${currentPatternSelection.patternId}`
-        : null;
-    const patternInstructions = currentPatternSelection?.instructions || [];
-    const displayName = hasPattern ? shortDisplayName : group.name;
+        : group.name;
 
     return (
         <div ref={setSortableNodeRef} style={style} className="p-4 border border-border rounded-lg bg-card shadow-sm">
@@ -414,38 +369,12 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                         <GripVertical className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="flex-1">
-                        {hasPattern ? (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="font-semibold h-9 px-3 py-2 bg-primary/10 text-primary border border-primary/30 rounded-md cursor-help flex items-center">
-                                            {displayName}
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="max-w-sm">
-                                        <div className="text-sm">
-                                            <p className="font-semibold mb-1">{fullPatternName}</p>
-                                            {patternInstructions.length > 0 && (
-                                                <ul className="text-xs space-y-0.5 text-muted-foreground">
-                                                    {patternInstructions.slice(0, 5).map((instr, idx) => (
-                                                        <li key={idx}>{idx + 1}. {instr}</li>
-                                                    ))}
-                                                    {patternInstructions.length > 5 && (
-                                                        <li>...and {patternInstructions.length - 5} more</li>
-                                                    )}
-                                                </ul>
-                                            )}
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        ) : (
-                            <Input
-                                value={group.name}
-                                onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
-                                className="font-semibold h-9"
-                            />
-                        )}
+                        <Input
+                            value={displayName}
+                            onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
+                            className="font-semibold h-9"
+                            disabled={hasPattern}
+                        />
                     </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -494,7 +423,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             </Select>
                         </div>
                         
-                        {/* Pattern Selection Dropdown - shows short name with instruction tooltip */}
+                        {/* Pattern Selection Dropdown - shows pdf_file_name */}
                         <div>
                             <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
                             <Select 
@@ -507,42 +436,16 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredPatterns.length > 0 ? (
-                                        filteredPatterns.map(pattern => {
-                                            const version = pattern.pattern_version || 'ALL';
-                                            const shortVer = version !== 'ALL' ? ` ${version}` : '';
-                                            const shortName = `Pattern${shortVer} ${pattern.id}`;
-                                            const hasInstructions = pattern.instructions && pattern.instructions.length > 0;
-                                            
-                                            return (
-                                                <TooltipProvider key={pattern.id}>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <SelectItem value={pattern.id.toString()}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{shortName}</span>
-                                                                    {pattern.pattern_version && (
-                                                                        <Badge variant="outline" className="text-xs">{pattern.pattern_version}</Badge>
-                                                                    )}
-                                                                </div>
-                                                            </SelectItem>
-                                                        </TooltipTrigger>
-                                                        {hasInstructions && (
-                                                            <TooltipContent side="right" className="max-w-xs">
-                                                                <p className="font-semibold text-xs mb-1">{pattern.pdf_file_name?.trim()}</p>
-                                                                <ul className="text-xs space-y-0.5">
-                                                                    {pattern.instructions.slice(0, 5).map((instr, idx) => (
-                                                                        <li key={idx}>{idx + 1}. {instr}</li>
-                                                                    ))}
-                                                                    {pattern.instructions.length > 5 && (
-                                                                        <li>...+{pattern.instructions.length - 5} more</li>
-                                                                    )}
-                                                                </ul>
-                                                            </TooltipContent>
-                                                        )}
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            );
-                                        })
+                                        filteredPatterns.map(pattern => (
+                                            <SelectItem key={pattern.id} value={pattern.id.toString()}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{pattern.pdf_file_name?.trim() || `Pattern ${pattern.id}`}</span>
+                                                    {pattern.pattern_version && (
+                                                        <Badge variant="outline" className="text-xs">{pattern.pattern_version}</Badge>
+                                                    )}
+                                                </div>
+                                            </SelectItem>
+                                        ))
                                     ) : (
                                         <SelectItem value="none" disabled>
                                             {selectedManeuversRange ? 'No patterns found' : 'Select pattern set first'}
