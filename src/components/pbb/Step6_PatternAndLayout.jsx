@@ -14,137 +14,16 @@ import PatternPagePreview from './PatternPagePreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabaseClient';
 
-// Generate dynamic pattern options based on discipline name and level category
-// ALL patterns are available for all divisions, L1/L2 patterns only for matching level classes
-const getPatternOptions = (disciplineName, levelCategory = 'ALL') => {
-  // Base pattern options - ALL patterns
-  const baseOptions = [
-    { id: 'pat_101_all', name: `Pattern Set #101 - ${disciplineName}`, patternNumber: '101', levelCategory: 'ALL' },
-    { id: 'pat_203_all', name: `Pattern Set #203 - ${disciplineName}`, patternNumber: '203', levelCategory: 'ALL' },
-  ];
-
-  // If division is L1 or L2, also include the matching level patterns
-  if (levelCategory === 'L1') {
-    return [
-      ...baseOptions,
-      { id: 'pat_101_l1', name: `Pattern Set #101 - ${disciplineName} (L1)`, patternNumber: '101', levelCategory: 'L1' },
-      { id: 'pat_203_l1', name: `Pattern Set #203 - ${disciplineName} (L1)`, patternNumber: '203', levelCategory: 'L1' },
-    ];
-  }
-  if (levelCategory === 'L2') {
-    return [
-      ...baseOptions,
-      { id: 'pat_101_l2', name: `Pattern Set #101 - ${disciplineName} (L2)`, patternNumber: '101', levelCategory: 'L2' },
-      { id: 'pat_203_l2', name: `Pattern Set #203 - ${disciplineName} (L2)`, patternNumber: '203', levelCategory: 'L2' },
-    ];
-  }
-
-  // Non-L1/L2 classes only get ALL patterns
-  return baseOptions;
-};
-
-// Difficulty levels for group dropdowns - ordered: Championship > Skilled > Intermediate > Beginner > Walk-Trot
-const difficultyLevels = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot'];
-
-// Pattern ID to number mapping (handles both old and new format)
-const patternMap = { 
-  'pat_101': '101', 'pat_203': '203',
-  'pat_101_all': '101', 'pat_203_all': '203',
-  'pat_101_l1': '101', 'pat_203_l1': '203',
-  'pat_101_l2': '101', 'pat_203_l2': '203',
-};
-
-// Difficulty badge colors
-const difficultyColors = {
-  'Championship': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-  'Skilled': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  'Intermediate': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  'Beginner': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  'Walk-Trot': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-};
-
-// Level category badge colors
+// Level category badge colors (kept for reference)
 const levelCategoryColors = {
   'ALL': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
   'L1': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   'L2': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
   'L3': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-};
-
-// Check if a group contains L1 (Level 1) divisions
-const isL1Group = (group) => {
-  if (!group?.divisions) return false;
-  
-  return group.divisions.some(div => {
-    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
-    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
-    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
-    
-    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
-    return fullName.includes('level 1') || fullName.includes('level1') || fullName.includes(' l1 ') || fullName.includes('-l1') || fullName.includes('l1-');
-  });
-};
-
-// Check if a group contains L2 (Level 2) divisions
-const isL2Group = (group) => {
-  if (!group?.divisions) return false;
-  
-  return group.divisions.some(div => {
-    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
-    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
-    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
-    
-    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
-    return fullName.includes('level 2') || fullName.includes('level2') || fullName.includes(' l2 ') || fullName.includes('-l2') || fullName.includes('l2-');
-  });
-};
-
-// Get the level category for a group (ALL, L1, L2, etc.)
-const getGroupLevelCategory = (group) => {
-  if (isL1Group(group)) return 'L1';
-  if (isL2Group(group)) return 'L2';
-  return 'ALL';
-};
-
-// Check if a group contains Walk-Trot divisions
-const isWalkTrotGroup = (group) => {
-  if (!group?.divisions) return false;
-  
-  // Check group name first
-  const groupName = (group.name || group.groupName || '').toLowerCase();
-  if (groupName.includes('walk-trot') || groupName.includes('walk/trot') || groupName.includes('w/t')) {
-    return true;
-  }
-  
-  // Check each division's name
-  return group.divisions.some(div => {
-    // Check multiple possible property names for division name
-    const divName = (div.name || div.divisionName || div.division || div.levelName || div.label || '').toLowerCase();
-    const divisionField = (div.division_group || div.divisionGroup || '').toLowerCase();
-    const levelField = (div.division_level || div.divisionLevel || '').toLowerCase();
-    
-    const fullName = `${divName} ${divisionField} ${levelField}`.toLowerCase();
-    return fullName.includes('walk-trot') || fullName.includes('walk/trot') || fullName.includes('walktrot') || fullName.includes('w/t');
-  });
-};
-
-// Get group difficulty options based on selected main pattern, discipline name, and group
-const getGroupDifficultyOptions = (patternId, disciplineName, group) => {
-  const patternNumber = patternMap[patternId] || '101';
-  const isWalkTrot = isWalkTrotGroup(group);
-  
-  // Filter difficulty levels - Walk-Trot option only shows for Walk-Trot groups, all other options available for all
-  const filteredLevels = difficultyLevels.filter(difficulty => {
-    if (difficulty === 'Walk-Trot') return isWalkTrot; // Walk-Trot option only for Walk-Trot groups
-    return true; // All other options (Championship, Skilled, Intermediate, Beginner) available for all groups
-  });
-  
-  return filteredLevels.map((difficulty) => ({
-    id: `${patternId}_${difficulty.toLowerCase().replace('-', '')}`,
-    name: `Pattern Set #${patternNumber} - ${disciplineName}`,
-    difficulty
-  }));
+  'GR/NOV': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300',
+  'Beginner': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
 };
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5 }) => {
@@ -152,23 +31,35 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
-  // Initialize from saved formData.disciplinePatterns if available
-  const [disciplinePatternSelections, setDisciplinePatternSelections] = useState(
-    () => formData.disciplinePatterns || {}
-  );
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
   const disciplineRefs = useRef({});
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  
+  // Database-driven pattern state
+  const [dbPatterns, setDbPatterns] = useState({});
+  const [loadingPatterns, setLoadingPatterns] = useState({});
+  const [maneuversRangeMap, setManeuversRangeMap] = useState({});
 
-  // Sync local state with formData when project loads
+  // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
-    if (formData.disciplinePatterns && Object.keys(formData.disciplinePatterns).length > 0) {
-      setDisciplinePatternSelections(formData.disciplinePatterns);
+    if (formData.patternSelections) {
+      const newMap = {};
+      Object.keys(formData.patternSelections).forEach(disciplineId => {
+        const disciplineSelections = formData.patternSelections[disciplineId];
+        if (disciplineSelections && typeof disciplineSelections === 'object') {
+          // Get maneuversRange from first group that has it
+          const firstGroupWithRange = Object.values(disciplineSelections).find(s => s?.maneuversRange);
+          if (firstGroupWithRange) {
+            newMap[disciplineId] = firstGroupWithRange.maneuversRange;
+          }
+        }
+      });
+      setManeuversRangeMap(prev => ({ ...prev, ...newMap }));
     }
-  }, [formData.disciplinePatterns]);
+  }, [formData.patternSelections]);
 
   // Get disciplines with patterns and merge duplicates by name
   const rawPatternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
@@ -204,6 +95,51 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     assoc => formData.associations?.[assoc.id]
   );
 
+  // Fetch patterns from database for a discipline
+  const fetchPatternsForDiscipline = async (discipline) => {
+    if (!discipline?.name) return;
+    const disciplineId = discipline.id;
+    
+    if (loadingPatterns[disciplineId] || dbPatterns[disciplineId]) return;
+    
+    setLoadingPatterns(prev => ({ ...prev, [disciplineId]: true }));
+    
+    try {
+      // Get association name
+      let associationName = null;
+      if (discipline.association_id) {
+        const assoc = associationsData?.find(a => a.id === discipline.association_id);
+        if (assoc) associationName = assoc.name || assoc.abbreviation;
+      }
+      
+      let query = supabase
+        .from('tbl_patterns')
+        .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
+        .ilike('discipline', `%${discipline.name}%`);
+      
+      if (associationName) {
+        query = query.ilike('association_name', `%${associationName}%`);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      
+      setDbPatterns(prev => ({ ...prev, [disciplineId]: data || [] }));
+    } catch (err) {
+      console.error('Error fetching patterns:', err);
+      setDbPatterns(prev => ({ ...prev, [disciplineId]: [] }));
+    } finally {
+      setLoadingPatterns(prev => ({ ...prev, [disciplineId]: false }));
+    }
+  };
+
+  // Fetch patterns for all disciplines on mount
+  useEffect(() => {
+    patternDisciplines.forEach(discipline => {
+      fetchPatternsForDiscipline(discipline);
+    });
+  }, [patternDisciplines.length]);
+
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
@@ -213,69 +149,80 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     });
   };
 
-  const handleDisciplineDueDateChange = (disciplineIndex, value) => {
-    setFormData(prev => {
-      const next = { ...(prev.disciplineDueDates || {}) };
-      next[disciplineIndex] = value;
-      return { ...prev, disciplineDueDates: next };
-    });
-  };
-
-  const handleStaffSelection = (disciplineIndex, groupIndex, staffId) => {
-    setFormData(prev => {
-      const newStaff = { ...(prev.groupStaff || {}) };
-      if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
-      newStaff[disciplineIndex][groupIndex] = staffId;
-      return { ...prev, groupStaff: newStaff };
-    });
-  };
-
-  const handleJudgeSelection = (disciplineIndex, groupIndex, judgeId) => {
-    setFormData(prev => {
-      const newJudges = { ...(prev.groupJudges || {}) };
-      if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
-      newJudges[disciplineIndex][groupIndex] = judgeId;
-      return { ...prev, groupJudges: newJudges };
-    });
-  };
-
-  const handleDisciplinePatternChange = (disciplineIndex, patternId) => {
-    setDisciplinePatternSelections(prev => ({ ...prev, [disciplineIndex]: patternId }));
+  // Handle maneuvers range change at discipline level
+  const handleManeuversRangeChange = (disciplineId, range) => {
+    setManeuversRangeMap(prev => ({ ...prev, [disciplineId]: range }));
     
-    // Auto-apply difficulty levels to groups based on pattern selection
-    const discipline = patternDisciplines.find((d, idx) => 
-      (formData.disciplines || []).findIndex(fd => fd.id === d.id) === disciplineIndex
-    );
-    const groups = discipline?.patternGroups || [];
+    // Update all groups with this range
+    if (setFormData) {
+      setFormData(prev => {
+        const newSelections = { ...(prev.patternSelections || {}) };
+        if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+        
+        // Find the discipline to get groups
+        const discipline = patternDisciplines.find(d => d.id === disciplineId);
+        const groups = discipline?.patternGroups || [];
+        
+        groups.forEach(group => {
+          newSelections[disciplineId][group.id] = {
+            ...(newSelections[disciplineId]?.[group.id] || {}),
+            maneuversRange: range,
+            patternId: null,
+            patternName: null
+          };
+        });
+        
+        return { ...prev, patternSelections: newSelections };
+      });
+    }
+  };
+
+  // Handle pattern selection for a specific group
+  const handleGroupPatternSelect = (disciplineId, groupId, patternId) => {
+    const patterns = dbPatterns[disciplineId] || [];
+    const selectedPattern = patterns.find(p => p.id.toString() === patternId);
+    const maneuversRange = maneuversRangeMap[disciplineId] || '';
     
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
-      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
-      
-      // Non-Walk-Trot difficulty order for auto-assignment
-      const regularDifficultyOrder = ['Championship', 'Skilled', 'Intermediate', 'Beginner'];
-      let regularIndex = 0;
-      
-      // Auto-assign different difficulty levels per group
-      groups.forEach((group, groupIndex) => {
-        const isWalkTrot = isWalkTrotGroup(group);
-        
-        if (isWalkTrot) {
-          // Walk-Trot groups get Walk-Trot difficulty - use same ID format as getGroupDifficultyOptions
-          newSelections[disciplineIndex][groupIndex] = `${patternId}_walktrot`;
-        } else {
-          // Non-Walk-Trot groups get different difficulties in order (cycling if more groups than levels)
-          const difficulty = regularDifficultyOrder[regularIndex % regularDifficultyOrder.length];
-          // Use same ID format as getGroupDifficultyOptions: lowercase, no hyphen
-          newSelections[disciplineIndex][groupIndex] = `${patternId}_${difficulty.toLowerCase()}`;
-          regularIndex++;
-        }
-      });
-      
-      // Save discipline-level pattern selections to formData for persistence
-      const newDisciplinePatterns = { ...(prev.disciplinePatterns || {}), [disciplineIndex]: patternId };
-      
-      return { ...prev, patternSelections: newSelections, disciplinePatterns: newDisciplinePatterns };
+      if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+      newSelections[disciplineId][groupId] = {
+        maneuversRange,
+        patternId: parseInt(patternId),
+        patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
+        version: selectedPattern?.pattern_version || 'ALL'
+      };
+      return { ...prev, patternSelections: newSelections };
+    });
+  };
+
+  // Get available maneuvers ranges for a discipline
+  const getManeuversRanges = (disciplineId) => {
+    const patterns = dbPatterns[disciplineId] || [];
+    return [...new Set(patterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
+  };
+
+  // Get filtered patterns for a discipline based on selected maneuvers range
+  const getFilteredPatterns = (disciplineId) => {
+    const patterns = dbPatterns[disciplineId] || [];
+    const range = maneuversRangeMap[disciplineId];
+    if (!range) return [];
+    return patterns.filter(p => p.maneuvers_range === range);
+  };
+
+  // Get pattern selection from formData
+  const getPatternSelection = (disciplineId, groupId) => {
+    return formData.patternSelections?.[disciplineId]?.[groupId];
+  };
+
+  // Check if discipline is complete
+  const isDisciplineComplete = (discipline) => {
+    const groups = discipline.patternGroups || [];
+    if (groups.length === 0) return false;
+    
+    return groups.every(group => {
+      const selection = getPatternSelection(discipline.id, group.id);
+      return selection?.patternId;
     });
   };
 
@@ -527,12 +474,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <div className="text-xs text-muted-foreground mb-2">
                 {(() => {
                   const completeDisciplines = patternDisciplines.filter((discipline) => {
-                    const groups = discipline.patternGroups || [];
-                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
-                    const assignedCount = groups.filter(
-                      (_, idx) => formData.patternSelections?.[disciplineIndex]?.[idx]
-                    ).length;
-                    return assignedCount === groups.length && groups.length > 0;
+                    return isDisciplineComplete(discipline);
                   }).length;
                   const allComplete = completeDisciplines === patternDisciplines.length && patternDisciplines.length > 0;
                   return `${completeDisciplines} of ${patternDisciplines.length} disciplines ${allComplete ? 'complete' : 'incomplete'}`;
@@ -541,11 +483,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <div className="space-y-2">
                 {patternDisciplines.map((discipline) => {
                   const groups = discipline.patternGroups || [];
-                  const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
-                  const assignedCount = groups.filter(
-                    (_, idx) => formData.patternSelections?.[disciplineIndex]?.[idx]
-                  ).length;
-                  const isComplete = assignedCount === groups.length && groups.length > 0;
+                  const isComplete = isDisciplineComplete(discipline);
+                  const assignedCount = groups.filter(group => {
+                    const selection = getPatternSelection(discipline.id, group.id);
+                    return selection?.patternId;
+                  }).length;
                   
                   return (
                     <div
@@ -653,32 +595,26 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       </button>
                       
                       <div className="flex-1 flex items-center gap-2 flex-wrap">
+                        {/* Pattern Set (Maneuvers) dropdown - database driven */}
                         <Select
-                          value={disciplinePatternSelections[disciplineIndex] || ''}
-                          onValueChange={(value) => handleDisciplinePatternChange(disciplineIndex, value)}
+                          value={maneuversRangeMap[discipline.id] || ''}
+                          onValueChange={(value) => handleManeuversRangeChange(discipline.id, value)}
                         >
-                          <SelectTrigger className="w-[320px] bg-background">
-                            <SelectValue placeholder="Select Pattern..." />
+                          <SelectTrigger className="w-[200px] bg-background">
+                            <SelectValue placeholder="Pattern Set (Maneuvers)..." />
                           </SelectTrigger>
                           <SelectContent className="bg-background z-50">
-                            {/* Determine the highest level category needed (L1/L2 groups get extended options) */}
-                            {(() => {
-                              const hasL1Groups = groups.some(g => isL1Group(g));
-                              const hasL2Groups = groups.some(g => isL2Group(g));
-                              const levelCategory = hasL1Groups ? 'L1' : (hasL2Groups ? 'L2' : 'ALL');
-                              return getPatternOptions(discipline.name, levelCategory).map(p => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  <span className="flex items-center gap-2">
-                                    {p.name}
-                                    {p.levelCategory && (
-                                      <Badge className={cn("text-[10px] px-1.5 py-0", levelCategoryColors[p.levelCategory])}>
-                                        {p.levelCategory}
-                                      </Badge>
-                                    )}
-                                  </span>
+                            {loadingPatterns[discipline.id] ? (
+                              <SelectItem value="loading" disabled>Loading...</SelectItem>
+                            ) : getManeuversRanges(discipline.id).length > 0 ? (
+                              getManeuversRanges(discipline.id).map(range => (
+                                <SelectItem key={range} value={range}>
+                                  Pattern {range}
                                 </SelectItem>
-                              ));
-                            })()}
+                              ))
+                            ) : (
+                              <SelectItem value="none" disabled>No patterns available</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         
@@ -688,6 +624,34 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         >
                           Assign Pattern Selection
                         </Button>
+
+                        {/* Display pattern badges from Step 3 selections */}
+                        {(() => {
+                          const groupSelections = groups.map((group) => {
+                            const selection = getPatternSelection(discipline.id, group.id);
+                            if (!selection?.patternId && !selection?.patternName) return null;
+                            
+                            const patternName = selection.patternName || '';
+                            const match = patternName.match(/PATTERN\s*\d+/i);
+                            const shortName = match ? match[0].toUpperCase() : patternName;
+                            const version = selection.version || '';
+                            
+                            return {
+                              groupName: group.name,
+                              displayText: version ? `${shortName} (${version})` : shortName
+                            };
+                          }).filter(Boolean);
+                          
+                          return groupSelections.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {groupSelections.map((sel, idx) => (
+                                <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
+                                  {sel.displayText}
+                                </Badge>
+                              ))}
+                            </div>
+                          );
+                        })()}
 
                         {/* Display assigned labels with values */}
                         {formData.judgeSelections?.[disciplineIndex] && (
@@ -711,79 +675,78 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       <div className="px-4 pb-4 pt-2 space-y-4">
                         {/* Group Level Details */}
                         <div className="space-y-3">
-                          {groups.map((group, groupIndex) => (
-                            <div
-                              key={group.id}
-                              className="p-4 border rounded-lg bg-background/50 space-y-4"
-                            >
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Label className="font-semibold text-base">{group.name}</Label>
-                                  {/* Show level category badge */}
-                                  {(() => {
-                                    const levelCat = getGroupLevelCategory(group);
-                                    return levelCat !== 'ALL' && (
-                                      <Badge className={cn("text-xs", levelCategoryColors[levelCat])}>
-                                        {levelCat} Class
+                          {groups.map((group, groupIndex) => {
+                            const currentSelection = getPatternSelection(discipline.id, group.id);
+                            const filteredPatterns = getFilteredPatterns(discipline.id);
+                            
+                            return (
+                              <div
+                                key={group.id}
+                                className="p-4 border rounded-lg bg-background/50 space-y-4"
+                              >
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="font-semibold text-base">{group.name}</Label>
+                                    {/* Show pattern badge if selected */}
+                                    {currentSelection?.patternName && (
+                                      <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+                                        {currentSelection.patternName} {currentSelection.version && `(${currentSelection.version})`}
                                       </Badge>
-                                    );
-                                  })()}
-                                </div>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {(group.divisions || []).map(div => (
-                                    <Badge
-                                      key={`${div.assocId}-${div.division}`}
-                                      variant="secondary"
-                                      className="text-xs"
-                                    >
-                                      {div.division}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Pattern Selection - shows patterns based on group's level category */}
-                              <div>
-                                <Label className="text-sm text-muted-foreground mb-1 block">
-                                  Select Pattern {getGroupLevelCategory(group) !== 'ALL' && (
-                                    <span className={cn("ml-1 text-xs px-1 rounded", levelCategoryColors[getGroupLevelCategory(group)])}>
-                                      ({getGroupLevelCategory(group)} eligible)
-                                    </span>
-                                  )}
-                                </Label>
-                                <Select
-                                  value={
-                                    formData.patternSelections?.[disciplineIndex]?.[groupIndex] || ''
-                                  }
-                                  onValueChange={value =>
-                                    handlePatternSelection(disciplineIndex, groupIndex, value)
-                                  }
-                                >
-                                  <SelectTrigger className="bg-background">
-                                    <SelectValue placeholder="Select a pattern..." />
-                                  </SelectTrigger>
-                                  <SelectContent className="bg-background z-50">
-                                    {disciplinePatternSelections[disciplineIndex] ? (
-                                      getGroupDifficultyOptions(disciplinePatternSelections[disciplineIndex], discipline.name, group).map(p => (
-                                        <SelectItem key={p.id} value={p.id}>
-                                          <span className="flex items-center gap-2">
-                                            {p.name}
-                                            <Badge className={cn("text-[10px] px-1.5 py-0", difficultyColors[p.difficulty])}>
-                                              {p.difficulty}
-                                            </Badge>
-                                          </span>
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="no-pattern" disabled>Select main pattern first</SelectItem>
                                     )}
-                                  </SelectContent>
-                                </Select>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {(group.divisions || []).map(div => (
+                                      <Badge
+                                        key={`${div.assocId}-${div.division}`}
+                                        variant="secondary"
+                                        className="text-xs"
+                                      >
+                                        {div.division}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Pattern Selection - database driven */}
+                                <div>
+                                  <Label className="text-sm text-muted-foreground mb-1 block">
+                                    Select Pattern
+                                  </Label>
+                                  <Select
+                                    value={currentSelection?.patternId?.toString() || ''}
+                                    onValueChange={(value) => handleGroupPatternSelect(discipline.id, group.id, value)}
+                                    disabled={!maneuversRangeMap[discipline.id]}
+                                  >
+                                    <SelectTrigger className="bg-background">
+                                      <SelectValue placeholder={maneuversRangeMap[discipline.id] ? "Select a pattern..." : "Select Pattern Set first..."} />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background z-50">
+                                      {filteredPatterns.length > 0 ? (
+                                        filteredPatterns.map(p => (
+                                          <SelectItem key={p.id} value={p.id.toString()}>
+                                            <span className="flex items-center gap-2">
+                                              {p.pdf_file_name || `Pattern ${p.id}`}
+                                              {p.pattern_version && (
+                                                <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
+                                                  {p.pattern_version}
+                                                </Badge>
+                                              )}
+                                            </span>
+                                          </SelectItem>
+                                        ))
+                                      ) : (
+                                        <SelectItem value="no-pattern" disabled>
+                                          {maneuversRangeMap[discipline.id] ? 'No patterns for this range' : 'Select Pattern Set first'}
+                                        </SelectItem>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
-                             </div>
-                           ))}
-                         </div>
+                            );
+                          })}
                         </div>
+                      </div>
                     )}
                   </div>
                 );
