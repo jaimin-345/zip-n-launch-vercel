@@ -29,17 +29,35 @@ const PATTERN_VERSIONS = [
 ];
 
 // Helper to detect group type based on division names
+// Returns specific type only if ALL divisions match that type, otherwise returns 'ALL' (mixed)
 const detectGroupType = (divisions) => {
-  const divisionNames = (divisions || []).map(d => d.division?.toLowerCase() || '');
-  const hasGreen = divisionNames.some(n => n.includes('green'));
-  const hasNovice = divisionNames.some(n => n.includes('novice') || n.includes('rookie'));
-  const hasL1 = divisionNames.some(n => n.includes('level 1') || n.includes('l1'));
-  const hasBeginner = divisionNames.some(n => n.includes('beginner'));
-  const hasWalkTrot = divisionNames.some(n => n.includes('walk-trot') || n.includes('walk trot'));
+  if (!divisions || divisions.length === 0) return 'ALL';
   
-  if (hasGreen || hasNovice) return 'GR/NOV';
-  if (hasL1) return 'L1';
-  if (hasBeginner || hasWalkTrot) return 'Beginner';
+  const divisionNames = divisions.map(d => d.division?.toLowerCase() || '');
+  
+  // Check if each division belongs to a specific category
+  const categoryCheck = divisionNames.map(name => {
+    const isGreen = name.includes('green');
+    const isNovice = name.includes('novice') || name.includes('rookie');
+    const isL1 = name.includes('level 1') || name.includes('l1');
+    const isBeginner = name.includes('beginner');
+    const isWalkTrot = name.includes('walk-trot') || name.includes('walk trot');
+    
+    if (isGreen || isNovice) return 'GR/NOV';
+    if (isL1) return 'L1';
+    if (isBeginner || isWalkTrot) return 'Beginner';
+    return 'standard'; // Open, Amateur, Youth without level qualifiers
+  });
+  
+  // Get unique categories
+  const uniqueCategories = [...new Set(categoryCheck)];
+  
+  // If all divisions are the same specific category, return that category
+  if (uniqueCategories.length === 1 && uniqueCategories[0] !== 'standard') {
+    return uniqueCategories[0];
+  }
+  
+  // Mixed divisions or all standard = use ALL (universal pattern)
   return 'ALL';
 };
 
