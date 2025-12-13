@@ -488,9 +488,11 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Badge className="bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
-                                            {displayName}
-                                        </Badge>
+                                        <span className="inline-block">
+                                            <Badge className="bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
+                                                {displayName}
+                                            </Badge>
+                                        </span>
                                     </TooltipTrigger>
                                     <TooltipContent side="bottom" className="max-w-sm p-3 bg-popover text-popover-foreground border shadow-lg">
                                         {patternManeuvers.length > 0 ? (
