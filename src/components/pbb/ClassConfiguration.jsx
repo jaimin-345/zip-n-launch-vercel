@@ -72,22 +72,28 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
         const groupsWithPatterns = Object.entries(selections).filter(([_, sel]) => sel?.patternId || sel?.setNumber);
         if (groupsWithPatterns.length === 0) return null;
         
-        // Get unique pattern names used
-        const patternNames = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.patternName).filter(Boolean))];
-        const versions = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.version).filter(Boolean))];
-        
-        // Create a short display name (e.g., "PATTERN 1" from "WESTERN RIDING PATTERN 1")
-        const shortNames = patternNames.map(name => {
-            const match = name.match(/PATTERN\s*\d+/i);
-            return match ? match[0].toUpperCase() : name;
+        // Get all group pattern selections with their group names
+        const allPatternSelections = groupsWithPatterns.map(([groupId, sel]) => {
+            const patternName = sel.patternName || '';
+            const match = patternName.match(/PATTERN\s*\d+/i);
+            const shortName = match ? match[0].toUpperCase() : patternName;
+            const version = sel.version || '';
+            return {
+                groupId,
+                shortName,
+                version,
+                displayText: version ? `${shortName} (${version})` : shortName
+            };
         });
+        
+        // Create display text showing all patterns
+        const displayTexts = allPatternSelections.map(p => p.displayText).filter(Boolean);
         
         return {
             count: groupsWithPatterns.length,
-            patternNames,
-            versions,
-            displayText: shortNames.length > 0 ? shortNames[0] : null,
-            versionText: versions.length > 0 ? versions[0] : null
+            allPatterns: allPatternSelections,
+            displayText: displayTexts.join(' | '),
+            hasMultiple: displayTexts.length > 1
         };
     }, [pbbDiscipline?.id, formData?.patternSelections]);
     
@@ -236,15 +242,14 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                             </div>
                         </div>
                         
-                        {/* Pattern Selection Display */}
-                        {patternSelectionInfo && (
-                            <div className="flex items-center gap-1.5">
-                                <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
-                                    {patternSelectionInfo.displayText}
-                                </Badge>
-                                <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-xs">
-                                    {patternSelectionInfo.versionText}
-                                </Badge>
+                        {/* Pattern Selection Display - Show all group patterns */}
+                        {patternSelectionInfo && patternSelectionInfo.displayText && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                                {patternSelectionInfo.allPatterns?.map((pattern, idx) => (
+                                    <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
+                                        {pattern.displayText}
+                                    </Badge>
+                                ))}
                             </div>
                         )}
                         
