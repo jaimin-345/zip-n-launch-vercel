@@ -2495,6 +2495,7 @@ export type Database = {
           id: number
           page_no: number | null
           pattern_date: string | null
+          pattern_version: string | null
           pdf_file_name: string | null
         }
         Insert: {
@@ -2506,6 +2507,7 @@ export type Database = {
           id?: never
           page_no?: number | null
           pattern_date?: string | null
+          pattern_version?: string | null
           pdf_file_name?: string | null
         }
         Update: {
@@ -2517,6 +2519,7 @@ export type Database = {
           id?: never
           page_no?: number | null
           pattern_date?: string | null
+          pattern_version?: string | null
           pdf_file_name?: string | null
         }
         Relationships: []
