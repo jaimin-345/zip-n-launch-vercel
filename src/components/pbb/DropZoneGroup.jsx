@@ -10,7 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
@@ -485,34 +485,32 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     
                     {hasPattern && (
                         <div className="mt-2 flex items-center gap-2">
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="inline-block">
-                                            <Badge className="bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
-                                                {displayName}
-                                            </Badge>
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="max-w-sm p-3 bg-popover text-popover-foreground border shadow-lg">
-                                        {patternManeuvers.length > 0 ? (
-                                            <div className="space-y-1">
-                                                <p className="font-semibold text-sm mb-2">Pattern Instructions:</p>
-                                                <ul className="text-xs space-y-1">
-                                                    {patternManeuvers.map((m) => (
-                                                        <li key={m.step_no} className="flex gap-2">
-                                                            <span className="font-medium text-primary">{m.step_no}.</span>
-                                                            <span>{m.instruction}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        ) : (
-                                            <p className="text-xs text-muted-foreground">No instructions available</p>
-                                        )}
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                            <HoverCard>
+                                <HoverCardTrigger asChild>
+                                    <span className="inline-block cursor-pointer">
+                                        <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 transition-colors">
+                                            {displayName}
+                                        </Badge>
+                                    </span>
+                                </HoverCardTrigger>
+                                <HoverCardContent side="bottom" className="w-80 p-3">
+                                    {patternManeuvers.length > 0 ? (
+                                        <div className="space-y-1">
+                                            <p className="font-semibold text-sm mb-2">Pattern Instructions:</p>
+                                            <ul className="text-xs space-y-1">
+                                                {patternManeuvers.map((m) => (
+                                                    <li key={m.step_no} className="flex gap-2">
+                                                        <span className="font-medium text-primary">{m.step_no}.</span>
+                                                        <span>{m.instruction}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">No instructions available</p>
+                                    )}
+                                </HoverCardContent>
+                            </HoverCard>
                         </div>
                     )}
                 </div>
