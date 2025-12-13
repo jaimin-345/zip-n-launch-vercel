@@ -68,20 +68,26 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
         const selections = formData?.patternSelections?.[disciplineId];
         if (!selections) return null;
         
-        // Find the first group with a pattern selection
-        const groupsWithPatterns = Object.entries(selections).filter(([_, sel]) => sel?.setNumber && sel?.version);
+        // Find the first group with a pattern selection (check patternId or setNumber)
+        const groupsWithPatterns = Object.entries(selections).filter(([_, sel]) => sel?.patternId || sel?.setNumber);
         if (groupsWithPatterns.length === 0) return null;
         
-        // Get unique pattern sets used
-        const patternSets = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.setNumber))];
-        const versions = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.version))];
+        // Get unique pattern names used
+        const patternNames = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.patternName).filter(Boolean))];
+        const versions = [...new Set(groupsWithPatterns.map(([_, sel]) => sel.version).filter(Boolean))];
+        
+        // Create a short display name (e.g., "PATTERN 1" from "WESTERN RIDING PATTERN 1")
+        const shortNames = patternNames.map(name => {
+            const match = name.match(/PATTERN\s*\d+/i);
+            return match ? match[0].toUpperCase() : name;
+        });
         
         return {
             count: groupsWithPatterns.length,
-            patternSets,
+            patternNames,
             versions,
-            displayText: patternSets.map(set => `Pattern ${set}`).join(', '),
-            versionText: versions.join(', ')
+            displayText: shortNames.length > 0 ? shortNames[0] : null,
+            versionText: versions.length > 0 ? versions[0] : null
         };
     }, [pbbDiscipline?.id, formData?.patternSelections]);
     
