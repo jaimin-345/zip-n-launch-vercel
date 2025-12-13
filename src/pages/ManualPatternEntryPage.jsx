@@ -39,10 +39,19 @@ const ManualPatternEntryPage = () => {
         discipline: '',
         division: '',
         division_level: '',
+        pattern_version: '',
         pattern_date: null,
         pdf_file_name: '',
         page_no: '',
     });
+
+    const patternVersionOptions = [
+        { value: 'ALL', label: 'ALL', color: 'bg-blue-100 text-blue-700' },
+        { value: 'GR/NOV', label: 'GR/NOV', color: 'bg-green-100 text-green-700' },
+        { value: 'L1', label: 'L1', color: 'bg-purple-100 text-purple-700' },
+        { value: 'Beginner', label: 'Beginner', color: 'bg-orange-100 text-orange-700' },
+        { value: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-700' },
+    ];
     const [maneuvers, setManeuvers] = useState([{ step_no: 1, instruction: '' }]);
     const [images, setImages] = useState([]);
 
@@ -91,7 +100,7 @@ const ManualPatternEntryPage = () => {
     const resetForm = () => {
         setFormData({
             association_name: '', discipline: '', division: '', division_level: '',
-            pattern_date: null, pdf_file_name: '', page_no: '',
+            pattern_version: '', pattern_date: null, pdf_file_name: '', page_no: '',
         });
         setManeuvers([{ step_no: 1, instruction: '' }]);
         setImages([]);
@@ -230,6 +239,7 @@ const ManualPatternEntryPage = () => {
             discipline: pattern.discipline,
             division: pattern.division,
             division_level: pattern.division_level || '',
+            pattern_version: pattern.pattern_version || '',
             pattern_date: pattern.pattern_date,
             pdf_file_name: pattern.pdf_file_name || '',
             page_no: pattern.page_no || '',
@@ -333,6 +343,16 @@ const ManualPatternEntryPage = () => {
                                 </Select>
                                 <Input name="division" placeholder="Division*" value={formData.division} onChange={handleInputChange} />
                                 <Input name="division_level" placeholder="Division Level (Optional)" value={formData.division_level} onChange={handleInputChange} />
+                                <Select name="pattern_version" onValueChange={value => setFormData(p => ({...p, pattern_version: value}))} value={formData.pattern_version}>
+                                    <SelectTrigger><SelectValue placeholder="Select Pattern Version" /></SelectTrigger>
+                                    <SelectContent>
+                                        {patternVersionOptions.map(opt => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                                <span className={cn("px-2 py-0.5 rounded text-xs font-medium", opt.color)}>{opt.label}</span>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button variant={"outline"} className={cn("justify-start text-left font-normal", !formData.pattern_date && "text-muted-foreground")}>
