@@ -247,6 +247,9 @@ export const usePatternBookBuilder = (projectId) => {
             disciplines: prev.disciplines.map(d => ({
               ...d,
               divisions: {},
+              divisionOrder: [],
+              divisionDates: {},
+              divisionPrintTitles: {},
               patternGroups: [{ id: `pg-${Date.now()}`, name: 'Group 1', divisions: [], competitionDate: null }],
             })),
           };

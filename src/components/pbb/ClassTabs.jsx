@@ -211,6 +211,30 @@ import React, { useMemo } from 'react';
                                 newDivisionOrder = newDivisionOrder.filter(d => d !== divisionIdentifier);
                             }
 
+                            // When unchecking, also remove division from pattern groups
+                            let newPatternGroups = disc.patternGroups || [];
+                            if (!isChecked) {
+                                newPatternGroups = newPatternGroups.map(group => ({
+                                    ...group,
+                                    divisions: (group.divisions || []).filter(d => d.id !== divisionIdentifier)
+                                }));
+                                
+                                // Also remove from divisionDates and divisionPrintTitles
+                                const newDivisionDates = { ...(disc.divisionDates || {}) };
+                                const newDivisionPrintTitles = { ...(disc.divisionPrintTitles || {}) };
+                                delete newDivisionDates[divisionIdentifier];
+                                delete newDivisionPrintTitles[divisionIdentifier];
+                                
+                                return { 
+                                    ...disc, 
+                                    divisions: newDivisions, 
+                                    divisionOrder: newDivisionOrder, 
+                                    patternGroups: newPatternGroups,
+                                    divisionDates: newDivisionDates,
+                                    divisionPrintTitles: newDivisionPrintTitles
+                                };
+                            }
+
                             return { ...disc, divisions: newDivisions, divisionOrder: newDivisionOrder };
                         }
                         return disc;
