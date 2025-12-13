@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
     import { motion } from 'framer-motion';
     import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar, Users, UserCheck, Trash2, Trophy, MapPin, Eye, AlertCircle } from 'lucide-react';
+import { Calendar, Users, UserCheck, Trash2, Trophy, MapPin, Eye, AlertCircle, Loader2 } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { supabase } from '@/lib/supabaseClient';
 
 // Pattern Sets with version categories (ALL = universal, GR/NOV = Green/Novice simplified)
 const PATTERN_SETS = [
@@ -64,11 +65,16 @@ const detectGroupType = (divisions) => {
   return 'ALL';
 };
 
-    export const Step5_PatternAndLayout = ({ formData, setFormData }) => {
+    export const Step5_PatternAndLayout = ({ formData, setFormData, associationsData = [] }) => {
   const { toast } = useToast();
   const [calendarOpen, setCalendarOpen] = React.useState({});
   const [openAccordions, setOpenAccordions] = React.useState([]);
   const disciplineRefs = React.useRef({});
+  
+  // State for database patterns per discipline
+  const [dbPatternsMap, setDbPatternsMap] = useState({});
+  const [loadingPatterns, setLoadingPatterns] = useState({});
+  const [maneuversRangeMap, setManeuversRangeMap] = useState({});
 
   // Helper to get pattern selection - checks both ID-based (Step 3) and index-based keys
   const getPatternSelection = (disciplineId, groupId, disciplineIndex, groupIndex) => {
@@ -99,6 +105,71 @@ const detectGroupType = (divisions) => {
       return { ...prev, patternSelections: newSelections };
     });
   };
+  
+  // Fetch patterns from database for a discipline
+  const fetchPatternsForDiscipline = async (disciplineId, disciplineName, associationName) => {
+    if (dbPatternsMap[disciplineId]) return; // Already fetched
+    
+    setLoadingPatterns(prev => ({ ...prev, [disciplineId]: true }));
+    try {
+      let query = supabase
+        .from('tbl_patterns')
+        .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
+        .ilike('discipline', `%${disciplineName}%`);
+      
+      if (associationName) {
+        query = query.ilike('association_name', `%${associationName}%`);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      setDbPatternsMap(prev => ({ ...prev, [disciplineId]: data || [] }));
+    } catch (err) {
+      console.error('Error fetching patterns:', err);
+      setDbPatternsMap(prev => ({ ...prev, [disciplineId]: [] }));
+    } finally {
+      setLoadingPatterns(prev => ({ ...prev, [disciplineId]: false }));
+    }
+  };
+  
+  // Get association name for a discipline
+  const getAssociationName = (discipline) => {
+    if (discipline?.association_id) {
+      const assoc = associationsData?.find(a => a.id === discipline.association_id);
+      if (assoc) return assoc.name || assoc.abbreviation;
+    }
+    return null;
+  };
+  
+  // Sync maneuversRangeMap with formData on mount
+  useEffect(() => {
+    const newManeuversMap = {};
+    const patternSelections = formData.patternSelections || {};
+    
+    Object.keys(patternSelections).forEach(disciplineId => {
+      const disciplineSelections = patternSelections[disciplineId] || {};
+      Object.keys(disciplineSelections).forEach(groupId => {
+        const selection = disciplineSelections[groupId];
+        if (selection?.maneuversRange) {
+          newManeuversMap[`${disciplineId}-${groupId}`] = selection.maneuversRange;
+        }
+      });
+    });
+    
+    if (Object.keys(newManeuversMap).length > 0) {
+      setManeuversRangeMap(newManeuversMap);
+    }
+  }, [formData.patternSelections]);
+  
+  // Pre-fetch patterns for all pattern disciplines on mount
+  useEffect(() => {
+    const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+    patternDisciplines.forEach(discipline => {
+      const associationName = getAssociationName(discipline);
+      fetchPatternsForDiscipline(discipline.id, discipline.name, associationName);
+    });
+  }, [formData.disciplines]);
 
   const handleDueDateChange = (disciplineIndex, groupIndex, date) => {
     setFormData(prev => {
@@ -192,15 +263,16 @@ const detectGroupType = (divisions) => {
         ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
         : 'Dates not set';
 
-      // Check if a discipline is complete (all groups have patterns assigned with setNumber and version)
+      // Check if a discipline is complete (all groups have patterns assigned)
       const isDisciplineComplete = (pbbDiscipline, disciplineIndex) => {
         const groups = pbbDiscipline.patternGroups || [];
         if (groups.length === 0) return false;
         
         return groups.every((group, groupIndex) => {
           const selection = getPatternSelection(pbbDiscipline.id, group.id, disciplineIndex, groupIndex);
-          // Check if selection has both setNumber and version
-          return selection?.setNumber && selection?.version;
+          // Check if selection has both maneuversRange and patternId (new format from Step 3)
+          // OR setNumber and version (legacy format)
+          return (selection?.maneuversRange && selection?.patternId) || (selection?.setNumber && selection?.version);
         });
       };
 
@@ -358,9 +430,11 @@ const detectGroupType = (divisions) => {
                   {patternDisciplines.map((pbbDiscipline) => {
                     const originalDisciplineIndex = (formData.disciplines || []).findIndex(fd => fd.id === pbbDiscipline.id);
                     const isComplete = isDisciplineComplete(pbbDiscipline, originalDisciplineIndex);
-                    const patternCount = (pbbDiscipline.patternGroups || []).filter((_, gIdx) => 
-                      formData.patternSelections?.[originalDisciplineIndex]?.[gIdx]
-                    ).length;
+                    // Count patterns using ID-based keys (from Step 3) or index-based (legacy)
+                    const patternCount = (pbbDiscipline.patternGroups || []).filter((group, gIdx) => {
+                      const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx);
+                      return selection?.patternId || selection?.patternName || selection?.setNumber;
+                    }).length;
                     
                     return (
                       <div
@@ -404,6 +478,9 @@ const detectGroupType = (divisions) => {
                   {patternDisciplines.map((pbbDiscipline) => {
                     const originalDisciplineIndex = (formData.disciplines || []).findIndex(d => d.id === pbbDiscipline.id);
                     const isComplete = isDisciplineComplete(pbbDiscipline, originalDisciplineIndex);
+                    const associationName = getAssociationName(pbbDiscipline);
+                    const disciplineDbPatterns = dbPatternsMap[pbbDiscipline.id] || [];
+                    const isLoadingDiscipline = loadingPatterns[pbbDiscipline.id];
                     
                     // Filter judges by this discipline's association
                     const disciplineJudges = [];
@@ -416,12 +493,17 @@ const detectGroupType = (divisions) => {
                       });
                     }
                     
+                    // Get unique maneuvers ranges from database patterns
+                    const availableManeuversRanges = [...new Set(disciplineDbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
+                    
                     return (
                     <AccordionItem 
                       key={originalDisciplineIndex} 
                       value={`discipline-${originalDisciplineIndex}`}
                       className="border rounded-lg"
                       ref={(el) => disciplineRefs.current[originalDisciplineIndex] = el}
+                      onFocus={() => fetchPatternsForDiscipline(pbbDiscipline.id, pbbDiscipline.name, associationName)}
+                      onMouseEnter={() => fetchPatternsForDiscipline(pbbDiscipline.id, pbbDiscipline.name, associationName)}
                     >
                       <AccordionTrigger className="px-4 hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-2">
@@ -451,7 +533,14 @@ const detectGroupType = (divisions) => {
                       </AccordionTrigger>
                       <AccordionContent className="px-4 pb-4">
                       <div className="space-y-6">
-                        {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
+                        {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
+                          const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex);
+                          const selectedManeuversRange = currentSelection?.maneuversRange || maneuversRangeMap[`${pbbDiscipline.id}-${group.id}`] || '';
+                          const filteredPatterns = selectedManeuversRange 
+                            ? disciplineDbPatterns.filter(p => p.maneuvers_range === selectedManeuversRange)
+                            : [];
+                          
+                          return (
                           <div key={group.id} className="p-4 border rounded-lg bg-muted/30 space-y-4">
                             <div className="mb-3 flex items-start justify-between">
                               <div className="flex-1">
@@ -508,14 +597,13 @@ const detectGroupType = (divisions) => {
                                 </Popover>
                               </div>
                               
-                              {/* Two-step Pattern Selection: Set → Version */}
+                              {/* Two-step Pattern Selection: Maneuvers Range → Select Pattern */}
                               <div className="col-span-1 md:col-span-2 space-y-3">
                                 <Label className="text-sm font-medium">Pattern Selection</Label>
                                 
                                 {/* Suggested version based on group divisions */}
                                 {(() => {
                                   const suggestedVersion = detectGroupType(group.divisions);
-                                  const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex);
                                   return suggestedVersion !== 'ALL' && (
                                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                                       <AlertCircle className="h-3 w-3" />
@@ -525,87 +613,117 @@ const detectGroupType = (divisions) => {
                                 })()}
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {/* Step 1: Select Pattern Set */}
+                                  {/* Step 1: Pattern Set (Maneuvers) - Database driven */}
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">1. Pattern Set</Label>
+                                    <Label className="text-xs text-muted-foreground">1. Pattern Set (Maneuvers)</Label>
                                     <Select 
-                                      value={getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex)?.setNumber?.toString() || ''}
+                                      value={selectedManeuversRange}
                                       onValueChange={(value) => {
-                                        const setNum = parseInt(value);
-                                        const suggestedVersion = detectGroupType(group.divisions);
+                                        // Update local state
+                                        setManeuversRangeMap(prev => ({ ...prev, [`${pbbDiscipline.id}-${group.id}`]: value }));
+                                        // Update formData with maneuversRange, clear patternId
                                         setPatternSelection(pbbDiscipline.id, group.id, {
-                                          setNumber: setNum,
-                                          version: suggestedVersion,
-                                          patternId: `pattern-${setNum}-${suggestedVersion}`
+                                          maneuversRange: value,
+                                          patternId: null,
+                                          patternName: null,
+                                          version: null
                                         });
                                       }}
                                     >
                                       <SelectTrigger className="mt-1">
-                                        <SelectValue placeholder="Select pattern set..." />
+                                        {isLoadingDiscipline ? (
+                                          <div className="flex items-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Loading...</span>
+                                          </div>
+                                        ) : (
+                                          <SelectValue placeholder="Select maneuvers range..." />
+                                        )}
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {PATTERN_SETS.map(set => (
-                                          <SelectItem key={set.setNumber} value={set.setNumber.toString()}>
-                                            {pbbDiscipline.name} {set.name}
-                                          </SelectItem>
-                                        ))}
+                                        {availableManeuversRanges.length > 0 ? (
+                                          availableManeuversRanges.map(range => (
+                                            <SelectItem key={range} value={range}>
+                                              {pbbDiscipline.name} Pattern {range}
+                                            </SelectItem>
+                                          ))
+                                        ) : (
+                                          // Fallback to static options if no DB patterns
+                                          PATTERN_SETS.map(set => (
+                                            <SelectItem key={set.setNumber} value={set.setNumber.toString()}>
+                                              {pbbDiscipline.name} {set.name}
+                                            </SelectItem>
+                                          ))
+                                        )}
                                       </SelectContent>
                                     </Select>
                                   </div>
                                   
-                                  {/* Step 2: Select Pattern Version */}
+                                  {/* Step 2: Select Pattern - Database driven */}
                                   <div>
-                                    <Label className="text-xs text-muted-foreground">2. Pattern Version</Label>
-                                    {(() => {
-                                      const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex);
-                                      return (
-                                        <Select 
-                                          value={currentSelection?.version || ''}
-                                          onValueChange={(value) => {
-                                            setPatternSelection(pbbDiscipline.id, group.id, {
-                                              ...currentSelection,
-                                              version: value,
-                                              patternId: `pattern-${currentSelection?.setNumber || 1}-${value}`
-                                            });
-                                          }}
-                                          disabled={!currentSelection?.setNumber}
-                                        >
-                                          <SelectTrigger className="mt-1">
-                                            <SelectValue placeholder="Select version..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {PATTERN_VERSIONS.map(version => (
-                                              <SelectItem key={version.id} value={version.id}>
-                                                <div className="flex items-center gap-2">
-                                                  <span>{version.label}</span>
-                                                  <Badge variant="outline" className={`text-xs ${version.color}`}>
-                                                    {version.description}
+                                    <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
+                                    <Select 
+                                      value={currentSelection?.patternId?.toString() || ''}
+                                      onValueChange={(patternId) => {
+                                        const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
+                                        setPatternSelection(pbbDiscipline.id, group.id, {
+                                          maneuversRange: selectedManeuversRange,
+                                          patternId: parseInt(patternId),
+                                          patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
+                                          version: selectedPattern?.pattern_version || 'ALL'
+                                        });
+                                      }}
+                                      disabled={!selectedManeuversRange}
+                                    >
+                                      <SelectTrigger className="mt-1">
+                                        <SelectValue placeholder="Select pattern..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {filteredPatterns.length > 0 ? (
+                                          filteredPatterns.map(pattern => (
+                                            <SelectItem key={pattern.id} value={pattern.id.toString()}>
+                                              <div className="flex items-center gap-2">
+                                                <span>{pattern.pdf_file_name || `Pattern ${pattern.id}`}</span>
+                                                {pattern.pattern_version && (
+                                                  <Badge variant="outline" className="text-xs">
+                                                    {pattern.pattern_version}
                                                   </Badge>
-                                                </div>
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      );
-                                    })()}
+                                                )}
+                                              </div>
+                                            </SelectItem>
+                                          ))
+                                        ) : (
+                                          // Fallback to static version options
+                                          PATTERN_VERSIONS.map(version => (
+                                            <SelectItem key={version.id} value={version.id}>
+                                              <div className="flex items-center gap-2">
+                                                <span>{version.label}</span>
+                                                <Badge variant="outline" className={`text-xs ${version.color}`}>
+                                                  {version.description}
+                                                </Badge>
+                                              </div>
+                                            </SelectItem>
+                                          ))
+                                        )}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                 </div>
                                 
                                 {/* Show selected pattern summary */}
-                                {(() => {
-                                  const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex);
-                                  return currentSelection?.setNumber && (
-                                    <div className="text-sm bg-muted/50 p-2 rounded flex items-center justify-between">
-                                      <span>
-                                        <strong>{pbbDiscipline.name} Pattern {currentSelection.setNumber}</strong>
-                                        {' '}
-                                        <Badge className={PATTERN_VERSIONS.find(v => v.id === currentSelection.version)?.color || ''}>
-                                          {currentSelection.version || 'ALL'}
+                                {currentSelection?.patternName && (
+                                  <div className="text-sm bg-muted/50 p-2 rounded flex items-center justify-between">
+                                    <span>
+                                      <strong>{currentSelection.patternName}</strong>
+                                      {' '}
+                                      {currentSelection.version && (
+                                        <Badge className={PATTERN_VERSIONS.find(v => v.id === currentSelection.version)?.color || 'bg-blue-100 text-blue-800'}>
+                                          {currentSelection.version}
                                         </Badge>
-                                      </span>
-                                    </div>
-                                  );
-                                })()}
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -654,7 +772,7 @@ const detectGroupType = (divisions) => {
                               </div>
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                       </AccordionContent>
                     </AccordionItem>
