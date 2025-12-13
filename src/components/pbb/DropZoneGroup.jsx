@@ -363,6 +363,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 return { ...prev, patternSelections: newSelections };
             });
         }
+    };
+
     const handlePatternSelect = (patternId) => {
         if (!disciplineId || !setFormData) return;
         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
