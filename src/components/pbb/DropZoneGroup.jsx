@@ -10,6 +10,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
@@ -245,6 +246,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [dbPatterns, setDbPatterns] = useState([]);
     const [loadingPatterns, setLoadingPatterns] = useState(false);
     const [selectedManeuversRange, setSelectedManeuversRange] = useState('');
+    const [patternManeuvers, setPatternManeuvers] = useState([]);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
     // Get association name from discipline or divisions
@@ -304,6 +306,31 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             setFilteredPatterns([]);
         }
     }, [selectedManeuversRange, dbPatterns]);
+
+    // Fetch maneuvers when pattern is selected
+    useEffect(() => {
+        const fetchManeuvers = async () => {
+            const patternId = currentPatternSelection?.patternId;
+            if (!patternId) {
+                setPatternManeuvers([]);
+                return;
+            }
+            try {
+                const { data, error } = await supabase
+                    .from('tbl_maneuvers')
+                    .select('step_no, instruction')
+                    .eq('pattern_id', patternId)
+                    .order('step_no');
+                
+                if (error) throw error;
+                setPatternManeuvers(data || []);
+            } catch (err) {
+                console.error('Error fetching maneuvers:', err);
+                setPatternManeuvers([]);
+            }
+        };
+        fetchManeuvers();
+    }, [currentPatternSelection?.patternId]);
 
     // Get unique maneuvers ranges from database patterns
     const availableManeuversRanges = [...new Set(dbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
@@ -458,9 +485,32 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     
                     {hasPattern && (
                         <div className="mt-2 flex items-center gap-2">
-                            <Badge className="bg-green-100 text-green-800 border-green-200">
-                                {displayName}
-                            </Badge>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge className="bg-primary/10 text-primary border-primary/20 cursor-pointer hover:bg-primary/20 transition-colors">
+                                            {displayName}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-sm p-3 bg-popover text-popover-foreground border shadow-lg">
+                                        {patternManeuvers.length > 0 ? (
+                                            <div className="space-y-1">
+                                                <p className="font-semibold text-sm mb-2">Pattern Instructions:</p>
+                                                <ul className="text-xs space-y-1">
+                                                    {patternManeuvers.map((m) => (
+                                                        <li key={m.step_no} className="flex gap-2">
+                                                            <span className="font-medium text-primary">{m.step_no}.</span>
+                                                            <span>{m.instruction}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">No instructions available</p>
+                                        )}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                     )}
                 </div>
