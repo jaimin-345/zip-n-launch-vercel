@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye } from 'lucide-react';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -43,7 +42,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [dbPatterns, setDbPatterns] = useState({});
   const [loadingPatterns, setLoadingPatterns] = useState({});
   const [maneuversRangeMap, setManeuversRangeMap] = useState({});
-  const [mainPatternSelectOpen, setMainPatternSelectOpen] = useState({});
 
   // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
@@ -215,47 +213,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   // Get pattern selection from formData
   const getPatternSelection = (disciplineId, groupId) => {
     return formData.patternSelections?.[disciplineId]?.[groupId];
-  };
-
-  // Get main discipline-level pattern selections (multiple)
-  const getMainPatternSelections = (disciplineId) => {
-    return formData.mainPatternSelections?.[disciplineId] || [];
-  };
-
-  // Handle main pattern multi-select toggle
-  const handleMainPatternToggle = (disciplineId, patternId) => {
-    const patterns = dbPatterns[disciplineId] || [];
-    const selectedPattern = patterns.find(p => p.id.toString() === patternId.toString());
-    
-    setFormData(prev => {
-      const newMainSelections = { ...(prev.mainPatternSelections || {}) };
-      const currentSelections = newMainSelections[disciplineId] || [];
-      
-      const existingIndex = currentSelections.findIndex(s => s.patternId?.toString() === patternId.toString());
-      
-      if (existingIndex >= 0) {
-        // Remove if already selected
-        newMainSelections[disciplineId] = currentSelections.filter((_, i) => i !== existingIndex);
-      } else {
-        // Add to selections
-        newMainSelections[disciplineId] = [
-          ...currentSelections,
-          {
-            patternId: parseInt(patternId),
-            patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-            version: selectedPattern?.pattern_version || 'ALL'
-          }
-        ];
-      }
-      
-      return { ...prev, mainPatternSelections: newMainSelections };
-    });
-  };
-
-  // Check if a pattern is selected for main discipline level
-  const isMainPatternSelected = (disciplineId, patternId) => {
-    const selections = getMainPatternSelections(disciplineId);
-    return selections.some(s => s.patternId?.toString() === patternId.toString());
   };
 
   // Check if discipline is complete
@@ -661,50 +618,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </SelectContent>
                         </Select>
                         
-                        {/* Main Select Pattern - Multi-select dropdown */}
-                        <Popover 
-                          open={mainPatternSelectOpen[discipline.id] || false} 
-                          onOpenChange={(open) => setMainPatternSelectOpen(prev => ({ ...prev, [discipline.id]: open }))}
-                        >
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-[220px] justify-between bg-background">
-                              {getMainPatternSelections(discipline.id).length > 0 
-                                ? `${getMainPatternSelections(discipline.id).length} Pattern(s) Selected`
-                                : "Select Pattern..."}
-                              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-2 bg-background z-50" align="start">
-                            <div className="space-y-1 max-h-[300px] overflow-y-auto">
-                              {loadingPatterns[discipline.id] ? (
-                                <p className="text-sm text-muted-foreground p-2">Loading patterns...</p>
-                              ) : getFilteredPatterns(discipline.id).length > 0 ? (
-                                getFilteredPatterns(discipline.id).map(pattern => (
-                                  <label 
-                                    key={pattern.id} 
-                                    className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                  >
-                                    <Checkbox 
-                                      checked={isMainPatternSelected(discipline.id, pattern.id)}
-                                      onCheckedChange={() => handleMainPatternToggle(discipline.id, pattern.id)}
-                                    />
-                                    <span className="text-sm">
-                                      {pattern.pdf_file_name?.trim() || `Pattern ${pattern.id}`}
-                                      {pattern.pattern_version && (
-                                        <span className="text-muted-foreground ml-1">({pattern.pattern_version})</span>
-                                      )}
-                                    </span>
-                                  </label>
-                                ))
-                              ) : !maneuversRangeMap[discipline.id] ? (
-                                <p className="text-sm text-muted-foreground p-2">Select Pattern Set first</p>
-                              ) : (
-                                <p className="text-sm text-muted-foreground p-2">No patterns available</p>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                        
                         <Button 
                           onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
                           className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
@@ -712,23 +625,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           Assign Pattern Selection
                         </Button>
 
-                        {/* Display main pattern selections (multi-select) */}
-                        {getMainPatternSelections(discipline.id).length > 0 && (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {getMainPatternSelections(discipline.id).map((sel, idx) => {
-                              const patternName = sel.patternName || '';
-                              const match = patternName.match(/PATTERN\s*\d+/i);
-                              const shortName = match ? match[0].toUpperCase() : patternName;
-                              const version = sel.version || '';
-                              
-                              return (
+                        {/* Display pattern badges from Step 3 selections */}
+                        {(() => {
+                          const groupSelections = groups.map((group) => {
+                            const selection = getPatternSelection(discipline.id, group.id);
+                            if (!selection?.patternId && !selection?.patternName) return null;
+                            
+                            const patternName = selection.patternName || '';
+                            const match = patternName.match(/PATTERN\s*\d+/i);
+                            const shortName = match ? match[0].toUpperCase() : patternName;
+                            const version = selection.version || '';
+                            
+                            return {
+                              groupName: group.name,
+                              displayText: version ? `${shortName} (${version})` : shortName
+                            };
+                          }).filter(Boolean);
+                          
+                          return groupSelections.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {groupSelections.map((sel, idx) => (
                                 <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
-                                  {version ? `${shortName} (${version})` : shortName}
+                                  {sel.displayText}
                                 </Badge>
-                              );
-                            })}
-                          </div>
-                        )}
+                              ))}
+                            </div>
+                          );
+                        })()}
 
                         {/* Display assigned labels with values */}
                         {formData.judgeSelections?.[disciplineIndex] && (
