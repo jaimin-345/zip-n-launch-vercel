@@ -37,14 +37,15 @@ const detectGroupType = (divisions) => {
   
   // Check if each division belongs to a specific category
   const categoryCheck = divisionNames.map(name => {
+    const isL1 = name.includes('level 1') || name.includes('l1 ') || name.match(/\bl1\b/);
     const isGreen = name.includes('green');
     const isNovice = name.includes('novice') || name.includes('rookie');
-    const isL1 = name.includes('level 1') || name.includes('l1');
     const isBeginner = name.includes('beginner');
     const isWalkTrot = name.includes('walk-trot') || name.includes('walk trot');
     
-    if (isGreen || isNovice) return 'GR/NOV';
+    // L1 takes priority - if explicitly "Level 1" in name, it's L1 even if also has "Green"
     if (isL1) return 'L1';
+    if (isGreen || isNovice) return 'GR/NOV';
     if (isBeginner || isWalkTrot) return 'Beginner';
     return 'standard'; // Open, Amateur, Youth without level qualifiers
   });
