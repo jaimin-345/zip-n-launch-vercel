@@ -241,10 +241,18 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         transition,
     };
 
-    // State for database patterns
+    // Get current pattern selection from formData for this group
+    const disciplineId = pbbDiscipline?.id;
+    const currentPatternSelection = disciplineId
+        ? formData?.patternSelections?.[disciplineId]?.[group.id]
+        : null;
+    const currentPatternId = currentPatternSelection?.patternId;
+    const savedManeuversRange = currentPatternSelection?.maneuversRange || '';
+
+    // State for database patterns - initialize from saved data
     const [dbPatterns, setDbPatterns] = useState([]);
     const [loadingPatterns, setLoadingPatterns] = useState(false);
-    const [selectedManeuversRange, setSelectedManeuversRange] = useState('');
+    const [selectedManeuversRange, setSelectedManeuversRange] = useState(savedManeuversRange);
     const [patternManeuvers, setPatternManeuvers] = useState([]);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
@@ -266,12 +274,13 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const associationName = getAssociationName();
 
-    // Current pattern selection for this group/discipline
-    const disciplineId = pbbDiscipline?.id;
-    const currentPatternSelection = disciplineId
-        ? formData?.patternSelections?.[disciplineId]?.[group.id]
-        : null;
-    const currentPatternId = currentPatternSelection?.patternId;
+    // Sync local state with saved formData when returning to step
+    useEffect(() => {
+        if (savedManeuversRange && savedManeuversRange !== selectedManeuversRange) {
+            setSelectedManeuversRange(savedManeuversRange);
+        }
+    }, [savedManeuversRange]);
+
 
     // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
