@@ -318,12 +318,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
                     
-                    {suggestedVersion !== 'ALL' && (
-                        <div className="text-xs text-muted-foreground flex items-center gap-2 mb-2">
-                            <AlertCircle className="h-3 w-3" />
-                            Suggested: <Badge variant="outline" className="text-xs">{suggestedVersion}</Badge> based on divisions
-                        </div>
-                    )}
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 mb-2">
+                        <AlertCircle className="h-3 w-3" />
+                        Suggested: <Badge variant="outline" className="text-xs">{suggestedVersion}</Badge> based on divisions
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-3">
                         {/* Pattern Set Dropdown */}
