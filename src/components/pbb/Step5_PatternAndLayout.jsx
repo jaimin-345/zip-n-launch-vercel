@@ -508,7 +508,38 @@ const detectGroupType = (divisions) => {
                       <AccordionTrigger className="px-4 hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-2">
                           <h4 className="font-bold text-md">{pbbDiscipline.name}</h4>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Show all group pattern selections from Step 3 data */}
+                            {(() => {
+                              const groupSelections = (pbbDiscipline.patternGroups || []).map((group, gIdx) => {
+                                const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx);
+                                if (!selection?.patternId && !selection?.patternName) return null;
+                                
+                                const patternName = selection.patternName || '';
+                                const match = patternName.match(/PATTERN\s*\d+/i);
+                                const shortName = match ? match[0].toUpperCase() : patternName;
+                                const version = selection.version || '';
+                                const maneuversRange = selection.maneuversRange || '';
+                                
+                                return {
+                                  groupName: group.name,
+                                  shortName,
+                                  version,
+                                  maneuversRange,
+                                  displayText: version ? `${shortName} (${version})` : shortName
+                                };
+                              }).filter(Boolean);
+                              
+                              return groupSelections.length > 0 && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {groupSelections.map((sel, idx) => (
+                                    <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
+                                      {sel.displayText}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                             {isComplete && (
                               <Button
                                 variant="ghost"
