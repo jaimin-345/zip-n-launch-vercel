@@ -4,12 +4,13 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle } from 'lucide-react';
+import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
@@ -29,39 +30,6 @@ const PATTERN_VERSIONS = [
   { id: 'Beginner', label: 'Beginner', description: 'For beginner classes', color: 'bg-purple-100 text-purple-800' },
 ];
 
-// Helper to detect group type based on division names
-// Returns specific type only if ALL divisions match that type, otherwise returns 'ALL' (mixed)
-const detectGroupType = (divisions) => {
-  if (!divisions || divisions.length === 0) return 'ALL';
-  
-  const divisionNames = divisions.map(d => d.division?.toLowerCase() || '');
-  
-  // Check if each division belongs to a specific category
-  const categoryCheck = divisionNames.map(name => {
-    const isL1 = name.includes('level 1') || name.includes('l1 ') || name.match(/\bl1\b/);
-    const isGreen = name.includes('green');
-    const isNovice = name.includes('novice') || name.includes('rookie');
-    const isBeginner = name.includes('beginner');
-    const isWalkTrot = name.includes('walk-trot') || name.includes('walk trot');
-    
-    // L1 takes priority - if explicitly "Level 1" in name, it's L1 even if also has "Green"
-    if (isL1) return 'L1';
-    if (isGreen || isNovice) return 'GR/NOV';
-    if (isBeginner || isWalkTrot) return 'Beginner';
-    return 'standard'; // Open, Amateur, Youth without level qualifiers
-  });
-  
-  // Get unique categories
-  const uniqueCategories = [...new Set(categoryCheck)];
-  
-  // If all divisions are the same specific category, return that category
-  if (uniqueCategories.length === 1 && uniqueCategories[0] !== 'standard') {
-    return uniqueCategories[0];
-  }
-  
-  // Mixed divisions or all standard = use ALL (universal pattern)
-  return 'ALL';
-};
 
 const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
@@ -390,7 +358,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         });
     };
 
-    const suggestedVersion = detectGroupType(group.divisions);
     const hasPattern = currentPatternSelection?.patternId;
     const displayName = hasPattern 
         ? currentPatternSelection.patternName || `Pattern ${currentPatternSelection.patternId}`
@@ -422,13 +389,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             {group.divisions.length > 0 && (
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
-                    
-                    <div className="text-xs text-muted-foreground flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-3 w-3" />
-                        Suggested: <Badge variant="outline" className="text-xs">{suggestedVersion}</Badge> based on divisions
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
+
+                    <div className="grid grid-cols-2 gap-3 mb-2">
                         {/* Maneuvers Range Dropdown (1-9, 1-15, 1-20) */}
                         <div>
                             <Label className="text-xs text-muted-foreground">1. Pattern Set (Maneuvers)</Label>
@@ -494,12 +456,33 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     {hasPattern && (
                         <div className="mt-2 flex items-center gap-2">
                             <Badge
-                                className="bg-primary/10 text-primary border-primary/20 cursor-default"
-                                title={patternManeuvers.length > 0
-                                    ? patternManeuvers.map((m) => `${m.step_no}. ${m.instruction}`).join('\n')
-                                    : 'No instructions available'}
+                                variant="secondary"
+                                className="flex items-center gap-2 pr-1 h-7"
                             >
                                 {displayName}
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full hover:bg-background/20 ml-1">
+                                            <Eye className="h-3 w-3" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80" align="start">
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium leading-none border-b pb-2">Pattern Maneuvers</h4>
+                                            <div className="text-sm text-muted-foreground max-h-[300px] overflow-y-auto">
+                                                {patternManeuvers.length > 0 ? (
+                                                    <ol className="list-decimal pl-4 space-y-1">
+                                                        {patternManeuvers.map((m) => (
+                                                            <li key={m.step_no}>{m.instruction}</li>
+                                                        ))}
+                                                    </ol>
+                                                ) : (
+                                                    <p>No instructions available for this pattern.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                             </Badge>
                         </div>
                     )}

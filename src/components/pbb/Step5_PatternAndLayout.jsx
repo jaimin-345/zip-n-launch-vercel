@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-    import { motion } from 'framer-motion';
-    import { format } from 'date-fns';
+import { motion } from 'framer-motion';
+import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';

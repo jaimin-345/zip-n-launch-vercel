@@ -252,6 +252,15 @@ export const usePatternBookBuilder = (projectId) => {
               divisionPrintTitles: {},
               patternGroups: [{ id: `pg-${Date.now()}`, name: 'Group 1', divisions: [], competitionDate: null }],
             })),
+            // Also reset Step 5 data that depends on class configuration
+            patternSelections: {},
+            disciplinePatterns: {},
+            groupDueDates: {},
+            groupStaff: {},
+            groupJudges: {},
+            disciplineDueDates: {},
+            judgeSelections: [],
+            dueDateSelections: [],
           };
         case 4:
           return {

@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
-import patternDiagram from '@/assets/pattern-diagram-sample.png';
+import { supabase } from '@/lib/supabaseClient';
 
 const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) => {
   const [currentPage, setCurrentPage] = React.useState(0);
+  const [patternData, setPatternData] = React.useState(null);
+  const [maneuvers, setManeuvers] = React.useState([]);
+  const [patternMedia, setPatternMedia] = React.useState(null);
+  const [loading, setLoading] = React.useState(false);
 
   // Reset to first page when dialog opens - MUST be before any conditional returns
   React.useEffect(() => {
@@ -16,25 +20,78 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
     }
   }, [isOpen]);
 
-  // Early return AFTER all hooks
+  const groups = discipline?.patternGroups || [];
+  const totalPages = groups.length;
+  const currentGroup = groups[currentPage];
+  
+  // Fetch pattern data when page (group) changes
+  React.useEffect(() => {
+      const fetchPatternDetails = async () => {
+          if (!currentGroup?.selectedPatternId) {
+              setPatternData(null);
+              setManeuvers([]);
+              setPatternMedia(null);
+              return;
+          }
+
+          setLoading(true);
+          try {
+              // 1. Fetch Pattern Details
+              const { data: pData, error: pError } = await supabase
+                  .from('tbl_patterns')
+                  .select('*')
+                  .eq('id', currentGroup?.selectedPatternId)
+                  .single();
+              
+              if (pError) throw pError;
+              setPatternData(pData);
+
+              // 2. Fetch Maneuvers
+              const { data: mData, error: mError } = await supabase
+                  .from('tbl_maneuvers')
+                  .select('step_no, instruction')
+                  .eq('pattern_id', currentGroup?.selectedPatternId)
+                  .order('step_no');
+
+              if (mError) throw mError;
+              setManeuvers(mData || []);
+
+              // 3. Fetch Pattern Media (Graph/Image)
+              const { data: mediaData, error: mediaError } = await supabase
+                  .from('tbl_pattern_media')
+                  .select('*')
+                  .eq('pattern_id', currentGroup?.selectedPatternId)
+                  .maybeSingle(); // Use maybeSingle in case none exists for some
+
+              if (!mediaError && mediaData) {
+                  setPatternMedia(mediaData);
+              } else {
+                  setPatternMedia(null);
+              }
+
+          } catch (err) {
+              console.error('Error fetching pattern preview data:', err);
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      fetchPatternDetails();
+  }, [currentGroup?.selectedPatternId]);
+
+  // Early return logic - AFTER all hooks have been called
   if (!discipline) return null;
 
-  const groups = discipline.patternGroups || [];
-  const totalPages = groups.length;
-
-  // Get all association full names (handle merged disciplines)
+  // Derived state that requires discipline to be present
   const associationIds = discipline.mergedAssociations || [discipline.association_id];
   const associationNames = associationIds
     .map(id => associationsData?.find(a => a.id === id)?.name || id)
     .filter(Boolean);
   const associationFullName = associationNames.join(' • ');
 
-  // Format discipline date
   const disciplineDate = discipline.date 
     ? format(parseLocalDate(discipline.date), 'MM-dd-yyyy')
     : '';
-
-  const currentGroup = groups[currentPage];
 
   const handlePrevious = () => {
     setCurrentPage(prev => Math.max(0, prev - 1));
@@ -68,10 +125,15 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
           </div>
 
           {/* Discipline Name */}
-          <div className="mb-4">
+          <div className="mb-4 text-center">
             <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
               {discipline.name.toUpperCase()}
             </h2>
+            {currentGroup?.selectedPatternName && (
+                <h3 className="text-xl font-medium text-muted-foreground mt-2">
+                    {currentGroup.selectedPatternName}
+                </h3>
+            )}
           </div>
 
           {/* Group Data - Show actual divisions */}
@@ -86,29 +148,52 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
           )}
 
           {/* Pattern Diagram */}
-          <div className="my-8 flex items-center justify-center">
-            <img 
-              src={patternDiagram} 
-              alt="Pattern Diagram" 
-              className="max-w-full h-auto rounded-lg"
-            />
+          <div className="my-8 flex items-center justify-center min-h-[300px] bg-muted/10 rounded-lg">
+            {loading ? (
+                <div className="text-muted-foreground">Loading pattern...</div>
+            ) : (
+                (() => {
+                    // Determine image source: Media Table > Pattern Table > Placeholder
+                    // Assuming 'url' or 'media_url' in media table, and 'image_url' or 'url' in patterns table
+                    // Adjust keys based on actual schema if known, trying generic 'url' / 'image_url'
+                    const mediaUrl = patternMedia?.image_url || patternMedia?.media_url || patternMedia?.graphic_url;
+                    const patternUrl = patternData?.image_url || patternData?.url;
+                    const imageUrl = mediaUrl || patternUrl;
+
+                    if (imageUrl) {
+                        return (
+                            <img 
+                              src={imageUrl} 
+                              alt="Pattern Diagram" 
+                              className="max-w-full h-auto rounded-lg max-h-[500px]"
+                            />
+                        );
+                    } else {
+                        return (
+                            <div className="text-center p-8">
+                              <p className="text-sm text-muted-foreground mt-2">No specific diagram available</p>
+                            </div>
+                        );
+                    }
+                })()
+            )}
           </div>
 
           {/* Pattern Steps as Text */}
           <div className="mt-6 space-y-1 text-sm text-gray-800 dark:text-gray-200">
-            <p>1. Lope left lead over poles</p>
-            <p>2. Jog trot; poles</p>
-            <p>3. Jog serpentine over poles</p>
-            <p>4. Lope right lead over poles</p>
-            <p>5. Extended trot over 3 poles</p>
-            <p>6. Stop; back through "L" back to gate</p>
-            <p>7. Walk gate with right hand, close gate</p>
-            <p>8. Lope left lead over poles</p>
-            <p>9. Walk over bridge</p>
-            <p>10. Extended jog to walk over</p>
-            <p>11. Walk over poles</p>
-            <p>12. Lope right lead over poles</p>
-            <p className="font-semibold mt-2">Pattern Complete</p>
+            {loading ? (
+                 <p>Loading steps...</p>
+            ) : maneuvers.length > 0 ? (
+                maneuvers.map((step) => (
+                    <p key={step.step_no} className="flex gap-2">
+                        <span className="font-semibold min-w-[20px]">{step.step_no}.</span>
+                        <span>{step.instruction}</span>
+                    </p>
+                ))
+            ) : (
+                <p className="text-muted-foreground italic">No maneuver instructions found.</p>
+            )}
+            {maneuvers.length > 0 && <p className="font-semibold mt-4">Pattern Complete</p>}
           </div>
 
           {/* Footer */}
