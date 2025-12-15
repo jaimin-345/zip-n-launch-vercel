@@ -246,7 +246,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         {patternSelectionInfo && patternSelectionInfo.displayText && (
                             <div className="flex items-center gap-1 flex-wrap">
                                 {patternSelectionInfo.allPatterns?.map((pattern, idx) => (
-                                    <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
+                                    <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap hover:text-white transition-colors">
                                         {pattern.displayText}
                                     </Badge>
                                 ))}

@@ -827,7 +827,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                        <span className="flex items-center gap-2">
                                                          {p.pdf_file_name || `Pattern ${p.id}`}
                                                          {p.pattern_version && (
-                                                           <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
+                                                        <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800 hover:text-white transition-colors">
                                                              {p.pattern_version}
                                                            </Badge>
                                                          )}

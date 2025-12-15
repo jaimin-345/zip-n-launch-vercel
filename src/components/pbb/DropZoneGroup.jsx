@@ -471,12 +471,16 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         <div className="space-y-2">
                                             <h4 className="font-medium leading-none border-b pb-2">Pattern Maneuvers</h4>
                                             <div className="text-sm text-muted-foreground max-h-[300px] overflow-y-auto">
+                                               {console.log(patternManeuvers)}
                                                 {patternManeuvers.length > 0 ? (
-                                                    <ol className="list-decimal pl-4 space-y-1">
+                                                    <div className="space-y-1 pl-1">
                                                         {patternManeuvers.map((m) => (
-                                                            <li key={m.step_no}>{m.instruction}</li>
+                                                            <div key={m.step_no} className="flex gap-2">
+                                                                <span className="font-semibold min-w-[20px] text-right">{m.step_no}.</span>
+                                                                <span>{m.instruction}</span>
+                                                            </div>
                                                         ))}
-                                                    </ol>
+                                                    </div>
                                                 ) : (
                                                     <p>No instructions available for this pattern.</p>
                                                 )}
