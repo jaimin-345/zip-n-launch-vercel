@@ -198,16 +198,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   // Handle pattern selection for a specific group
-  const handleGroupPatternSelect = (disciplineId, groupId, patternId) => {
+  const handleGroupPatternSelect = (disciplineId, groupId, patternId, maneuversRangeValue) => {
     const patterns = dbPatterns[disciplineId] || [];
     const selectedPattern = patterns.find(p => p.id.toString() === patternId);
-    const maneuversRange = maneuversRangeMap[disciplineId] || '';
+    // Use provided maneuversRangeValue (string) or get from selected pattern's maneuvers_range
+    const maneuversRange = maneuversRangeValue || selectedPattern?.maneuvers_range || '';
     
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
       newSelections[disciplineId][groupId] = {
-        maneuversRange,
+        maneuversRange, // Store as string to match Step 3 format
         patternId: parseInt(patternId),
         patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
         version: selectedPattern?.pattern_version || 'ALL'
@@ -794,7 +795,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   </Label>
                                   <Select
                                     value={currentSelection?.patternId?.toString() || ''}
-                                    onValueChange={(value) => handleGroupPatternSelect(discipline.id, group.id, value)}
+                                    onValueChange={(value) => {
+                                      // Find the selected pattern to get its maneuvers_range
+                                      const selectedPattern = filteredPatterns.find(p => p.id.toString() === value);
+                                      const patternManeuversRange = selectedPattern?.maneuvers_range || '';
+                                      handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
+                                    }}
                                     disabled={!maneuversRangeMap[discipline.id] || maneuversRangeMap[discipline.id].length === 0}
                                   >
                                     <SelectTrigger className="bg-background">
