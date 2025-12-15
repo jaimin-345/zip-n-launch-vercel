@@ -5,6 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown } from 'lucide-react';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -457,16 +458,16 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                         <div className="mt-2 flex items-center gap-2">
                             <Badge
                                 variant="secondary"
-                                className="flex items-center gap-2 pr-1 h-7"
+                                className="flex items-center gap-2 pr-1 h-7 hover:text-primary-foreground hover:bg-primary transition-colors"
                             >
                                 {displayName}
-                                <Popover>
-                                    <PopoverTrigger asChild>
+                                <HoverCard openDelay={100} closeDelay={100}>
+                                    <HoverCardTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full hover:bg-background/20 ml-1">
                                             <Eye className="h-3 w-3" />
                                         </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-80" align="start">
+                                    </HoverCardTrigger>
+                                    <HoverCardContent className="w-80" align="start">
                                         <div className="space-y-2">
                                             <h4 className="font-medium leading-none border-b pb-2">Pattern Maneuvers</h4>
                                             <div className="text-sm text-muted-foreground max-h-[300px] overflow-y-auto">
@@ -481,8 +482,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                 )}
                                             </div>
                                         </div>
-                                    </PopoverContent>
-                                </Popover>
+                                    </HoverCardContent>
+                                </HoverCard>
                             </Badge>
                         </div>
                     )}
