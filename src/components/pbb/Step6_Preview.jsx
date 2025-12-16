@@ -18,6 +18,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   const [availablePatterns, setAvailablePatterns] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [selectedScoresheetDetails, setSelectedScoresheetDetails] = useState({});
   
   const patternDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.pattern), [formData.disciplines]);
   const scoresheetDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.scoresheet), [formData.disciplines]);
@@ -87,18 +88,116 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
       setIsLoading(false);
     }
   }, [JSON.stringify(patternDisciplines), toast]);
+  
+  // Fetch details for selected patterns from tbl_patterns (to get correct names/versions for badges)
+  const [selectedPatternDetails, setSelectedPatternDetails] = useState({});
 
+  useEffect(() => {
+    const fetchSelectedPatternDetails = async () => {
+        const selectedIds = [];
+        if (formData.patternSelections) {
+            Object.values(formData.patternSelections).forEach(disciplineSels => {
+                if (disciplineSels) {
+                    Object.values(disciplineSels).forEach(val => {
+                        // Handle both simple ID and object format
+                        const id = typeof val === 'object' ? val?.patternId : val;
+                        if (id) selectedIds.push(id);
+                    });
+                }
+            });
+        }
 
-  const handlePatternSelectionChange = (disciplineIndex, groupIndex, newPatternId) => {
+        // De-duplicate IDs and filter for valid numeric IDs
+        const uniqueIds = [...new Set(selectedIds)].filter(id => !isNaN(parseInt(id)) && isFinite(id));
+
+        if (uniqueIds.length === 0) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('tbl_patterns')
+                .select('id, pdf_file_name, pattern_version')
+                .in('id', uniqueIds);
+
+            if (data) {
+                const detailsMap = {};
+                const patterns = data;
+                
+                // Fetch maneuvers and media for these patterns
+                const [maneuversResult, mediaResult] = await Promise.all([
+                    supabase.from('tbl_maneuvers').select('*').in('pattern_id', uniqueIds).order('step_no'),
+                    supabase.from('tbl_pattern_media').select('*').in('pattern_id', uniqueIds)
+                ]);
+
+                const maneuvers = maneuversResult.data || [];
+                const media = mediaResult.data || [];
+
+                patterns.forEach(p => {
+                    detailsMap[p.id] = {
+                        ...p,
+                        maneuvers: maneuvers.filter(m => m.pattern_id === p.id),
+                        media: media.filter(m => m.pattern_id === p.id)
+                    };
+                });
+                setSelectedPatternDetails(detailsMap);
+            }
+        } catch (err) {
+            console.error("Error fetching selected pattern details:", err);
+        }
+    };
+    
+    fetchSelectedPatternDetails();
+  }, [JSON.stringify(formData.patternSelections)]);
+
+  // Fetch scoresheet images based on selected patterns
+  useEffect(() => {
+    const fetchScoresheetDetails = async () => {
+      const selectedIds = [];
+      if (formData.patternSelections) {
+        Object.values(formData.patternSelections).forEach(disciplineSels => {
+          if (disciplineSels) {
+            Object.values(disciplineSels).forEach(val => {
+              const id = typeof val === 'object' ? val?.patternId : val;
+              if (id) selectedIds.push(id);
+            });
+          }
+        });
+      }
+
+      const uniqueIds = [...new Set(selectedIds)].filter(id => !isNaN(parseInt(id)) && isFinite(id));
+
+      if (uniqueIds.length === 0) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('tbl_scoresheet')
+          .select('id, pattern_id, image_url, storage_path')
+          .in('pattern_id', uniqueIds);
+
+        if (data) {
+          const scoresheetMap = {};
+          data.forEach(s => {
+            scoresheetMap[s.pattern_id] = s;
+          });
+          setSelectedScoresheetDetails(scoresheetMap);
+        }
+      } catch (err) {
+        console.error("Error fetching scoresheet details:", err);
+      }
+    };
+
+    fetchScoresheetDetails();
+  }, [JSON.stringify(formData.patternSelections)]);
+  
+  const handlePatternSelectionChange = (disciplineId, groupId, newPatternId) => {
     setFormData(prev => {
       const newFormData = { ...prev };
       if (!newFormData.patternSelections) {
           newFormData.patternSelections = {};
       }
-      if (!newFormData.patternSelections[disciplineIndex]) {
-        newFormData.patternSelections[disciplineIndex] = {};
+      if (!newFormData.patternSelections[disciplineId]) {
+        newFormData.patternSelections[disciplineId] = {};
       }
-      newFormData.patternSelections[disciplineIndex][groupIndex] = newPatternId;
+      newFormData.patternSelections[disciplineId][groupId] = newPatternId;
       return newFormData;
     });
   };
@@ -257,15 +356,17 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                             {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
                                const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
                                const groupPatterns = availablePatterns[groupKey] || [];
-                               const selectedPatternId = formData.patternSelections?.[originalDisciplineIndex]?.[groupIndex];
-
+                               const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                               const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                              const selectedPatternId = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
                                return(
                                 <div key={group.id}>
                                   <PatternGroupPreview
                                     group={group}
                                     patterns={groupPatterns}
-                                    selectedPatternId={selectedPatternId}
-                                    onPatternSelect={(newPatternId) => handlePatternSelectionChange(originalDisciplineIndex, groupIndex, newPatternId)}
+                                    selectedPatternId={selectedId}
+                                    selectedPatternDetail={selectedPatternDetails[selectedId]}
+                                    onPatternSelect={(newPatternId) => handlePatternSelectionChange(pbbDiscipline.id, group.id, newPatternId)}
                                     primaryAffiliates={new Set(formData.primaryAffiliates || [])}
                                   />
                                   {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
@@ -315,15 +416,22 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                       <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
                         <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name}</h4>
                         <div className="space-y-6">
-                          {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
-                            <ScoresheetGroupPreview
-                              key={group.id}
-                              group={group}
-                              scoresheets={group.scoresheets || []}
-                              discipline={pbbDiscipline}
-                              formData={formData}
-                            />
-                          ))}
+                          {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
+                            const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                            const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                            const scoresheetData = selectedPatternId ? selectedScoresheetDetails[selectedPatternId] : null;
+                            
+                            return (
+                              <ScoresheetGroupPreview
+                                key={group.id}
+                                group={group}
+                                scoresheets={group.scoresheets || []}
+                                discipline={pbbDiscipline}
+                                formData={formData}
+                                scoresheetImage={scoresheetData}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
                     );

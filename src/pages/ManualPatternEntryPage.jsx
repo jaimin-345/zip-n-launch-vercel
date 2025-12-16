@@ -56,6 +56,9 @@ const ManualPatternEntryPage = () => {
         { value: 'ALL', label: 'ALL', color: 'bg-blue-100 text-blue-700' },
         { value: 'GR/NOV', label: 'GR/NOV', color: 'bg-green-100 text-green-700' },
         { value: 'L1', label: 'L1', color: 'bg-purple-100 text-purple-700' },
+        { value: 'Championship', label: 'Championship', color: 'bg-yellow-100 text-yellow-700' },
+        { value: 'Skilled', label: 'Skilled', color: 'bg-indigo-100 text-indigo-700' },
+        { value: 'Intermediate', label: 'Intermediate', color: 'bg-blue-100 text-blue-700' },
         { value: 'Beginner', label: 'Beginner', color: 'bg-orange-100 text-orange-700' },
         { value: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-700' },
     ];

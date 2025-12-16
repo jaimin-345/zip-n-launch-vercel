@@ -220,7 +220,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   // Get available maneuvers ranges for a discipline
   const getManeuversRanges = (disciplineId) => {
     const patterns = dbPatterns[disciplineId] || [];
-    return [...new Set(patterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
+    return [...new Set(patterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   };
 
   // Get filtered patterns for a discipline based on selected maneuvers range
@@ -642,7 +643,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 <CommandGroup>
                                   {loadingPatterns[discipline.id] ? (
                                      <CommandItem disabled>Loading...</CommandItem>
-                                  ) : getManeuversRanges(discipline.id).map((range) => {
+                                  ) : getManeuversRanges(discipline.id).map((range, index) => {
                                     const isSelected = (maneuversRangeMap[discipline.id] || []).includes(range);
                                     return (
                                       <CommandItem
@@ -660,7 +661,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         >
                                           <Check className={cn("h-4 w-4")} />
                                         </div>
-                                        <span>Pattern {range}</span>
+                                        <span>Pattern {index + 1}</span>
                                       </CommandItem>
                                     );
                                   })}
@@ -811,7 +812,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         // Group patterns by range if we have ranges
                                         (maneuversRangeMap[discipline.id] || []).length > 0 ? (
                                            (maneuversRangeMap[discipline.id] || []).map((range, idx) => {
-                                             // Get patterns for this specific range that are also in filteredPatterns
+                                             const allRanges = getManeuversRanges(discipline.id);
+                                             const patternNumber = allRanges.indexOf(range) + 1;
+                                             
                                              const rangePatterns = filteredPatterns.filter(p => p.maneuvers_range === range);
                                              if (rangePatterns.length === 0) return null;
 
@@ -820,14 +823,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                  {idx > 0 && <SelectSeparator />}
                                                  <SelectGroup>
                                                    <SelectLabel className="sticky top-0 bg-background z-10 px-2 py-1.5 font-semibold text-xs text-muted-foreground bg-muted/30">
-                                                     Pattern {range}
+                                                     Pattern {patternNumber}
                                                    </SelectLabel>
                                                    {rangePatterns.map(p => (
                                                      <SelectItem key={p.id} value={p.id.toString()}>
                                                        <span className="flex items-center gap-2">
                                                          {p.pdf_file_name || `Pattern ${p.id}`}
                                                          {p.pattern_version && (
-                                                        <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800 hover:text-white transition-colors">
+                                                           <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
                                                              {p.pattern_version}
                                                            </Badge>
                                                          )}
@@ -842,14 +845,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                           // Fallback if somehow no ranges but we have patterns (shouldn't happen with current logic but safe)
                                           filteredPatterns.map(p => (
                                             <SelectItem key={p.id} value={p.id.toString()}>
-                                              <span className="flex items-center gap-2">
-                                                {p.pdf_file_name || `Pattern ${p.id}`}
-                                                {p.pattern_version && (
-                                                  <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
-                                                    {p.pattern_version}
-                                                  </Badge>
-                                                )}
-                                              </span>
+                                               <span className="flex items-center gap-2">
+                                                 {p.pdf_file_name || `Pattern ${p.id}`}
+                                                 {p.pattern_version && (
+                                                   <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
+                                                     {p.pattern_version}
+                                                   </Badge>
+                                                 )}
+                                               </span>
                                             </SelectItem>
                                           ))
                                         )

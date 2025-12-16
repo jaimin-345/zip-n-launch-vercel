@@ -24,11 +24,16 @@ const PATTERN_SETS = [
 ];
 
 // Pattern version categories
+// Pattern version categories
 const PATTERN_VERSIONS = [
-  { id: 'ALL', label: 'ALL (Universal)', description: 'Valid for every class', color: 'bg-blue-100 text-blue-800' },
-  { id: 'GR/NOV', label: 'GR/NOV (Green/Novice)', description: 'Simplified for Green/Novice', color: 'bg-teal-100 text-teal-800' },
-  { id: 'L1', label: 'L1 (Level 1)', description: 'Simplified for Level 1', color: 'bg-green-100 text-green-800' },
-  { id: 'Beginner', label: 'Beginner', description: 'For beginner classes', color: 'bg-purple-100 text-purple-800' },
+  { id: 'ALL', label: 'All', color: 'bg-blue-100 text-blue-800', dotColor: 'bg-blue-500' },
+  { id: 'L1', label: 'L1', color: 'bg-green-100 text-green-800', dotColor: 'bg-green-500' },
+  { id: 'GR/NOV', label: 'Green / Novice', color: 'bg-teal-100 text-teal-800', dotColor: 'bg-teal-500' },
+  { id: 'Championship', label: 'Championship', color: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
+  { id: 'Skilled', label: 'Skilled', color: 'bg-indigo-100 text-indigo-800', dotColor: 'bg-indigo-500' },
+  { id: 'Intermediate', label: 'Intermediate', color: 'bg-orange-100 text-orange-800', dotColor: 'bg-orange-500' },
+  { id: 'Beginner', label: 'Beginner', color: 'bg-purple-100 text-purple-800', dotColor: 'bg-purple-500' },
+  { id: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-800', dotColor: 'bg-pink-500' },
 ];
 
 
@@ -222,6 +227,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [dbPatterns, setDbPatterns] = useState([]);
     const [loadingPatterns, setLoadingPatterns] = useState(false);
     const [selectedManeuversRange, setSelectedManeuversRange] = useState(savedManeuversRange);
+    const [selectedDifficulty, setSelectedDifficulty] = useState('ALL');
     const [patternManeuvers, setPatternManeuvers] = useState([]);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
@@ -284,12 +290,16 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     // Filter patterns when maneuvers range is selected
     useEffect(() => {
         if (selectedManeuversRange && dbPatterns.length > 0) {
-            const filtered = dbPatterns.filter(p => p.maneuvers_range === selectedManeuversRange);
+            let filtered = dbPatterns.filter(p => p.maneuvers_range === selectedManeuversRange);
+            // Apply difficulty filter
+            if (selectedDifficulty && selectedDifficulty !== 'ALL') {
+                filtered = filtered.filter(p => p.pattern_version === selectedDifficulty);
+            }
             setFilteredPatterns(filtered);
         } else {
             setFilteredPatterns([]);
         }
-    }, [selectedManeuversRange, dbPatterns]);
+    }, [selectedManeuversRange, selectedDifficulty, dbPatterns]);
 
     // Fetch maneuvers when pattern is selected
     useEffect(() => {
@@ -316,7 +326,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     }, [currentPatternId]);
 
     // Get unique maneuvers ranges from database patterns
-    const availableManeuversRanges = [...new Set(dbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
+    const availableManeuversRanges = [...new Set(dbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
     const divisionsWithDetails = group.divisions.map(div => {
         const id = div.id || `${div.assocId}-${div.division}`;
@@ -359,6 +370,28 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         });
     };
 
+    const handleDeleteClick = () => {
+        // If there is a pattern selected, just clear the pattern
+        if (currentPatternSelection?.patternId || currentPatternSelection?.maneuversRange) {
+                setFormData(prev => {
+                    const newSelections = { ...(prev.patternSelections || {}) };
+                    if (newSelections[disciplineId]) {
+                         if (newSelections[disciplineId][group.id]) {
+                            // Clear the selection for this group
+                            newSelections[disciplineId][group.id] = null;
+                         }
+                    }
+                    return { ...prev, patternSelections: newSelections };
+                });
+                // Also reset local states
+                setSelectedManeuversRange('');
+                setFilteredPatterns([]);
+                setPatternManeuvers([]);
+                setSelectedDifficulty('ALL');
+            }
+            handleRemovePatternGroup(pbbDiscipline.id, group.id);
+    };
+
     const hasPattern = currentPatternSelection?.patternId;
     const displayName = hasPattern 
         ? currentPatternSelection.patternName || `Pattern ${currentPatternSelection.patternId}`
@@ -382,7 +415,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleAiAssistClick()}><Sparkles className="h-4 w-4 text-primary" /></Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleRemovePatternGroup(pbbDiscipline.id, group.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleDeleteClick}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </div>
             </div>
 
@@ -391,7 +424,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
 
-                    <div className="grid grid-cols-2 gap-3 mb-2">
+                    <div className="grid grid-cols-3 gap-3 mb-2">
                         {/* Maneuvers Range Dropdown (1-9, 1-15, 1-20) */}
                         <div>
                             <Label className="text-xs text-muted-foreground">1. Pattern Set (Maneuvers)</Label>
@@ -405,25 +438,49 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                 <SelectContent>
                                     {/* Show from DB if available, else fallback */}
                                     {availableManeuversRanges.length > 0 ? (
-                                        availableManeuversRanges.map(range => (
+                                        availableManeuversRanges.map((range, index) => (
                                             <SelectItem key={range} value={range}>
-                                                {pbbDiscipline.name} Pattern {range}
+                                                Pattern {index + 1}
                                             </SelectItem>
                                         ))
                                     ) : (
                                         PATTERN_SETS.map(set => (
                                             <SelectItem key={set.setNumber} value={set.maneuvers}>
-                                                {pbbDiscipline.name} Pattern {set.maneuvers}
+                                                Pattern {set.setNumber}
                                             </SelectItem>
                                         ))
                                     )}
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Difficulty Dropdown */}
+                        <div>
+                            <Label className="text-xs text-muted-foreground">2. Select Difficulty</Label>
+                            <Select 
+                                value={selectedDifficulty}
+                                onValueChange={setSelectedDifficulty}
+                                disabled={!selectedManeuversRange && !currentPatternSelection?.maneuversRange}
+                            >
+                                <SelectTrigger className="mt-1 h-9">
+                                    <SelectValue placeholder="Select difficulty..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PATTERN_VERSIONS.map(version => (
+                                        <SelectItem key={version.id} value={version.id}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${version.dotColor}`} />
+                                                <span>{version.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         
                         {/* Pattern Selection Dropdown - shows pdf_file_name */}
                         <div>
-                            <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
+                            <Label className="text-xs text-muted-foreground">3. Select Pattern</Label>
                             <Select 
                                 value={currentPatternSelection?.patternId?.toString() || ''}
                                 onValueChange={handlePatternSelect}
@@ -471,7 +528,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         <div className="space-y-2">
                                             <h4 className="font-medium leading-none border-b pb-2">Pattern Maneuvers</h4>
                                             <div className="text-sm text-muted-foreground max-h-[300px] overflow-y-auto">
-                                               {console.log(patternManeuvers)}
                                                 {patternManeuvers.length > 0 ? (
                                                     <div className="space-y-1 pl-1">
                                                         {patternManeuvers.map((m) => (
