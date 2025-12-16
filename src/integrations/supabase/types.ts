@@ -2452,27 +2452,45 @@ export type Database = {
       }
       tbl_pattern_media: {
         Row: {
+          association_abbrev: string | null
           created_at: string | null
+          discipline: string | null
+          file_name: string | null
+          file_path: string | null
+          file_url: string | null
           id: number
           image_url: string
           page_no: number | null
           pattern_id: number | null
+          pattern_version: string | null
           storage_path: string | null
         }
         Insert: {
+          association_abbrev?: string | null
           created_at?: string | null
+          discipline?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
           id?: never
           image_url: string
           page_no?: number | null
           pattern_id?: number | null
+          pattern_version?: string | null
           storage_path?: string | null
         }
         Update: {
+          association_abbrev?: string | null
           created_at?: string | null
+          discipline?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_url?: string | null
           id?: never
           image_url?: string
           page_no?: number | null
           pattern_id?: number | null
+          pattern_version?: string | null
           storage_path?: string | null
         }
         Relationships: [
