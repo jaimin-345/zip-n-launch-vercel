@@ -2557,6 +2557,21 @@ export type Database = {
         }
         Relationships: []
       }
+      tbl_scoresheet: {
+        Row: {
+          created_at: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
       timesheets: {
         Row: {
           approved_by: string | null
