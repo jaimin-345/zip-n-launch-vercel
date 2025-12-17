@@ -92,21 +92,9 @@ const Navigation = () => {
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link to="/profile" className="w-full">
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    <span>Edit Profile</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
                                 <Link to="/customer-portal" className="w-full">
                                     <Library className="mr-2 h-4 w-4" />
                                     <span>My Projects</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link to="/archive-patterns" className="w-full">
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    <span>Archive Pattern</span>
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
@@ -123,7 +111,19 @@ const Navigation = () => {
                                     </Link>
                                 </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem asChild>
+                                <Link to="/archive-patterns" className="w-full">
+                                    <Archive className="mr-2 h-4 w-4" />
+                                    <span>Archive Pattern</span>
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                                <Link to="/profile" className="w-full">
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    <span>Edit Profile</span>
+                                </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                                 <Link to="/account-security" className="w-full">
                                     <Shield className="mr-2 h-4 w-4" />
@@ -272,10 +272,10 @@ const Navigation = () => {
                             <div className="pt-4 pb-3 border-t border-border px-5 space-y-1">
                                 {isAdmin && <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><LayoutDashboard className="inline-block mr-2 h-4 w-4"/>Admin</Link>}
                                 {isAdmin && <Link to="/admin/tracking-user" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Activity className="inline-block mr-2 h-4 w-4"/>Tracking User</Link>}
-                                <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Edit className="inline-block mr-2 h-4 w-4"/>Edit Profile</Link>
                                 <Link to="/customer-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Library className="inline-block mr-2 h-4 w-4"/>My Projects</Link>
-                                <Link to="/archive-patterns" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
                                 <Link to="/contributor-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><UploadCloud className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>
+                                <Link to="/archive-patterns" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
+                                <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Edit className="inline-block mr-2 h-4 w-4"/>Edit Profile</Link>
                                 <Link to="/account-security" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Shield className="inline-block mr-2 h-4 w-4"/>Account & Security</Link>
                                 <a href="#" onClick={() => { signOut(); setIsMenuOpen(false); }} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50"><LogOut className="inline-block mr-2 h-4 w-4" />Logout</a>
                             </div>

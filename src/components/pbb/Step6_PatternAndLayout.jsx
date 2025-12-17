@@ -19,14 +19,17 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 
 // Level category badge colors (kept for reference)
-const levelCategoryColors = {
-  'ALL': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  'L1': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  'L2': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  'L3': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  'GR/NOV': 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300',
-  'Beginner': 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-};
+// Pattern version categories (Standardized)
+const PATTERN_VERSIONS = [
+  { id: 'ALL', label: 'All', color: 'bg-blue-100 text-blue-800', dotColor: 'bg-blue-500' },
+  { id: 'L1', label: 'L1', color: 'bg-green-100 text-green-800', dotColor: 'bg-green-500' },
+  { id: 'GR/NOV', label: 'Green / Novice', color: 'bg-teal-100 text-teal-800', dotColor: 'bg-teal-500' },
+  { id: 'Championship', label: 'Championship', color: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
+  { id: 'Skilled', label: 'Skilled', color: 'bg-indigo-100 text-indigo-800', dotColor: 'bg-indigo-500' },
+  { id: 'Intermediate', label: 'Intermediate', color: 'bg-orange-100 text-orange-800', dotColor: 'bg-orange-500' },
+  { id: 'Beginner', label: 'Beginner', color: 'bg-purple-100 text-purple-800', dotColor: 'bg-purple-500' },
+  { id: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-800', dotColor: 'bg-pink-500' },
+];
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5 }) => {
   const { toast } = useToast();
@@ -44,6 +47,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [dbPatterns, setDbPatterns] = useState({});
   const [loadingPatterns, setLoadingPatterns] = useState({});
   const [maneuversRangeMap, setManeuversRangeMap] = useState({});
+  // New state for "Reference" style selection
+  const [disciplineSelections, setDisciplineSelections] = useState({}); // { [disciplineId]: { difficulty: ['ALL'] } }
 
   // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
@@ -225,12 +230,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   // Get filtered patterns for a discipline based on selected maneuvers range
+  // Get filtered patterns for a discipline (Difficulty filter applied in render)
   const getFilteredPatterns = (disciplineId) => {
-    const patterns = dbPatterns[disciplineId] || [];
-    const ranges = maneuversRangeMap[disciplineId]; // This is now an array
-    if (!ranges || ranges.length === 0) return [];
-    // Show pattern if its range is in the selected ranges
-    return patterns.filter(p => ranges.includes(p.maneuvers_range));
+    return dbPatterns[disciplineId] || [];
   };
 
   // Get pattern selection from formData
@@ -287,7 +289,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     
     const { disciplineIndex } = currentDiscipline;
     const groups = currentDiscipline.patternGroups || [];
-    const selectedPattern = disciplinePatternSelections[disciplineIndex];
+    // Get selected pattern from new state
+    const selection = disciplineSelections[currentDiscipline.id];
+    const selectedPattern = selection?.patternId;
 
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
@@ -620,92 +624,117 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       <div className="flex-1 flex items-center gap-2 flex-wrap">
                         {/* Pattern Set (Maneuvers) dropdown - database driven */}
                         {/* Pattern Set (Maneuvers) dropdown - Multi-select */}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className="w-[250px] justify-between bg-background"
-                            >
-                              <span className="truncate">
-                                {maneuversRangeMap[discipline.id]?.length > 0
-                                  ? `${maneuversRangeMap[discipline.id].length} selected`
-                                  : "Select Pattern Range..."}
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[250px] p-0" align="start">
-                            <Command>
-                              <CommandInput placeholder="Search ranges..." />
-                              <CommandList>
-                                <CommandEmpty>No pattern ranges found.</CommandEmpty>
-                                <CommandGroup>
-                                  {loadingPatterns[discipline.id] ? (
-                                     <CommandItem disabled>Loading...</CommandItem>
-                                  ) : getManeuversRanges(discipline.id).map((range, index) => {
-                                    const isSelected = (maneuversRangeMap[discipline.id] || []).includes(range);
-                                    return (
-                                      <CommandItem
-                                        key={range}
-                                        value={range}
-                                        onSelect={() => handleManeuversRangeChange(discipline.id, range)}
-                                      >
-                                        <div
-                                          className={cn(
-                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                            isSelected
-                                              ? "bg-primary text-primary-foreground"
-                                              : "opacity-50 [&_svg]:invisible"
-                                          )}
-                                        >
-                                          <Check className={cn("h-4 w-4")} />
+                        {/* Reference Style Selection: Difficulty -> Pattern */}
+                        <div className="flex items-center gap-2">
+                            {/* Select Difficulty (Multi-Select) */}
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-[180px] justify-between bg-background">
+                                        <div className="flex items-center gap-2 truncate">
+                                            {(() => {
+                                                const selectedIds = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
+                                                
+                                                if (selectedIds.includes('ALL')) {
+                                                    const ver = PATTERN_VERSIONS.find(v => v.id === 'ALL') || PATTERN_VERSIONS[0];
+                                                    return (
+                                                        <>
+                                                            <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
+                                                            <span>{ver.label}</span>
+                                                        </>
+                                                    );
+                                                }
+                                                if (selectedIds.length === 0) return "Select Difficulty";
+                                                
+                                                if (selectedIds.length === 1) {
+                                                    const ver = PATTERN_VERSIONS.find(v => v.id === selectedIds[0]);
+                                                    if (ver) {
+                                                        return (
+                                                            <>
+                                                                <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
+                                                                <span>{ver.label}</span>
+                                                            </>
+                                                        );
+                                                    }
+                                                    return selectedIds[0];
+                                                }
+                                                return `${selectedIds.length} selected`;
+                                            })()}
                                         </div>
-                                        <span>Pattern {index + 1}</span>
-                                      </CommandItem>
-                                    );
-                                  })}
-                                </CommandGroup>
-                                {maneuversRangeMap[discipline.id]?.length > 0 && (
-                                     <CommandGroup className="pt-0">
-                                         <CommandItem
-                                            onSelect={() => {
-                                                // Clear all
-                                                setManeuversRangeMap(prev => ({ ...prev, [discipline.id]: [] }));
-                                                 // Also clear in form data if needed, similar to handleManeuversRangeChange logic but clearing
-                                                 // For brevity, relying on user unchecking all or we can add a clear handler logic if strictly needed.
-                                                 // Re-using handler for simplicity by clearing manually:
-                                                 setFormData(prev => { /* similar clean up logic */ 
-                                                    const newSelections = { ...(prev.patternSelections || {}) };
-                                                    if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
-                                                    discipline.patternGroups?.forEach(g => {
-                                                        if(newSelections[discipline.id][g.id]) {
-                                                            newSelections[discipline.id][g.id].maneuversRange = [];
-                                                            newSelections[discipline.id][g.id].patternId = null;
-                                                            newSelections[discipline.id][g.id].patternName = null;
-                                                        }
-                                                    });
-                                                    return { ...prev, patternSelections: newSelections };
-                                                 });
-                                                 setManeuversRangeMap(prev => ({ ...prev, [discipline.id]: [] })); 
-                                            }}
-                                            className="justify-center text-center font-medium text-destructive mt-1"
-                                         >
-                                            Clear Selection
-                                         </CommandItem>
-                                     </CommandGroup>
-                                )}
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
-                        
-                        <Button 
-                          onClick={() => handleOpenAssignDialog(discipline, disciplineIndex)}
-                          className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
-                        >
-                          Assign Pattern Selection
-                        </Button>
+                                        <ChevronDown className="h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[180px] p-0" align="start">
+                                    <Command>
+                                        <CommandInput placeholder="Search difficulty..." />
+                                        <CommandList>
+                                            <CommandEmpty>No results found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {PATTERN_VERSIONS.map(ver => {
+                                                    // Only show versions that exist in the DB for this discipline? 
+                                                    // The user list seems fixed constant. "i want this type of data" implies use this list explicitly.
+                                                    // But showing options that have NO patterns might be annoying.
+                                                    // However, typical pattern builder shows all. I'll stick to the user list.
+                                                    // Actually, I should probably filter unavailable ones or just show all. Showing all is safer for "Reference".
+                                                    
+                                                    const current = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
+                                                    const isSelected = current.includes(ver.id);
+
+                                                    return (
+                                                        <CommandItem
+                                                            key={ver.id}
+                                                            value={ver.label}
+                                                            onSelect={() => {
+                                                                setDisciplineSelections(prev => {
+                                                                    const old = prev[discipline.id]?.difficulty || ['ALL'];
+                                                                    let newSel;
+                                                                    
+                                                                    if (ver.id === 'ALL') {
+                                                                        // If selecting ALL, clear others? Or just toggle? 
+                                                                        // Typically ALL overrides everything else.
+                                                                        newSel = ['ALL'];
+                                                                    } else {
+                                                                        // If selecting specific
+                                                                         let temp = old.filter(x => x !== 'ALL'); // remove ALL if selecting specific
+                                                                         if (isSelected) {
+                                                                             temp = temp.filter(x => x !== ver.id);
+                                                                             if (temp.length === 0) temp = ['ALL']; // fallback to ALL if empty
+                                                                         } else {
+                                                                             temp = [...temp, ver.id];
+                                                                         }
+                                                                         newSel = temp;
+                                                                    }
+
+                                                                    return {
+                                                                        ...prev,
+                                                                        [discipline.id]: {
+                                                                            ...(prev[discipline.id] || {}),
+                                                                            difficulty: newSel
+                                                                        }
+                                                                    };
+                                                                });
+                                                            }}
+                                                        >
+                                                            <div className={cn(
+                                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                isSelected
+                                                                    ? "bg-primary text-primary-foreground"
+                                                                    : "opacity-50 [&_svg]:invisible"
+                                                            )}>
+                                                                <Check className={cn("h-4 w-4")} />
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
+                                                                <span>{ver.label}</span>
+                                                            </div>
+                                                        </CommandItem>
+                                                    );
+                                                })}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
 
                         {/* Display pattern badges from Step 3 selections */}
                         {(() => {
@@ -789,80 +818,57 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   </div>
                                 </div>
 
-                                {/* Pattern Selection - database driven */}
-                                <div>
-                                  <Label className="text-sm text-muted-foreground mb-1 block">
-                                    Select Pattern
-                                  </Label>
-                                  <Select
-                                    value={currentSelection?.patternId?.toString() || ''}
-                                    onValueChange={(value) => {
-                                      // Find the selected pattern to get its maneuvers_range
-                                      const selectedPattern = filteredPatterns.find(p => p.id.toString() === value);
-                                      const patternManeuversRange = selectedPattern?.maneuvers_range || '';
-                                      handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
-                                    }}
-                                    disabled={!maneuversRangeMap[discipline.id] || maneuversRangeMap[discipline.id].length === 0}
-                                  >
-                                    <SelectTrigger className="bg-background">
-                                      <SelectValue placeholder={(maneuversRangeMap[discipline.id]?.length > 0) ? "Select a pattern..." : "Select Pattern Set first..."} />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background z-50 max-h-[300px]">
-                                      {filteredPatterns.length > 0 ? (
-                                        // Group patterns by range if we have ranges
-                                        (maneuversRangeMap[discipline.id] || []).length > 0 ? (
-                                           (maneuversRangeMap[discipline.id] || []).map((range, idx) => {
-                                             const allRanges = getManeuversRanges(discipline.id);
-                                             const patternNumber = allRanges.indexOf(range) + 1;
-                                             
-                                             const rangePatterns = filteredPatterns.filter(p => p.maneuvers_range === range);
-                                             if (rangePatterns.length === 0) return null;
+                                {/* Pattern Selection - Pattern Only (Filtered by Discipline Level Difficulty) */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm text-muted-foreground">Select Pattern</Label>
+                                    <div className="flex gap-2">
+                                        {/* Pattern Selector */}
+                                        <Select
+                                            value={currentSelection?.patternId?.toString() || ''}
+                                            onValueChange={(value) => {
+                                                const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
+                                                const patternManeuversRange = selectedPattern?.maneuvers_range || '';
+                                                handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
+                                            }}
+                                        >
+                                            <SelectTrigger className="flex-1 bg-background">
+                                                <SelectValue placeholder="Select Pattern" />
+                                            </SelectTrigger>
+                                            <SelectContent className="max-h-[300px]">
+                                                {(() => {
+                                                    // Use Discipline Level Difficulty (Multi-Select)
+                                                    const difficulty = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
+                                                    let filtered = getFilteredPatterns(discipline.id);
 
-                                             return (
-                                               <React.Fragment key={range}>
-                                                 {idx > 0 && <SelectSeparator />}
-                                                 <SelectGroup>
-                                                   <SelectLabel className="sticky top-0 bg-background z-10 px-2 py-1.5 font-semibold text-xs text-muted-foreground bg-muted/30">
-                                                     Pattern {patternNumber}
-                                                   </SelectLabel>
-                                                   {rangePatterns.map(p => (
-                                                     <SelectItem key={p.id} value={p.id.toString()}>
-                                                       <span className="flex items-center gap-2">
-                                                         {p.pdf_file_name || `Pattern ${p.id}`}
-                                                         {p.pattern_version && (
-                                                           <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
-                                                             {p.pattern_version}
-                                                           </Badge>
-                                                         )}
-                                                       </span>
-                                                     </SelectItem>
-                                                   ))}
-                                                 </SelectGroup>
-                                               </React.Fragment>
-                                             );
-                                           })
-                                        ) : (
-                                          // Fallback if somehow no ranges but we have patterns (shouldn't happen with current logic but safe)
-                                          filteredPatterns.map(p => (
-                                            <SelectItem key={p.id} value={p.id.toString()}>
-                                               <span className="flex items-center gap-2">
-                                                 {p.pdf_file_name || `Pattern ${p.id}`}
-                                                 {p.pattern_version && (
-                                                   <Badge className="text-[10px] px-1.5 py-0 bg-blue-100 text-blue-800">
-                                                     {p.pattern_version}
-                                                   </Badge>
-                                                 )}
-                                               </span>
-                                            </SelectItem>
-                                          ))
-                                        )
-                                      ) : (
-                                        <SelectItem value="no-pattern" disabled>
-                                          {(maneuversRangeMap[discipline.id]?.length > 0) ? 'No patterns for selected ranges' : 'Select Pattern Set first'}
-                                        </SelectItem>
-                                      )}
-                                    </SelectContent>
-                                  </Select>
+                                                    if (!difficulty.includes('ALL')) {
+                                                        filtered = filtered.filter(p => difficulty.includes(p.pattern_version));
+                                                    }
+                                                    
+                                                     // Sort by name (numeric)
+                                                    filtered.sort((a, b) => {
+                                                        const nameA = a.pdf_file_name?.trim() || '';
+                                                        const nameB = b.pdf_file_name?.trim() || '';
+                                                        return nameA.localeCompare(nameB, undefined, { numeric: true });
+                                                    });
+
+                                                    if (filtered.length === 0) {
+                                                        return <SelectItem value="none" disabled>No patterns</SelectItem>;
+                                                    }
+
+                                                    return filtered.map((p, idx) => (
+                                                        <SelectItem key={p.id} value={p.id.toString()}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{`Pattern ${idx + 1}`}</span>
+                                                                {p.pattern_version && (
+                                                                    <Badge variant="outline" className="text-xs h-5 px-1">{p.pattern_version}</Badge>
+                                                                )}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ));
+                                                })()}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
                               </div>
                             );

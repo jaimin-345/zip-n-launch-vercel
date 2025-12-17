@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera } from 'lucide-react';
+import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -110,6 +110,11 @@ const AuthModal = () => {
         disciplines: []
     }]);
 
+    // Legal & Compliance States
+    const [legalAgreed, setLegalAgreed] = useState(false);
+    const [electronicConsent, setElectronicConsent] = useState(false);
+    const [riskAck, setRiskAck] = useState(false);
+
     const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -197,6 +202,9 @@ const AuthModal = () => {
             setLevelDesignations([]);
             setAssociationMemberships([]);
             setHorses([{ id: 1, name: '', breed: '', ageDivision: '', disciplines: [] }]);
+            setLegalAgreed(false);
+            setElectronicConsent(false);
+            setRiskAck(false);
             setIsSubmitting(false);
         }
     };
@@ -602,6 +610,44 @@ const AuthModal = () => {
                     </div>
                 ))}
             </div>
+
+            {/* Legal & Compliance Section */}
+            <div className="mt-6 space-y-4 border-t pt-4">
+                <h4 className="text-sm font-medium flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    Legal & Compliance
+                </h4>
+
+                {/* Checkbox 1: Consolidated Legal Agreement */}
+                <div className="flex items-start space-x-2">
+                    <Checkbox id="legal-agreed" checked={legalAgreed} onCheckedChange={setLegalAgreed} className="mt-1" />
+                    <Label htmlFor="legal-agreed" className="text-xs font-normal leading-tight text-muted-foreground">
+                        I acknowledge and agree that by creating an account and purchasing a membership, I have read, understand, and agree to the: {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Membership Agreement</a>, {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Terms of Service</a>, {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Privacy Policy</a>, {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Licensing & Intellectual Property Policy</a>, {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Payment, Renewal & Refund Policy</a>, and {' '}
+                        <a href="#" target="_blank" className="text-primary hover:underline">Electronic Communications Consent</a>.
+                    </Label>
+                </div>
+
+                {/* Checkbox 2: Electronic Communications Consent */}
+                <div className="flex items-start space-x-2">
+                    <Checkbox id="electronic-consent" checked={electronicConsent} onCheckedChange={setElectronicConsent} className="mt-1" />
+                    <Label htmlFor="electronic-consent" className="text-xs font-normal leading-tight text-muted-foreground">
+                        I consent to receive transactional communications electronically (email and/or SMS) related to my account, billing, and platform activity.
+                    </Label>
+                </div>
+
+                {/* Checkbox 3: Equine Activity Risk Disclaimer */}
+                <div className="flex items-start space-x-2">
+                    <Checkbox id="risk-ack" checked={riskAck} onCheckedChange={setRiskAck} className="mt-1" />
+                    <Label htmlFor="risk-ack" className="text-xs font-normal leading-tight text-muted-foreground">
+                        I acknowledge and agree that equine activities carry inherent risks and that EquiPatterns.com provides tools and materials only, and does not supervise or control their use.
+                    </Label>
+                </div>
+            </div>
         </ScrollArea>
     );
 
@@ -698,8 +744,9 @@ const AuthModal = () => {
                                                     <Button 
                                                         type="button" 
                                                         className="flex-1" 
-                                                        disabled={isLoading}
+                                                        disabled={isLoading || !legalAgreed || !electronicConsent || !riskAck}
                                                         onClick={() => {
+                                                            if (!legalAgreed || !electronicConsent || !riskAck) return;
                                                             setIsSubmitting(true);
                                                             setTimeout(() => {
                                                                 const form = document.querySelector('form[data-signup-form]');

@@ -16,12 +16,7 @@ import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { supabase } from '@/lib/supabaseClient';
 
-// Pattern Sets with version categories (fallback)
-const PATTERN_SETS = [
-  { setNumber: 1, name: 'Pattern 1-9', maneuvers: '1-9' },
-  { setNumber: 2, name: 'Pattern 1-15', maneuvers: '1-15' },
-  { setNumber: 3, name: 'Pattern 1-20', maneuvers: '1-20' },
-];
+// Pattern Sets constant removed (unused)
 
 // Pattern version categories
 // Pattern version categories
@@ -226,9 +221,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     // State for database patterns - initialize from saved data
     const [dbPatterns, setDbPatterns] = useState([]);
     const [loadingPatterns, setLoadingPatterns] = useState(false);
-    const [selectedManeuversRange, setSelectedManeuversRange] = useState(savedManeuversRange);
+    // const [selectedManeuversRange, setSelectedManeuversRange] = useState(savedManeuversRange); // Removed
     const [selectedDifficulty, setSelectedDifficulty] = useState('ALL');
     const [patternManeuvers, setPatternManeuvers] = useState([]);
+    const [patternImage, setPatternImage] = useState(null);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
     // Get association name from discipline or divisions
@@ -248,14 +244,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     };
 
     const associationName = getAssociationName();
-
-    // Sync local state with saved formData when returning to step
-    useEffect(() => {
-        if (savedManeuversRange && savedManeuversRange !== selectedManeuversRange) {
-            setSelectedManeuversRange(savedManeuversRange);
-        }
-    }, [savedManeuversRange]);
-
 
     // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
@@ -287,47 +275,65 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         fetchPatterns();
     }, [pbbDiscipline?.name, associationName]);
 
-    // Filter patterns when maneuvers range is selected
+    // Filter patterns based on difficulty
     useEffect(() => {
-        if (selectedManeuversRange && dbPatterns.length > 0) {
-            let filtered = dbPatterns.filter(p => p.maneuvers_range === selectedManeuversRange);
+        if (dbPatterns.length > 0) {
+            let filtered = dbPatterns;
+            // Apply difficulty filter
             // Apply difficulty filter
             if (selectedDifficulty && selectedDifficulty !== 'ALL') {
                 filtered = filtered.filter(p => p.pattern_version === selectedDifficulty);
             }
+            // Sort nicely
+            filtered.sort((a, b) => {
+                 const nameA = a.pdf_file_name?.trim() || '';
+                 const nameB = b.pdf_file_name?.trim() || '';
+                 return nameA.localeCompare(nameB, undefined, { numeric: true });
+            });
             setFilteredPatterns(filtered);
         } else {
             setFilteredPatterns([]);
         }
-    }, [selectedManeuversRange, selectedDifficulty, dbPatterns]);
+    }, [selectedDifficulty, dbPatterns]);
 
-    // Fetch maneuvers when pattern is selected
+    // Fetch maneuvers and image when pattern is selected
     useEffect(() => {
-        const fetchManeuvers = async () => {
+        const fetchPatternDetails = async () => {
             if (!currentPatternId) {
                 setPatternManeuvers([]);
+                setPatternImage(null);
                 return;
             }
             try {
-                const { data, error } = await supabase
+                // Fetch maneuvers
+                const { data: maneuversData, error: maneuversError } = await supabase
                     .from('tbl_maneuvers')
                     .select('step_no, instruction')
                     .eq('pattern_id', currentPatternId)
                     .order('step_no');
                 
-                if (error) throw error;
-                setPatternManeuvers(data || []);
+                if (maneuversError) throw maneuversError;
+                setPatternManeuvers(maneuversData || []);
+
+                // Fetch image
+                const { data: imageData, error: imageError } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('image_url')
+                    .eq('pattern_id', currentPatternId)
+                    .maybeSingle();
+                
+                if (imageError) console.error('Error fetching pattern image:', imageError);
+                setPatternImage(imageData?.image_url || null);
+
             } catch (err) {
-                console.error('Error fetching maneuvers:', err);
+                console.error('Error fetching pattern details:', err);
                 setPatternManeuvers([]);
+                setPatternImage(null);
             }
         };
-        fetchManeuvers();
+        fetchPatternDetails();
     }, [currentPatternId]);
 
-    // Get unique maneuvers ranges from database patterns
-    const availableManeuversRanges = [...new Set(dbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))]
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
     const divisionsWithDetails = group.divisions.map(div => {
         const id = div.id || `${div.assocId}-${div.division}`;
@@ -336,24 +342,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         return { ...div, id, date, customTitle };
     });
 
-    // Pattern selection handlers
-    const handleManeuversRangeChange = (range) => {
-        setSelectedManeuversRange(range);
-        // Reset pattern selection when range changes
-        if (disciplineId && setFormData) {
-            setFormData(prev => {
-                const newSelections = { ...(prev.patternSelections || {}) };
-                if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
-                newSelections[disciplineId][group.id] = {
-                    maneuversRange: range,
-                    patternId: null,
-                    patternName: null
-                };
-                return { ...prev, patternSelections: newSelections };
-            });
-        }
-    };
-
     const handlePatternSelect = (patternId) => {
         if (!disciplineId || !setFormData) return;
         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
@@ -361,7 +349,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             const newSelections = { ...(prev.patternSelections || {}) };
             if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
             newSelections[disciplineId][group.id] = {
-                maneuversRange: selectedManeuversRange,
+                maneuversRange: selectedPattern?.maneuvers_range || '', // Use range from the pattern itself
                 patternId: parseInt(patternId),
                 patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
                 version: selectedPattern?.pattern_version || 'ALL'
@@ -384,7 +372,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     return { ...prev, patternSelections: newSelections };
                 });
                 // Also reset local states
-                setSelectedManeuversRange('');
+                // setSelectedManeuversRange(''); // Removed
                 setFilteredPatterns([]);
                 setPatternManeuvers([]);
                 setSelectedDifficulty('ALL');
@@ -424,43 +412,14 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
 
-                    <div className="grid grid-cols-3 gap-3 mb-2">
-                        {/* Maneuvers Range Dropdown (1-9, 1-15, 1-20) */}
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                        {/* Difficulty Dropdown (Moved to 1st) */}
                         <div>
-                            <Label className="text-xs text-muted-foreground">1. Pattern Set (Maneuvers)</Label>
-                            <Select 
-                                value={currentPatternSelection?.maneuversRange || selectedManeuversRange}
-                                onValueChange={handleManeuversRangeChange}
-                            >
-                                <SelectTrigger className="mt-1 h-9">
-                                    <SelectValue placeholder="Select pattern set..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {/* Show from DB if available, else fallback */}
-                                    {availableManeuversRanges.length > 0 ? (
-                                        availableManeuversRanges.map((range, index) => (
-                                            <SelectItem key={range} value={range}>
-                                                Pattern {index + 1}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        PATTERN_SETS.map(set => (
-                                            <SelectItem key={set.setNumber} value={set.maneuvers}>
-                                                Pattern {set.setNumber}
-                                            </SelectItem>
-                                        ))
-                                    )}
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        {/* Difficulty Dropdown */}
-                        <div>
-                            <Label className="text-xs text-muted-foreground">2. Select Difficulty</Label>
+                            <Label className="text-xs text-muted-foreground">1. Select Difficulty</Label>
                             <Select 
                                 value={selectedDifficulty}
                                 onValueChange={setSelectedDifficulty}
-                                disabled={!selectedManeuversRange && !currentPatternSelection?.maneuversRange}
                             >
                                 <SelectTrigger className="mt-1 h-9">
                                     <SelectValue placeholder="Select difficulty..." />
@@ -478,23 +437,25 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             </Select>
                         </div>
                         
-                        {/* Pattern Selection Dropdown - shows pdf_file_name */}
+                        {/* Pattern Selection Dropdown (Moved to 2nd, combined) */}
                         <div>
-                            <Label className="text-xs text-muted-foreground">3. Select Pattern</Label>
+                            <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
                             <Select 
                                 value={currentPatternSelection?.patternId?.toString() || ''}
                                 onValueChange={handlePatternSelect}
-                                disabled={!selectedManeuversRange && !currentPatternSelection?.maneuversRange}
                             >
                                 <SelectTrigger className="mt-1 h-9">
                                     <SelectValue placeholder={loadingPatterns ? "Loading..." : "Select pattern..."} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredPatterns.length > 0 ? (
-                                        filteredPatterns.map(pattern => (
+                                        filteredPatterns.map((pattern, index) => (
                                             <SelectItem key={pattern.id} value={pattern.id.toString()}>
                                                 <div className="flex items-center gap-2">
-                                                    <span>{pattern.pdf_file_name?.trim() || `Pattern ${pattern.id}`}</span>
+                                                    <span>{(() => {
+                                                        const name = `Pattern ${index + 1}`;
+                                                        return name;
+                                                    })()}</span>
                                                     {pattern.pattern_version && (
                                                         <Badge variant="outline" className="text-xs">{pattern.pattern_version}</Badge>
                                                     )}
@@ -503,7 +464,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         ))
                                     ) : (
                                         <SelectItem value="none" disabled>
-                                            {selectedManeuversRange ? 'No patterns found' : 'Select pattern set first'}
+                                            No patterns found
                                         </SelectItem>
                                     )}
                                 </SelectContent>
@@ -524,10 +485,24 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                             <Eye className="h-3 w-3" />
                                         </Button>
                                     </HoverCardTrigger>
-                                    <HoverCardContent className="w-80" align="start">
-                                        <div className="space-y-2">
-                                            <h4 className="font-medium leading-none border-b pb-2">Pattern Maneuvers</h4>
-                                            <div className="text-sm text-muted-foreground max-h-[300px] overflow-y-auto">
+                                    <HoverCardContent className="w-96" align="start">
+                                        <div className="space-y-3">
+                                            <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
+                                            
+                                            {/* Pattern Image */}
+                                            {patternImage && (
+                                                <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                    <img 
+                                                        src={patternImage} 
+                                                        alt="Pattern Diagram" 
+                                                        className="w-full h-auto object-contain max-h-[300px]"
+                                                        loading="lazy"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Maneuvers List */}
+                                            <div className="text-sm text-muted-foreground max-h-[200px] overflow-y-auto">
                                                 {patternManeuvers.length > 0 ? (
                                                     <div className="space-y-1 pl-1">
                                                         {patternManeuvers.map((m) => (
@@ -538,7 +513,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <p>No instructions available for this pattern.</p>
+                                                    !patternImage && <p>No details available for this pattern.</p>
                                                 )}
                                             </div>
                                         </div>
