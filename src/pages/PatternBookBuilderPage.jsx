@@ -33,21 +33,39 @@ const steps = [
     { id: 8, name: 'Close Out & Review', icon: ShieldCheck },
 ];
 
-const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
+const isDisciplineComplete = (pbbDiscipline, isOpenShowMode, allDisciplines = null) => {
     if (!pbbDiscipline) return false;
 
-    // Use divisionOrder as source of truth - same as PatternGrouping.jsx
-    const selectedDivisions = new Set(pbbDiscipline.divisionOrder || []);
-    const groupedDivisions = new Set((pbbDiscipline.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
-
+    // Get all merged disciplines with the same name (if provided)
+    const disciplinesToCheck = allDisciplines || [pbbDiscipline];
+    
+    // Aggregate all selected divisions and grouped divisions across merged disciplines
+    const allSelectedDivisions = new Set();
+    const allGroupedDivisions = new Set();
+    
+    disciplinesToCheck.forEach(disc => {
+        if (!disc) return;
+        
+        // Use divisionOrder as the definitive list of selected divisions
+        if (disc.divisionOrder && disc.divisionOrder.length > 0) {
+            disc.divisionOrder.forEach(divId => allSelectedDivisions.add(divId));
+        }
+        
+        // Get grouped divisions for this discipline
+        const groups = disc.patternGroups || [];
+        groups.forEach(g => {
+            (g.divisions || []).forEach(d => allGroupedDivisions.add(d.id));
+        });
+    });
+    
     // If no divisions selected, not complete
-    if (selectedDivisions.size === 0) {
+    if (allSelectedDivisions.size === 0) {
         return false;
     }
-
+    
     // All selected divisions must be grouped
-    return selectedDivisions.size === groupedDivisions.size && 
-           [...selectedDivisions].every(d => groupedDivisions.has(d));
+    return allSelectedDivisions.size === allGroupedDivisions.size && 
+           [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
 };
 
 
@@ -175,7 +193,25 @@ const PatternBookBuilderPage = () => {
                 return !(formData.disciplines && formData.disciplines.length > 0);
             case 3:
                 const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
-                return !(formData.disciplines && formData.disciplines.length > 0 && formData.disciplines.every(disc => isDisciplineComplete(disc, isOpenShowMode)));
+                if (!formData.disciplines || formData.disciplines.length === 0) return true;
+                
+                // Group disciplines by name (same as ClassConfiguration) to handle merged disciplines
+                const disciplineGroups = {};
+                formData.disciplines.forEach(disc => {
+                    const name = disc.name;
+                    if (!disciplineGroups[name]) {
+                        disciplineGroups[name] = [];
+                    }
+                    disciplineGroups[name].push(disc);
+                });
+                
+                // Check if all discipline groups are complete
+                const allComplete = Object.values(disciplineGroups).every(mergedDisciplines => {
+                    const primaryDiscipline = mergedDisciplines[0];
+                    return isDisciplineComplete(primaryDiscipline, isOpenShowMode, mergedDisciplines);
+                });
+                
+                return !allComplete;
             case 4:
                 return !(formData.showName && formData.startDate);
             case 5:

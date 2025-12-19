@@ -102,6 +102,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         existing.mergedAssociations = [existing.association_id];
       }
       existing.mergedAssociations.push(discipline.association_id);
+      
     }
     return acc;
   }, []);
@@ -111,7 +112,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     assoc => formData.associations?.[assoc.id]
   );
 
-  // Fetch patterns from database for a discipline
+  // Fetch patterns from database for a discipline (fetch ALL patterns, filter by group associations later)
   const fetchPatternsForDiscipline = async (discipline) => {
     if (!discipline?.name) return;
     const disciplineId = discipline.id;
@@ -121,21 +122,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     setLoadingPatterns(prev => ({ ...prev, [disciplineId]: true }));
     
     try {
-      // Get association name
-      let associationName = null;
-      if (discipline.association_id) {
-        const assoc = associationsData?.find(a => a.id === discipline.association_id);
-        if (assoc) associationName = assoc.name || assoc.abbreviation;
-      }
-      
+      // Fetch ALL patterns for this discipline (no association filter at discipline level)
+      // Group-level filtering will be applied in the Select dropdown
       let query = supabase
         .from('tbl_patterns')
         .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
         .ilike('discipline', `%${discipline.name}%`);
-      
-      if (associationName) {
-        query = query.ilike('association_name', `%${associationName}%`);
-      }
       
       const { data, error } = await query;
       if (error) throw error;
@@ -235,9 +227,93 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     return dbPatterns[disciplineId] || [];
   };
 
+  // Get association name(s) and abbreviation(s) for a group based on Primary logic (similar to DropZoneGroup)
+  const getGroupAssociationNames = (group) => {
+    if (!group?.divisions || group.divisions.length === 0) {
+      return { names: [], abbreviations: [], ids: [] };
+    }
+
+    // Get all unique associations from divisions in this group
+    const uniqueAssocIds = [...new Set(group.divisions.map(div => div.assocId).filter(Boolean))];
+    
+    // If only one association, use it
+    if (uniqueAssocIds.length === 1) {
+      const assocId = uniqueAssocIds[0];
+      const assoc = associationsData?.find(a => a.id === assocId);
+      if (assoc) {
+        return {
+          names: assoc.name ? [assoc.name] : [],
+          abbreviations: assoc.abbreviation ? [assoc.abbreviation] : [],
+          ids: [assocId] // Include ID as fallback for matching
+        };
+      }
+      // Fallback: if association not found in associationsData, use the ID itself
+      return { names: [], abbreviations: [], ids: [assocId] };
+    }
+
+    // If multiple associations, check which are Primary
+    if (uniqueAssocIds.length > 1 && formData?.primaryAffiliates) {
+      const primaryAssocIds = uniqueAssocIds.filter(assocId => 
+        formData.primaryAffiliates.includes(assocId)
+      );
+      
+      // If we have Primary associations, use them
+      if (primaryAssocIds.length > 0) {
+        const names = [];
+        const abbreviations = [];
+        primaryAssocIds.forEach(assocId => {
+          const assoc = associationsData?.find(a => a.id === assocId);
+          if (assoc) {
+            if (assoc.name) names.push(assoc.name);
+            if (assoc.abbreviation) abbreviations.push(assoc.abbreviation);
+          }
+        });
+        return { names, abbreviations, ids: primaryAssocIds };
+      }
+    }
+
+    // Fallback: use first association if no Primary found
+    if (uniqueAssocIds.length > 0) {
+      const assocId = uniqueAssocIds[0];
+      const assoc = associationsData?.find(a => a.id === assocId);
+      if (assoc) {
+        return {
+          names: assoc.name ? [assoc.name] : [],
+          abbreviations: assoc.abbreviation ? [assoc.abbreviation] : [],
+          ids: [assocId]
+        };
+      }
+      // Fallback: if association not found in associationsData, use the ID itself
+      return { names: [], abbreviations: [], ids: [assocId] };
+    }
+
+    return { names: [], abbreviations: [], ids: [] };
+  };
+
   // Get pattern selection from formData
   const getPatternSelection = (disciplineId, groupId) => {
     return formData.patternSelections?.[disciplineId]?.[groupId];
+  };
+
+  // Extract pattern number from filename (e.g., "WesternRiding0001" -> "1", "WesternRiding0001.L1" -> "1")
+  const extractPatternNumber = (fileName) => {
+    if (!fileName) return null;
+    // Remove extension if present
+    const nameWithoutExt = fileName.replace(/\.(pdf|PDF)$/, '');
+    // Extract trailing digits before any dot (e.g., "WesternRiding0001.L1" -> "0001")
+    const match = nameWithoutExt.match(/(\d+)(?:\.|$)/);
+    if (match) {
+      // Convert to number to remove leading zeros (e.g., "0001" -> 1)
+      const num = parseInt(match[1], 10);
+      return isNaN(num) ? null : num;
+    }
+    // Fallback: try to find any sequence of digits at the end
+    const fallbackMatch = nameWithoutExt.match(/(\d+)$/);
+    if (fallbackMatch) {
+      const num = parseInt(fallbackMatch[1], 10);
+      return isNaN(num) ? null : num;
+    }
+    return null;
   };
 
   // Check if discipline is complete
@@ -657,7 +733,23 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     }
                                                     return selectedIds[0];
                                                 }
-                                                return `${selectedIds.length} selected`;
+                                                
+                                                // Show all selected difficulties when multiple are selected
+                                                return (
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        {selectedIds.map((id, idx) => {
+                                                            const ver = PATTERN_VERSIONS.find(v => v.id === id);
+                                                            if (!ver) return null;
+                                                            return (
+                                                                <div key={id} className="flex items-center gap-1">
+                                                                    <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
+                                                                    <span className="text-xs">{ver.label}</span>
+                                                                    {idx < selectedIds.length - 1 && <span className="text-muted-foreground">,</span>}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                );
                                             })()}
                                         </div>
                                         <ChevronDown className="h-4 w-4 opacity-50" />
@@ -840,9 +932,82 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     const difficulty = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
                                                     let filtered = getFilteredPatterns(discipline.id);
 
+                                                    // Filter by group associations based on Primary logic
+                                                    const groupAssociations = getGroupAssociationNames(group);
+                                                    const allGroupAssocNames = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
+                                                    
+                                                    if (allGroupAssocNames.length > 0) {
+                                                        const filteredByAssoc = filtered.filter(pattern => {
+                                                            const patternAssocName = (pattern.association_name || '').trim();
+                                                            if (!patternAssocName) {
+                                                                // If pattern has no association name, exclude it (patterns should have association names)
+                                                                return false;
+                                                            }
+                                                            
+                                                            const patternAssocLower = patternAssocName.toLowerCase();
+                                                            
+                                                            return allGroupAssocNames.some(assocName => {
+                                                                const assocNameLower = (assocName || '').trim().toLowerCase();
+                                                                if (!assocNameLower) return false;
+                                                                
+                                                                // 1. Exact match (case-insensitive)
+                                                                if (patternAssocLower === assocNameLower) return true;
+                                                                
+                                                                // 2. Pattern starts with association abbreviation (e.g., "AQHA - ..." matches "AQHA")
+                                                                if (patternAssocLower.startsWith(assocNameLower + ' ') || 
+                                                                    patternAssocLower.startsWith(assocNameLower + '-')) {
+                                                                    return true;
+                                                                }
+                                                                
+                                                                // 3. Association abbreviation matches pattern's first word before dash/space
+                                                                // (e.g., "AQHA" matches "AQHA - American Quarter Horse Association")
+                                                                const patternFirstPart = patternAssocLower.split(/[\s-]+/)[0];
+                                                                if (patternFirstPart === assocNameLower) return true;
+                                                                
+                                                                // 4. Pattern contains full association name (for cases like "American Quarter Horse Association" in pattern)
+                                                                // Only if the association name is longer than 3 chars to avoid false matches
+                                                                if (assocNameLower.length > 3 && patternAssocLower.includes(assocNameLower)) {
+                                                                    return true;
+                                                                }
+                                                                
+                                                                return false;
+                                                            });
+                                                        });
+                                                        
+                                                        // Use filtered results if we found matches, otherwise show "No patterns found"
+                                                        if (filteredByAssoc.length > 0) {
+                                                            // Deduplicate by pattern ID to avoid showing same pattern multiple times
+                                                            const seenIds = new Set();
+                                                            filtered = filteredByAssoc.filter(pattern => {
+                                                                if (seenIds.has(pattern.id)) {
+                                                                    return false;
+                                                                }
+                                                                seenIds.add(pattern.id);
+                                                                return true;
+                                                            });
+                                                        } else {
+                                                            // If no matches found for this group's association, show empty (will display "No patterns")
+                                                            filtered = [];
+                                                        }
+                                                    } else {
+                                                        // If group has no associations identified, show empty (will display "No patterns")
+                                                        filtered = [];
+                                                    }
+
                                                     if (!difficulty.includes('ALL')) {
                                                         filtered = filtered.filter(p => difficulty.includes(p.pattern_version));
                                                     }
+                                                    
+                                                    // Final deduplication by pattern ID (in case same pattern appears multiple times)
+                                                    const uniquePatterns = [];
+                                                    const seenPatternIds = new Set();
+                                                    filtered.forEach(pattern => {
+                                                        if (!seenPatternIds.has(pattern.id)) {
+                                                            seenPatternIds.add(pattern.id);
+                                                            uniquePatterns.push(pattern);
+                                                        }
+                                                    });
+                                                    filtered = uniquePatterns;
                                                     
                                                      // Sort by name (numeric)
                                                     filtered.sort((a, b) => {
@@ -855,16 +1020,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                         return <SelectItem value="none" disabled>No patterns</SelectItem>;
                                                     }
 
-                                                    return filtered.map((p, idx) => (
-                                                        <SelectItem key={p.id} value={p.id.toString()}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span>{`Pattern ${idx + 1}`}</span>
-                                                                {p.pattern_version && (
-                                                                    <Badge variant="outline" className="text-xs h-5 px-1">{p.pattern_version}</Badge>
-                                                                )}
-                                                            </div>
-                                                        </SelectItem>
-                                                    ));
+                                                    return filtered.map((p) => {
+                                                        const patternNumber = extractPatternNumber(p.pdf_file_name);
+                                                        const version = p.pattern_version || 'ALL';
+                                                        const displayLabel = patternNumber !== null 
+                                                            ? `pattern ${patternNumber} (${version})`
+                                                            : `Pattern ${idx + 1} (${version})`;
+                                                        
+                                                        return (
+                                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{displayLabel}</span>
+                                                                </div>
+                                                            </SelectItem>
+                                                        );
+                                                    });
                                                 })()}
                                             </SelectContent>
                                         </Select>

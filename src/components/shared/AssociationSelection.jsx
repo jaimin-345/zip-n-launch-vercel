@@ -285,15 +285,90 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         };
         
         // If unchecking an association, filter out disciplines that were ONLY for that association
+        // and clean up association-specific data from remaining disciplines
         if (!isChecked) {
             const remainingAssocIds = Object.keys(newAssociations);
-            newFormData.disciplines = (prev.disciplines || []).filter(disc => {
-                // Keep disciplines that have at least one remaining association selected
+            newFormData.disciplines = (prev.disciplines || []).map(disc => {
+                // Check if this discipline should be kept
                 const discAssocIds = Object.keys(disc.selectedAssociations || {}).filter(
                     id => disc.selectedAssociations[id]
                 );
-                return discAssocIds.some(id => remainingAssocIds.includes(id));
-            });
+                const shouldKeep = discAssocIds.some(id => remainingAssocIds.includes(id));
+                
+                // If discipline should be removed entirely, return null (will be filtered out)
+                if (!shouldKeep) {
+                    return null;
+                }
+                
+                // Clean up data for the unchecked association from remaining disciplines
+                const cleanedDiscipline = { ...disc };
+                
+                // Remove unchecked association from selectedAssociations
+                if (cleanedDiscipline.selectedAssociations) {
+                    delete cleanedDiscipline.selectedAssociations[assocId];
+                }
+                
+                // Remove divisions for the unchecked association
+                if (cleanedDiscipline.divisions && cleanedDiscipline.divisions[assocId]) {
+                    const newDivisions = { ...cleanedDiscipline.divisions };
+                    delete newDivisions[assocId];
+                    cleanedDiscipline.divisions = newDivisions;
+                }
+                
+                // Remove divisionOrder entries for the unchecked association
+                if (cleanedDiscipline.divisionOrder) {
+                    cleanedDiscipline.divisionOrder = cleanedDiscipline.divisionOrder.filter(
+                        divId => !divId.startsWith(`${assocId}-`)
+                    );
+                }
+                
+                // Remove divisionDates for divisions from the unchecked association
+                if (cleanedDiscipline.divisionDates) {
+                    const newDivisionDates = { ...cleanedDiscipline.divisionDates };
+                    Object.keys(newDivisionDates).forEach(divId => {
+                        if (divId.startsWith(`${assocId}-`)) {
+                            delete newDivisionDates[divId];
+                        }
+                    });
+                    cleanedDiscipline.divisionDates = newDivisionDates;
+                }
+                
+                // Remove divisionPrintTitles for divisions from the unchecked association
+                if (cleanedDiscipline.divisionPrintTitles) {
+                    const newDivisionPrintTitles = { ...cleanedDiscipline.divisionPrintTitles };
+                    Object.keys(newDivisionPrintTitles).forEach(divId => {
+                        if (divId.startsWith(`${assocId}-`)) {
+                            delete newDivisionPrintTitles[divId];
+                        }
+                    });
+                    cleanedDiscipline.divisionPrintTitles = newDivisionPrintTitles;
+                }
+                
+                // Clean up patternGroups - remove groups that only contain divisions from unchecked association
+                // or remove divisions from unchecked association from groups
+                if (cleanedDiscipline.patternGroups) {
+                    cleanedDiscipline.patternGroups = cleanedDiscipline.patternGroups
+                        .map(group => {
+                            // Filter out divisions from the unchecked association
+                            const filteredDivisions = (group.divisions || []).filter(
+                                div => div.assocId !== assocId
+                            );
+                            
+                            // Only keep the group if it still has divisions
+                            if (filteredDivisions.length > 0) {
+                                return {
+                                    ...group,
+                                    divisions: filteredDivisions
+                                };
+                            }
+                            // Return null to remove empty groups
+                            return null;
+                        })
+                        .filter(group => group !== null); // Remove null groups
+                }
+                
+                return cleanedDiscipline;
+            }).filter(disc => disc !== null); // Remove disciplines that were marked for deletion
         }
 
         if (!isChecked) {

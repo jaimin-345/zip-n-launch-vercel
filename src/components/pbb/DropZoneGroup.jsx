@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -227,25 +227,66 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [patternImage, setPatternImage] = useState(null);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
 
-    // Get association name from discipline or divisions
-    const getAssociationName = () => {
-        // Try to get from discipline's association_id first
-        if (pbbDiscipline?.association_id) {
-            const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
-            if (assoc) return assoc.name || assoc.abbreviation;
+    // Get association name(s) from group divisions based on Primary logic - memoized to prevent infinite loops
+    const associationNames = useMemo(() => {
+        if (!group.divisions || group.divisions.length === 0) {
+            // Fallback: try discipline's association_id
+            if (pbbDiscipline?.association_id) {
+                const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
+                if (assoc) return [assoc.name || assoc.abbreviation];
+            }
+            return [];
         }
-        // Fallback: get from first division's assocId
-        if (group.divisions?.length > 0) {
-            const firstDivAssocId = group.divisions[0].assocId;
-            const assoc = associationsData?.find(a => a.id === firstDivAssocId);
-            if (assoc) return assoc.name || assoc.abbreviation;
+
+        // Get all unique associations from divisions in this group
+        const uniqueAssocIds = [...new Set(group.divisions.map(div => div.assocId).filter(Boolean))];
+        
+        // If only one association, use it
+        if (uniqueAssocIds.length === 1) {
+            const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
+            if (assoc) return [assoc.name || assoc.abbreviation];
+            return [];
         }
-        return null;
-    };
 
-    const associationName = getAssociationName();
+        // If multiple associations, check which are Primary
+        if (uniqueAssocIds.length > 1 && formData?.primaryAffiliates) {
+            const primaryAssocIds = uniqueAssocIds.filter(assocId => 
+                formData.primaryAffiliates.includes(assocId)
+            );
+            
+            // If we have Primary associations, use them
+            if (primaryAssocIds.length > 0) {
+                return primaryAssocIds.map(assocId => {
+                    const assoc = associationsData?.find(a => a.id === assocId);
+                    return assoc ? (assoc.name || assoc.abbreviation) : null;
+                }).filter(Boolean);
+            }
+        }
 
-    // Fetch patterns from tbl_patterns based on discipline name AND association
+        // Fallback: use first association if no Primary found
+        if (uniqueAssocIds.length > 0) {
+            const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
+            if (assoc) return [assoc.name || assoc.abbreviation];
+        }
+
+        return [];
+    }, [
+        // Use stable keys from divisions instead of the array reference
+        group.divisions?.map(d => `${d.assocId}-${d.division}`).join(',') || '',
+        pbbDiscipline?.association_id,
+        formData?.primaryAffiliates?.join(',') || '',
+        // For associationsData, we'll use a length check to avoid unnecessary recalculations
+        associationsData?.length || 0
+    ]);
+
+    const associationName = associationNames.length > 0 ? associationNames[0] : null;
+
+    // Create a stable string key from association names for dependency
+    const associationNamesKey = useMemo(() => {
+        return associationNames.sort().join('|');
+    }, [associationNames]);
+
+    // Fetch patterns from tbl_patterns based on discipline name AND association(s)
     useEffect(() => {
         const fetchPatterns = async () => {
             if (!pbbDiscipline?.name) return;
@@ -256,9 +297,18 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
                     .ilike('discipline', `%${pbbDiscipline.name}%`);
                 
-                // Filter by association if available
-                if (associationName) {
-                    query = query.ilike('association_name', `%${associationName}%`);
+                // Filter by association(s) if available
+                if (associationNames.length > 0) {
+                    if (associationNames.length === 1) {
+                        // Single association: use simple ilike
+                        query = query.ilike('association_name', `%${associationNames[0]}%`);
+                    } else {
+                        // Multiple associations: use OR condition with ilike
+                        const orConditions = associationNames
+                            .map(name => `association_name.ilike.%${name}%`)
+                            .join(',');
+                        query = query.or(orConditions);
+                    }
                 }
                 
                 const { data, error } = await query;
@@ -273,7 +323,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name, associationName]);
+    }, [pbbDiscipline?.name, associationNamesKey]);
 
     // Filter patterns based on difficulty
     useEffect(() => {

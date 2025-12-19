@@ -199,7 +199,9 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             // Only check if this discipline's association is in the dualApprovedWith list
             if (!dualApprovedWith.includes(disc.association_id)) return;
             
-            const disciplineKey = `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
+            // Include pattern_type in key to match Step2 format
+            const patternType = disc.pattern_type || 'none';
+            const disciplineKey = `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}-${patternType}`;
             const dualSelections = dualApprovedSelections[disciplineKey] || {};
             
             Object.entries(dualSelections).forEach(([dualAssocId, isSelected]) => {

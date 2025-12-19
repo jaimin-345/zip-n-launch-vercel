@@ -234,11 +234,20 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     }, [formData.subAssociationSelections]);
 
     const selectedDisciplineKeys = useMemo(() => 
-        new Set((formData.disciplines || []).map(d => `${d.association_id}-${d.sub_association_type || 'none'}-${d.name}`)), 
+        new Set((formData.disciplines || []).map(d => {
+            // Include pattern_type in key to differentiate between same-name disciplines in different categories
+            const patternType = d.pattern_type || 'none';
+            return `${d.association_id}-${d.sub_association_type || 'none'}-${d.name}-${patternType}`;
+        })), 
         [formData.disciplines]
     );
     
-    const getDisciplineKey = (disc) => `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}`;
+    const getDisciplineKey = (disc) => {
+        // Include pattern_type in key to differentiate between same-name disciplines in different categories
+        // This prevents auto-checking when same discipline name exists in multiple categories (Custom Pattern, Rulebook Pattern, Scoresheet Only)
+        const patternType = disc.pattern_type || 'none';
+        return `${disc.association_id}-${disc.sub_association_type || 'none'}-${disc.name}-${patternType}`;
+    };
 
     // Handler for dual-approved checkbox toggle
     const handleDualApprovedToggle = (disciplineKey, assocId, isChecked) => {
@@ -358,6 +367,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                         customDivisions: [],
                         patternGroups: [],
                         sub_association_type: disc.sub_association_type, // Preserve sub-type
+                        pattern_type: disc.pattern_type || 'none', // Preserve pattern_type for key matching
                     };
                     
                     if (newDiscipline.pattern) {

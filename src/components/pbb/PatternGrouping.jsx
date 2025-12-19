@@ -28,6 +28,42 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
 
     const { setNodeRef: setUngroupedNodeRef, isOver: isOverUngrouped } = useDroppable({ id: UNGROUPED_ID });
 
+    // Helper: Get all associations that have divisions in this discipline
+    const getAllAssociationsForDiscipline = () => {
+        if (!pbbDiscipline) return [];
+        
+        const allAssocIds = new Set();
+        
+        // From divisionOrder (all divisions including ungrouped)
+        if (pbbDiscipline.divisionOrder) {
+            pbbDiscipline.divisionOrder.forEach(divId => {
+                const [assocId] = divId.split('-');
+                if (assocId) allAssocIds.add(assocId);
+            });
+        }
+        
+        // From grouped divisions
+        (pbbDiscipline.patternGroups || []).forEach(group => {
+            (group.divisions || []).forEach(div => {
+                if (div.assocId) allAssocIds.add(div.assocId);
+            });
+        });
+        
+        return Array.from(allAssocIds);
+    };
+
+    // Helper: Get Primary associations for this discipline based on actual divisions
+    const getPrimaryAssociationsForDiscipline = () => {
+        if (!formData?.primaryAffiliates || !pbbDiscipline) return [];
+        
+        const allAssocIds = getAllAssociationsForDiscipline();
+        
+        // Filter to only Primary associations that have divisions
+        return allAssocIds.filter(assocId => 
+            formData.primaryAffiliates.includes(assocId)
+        );
+    };
+
     const AFFECTED_CLASSES_FOR_WT_RULE = [
         "Showmanship at Halter", "Trail", "Western Horsemanship", "Hunter Hack",
         "In-Hand Trail", "Working Hunter", "Ranch Trail", "Equitation Over Fences",
@@ -202,6 +238,31 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                         return;
                     }
                 }
+
+                // Primary Association Validation: If 2+ associations exist AND 2+ are Primary, prevent mixing
+                const allAssociations = getAllAssociationsForDiscipline();
+                const primaryAssociations = getPrimaryAssociationsForDiscipline();
+                if (allAssociations.length >= 2 && primaryAssociations.length >= 2) {
+                    const movingAssocId = divisionToMove.assocId;
+                    const targetAssocIds = new Set(targetGroup.divisions.map(d => d.assocId));
+                    
+                    // Check if moving division's association is Primary
+                    if (primaryAssociations.includes(movingAssocId)) {
+                        // If target group has divisions from a different Primary association, prevent mixing
+                        const hasDifferentPrimary = Array.from(targetAssocIds).some(
+                            assocId => primaryAssociations.includes(assocId) && assocId !== movingAssocId
+                        );
+                        
+                        if (hasDifferentPrimary) {
+                            toast({
+                                variant: 'destructive',
+                                title: 'Invalid Grouping',
+                                description: 'When multiple associations are set as Primary, divisions from different Primary associations cannot be mixed in the same group.',
+                            });
+                            return;
+                        }
+                    }
+                }
             }
         }
 
@@ -306,6 +367,34 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 });
                 return;
             }
+
+            // Primary Association Validation: If 2+ associations exist AND 2+ are Primary, prevent mixing
+            const allAssociations = getAllAssociationsForDiscipline();
+            const primaryAssociations = getPrimaryAssociationsForDiscipline();
+            if (allAssociations.length >= 2 && primaryAssociations.length >= 2 && targetGroup.divisions.length > 0) {
+                const movingAssocIds = new Set(simpleDivs.map(d => d.assocId));
+                const targetAssocIds = new Set(targetGroup.divisions.map(d => d.assocId));
+                
+                // Check if any moving divisions are from Primary associations
+                const movingPrimaryAssocs = Array.from(movingAssocIds).filter(id => primaryAssociations.includes(id));
+                
+                if (movingPrimaryAssocs.length > 0) {
+                    // Check if target group has divisions from a different Primary association
+                    const targetPrimaryAssocs = Array.from(targetAssocIds).filter(id => primaryAssociations.includes(id));
+                    const hasDifferentPrimary = movingPrimaryAssocs.some(movingAssoc => 
+                        targetPrimaryAssocs.some(targetAssoc => targetAssoc !== movingAssoc)
+                    );
+                    
+                    if (hasDifferentPrimary) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'Invalid Grouping',
+                            description: 'When multiple associations are set as Primary, divisions from different Primary associations cannot be mixed in the same group.',
+                        });
+                        return;
+                    }
+                }
+            }
         }
 
         setFormData(prev => {
@@ -363,15 +452,58 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
             return;
         }
 
+        // Get all unique associations from ungrouped divisions
+        const ungroupedAssocIds = [...new Set(ungroupedDivisions.map(d => d.assocId).filter(Boolean))];
+        const hasMultipleAssociations = ungroupedAssocIds.length >= 2;
         const isWtAffected = AFFECTED_CLASSES_FOR_WT_RULE.includes(pbbDiscipline.name);
-        const wtDivisions = isWtAffected ? ungroupedDivisions.filter(d => isWalkTrotDivision(d.division)) : [];
-        const nonWtDivisions = isWtAffected ? ungroupedDivisions.filter(d => !isWalkTrotDivision(d.division)) : [...ungroupedDivisions];
 
         setFormData(prev => {
             const newDisciplines = prev.disciplines.map(disc => {
-                if (disc.id === pbbDiscipline.id) {
-                    let newPatternGroups = [...(disc.patternGroups || [])].filter(g => g.divisions.length > 0);
-                    let nextPatternNum = newPatternGroups.length + 1;
+                if (disc.id !== pbbDiscipline.id) return disc;
+
+                let newPatternGroups = [...(disc.patternGroups || [])].filter(g => g.divisions.length > 0);
+                let nextPatternNum = newPatternGroups.length + 1;
+
+                if (hasMultipleAssociations) {
+                    // Multiple associations: Create separate groups per association
+                    ungroupedAssocIds.forEach(assocId => {
+                        const assocDivisions = ungroupedDivisions.filter(d => d.assocId === assocId);
+                        if (assocDivisions.length === 0) return;
+
+                        // Separate WT and non-WT for each association
+                        const wtDivisions = isWtAffected 
+                            ? assocDivisions.filter(d => isWalkTrotDivision(d.division)) 
+                            : [];
+                        const nonWtDivisions = isWtAffected 
+                            ? assocDivisions.filter(d => !isWalkTrotDivision(d.division)) 
+                            : assocDivisions;
+
+                        if (nonWtDivisions.length > 0) {
+                            newPatternGroups.push({
+                                id: `pattern-group-${Date.now()}-${assocId}-nonwt`,
+                                name: `Group ${nextPatternNum++}`,
+                                divisions: nonWtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                                rulebookPatternId: '',
+                            });
+                        }
+
+                        if (wtDivisions.length > 0) {
+                            newPatternGroups.push({
+                                id: `pattern-group-${Date.now()}-${assocId}-wt`,
+                                name: `Group ${nextPatternNum++}`,
+                                divisions: wtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                                rulebookPatternId: '',
+                            });
+                        }
+                    });
+                } else {
+                    // Single association: Group all divisions together
+                    const wtDivisions = isWtAffected 
+                        ? ungroupedDivisions.filter(d => isWalkTrotDivision(d.division)) 
+                        : [];
+                    const nonWtDivisions = isWtAffected 
+                        ? ungroupedDivisions.filter(d => !isWalkTrotDivision(d.division)) 
+                        : [...ungroupedDivisions];
 
                     if (nonWtDivisions.length > 0) {
                         newPatternGroups.push({
@@ -390,10 +522,9 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                             rulebookPatternId: '',
                         });
                     }
-
-                    return { ...disc, patternGroups: newPatternGroups };
                 }
-                return disc;
+
+                return { ...disc, patternGroups: newPatternGroups };
             });
             return { ...prev, disciplines: newDisciplines };
         });

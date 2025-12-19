@@ -20,8 +20,24 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   const { toast } = useToast();
   const [selectedScoresheetDetails, setSelectedScoresheetDetails] = useState({});
   
-  const patternDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.pattern), [formData.disciplines]);
-  const scoresheetDisciplines = useMemo(() => (formData.disciplines || []).filter(d => d.scoresheet), [formData.disciplines]);
+  const patternDisciplines = useMemo(() => {
+    return (formData.disciplines || [])
+      .filter(d => d.pattern)
+      .filter(d => {
+        // Only show disciplines that have at least one pattern group
+        const groups = d.patternGroups || [];
+        return groups.length > 0;
+      });
+  }, [formData.disciplines]);
+  const scoresheetDisciplines = useMemo(() => {
+    return (formData.disciplines || [])
+      .filter(d => d.scoresheet)
+      .filter(d => {
+        // Only show disciplines that have at least one pattern group
+        const groups = d.patternGroups || [];
+        return groups.length > 0;
+      });
+  }, [formData.disciplines]);
 
   const dateRange = formData.startDate && formData.endDate
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
