@@ -449,12 +449,16 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredPatterns.length > 0 ? (
-                                        filteredPatterns.map((pattern, index) => (
+                                        filteredPatterns.map((pattern) => (
                                             <SelectItem key={pattern.id} value={pattern.id.toString()}>
                                                 <div className="flex items-center gap-2">
                                                     <span>{(() => {
-                                                        const name = `Pattern ${index + 1}`;
-                                                        return name;
+                                                        // Extract pattern number from pdf_file_name (e.g., "WesternRiding0001" → "1", "WesternRiding0001.L1" → "1")
+                                                        const fileName = pattern.pdf_file_name?.trim() || '';
+                                                        // Match trailing digits before optional dot/extension
+                                                        const match = fileName.match(/(\d+)(?:\..*)?$/);
+                                                        const patternNum = match ? parseInt(match[1], 10) : pattern.id;
+                                                        return `Pattern ${patternNum}`;
                                                     })()}</span>
                                                     {pattern.pattern_version && (
                                                         <Badge variant="outline" className="text-xs">{pattern.pattern_version}</Badge>
