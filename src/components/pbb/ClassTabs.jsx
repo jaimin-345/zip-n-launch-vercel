@@ -352,7 +352,7 @@ import React, { useMemo } from 'react';
         };
 
         return (
-            <Tabs defaultValue="divisions">
+            <Tabs defaultValue="grouping">
                 {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
                     <div className="flex gap-4 mb-2">
                         <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>

@@ -413,43 +413,26 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
 
                     <div className="grid grid-cols-2 gap-3 mb-2">
-                        {/* Difficulty Dropdown (Moved to 1st) */}
+                        {/* Pattern Selection Dropdown (1st) */}
                         <div>
-
-                            <Label className="text-xs text-muted-foreground">1. Select Difficulty</Label>
-                            <Select 
-                                value={selectedDifficulty}
-                                onValueChange={setSelectedDifficulty}
-                            >
-                                <SelectTrigger className="mt-1 h-9">
-                                    <SelectValue placeholder="Select difficulty..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {PATTERN_VERSIONS.map(version => (
-                                        <SelectItem key={version.id} value={version.id}>
-                                            <div className="flex items-center gap-2">
-                                                <div className={`w-2 h-2 rounded-full ${version.dotColor}`} />
-                                                <span>{version.label}</span>
-                                            </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        
-                        {/* Pattern Selection Dropdown (Moved to 2nd, combined) */}
-                        <div>
-                            <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
+                            <Label className="text-xs text-muted-foreground">1. Select Pattern</Label>
                             <Select 
                                 value={currentPatternSelection?.patternId?.toString() || ''}
-                                onValueChange={handlePatternSelect}
+                                onValueChange={(patternId) => {
+                                    // Find the selected pattern and auto-set difficulty
+                                    const selectedPattern = dbPatterns.find(p => p.id.toString() === patternId);
+                                    if (selectedPattern?.pattern_version) {
+                                        setSelectedDifficulty(selectedPattern.pattern_version);
+                                    }
+                                    handlePatternSelect(patternId);
+                                }}
                             >
                                 <SelectTrigger className="mt-1 h-9">
                                     <SelectValue placeholder={loadingPatterns ? "Loading..." : "Select pattern..."} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {filteredPatterns.length > 0 ? (
-                                        filteredPatterns.map((pattern) => (
+                                    {dbPatterns.length > 0 ? (
+                                        dbPatterns.map((pattern) => (
                                             <SelectItem key={pattern.id} value={pattern.id.toString()}>
                                                 <div className="flex items-center gap-2">
                                                     <span>{(() => {
@@ -471,6 +454,29 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                             No patterns found
                                         </SelectItem>
                                     )}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        {/* Difficulty Dropdown (2nd - auto-set when pattern selected) */}
+                        <div>
+                            <Label className="text-xs text-muted-foreground">2. Select Difficulty</Label>
+                            <Select 
+                                value={selectedDifficulty}
+                                onValueChange={setSelectedDifficulty}
+                            >
+                                <SelectTrigger className="mt-1 h-9">
+                                    <SelectValue placeholder="Select difficulty..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PATTERN_VERSIONS.map(version => (
+                                        <SelectItem key={version.id} value={version.id}>
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${version.dotColor}`} />
+                                                <span>{version.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
