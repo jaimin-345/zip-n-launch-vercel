@@ -282,6 +282,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         formData={formData}
                         associationsData={associationsData}
                         divisionsData={divisionsData}
+                        isComplete={isComplete}
                     />
                 </AccordionContent>
             </AccordionItem>

@@ -101,7 +101,7 @@ import React, { useMemo } from 'react';
         );
     };
     
-    export const ClassTabs = ({ pbbDiscipline, mergedDisciplines, setFormData, isOpenShowMode, formData, associationsData, divisionsData }) => {
+    export const ClassTabs = ({ pbbDiscipline, mergedDisciplines, setFormData, isOpenShowMode, formData, associationsData, divisionsData, isComplete }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
         const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = React.useState(false);
         const [customDivisionAssocId, setCustomDivisionAssocId] = React.useState(null);
@@ -351,8 +351,11 @@ import React, { useMemo } from 'react';
             return allDisciplines.find(d => d.selectedAssociations?.[assocId]) || pbbDiscipline;
         };
 
+        // Determine default tab based on completion status
+        const defaultTab = isComplete ? "grouping" : "divisions";
+
         return (
-            <Tabs defaultValue="grouping">
+            <Tabs defaultValue={defaultTab}>
                 {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
                     <div className="flex gap-4 mb-2">
                         <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>
