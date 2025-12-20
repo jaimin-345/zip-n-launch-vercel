@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, Check, ChevronsUpDown, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, Check, ChevronsUpDown, X, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -17,6 +18,197 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+
+// Pattern Badge with Hover Functionality Component
+const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
+    const [patternImage, setPatternImage] = useState(null);
+    const [patternManeuvers, setPatternManeuvers] = useState([]);
+    const [imageZoom, setImageZoom] = useState(1);
+    const [loading, setLoading] = useState(false);
+
+    // Fetch pattern details when patternId changes
+    useEffect(() => {
+        const fetchPatternDetails = async () => {
+            if (!patternId) {
+                setPatternManeuvers([]);
+                setPatternImage(null);
+                setImageZoom(1);
+                setLoading(false);
+                return;
+            }
+            setLoading(true);
+            setImageZoom(1);
+            try {
+                // Fetch maneuvers
+                const { data: maneuversData, error: maneuversError } = await supabase
+                    .from('tbl_maneuvers')
+                    .select('step_no, instruction')
+                    .eq('pattern_id', patternId)
+                    .order('step_no');
+                
+                if (maneuversError) throw maneuversError;
+                setPatternManeuvers(maneuversData || []);
+
+                // Fetch image
+                const { data: imageData, error: imageError } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('image_url')
+                    .eq('pattern_id', patternId)
+                    .maybeSingle();
+                
+                if (imageError) console.error('Error fetching pattern image:', imageError);
+                setPatternImage(imageData?.image_url || null);
+
+            } catch (err) {
+                console.error('Error fetching pattern details:', err);
+                setPatternManeuvers([]);
+                setPatternImage(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPatternDetails();
+    }, [patternId]);
+
+    return (
+        <HoverCard openDelay={100} closeDelay={100}>
+            <HoverCardTrigger asChild>
+                <span className="inline-flex items-center cursor-pointer">
+                    <Badge className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap hover:bg-green-200 hover:text-green-900 transition-colors flex items-center gap-1">
+                        {displayText}
+                        <Eye className="h-3 w-3" />
+                    </Badge>
+                </span>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-96" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                <div className="space-y-3">
+                    <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
+                    <p className="text-xs text-muted-foreground mb-2">{displayText}</p>
+                    
+                    {loading ? (
+                        <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="ml-2 text-sm text-muted-foreground">Loading pattern details...</span>
+                        </div>
+                    ) : !patternId ? (
+                        <p className="text-sm text-muted-foreground">Pattern ID not available. Please select a pattern first.</p>
+                    ) : (
+                        <>
+                            {/* Pattern Image with Nested Hover for Larger View */}
+                            {patternImage ? (
+                                <div className="space-y-2">
+                                    <HoverCard openDelay={200} closeDelay={100}>
+                                        <HoverCardTrigger asChild>
+                                            <div className="rounded-md overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary transition-colors">
+                                                <img 
+                                                    src={patternImage} 
+                                                    alt="Pattern Diagram" 
+                                                    className="w-full h-auto object-contain max-h-[300px]"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        </HoverCardTrigger>
+                                        <HoverCardContent className="w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
+                                            <div className="space-y-2">
+                                                <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
+                                                <div className="rounded-md border bg-muted/20 relative">
+                                                    <div className="overflow-auto max-h-[600px] min-h-[400px]">
+                                                        <div 
+                                                            className="flex items-center justify-center p-4"
+                                                            style={{ 
+                                                                minHeight: '400px'
+                                                            }}
+                                                        >
+                                                            <img 
+                                                                src={patternImage} 
+                                                                alt="Pattern Diagram - Zoomed" 
+                                                                className="object-contain transition-transform duration-200"
+                                                                loading="lazy"
+                                                                style={{ 
+                                                                    transform: `scale(${imageZoom})`,
+                                                                    transformOrigin: 'center',
+                                                                    maxWidth: '100%',
+                                                                    height: 'auto'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {/* Zoom Controls */}
+                                                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-md p-1 border shadow-lg z-10">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setImageZoom(prev => Math.min(prev + 0.25, 3));
+                                                            }}
+                                                            title="Zoom In"
+                                                        >
+                                                            <ZoomIn className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setImageZoom(prev => Math.max(prev - 0.25, 0.5));
+                                                            }}
+                                                            title="Zoom Out"
+                                                        >
+                                                            <ZoomOut className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setImageZoom(1);
+                                                            }}
+                                                            title="Reset Zoom"
+                                                        >
+                                                            <RotateCcw className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                    {/* Zoom Level Indicator */}
+                                                    {imageZoom !== 1 && (
+                                                        <div className="absolute bottom-2 left-2 bg-background/95 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-medium border shadow-lg z-10">
+                                                            {Math.round(imageZoom * 100)}%
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </HoverCardContent>
+                                    </HoverCard>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">No image available for this pattern.</p>
+                            )}
+
+                            {/* Maneuvers List */}
+                            <div className="text-sm text-muted-foreground max-h-[200px] overflow-y-auto">
+                                {patternManeuvers.length > 0 ? (
+                                    <div className="space-y-1 pl-1">
+                                        {patternManeuvers.map((m) => (
+                                            <div key={m.step_no} className="flex gap-2">
+                                                <span className="font-semibold min-w-[20px] text-right">{m.step_no}.</span>
+                                                <span>{m.instruction}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    !patternImage && <p className="text-sm text-muted-foreground">No maneuvers available for this pattern.</p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </HoverCardContent>
+        </HoverCard>
+    );
+};
 
 // Level category badge colors (kept for reference)
 // Pattern version categories (Standardized)
@@ -835,22 +1027,28 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             if (!selection?.patternId && !selection?.patternName) return null;
                             
                             const patternName = selection.patternName || '';
-                            const match = patternName.match(/PATTERN\s*\d+/i);
-                            const shortName = match ? match[0].toUpperCase() : patternName;
+                            // Remove .pdf extension if present and use the actual pattern name
+                            const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
                             const version = selection.version || '';
+                            // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
+                            const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
                             
                             return {
                               groupName: group.name,
-                              displayText: version ? `${shortName} (${version})` : shortName
+                              patternId: selection.patternId,
+                              displayText
                             };
                           }).filter(Boolean);
                           
                           return groupSelections.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap">
                               {groupSelections.map((sel, idx) => (
-                                <Badge key={idx} className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap">
-                                  {sel.displayText}
-                                </Badge>
+                                <PatternBadgeWithHover 
+                                  key={idx} 
+                                  patternId={sel.patternId} 
+                                  displayText={sel.displayText}
+                                  formData={formData}
+                                />
                               ))}
                             </div>
                           );
@@ -891,11 +1089,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   <div className="flex items-center gap-2">
                                     <Label className="font-semibold text-base">{group.name}</Label>
                                     {/* Show pattern badge if selected */}
-                                    {currentSelection?.patternName && (
-                                      <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
-                                        {currentSelection.patternName} {currentSelection.version && `(${currentSelection.version})`}
-                                      </Badge>
-                                    )}
+                                    {currentSelection?.patternName && (() => {
+                                      const patternName = currentSelection.patternName || '';
+                                      // Remove .pdf extension if present
+                                      const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                                      const version = currentSelection.version || '';
+                                      // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
+                                      const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                                      return (
+                                        <PatternBadgeWithHover 
+                                          patternId={currentSelection.patternId} 
+                                          displayText={displayText}
+                                          formData={formData}
+                                        />
+                                      );
+                                    })()}
                                   </div>
                                   <div className="flex flex-wrap gap-1 mt-2">
                                     {(group.divisions || []).map(div => (

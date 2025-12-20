@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown } from 'lucide-react';
+import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -226,67 +226,27 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [patternManeuvers, setPatternManeuvers] = useState([]);
     const [patternImage, setPatternImage] = useState(null);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
+    const [imageZoom, setImageZoom] = useState(1);
 
-    // Get association name(s) from group divisions based on Primary logic - memoized to prevent infinite loops
-    const associationNames = useMemo(() => {
-        if (!group.divisions || group.divisions.length === 0) {
-            // Fallback: try discipline's association_id
-            if (pbbDiscipline?.association_id) {
-                const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
-                if (assoc) return [assoc.name || assoc.abbreviation];
-            }
-            return [];
+    // Get association name from discipline or divisions
+    const getAssociationName = () => {
+        // Try to get from discipline's association_id first
+        if (pbbDiscipline?.association_id) {
+            const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
+            if (assoc) return assoc.name || assoc.abbreviation;
         }
-
-        // Get all unique associations from divisions in this group
-        const uniqueAssocIds = [...new Set(group.divisions.map(div => div.assocId).filter(Boolean))];
-        
-        // If only one association, use it
-        if (uniqueAssocIds.length === 1) {
-            const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
-            if (assoc) return [assoc.name || assoc.abbreviation];
-            return [];
+        // Fallback: get from first division's assocId
+        if (group.divisions?.length > 0) {
+            const firstDivAssocId = group.divisions[0].assocId;
+            const assoc = associationsData?.find(a => a.id === firstDivAssocId);
+            if (assoc) return assoc.name || assoc.abbreviation;
         }
+        return null;
+    };
 
-        // If multiple associations, check which are Primary
-        if (uniqueAssocIds.length > 1 && formData?.primaryAffiliates) {
-            const primaryAssocIds = uniqueAssocIds.filter(assocId => 
-                formData.primaryAffiliates.includes(assocId)
-            );
-            
-            // If we have Primary associations, use them
-            if (primaryAssocIds.length > 0) {
-                return primaryAssocIds.map(assocId => {
-                    const assoc = associationsData?.find(a => a.id === assocId);
-                    return assoc ? (assoc.name || assoc.abbreviation) : null;
-                }).filter(Boolean);
-            }
-        }
+    const associationName = getAssociationName();
 
-        // Fallback: use first association if no Primary found
-        if (uniqueAssocIds.length > 0) {
-            const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
-            if (assoc) return [assoc.name || assoc.abbreviation];
-        }
-
-        return [];
-    }, [
-        // Use stable keys from divisions instead of the array reference
-        group.divisions?.map(d => `${d.assocId}-${d.division}`).join(',') || '',
-        pbbDiscipline?.association_id,
-        formData?.primaryAffiliates?.join(',') || '',
-        // For associationsData, we'll use a length check to avoid unnecessary recalculations
-        associationsData?.length || 0
-    ]);
-
-    const associationName = associationNames.length > 0 ? associationNames[0] : null;
-
-    // Create a stable string key from association names for dependency
-    const associationNamesKey = useMemo(() => {
-        return associationNames.sort().join('|');
-    }, [associationNames]);
-
-    // Fetch patterns from tbl_patterns based on discipline name AND association(s)
+    // Fetch patterns from tbl_patterns based on discipline name AND association
     useEffect(() => {
         const fetchPatterns = async () => {
             if (!pbbDiscipline?.name) return;
@@ -297,18 +257,9 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
                     .ilike('discipline', `%${pbbDiscipline.name}%`);
                 
-                // Filter by association(s) if available
-                if (associationNames.length > 0) {
-                    if (associationNames.length === 1) {
-                        // Single association: use simple ilike
-                        query = query.ilike('association_name', `%${associationNames[0]}%`);
-                    } else {
-                        // Multiple associations: use OR condition with ilike
-                        const orConditions = associationNames
-                            .map(name => `association_name.ilike.%${name}%`)
-                            .join(',');
-                        query = query.or(orConditions);
-                    }
+                // Filter by association if available
+                if (associationName) {
+                    query = query.ilike('association_name', `%${associationName}%`);
                 }
                 
                 const { data, error } = await query;
@@ -323,7 +274,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name, associationNamesKey]);
+    }, [pbbDiscipline?.name, associationName]);
 
     // Filter patterns based on difficulty
     useEffect(() => {
@@ -346,14 +297,17 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         }
     }, [selectedDifficulty, dbPatterns]);
 
-    // Fetch maneuvers and image when pattern is selected
-    useEffect(() => {
-        const fetchPatternDetails = async () => {
-            if (!currentPatternId) {
-                setPatternManeuvers([]);
-                setPatternImage(null);
-                return;
-            }
+  // Fetch maneuvers and image when pattern is selected
+  useEffect(() => {
+    const fetchPatternDetails = async () => {
+      if (!currentPatternId) {
+        setPatternManeuvers([]);
+        setPatternImage(null);
+        setImageZoom(1); // Reset zoom when no pattern selected
+        return;
+      }
+      // Reset zoom when pattern changes
+      setImageZoom(1);
             try {
                 // Fetch maneuvers
                 const { data: maneuversData, error: maneuversError } = await supabase
@@ -431,6 +385,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     };
 
     const hasPattern = currentPatternSelection?.patternId;
+    // displayName is used for the pattern badge display, not for the group name input
     const displayName = hasPattern 
         ? currentPatternSelection.patternName || `Pattern ${currentPatternSelection.patternId}`
         : group.name;
@@ -444,7 +399,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     </div>
                     <div className="flex-1">
                         <Input
-                            value={displayName}
+                            value={group.name}
                             onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
                             className="font-semibold h-9"
                             disabled={hasPattern}
@@ -465,12 +420,12 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     <div className="grid grid-cols-2 gap-3 mb-2">
                         {/* Pattern Selection Dropdown (1st) */}
                         <div>
-                            <Label className="text-xs text-muted-foreground">1. Select Pattern</Label>
+                            <Label className="text-xs text-muted-foreground">Select Pattern</Label>
                             <Select 
                                 value={currentPatternSelection?.patternId?.toString() || ''}
                                 onValueChange={(patternId) => {
-                                    // Find the selected pattern and auto-set difficulty
-                                    const selectedPattern = dbPatterns.find(p => p.id.toString() === patternId);
+                                    // Find the selected pattern from filtered patterns and auto-set difficulty
+                                    const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId) || dbPatterns.find(p => p.id.toString() === patternId);
                                     if (selectedPattern?.pattern_version) {
                                         setSelectedDifficulty(selectedPattern.pattern_version);
                                     }
@@ -481,8 +436,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     <SelectValue placeholder={loadingPatterns ? "Loading..." : "Select pattern..."} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {dbPatterns.length > 0 ? (
-                                        dbPatterns.map((pattern) => (
+                                    {filteredPatterns.length > 0 ? (
+                                        filteredPatterns.map((pattern) => (
                                             <SelectItem key={pattern.id} value={pattern.id.toString()}>
                                                 <div className="flex items-center gap-2">
                                                     <span>{(() => {
@@ -501,7 +456,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         ))
                                     ) : (
                                         <SelectItem value="none" disabled>
-                                            No patterns found
+                                            {loadingPatterns ? "Loading..." : "No patterns found"}
                                         </SelectItem>
                                     )}
                                 </SelectContent>
@@ -510,7 +465,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                         
                         {/* Difficulty Dropdown (2nd - auto-set when pattern selected) */}
                         <div>
-                            <Label className="text-xs text-muted-foreground">2. Select Difficulty</Label>
+                            <Label className="text-xs text-muted-foreground">Select Difficulty</Label>
                             <Select 
                                 value={selectedDifficulty}
                                 onValueChange={setSelectedDifficulty}
@@ -549,15 +504,94 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         <div className="space-y-3">
                                             <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
                                             
-                                            {/* Pattern Image */}
+                                            {/* Pattern Image with Nested Hover for Larger View */}
                                             {patternImage && (
-                                                <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                    <img 
-                                                        src={patternImage} 
-                                                        alt="Pattern Diagram" 
-                                                        className="w-full h-auto object-contain max-h-[300px]"
-                                                        loading="lazy"
-                                                    />
+                                                <div className="space-y-2">
+                                                    <HoverCard openDelay={200} closeDelay={100}>
+                                                        <HoverCardTrigger asChild>
+                                                            <div className="rounded-md overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary transition-colors">
+                                                                <img 
+                                                                    src={patternImage} 
+                                                                    alt="Pattern Diagram" 
+                                                                    className="w-full h-auto object-contain max-h-[300px]"
+                                                                    loading="lazy"
+                                                                />
+                                                            </div>
+                                                        </HoverCardTrigger>
+                                                        <HoverCardContent className="w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
+                                                            <div className="space-y-2">
+                                                                <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
+                                                                <div className="rounded-md border bg-muted/20 relative">
+                                                                    <div className="overflow-auto max-h-[600px] min-h-[400px]">
+                                                                        <div 
+                                                                            className="flex items-center justify-center p-4"
+                                                                            style={{ 
+                                                                                minHeight: '400px'
+                                                                            }}
+                                                                        >
+                                                                            <img 
+                                                                                src={patternImage} 
+                                                                                alt="Pattern Diagram - Zoomed" 
+                                                                                className="object-contain transition-transform duration-200"
+                                                                                loading="lazy"
+                                                                                style={{ 
+                                                                                    transform: `scale(${imageZoom})`,
+                                                                                    transformOrigin: 'center',
+                                                                                    maxWidth: '100%',
+                                                                                    height: 'auto'
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    {/* Zoom Controls */}
+                                                                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-md p-1 border shadow-lg z-10">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setImageZoom(prev => Math.min(prev + 0.25, 3));
+                                                                            }}
+                                                                            title="Zoom In"
+                                                                        >
+                                                                            <ZoomIn className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setImageZoom(prev => Math.max(prev - 0.25, 0.5));
+                                                                            }}
+                                                                            title="Zoom Out"
+                                                                        >
+                                                                            <ZoomOut className="h-4 w-4" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setImageZoom(1);
+                                                                            }}
+                                                                            title="Reset Zoom"
+                                                                        >
+                                                                            <RotateCcw className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </div>
+                                                                    {/* Zoom Level Indicator */}
+                                                                    {imageZoom !== 1 && (
+                                                                        <div className="absolute bottom-2 left-2 bg-background/95 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-medium border shadow-lg z-10">
+                                                                            {Math.round(imageZoom * 100)}%
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </HoverCardContent>
+                                                    </HoverCard>
                                                 </div>
                                             )}
 

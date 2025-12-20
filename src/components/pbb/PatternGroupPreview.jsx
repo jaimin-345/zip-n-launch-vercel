@@ -19,7 +19,7 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                 <div className="mb-3 relative">
                     {group.name === 'Group 1' ? (
                         <div className={`flex items-center gap-2`}>
-                            <p className="font-bold text-base">{group.name}</p>
+                            {/* <p className="font-bold text-base">{group.name}</p> */}
                             {selectedPatternDetail && (
                                 <Badge className="bg-green-100 text-green-800 border-green-200 text-xs hover:bg-green-200 hover:text-green-900">
                                     {(() => {
