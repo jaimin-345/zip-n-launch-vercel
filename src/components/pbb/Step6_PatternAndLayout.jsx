@@ -867,14 +867,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     ref={(el) => disciplineRefs.current[discipline.id] = el}
                   >
                     {/* Toggle row with inline pattern selection */}
-                    <div className="w-full flex items-center gap-3 px-4 py-3 border-b">
-                      <button
-                        type="button"
-                        className="flex items-center gap-2 hover:text-primary transition-colors"
-                        onClick={() =>
-                          setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
-                        }
-                      >
+                    <div 
+                      className="w-full flex items-center gap-3 px-4 py-3 border-b cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() =>
+                        setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
+                      }
+                    >
+                      <div className="flex items-center gap-2 hover:text-primary transition-colors">
                         <span className="font-semibold text-base">{discipline.name}</span>
                         {groups.length > 0 && (
                           <Badge variant="secondary" className="ml-1">
@@ -887,17 +886,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             isOpen ? 'rotate-180' : 'rotate-0'
                           )}
                         />
-                      </button>
+                      </div>
                       
-                      <div className="flex-1 flex items-center gap-2 flex-wrap">
+                      <div className="flex-1 flex items-center gap-2 flex-wrap min-h-[40px]">
                         {/* Pattern Set (Maneuvers) dropdown - database driven */}
                         {/* Pattern Set (Maneuvers) dropdown - Multi-select */}
                         {/* Reference Style Selection: Difficulty -> Pattern */}
-                        <div className="flex items-center gap-2">
+                        <div 
+                          className="flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                             {/* Select Difficulty (Multi-Select) */}
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-[180px] justify-between bg-background">
+                                    <Button 
+                                      variant="outline" 
+                                      className="w-[180px] justify-between bg-background"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                         <div className="flex items-center gap-2 truncate">
                                             {(() => {
                                                 const selectedIds = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
@@ -1020,6 +1026,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             </Popover>
                         </div>
 
+                        {/* Assign Judge & Date Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenAssignDialog(discipline, disciplineIndex);
+                          }}
+                        >
+                          <UserCheck className="h-3 w-3 mr-1" />
+                          Assign Judge
+                        </Button>
+
                         {/* Display pattern badges from Step 3 selections */}
                         {(() => {
                           const groupSelections = groups.map((group) => {
@@ -1041,7 +1061,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           }).filter(Boolean);
                           
                           return groupSelections.length > 0 && (
-                            <div className="flex items-center gap-1 flex-wrap">
+                            <div 
+                              className="flex items-center gap-1 flex-wrap"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {groupSelections.map((sel, idx) => (
                                 <PatternBadgeWithHover 
                                   key={idx} 
@@ -1056,7 +1079,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
                         {/* Display assigned labels with values */}
                         {formData.judgeSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap">
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap cursor-pointer hover:bg-blue-500/20 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenAssignDialog(discipline, disciplineIndex);
+                            }}
+                          >
                             Judge:{' '}
                             {(() => {
                               const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
@@ -1065,7 +1095,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </Badge>
                         )}
                         {formData.dueDateSelections?.[disciplineIndex] && (
-                          <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap">
+                          <Badge 
+                            variant="secondary" 
+                            className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             Due Date: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yy')}
                           </Badge>
                         )}
