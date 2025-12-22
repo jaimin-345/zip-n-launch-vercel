@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const ScoresheetUploadPage = () => {
     const { toast } = useToast();
@@ -32,6 +33,7 @@ const ScoresheetUploadPage = () => {
     const [disciplines, setDisciplines] = useState([]);
     const [image, setImage] = useState(null);
 
+    const [selectionMode, setSelectionMode] = useState('pattern'); // 'pattern' or 'manual'
     const [formData, setFormData] = useState({
         pattern_id: '',
         association_abbrev: '',
@@ -120,6 +122,7 @@ const ScoresheetUploadPage = () => {
         });
         setImage(null);
         setEditingScoresheetId(null);
+        setSelectionMode('pattern');
         setIsFormOpen(false);
         setIsSubmitting(false);
     };
@@ -150,9 +153,17 @@ const ScoresheetUploadPage = () => {
     };
 
     const handleSubmit = async () => {
-        if (!formData.pattern_id) {
-            toast({ title: "Missing required fields", description: "Pattern ID is required.", variant: "destructive" });
-            return;
+        // Validate based on selection mode
+        if (selectionMode === 'pattern') {
+            if (!formData.pattern_id) {
+                toast({ title: "Missing required fields", description: "Please select a Pattern.", variant: "destructive" });
+                return;
+            }
+        } else {
+            if (!formData.association_abbrev || !formData.discipline) {
+                toast({ title: "Missing required fields", description: "Please select both Association and Discipline.", variant: "destructive" });
+                return;
+            }
         }
 
         if (!image && !editingScoresheetId) {
@@ -184,9 +195,9 @@ const ScoresheetUploadPage = () => {
             }
 
             const scoresheetPayload = {
-                pattern_id: parseInt(formData.pattern_id),
-                association_abbrev: formData.association_abbrev,
-                discipline: formData.discipline,
+                pattern_id: selectionMode === 'pattern' ? parseInt(formData.pattern_id) : null,
+                association_abbrev: formData.association_abbrev || null,
+                discipline: formData.discipline || null,
             };
 
             // Add image fields if new image was uploaded
@@ -240,6 +251,12 @@ const ScoresheetUploadPage = () => {
 
     const openEditForm = (scoresheet) => {
         setEditingScoresheetId(scoresheet.id);
+        // Determine selection mode based on existing data
+        if (scoresheet.pattern_id) {
+            setSelectionMode('pattern');
+        } else {
+            setSelectionMode('manual');
+        }
         setFormData({
             pattern_id: scoresheet.pattern_id?.toString() || '',
             association_abbrev: scoresheet.association_abbrev || '',
@@ -369,72 +386,109 @@ const ScoresheetUploadPage = () => {
                         <DialogTitle>{editingScoresheetId ? 'Edit' : 'Add New'} Scoresheet</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-6 py-4 overflow-y-auto pr-2">
-                        <div>
-                            <Label htmlFor="pattern_id">Pattern *</Label>
-                            <Select
-                                name="pattern_id"
-                                onValueChange={value => {
-                                    const selectedPattern = patterns.find(p => p.id.toString() === value);
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        pattern_id: value,
-                                        association_abbrev: selectedPattern?.association_name || '',
-                                        discipline: selectedPattern?.discipline || '',
-                                    }));
+                        {/* Selection Mode Toggle */}
+                        <div className="space-y-3">
+                            <Label>Select Data Source *</Label>
+                            <RadioGroup
+                                value={selectionMode}
+                                onValueChange={(value) => {
+                                    setSelectionMode(value);
+                                    // Clear opposite fields when switching
+                                    if (value === 'pattern') {
+                                        setFormData(prev => ({ ...prev, association_abbrev: '', discipline: '' }));
+                                    } else {
+                                        setFormData(prev => ({ ...prev, pattern_id: '' }));
+                                    }
                                 }}
-                                value={formData.pattern_id}
+                                className="flex gap-6"
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Pattern" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {patterns.map(p => (
-                                        <SelectItem key={p.id} value={p.id.toString()}>
-                                            {p.pdf_file_name} - {p.association_name} ({p.discipline})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="pattern" id="mode-pattern" />
+                                    <Label htmlFor="mode-pattern" className="cursor-pointer font-normal">
+                                        Select Pattern
+                                    </Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="manual" id="mode-manual" />
+                                    <Label htmlFor="mode-manual" className="cursor-pointer font-normal">
+                                        Select Association & Discipline
+                                    </Label>
+                                </div>
+                            </RadioGroup>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Pattern Selection (shown when mode is 'pattern') */}
+                        {selectionMode === 'pattern' && (
                             <div>
-                                <Label htmlFor="association_abbrev">Association</Label>
+                                <Label htmlFor="pattern_id">Pattern *</Label>
                                 <Select
-                                    value={formData.association_abbrev}
-                                    onValueChange={value => setFormData(p => ({ ...p, association_abbrev: value }))}
+                                    name="pattern_id"
+                                    onValueChange={value => {
+                                        const selectedPattern = patterns.find(p => p.id.toString() === value);
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            pattern_id: value,
+                                            association_abbrev: selectedPattern?.association_name || '',
+                                            discipline: selectedPattern?.discipline || '',
+                                        }));
+                                    }}
+                                    value={formData.pattern_id}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select Association" />
+                                        <SelectValue placeholder="Select Pattern" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {associations.map(a => (
-                                            <SelectItem key={a.id} value={a.abbreviation || a.name}>
-                                                {a.name} {a.abbreviation ? `(${a.abbreviation})` : ''}
+                                        {patterns.map(p => (
+                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                {p.pdf_file_name} - {p.association_name} ({p.discipline})
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div>
-                                <Label htmlFor="discipline">Discipline</Label>
-                                <Select
-                                    value={formData.discipline}
-                                    onValueChange={value => setFormData(p => ({ ...p, discipline: value }))}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select Discipline" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {sortedDisciplineTypes.map(d => (
-                                            <SelectItem key={d.id} value={d.name}>
-                                                {d.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                        )}
+
+                        {/* Association & Discipline Selection (shown when mode is 'manual') */}
+                        {selectionMode === 'manual' && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label htmlFor="association_abbrev">Association *</Label>
+                                    <Select
+                                        value={formData.association_abbrev}
+                                        onValueChange={value => setFormData(p => ({ ...p, association_abbrev: value }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Association" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {associations.map(a => (
+                                                <SelectItem key={a.id} value={a.abbreviation || a.name}>
+                                                    {a.name} {a.abbreviation ? `(${a.abbreviation})` : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="discipline">Discipline *</Label>
+                                    <Select
+                                        value={formData.discipline}
+                                        onValueChange={value => setFormData(p => ({ ...p, discipline: value }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Discipline" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {sortedDisciplineTypes.map(d => (
+                                                <SelectItem key={d.id} value={d.name}>
+                                                    {d.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <Card>
                             <CardHeader><CardTitle>Scoresheet Image</CardTitle></CardHeader>
