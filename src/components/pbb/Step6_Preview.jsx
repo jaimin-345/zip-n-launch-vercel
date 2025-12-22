@@ -14,6 +14,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
+import { fetchAssociations } from '@/lib/associationsData';
 
 // Pattern Badge with Hover Functionality Component
 const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
@@ -212,25 +213,69 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   const { toast } = useToast();
   const [selectedScoresheetDetails, setSelectedScoresheetDetails] = useState({});
   const [expandedDisciplines, setExpandedDisciplines] = useState(new Set());
+  const [expandedSections, setExpandedSections] = useState(new Set()); // Track which Pattern/Scoresheet sections are expanded
+  const [associationsData, setAssociationsData] = useState([]);
   
+  // Get all disciplines that have either patterns or scoresheets
+  const allDisciplines = useMemo(() => {
+    return (formData.disciplines || [])
+      .filter(d => {
+        // Show disciplines that have patterns OR scoresheets
+        const hasPattern = d.pattern;
+        const hasScoresheet = d.scoresheet || d.pattern_type === 'scoresheet_only' || (!d.pattern && d.scoresheet);
+        const groups = d.patternGroups || [];
+        
+        // For scoresheet-only disciplines: if no groups but has divisionOrder, we'll create groups below
+        if (hasScoresheet && !hasPattern && groups.length === 0 && d.divisionOrder && d.divisionOrder.length > 0) {
+          return true; // Include it, we'll create groups below
+        }
+        
+        return (hasPattern || hasScoresheet) && groups.length > 0;
+      })
+      .map(d => {
+        const hasPattern = d.pattern;
+        const hasScoresheet = d.scoresheet || d.pattern_type === 'scoresheet_only' || (!d.pattern && d.scoresheet);
+        let groups = d.patternGroups || [];
+        
+        // For scoresheet-only disciplines: if no groups exist but divisions are selected, create a default group
+        if (hasScoresheet && !hasPattern && groups.length === 0 && d.divisionOrder && d.divisionOrder.length > 0) {
+          const divisionsFromOrder = d.divisionOrder.map(divId => {
+            // Parse division ID format: "assocId-divisionName"
+            const [assocId, ...divisionParts] = divId.split('-');
+            const divisionName = divisionParts.join('-');
+            return {
+              id: divId,
+              assocId: assocId,
+              division: divisionName
+            };
+          });
+          
+          if (divisionsFromOrder.length > 0) {
+            groups = [{
+              id: `group-${d.id}-default`,
+              name: 'Group 1',
+              divisions: divisionsFromOrder
+            }];
+          }
+        }
+        
+        return {
+          ...d,
+          patternGroups: groups, // Use created groups or existing ones
+          hasPattern: hasPattern,
+          hasScoresheet: hasScoresheet
+        };
+      });
+  }, [formData.disciplines]);
+  
+  // Keep separate lists for pattern fetching logic
   const patternDisciplines = useMemo(() => {
-    return (formData.disciplines || [])
-      .filter(d => d.pattern)
-      .filter(d => {
-        // Only show disciplines that have at least one pattern group
-        const groups = d.patternGroups || [];
-        return groups.length > 0;
-      });
-  }, [formData.disciplines]);
+    return allDisciplines.filter(d => d.hasPattern);
+  }, [allDisciplines]);
+  
   const scoresheetDisciplines = useMemo(() => {
-    return (formData.disciplines || [])
-      .filter(d => d.scoresheet)
-      .filter(d => {
-        // Only show disciplines that have at least one pattern group
-        const groups = d.patternGroups || [];
-        return groups.length > 0;
-      });
-  }, [formData.disciplines]);
+    return allDisciplines.filter(d => d.hasScoresheet);
+  }, [allDisciplines]);
 
   const dateRange = formData.startDate && formData.endDate
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
@@ -396,6 +441,108 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
 
     fetchScoresheetDetails();
   }, [JSON.stringify(formData.patternSelections)]);
+
+  // Fetch associations data
+  useEffect(() => {
+    const loadAssociations = async () => {
+      const data = await fetchAssociations();
+      setAssociationsData(data || []);
+    };
+    loadAssociations();
+  }, []);
+
+  // Fetch scoresheet data for scoresheet-only disciplines
+  useEffect(() => {
+    const fetchScoresheetOnlyData = async () => {
+      const scoresheetOnlyDisciplines = allDisciplines.filter(d => 
+        d.hasScoresheet && !d.hasPattern
+      );
+
+      if (scoresheetOnlyDisciplines.length === 0) return;
+
+      try {
+        const scoresheetMap = { ...selectedScoresheetDetails };
+        
+        for (const discipline of scoresheetOnlyDisciplines) {
+          // Get association abbreviation(s)
+          const associationIds = discipline.mergedAssociations || [discipline.association_id];
+          const associationAbbrevs = associationIds
+            .map(id => associationsData?.find(a => a.id === id)?.abbreviation)
+            .filter(Boolean);
+
+          // Try multiple strategies to find scoresheet
+          let scoresheetResult = null;
+
+          // Strategy 1: Match both discipline name and first available association abbreviation
+          if (associationAbbrevs.length > 0) {
+            const { data, error } = await supabase
+              .from('tbl_scoresheet')
+              .select('*')
+              .ilike('discipline', `%${discipline.name}%`)
+              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
+              .maybeSingle();
+            
+            if (!error && data) {
+              scoresheetResult = data;
+            }
+          }
+
+          // Strategy 2: If Strategy 1 fails, try matching only discipline name
+          if (!scoresheetResult) {
+            const { data, error } = await supabase
+              .from('tbl_scoresheet')
+              .select('*')
+              .ilike('discipline', `%${discipline.name}%`)
+              .maybeSingle();
+            
+            if (!error && data) {
+              scoresheetResult = data;
+            }
+          }
+
+          // Strategy 3: If Strategy 2 fails, try matching only association abbreviation
+          if (!scoresheetResult && associationAbbrevs.length > 0) {
+            const { data, error } = await supabase
+              .from('tbl_scoresheet')
+              .select('*')
+              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
+              .maybeSingle();
+            
+            if (!error && data) {
+              scoresheetResult = data;
+            }
+          }
+
+          // Strategy 4: Exact match on discipline name (case-insensitive)
+          if (!scoresheetResult) {
+            const { data, error } = await supabase
+              .from('tbl_scoresheet')
+              .select('*')
+              .ilike('discipline', discipline.name)
+              .maybeSingle();
+            
+            if (!error && data) {
+              scoresheetResult = data;
+            }
+          }
+
+          // Store scoresheet data with a key based on discipline ID
+          if (scoresheetResult) {
+            // Use discipline ID as key for scoresheet-only disciplines
+            scoresheetMap[`scoresheet-only-${discipline.id}`] = scoresheetResult;
+          }
+        }
+
+        setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
+      } catch (err) {
+        console.error('Error fetching scoresheet-only data:', err);
+      }
+    };
+
+    if (associationsData.length > 0) {
+      fetchScoresheetOnlyData();
+    }
+  }, [allDisciplines, associationsData]);
   
   const handlePatternSelectionChange = (disciplineId, groupId, newPatternId) => {
     setFormData(prev => {
@@ -535,245 +682,250 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           </RadioGroup>
         </section>
 
-        {/* Preview Accordion */}
-        <Accordion type="multiple" defaultValue={['pattern-preview']} className="w-full">
-          {/* Pattern Preview */}
-          <AccordionItem value="pattern-preview">
-            <AccordionTrigger className="text-base font-semibold">
-              <div className="flex items-center gap-2">
-                Pattern Preview
-                <Badge variant="secondary" className="ml-2">{patternDisciplines.length}</Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2">
-              {patternDisciplines.length > 0 ? (
-                <div className="space-y-3">
-                  <div className="flex justify-end">
-                    {onGoToStep && (
-                      <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
-                        <RotateCcw className="mr-2 h-4 w-4" /> Re-assign
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {patternDisciplines.map((pbbDiscipline) => {
-                      const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
-                      const groups = pbbDiscipline.patternGroups || [];
-                      const groupCount = groups.length;
-                      const isExpanded = expandedDisciplines.has(pbbDiscipline.id);
-                      
-                      // Get all pattern selections for this discipline to show as badges
-                      const disciplinePatternSelections = [];
-                      groups.forEach((group) => {
-                        const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                        const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                        if (selectedId && selectedPatternDetails[selectedId]) {
-                          const patternDetail = selectedPatternDetails[selectedId];
-                          const patternName = patternDetail.pdf_file_name || '';
-                          const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                          const version = patternDetail.pattern_version || '';
-                          const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                          disciplinePatternSelections.push({
-                            patternId: selectedId,
-                            displayText
-                          });
-                        }
-                      });
-                      
-                      return (
-                        <div key={originalDisciplineIndex} className="border rounded-lg bg-muted/30 overflow-hidden">
-                          {/* Collapsible Discipline Header */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExpandedDisciplines(prev => {
-                                const newSet = new Set(prev);
-                                if (newSet.has(pbbDiscipline.id)) {
-                                  newSet.delete(pbbDiscipline.id);
-                                } else {
-                                  newSet.add(pbbDiscipline.id);
-                                }
-                                return newSet;
-                              });
-                            }}
-                            className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <span className="font-semibold text-base text-primary">{pbbDiscipline.name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {groupCount} {groupCount === 1 ? 'Group' : 'Groups'}
-                              </Badge>
-                              <div className="flex items-center gap-1 flex-wrap flex-1">
-                                {disciplinePatternSelections.map((sel, idx) => (
-                                  <PatternBadgeWithHover 
-                                    key={idx} 
-                                    patternId={sel.patternId} 
-                                    displayText={sel.displayText}
-                                    formData={formData}
-                                  />
-                                ))}
+        {/* Disciplines Preview - Grouped by Discipline */}
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold">Preview</h3>
+            {onGoToStep && (
+              <Button variant="outline" size="sm" onClick={() => onGoToStep(5)}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Re-assign
+              </Button>
+            )}
+          </div>
+          
+          {allDisciplines.length > 0 ? (
+            <div className="space-y-2">
+              {allDisciplines.map((pbbDiscipline) => {
+                const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
+                const groups = pbbDiscipline.patternGroups || [];
+                const groupCount = groups.length;
+                const isDisciplineExpanded = expandedDisciplines.has(pbbDiscipline.id);
+                
+                // Get pattern selections for badges
+                const disciplinePatternSelections = [];
+                groups.forEach((group) => {
+                  const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                  const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                  if (selectedId && selectedPatternDetails[selectedId]) {
+                    const patternDetail = selectedPatternDetails[selectedId];
+                    const patternName = patternDetail.pdf_file_name || '';
+                    const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                    const version = patternDetail.pattern_version || '';
+                    const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                    disciplinePatternSelections.push({
+                      patternId: selectedId,
+                      displayText
+                    });
+                  }
+                });
+                
+                // Section keys for nested accordion
+                const patternSectionKey = `${pbbDiscipline.id}-pattern`;
+                const scoresheetSectionKey = `${pbbDiscipline.id}-scoresheet`;
+                const isPatternExpanded = expandedSections.has(patternSectionKey);
+                const isScoresheetExpanded = expandedSections.has(scoresheetSectionKey);
+                
+                return (
+                  <div key={pbbDiscipline.id} className="border rounded-lg bg-muted/30 overflow-hidden">
+                    {/* Discipline Header */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExpandedDisciplines(prev => {
+                          const newSet = new Set(prev);
+                          if (newSet.has(pbbDiscipline.id)) {
+                            newSet.delete(pbbDiscipline.id);
+                          } else {
+                            newSet.add(pbbDiscipline.id);
+                          }
+                          return newSet;
+                        });
+                      }}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="font-semibold text-base text-primary">{pbbDiscipline.name}</span>
+                        {pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern && (
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                            (Scoresheet Only)
+                          </Badge>
+                        )}
+                        <div className="flex items-center gap-1 flex-wrap flex-1">
+                          {disciplinePatternSelections.map((sel, idx) => (
+                            <PatternBadgeWithHover 
+                              key={idx} 
+                              patternId={sel.patternId} 
+                              displayText={sel.displayText}
+                              formData={formData}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        {isDisciplineExpanded ? (
+                          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </button>
+                    
+                    {/* Expanded Discipline Content - Nested Pattern and Scoresheet Sections */}
+                    {isDisciplineExpanded && (
+                      <div className="px-4 py-4 border-t bg-background/50 space-y-3">
+                        {/* Pattern Preview Section */}
+                        {pbbDiscipline.hasPattern && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedSections(prev => {
+                                  const newSet = new Set(prev);
+                                  if (newSet.has(patternSectionKey)) {
+                                    newSet.delete(patternSectionKey);
+                                  } else {
+                                    newSet.add(patternSectionKey);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                              className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold">Pattern Preview</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {groups.filter(g => {
+                                    const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[g.id];
+                                    const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                    return selectedId;
+                                  }).length > 0 ? `${groups.length} Patterns` :  `${groups.length} Pattern`}
+                                </Badge>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-2 ml-2">
-                              {isExpanded ? (
+                              {isPatternExpanded ? (
                                 <ChevronUp className="h-4 w-4 text-muted-foreground" />
                               ) : (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
                               )}
-                            </div>
-                          </button>
-                          
-                          {/* Expanded Content */}
-                          {isExpanded && (
-                            <div className="px-4 py-4 border-t bg-background/50">
-                              <div className="space-y-6">
-                                {groups.map((group, groupIndex) => {
-                                  const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
-                                  const groupPatterns = availablePatterns[groupKey] || [];
-                                  const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                                  const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                                  return(
-                                    <div key={group.id}>
-                                      <PatternGroupPreview
-                                        group={group}
-                                        patterns={groupPatterns}
-                                        selectedPatternId={selectedId}
-                                        selectedPatternDetail={selectedPatternDetails[selectedId]}
-                                        onPatternSelect={(newPatternId) => handlePatternSelectionChange(pbbDiscipline.id, group.id, newPatternId)}
-                                        primaryAffiliates={new Set(formData.primaryAffiliates || [])}
-                                      />
-                                      {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
-                                        <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                            </button>
+                            {isPatternExpanded && (
+                              <div className="px-4 py-4 border-t bg-background/30">
+                                <div className="space-y-6">
+                                  {groups.map((group, groupIndex) => {
+                                    const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
+                                    const groupPatterns = availablePatterns[groupKey] || [];
+                                    const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                    return (
+                                      <div key={group.id}>
+                                        <PatternGroupPreview
+                                          group={group}
+                                          patterns={groupPatterns}
+                                          selectedPatternId={selectedId}
+                                          selectedPatternDetail={selectedPatternDetails[selectedId]}
+                                          onPatternSelect={(newPatternId) => handlePatternSelectionChange(pbbDiscipline.id, group.id, newPatternId)}
+                                          primaryAffiliates={new Set(formData.primaryAffiliates || [])}
+                                        />
+                                        {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
+                                          <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                             <h5 className="font-semibold text-sm mb-2 text-blue-800 dark:text-blue-300">Associated Lesson Plans</h5>
                                             <div className="flex flex-wrap gap-2">
-                                                {(formData.lessonPlans || []).map((plan, index) => (
-                                                    <Badge key={index} variant="outline" className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
-                                                        <FileText className="h-3 w-3" />
-                                                        {plan.customName || plan.fileName}
-                                                    </Badge>
-                                                ))}
+                                              {(formData.lessonPlans || []).map((plan, index) => (
+                                                <Badge key={index} variant="outline" className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
+                                                  <FileText className="h-3 w-3" />
+                                                  {plan.customName || plan.fileName}
+                                                </Badge>
+                                              ))}
                                             </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                  <p className="text-muted-foreground">No disciplines require pattern selections.</p>
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Scoresheet Preview */}
-          <AccordionItem value="scoresheet-preview">
-            <AccordionTrigger className="text-base font-semibold">
-              <div className="flex items-center gap-2">
-                Scoresheet Preview
-                <Badge variant="secondary" className="ml-2">{scoresheetDisciplines.length}</Badge>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2">
-              {scoresheetDisciplines.length > 0 ? (
-                <div className="space-y-2">
-                  {scoresheetDisciplines.map((pbbDiscipline) => {
-                    const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
-                    const groups = pbbDiscipline.patternGroups || [];
-                    const groupCount = groups.length;
-                    const isExpanded = expandedDisciplines.has(pbbDiscipline.id);
-                    
-                    // Get all pattern selections for this discipline to show as badges
-                    const disciplinePatternSelections = [];
-                    groups.forEach((group) => {
-                      const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                      const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                      if (selectedId && selectedPatternDetails[selectedId]) {
-                        const patternDetail = selectedPatternDetails[selectedId];
-                        const patternName = patternDetail.pdf_file_name || '';
-                        const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                        const version = patternDetail.pattern_version || '';
-                        const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                        disciplinePatternSelections.push({
-                          patternId: selectedId,
-                          displayText
-                        });
-                      }
-                    });
-                    
-                    return (
-                      <div key={originalDisciplineIndex} className="border rounded-lg bg-muted/30 overflow-hidden">
-                        {/* Collapsible Discipline Header */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExpandedDisciplines(prev => {
-                              const newSet = new Set(prev);
-                              if (newSet.has(pbbDiscipline.id)) {
-                                newSet.delete(pbbDiscipline.id);
-                              } else {
-                                newSet.add(pbbDiscipline.id);
-                              }
-                              return newSet;
-                            });
-                          }}
-                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <span className="font-semibold text-base text-primary">{pbbDiscipline.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2">
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
                             )}
                           </div>
-                        </button>
+                        )}
                         
-                        {/* Expanded Content */}
-                        {isExpanded && (
-                          <div className="px-4 py-4 border-t bg-background/50">
-                            <div className="space-y-6">
-                              {groups.map((group, groupIndex) => {
-                                const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                                const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                                const scoresheetData = selectedPatternId ? selectedScoresheetDetails[selectedPatternId] : null;
-                                
-                                return (
-                                  <ScoresheetGroupPreview
-                                    key={group.id}
-                                    group={group}
-                                    scoresheets={group.scoresheets || []}
-                                    discipline={pbbDiscipline}
-                                    formData={formData}
-                                    scoresheetImage={scoresheetData}
-                                  />
-                                );
-                              })}
-                            </div>
+                        {/* Scoresheet Preview Section */}
+                        {pbbDiscipline.hasScoresheet && (
+                          <div className="border rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedSections(prev => {
+                                  const newSet = new Set(prev);
+                                  if (newSet.has(scoresheetSectionKey)) {
+                                    newSet.delete(scoresheetSectionKey);
+                                  } else {
+                                    newSet.add(scoresheetSectionKey);
+                                  }
+                                  return newSet;
+                                });
+                              }}
+                              className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold">Scoresheet Preview</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {groups.length} {groups.length === 1 ? 'Scoresheet' : 'Scoresheets'}
+                                </Badge>
+                              </div>
+                              {isScoresheetExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                            {isScoresheetExpanded && (
+                              <div className="px-4 py-4 border-t bg-background/30">
+                                <div className="space-y-6">
+                                  {groups.map((group, groupIndex) => {
+                                    // For scoresheet-only disciplines, use discipline ID as key
+                                    // For pattern disciplines, use pattern ID
+                                    const isScoresheetOnly = pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern;
+                                    let scoresheetData = null;
+                                    
+                                    if (isScoresheetOnly) {
+                                      // Use discipline ID key for scoresheet-only
+                                      scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
+                                    } else {
+                                      // For pattern disciplines, use pattern selection
+                                      const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                      const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                      scoresheetData = selectedPatternId ? selectedScoresheetDetails[selectedPatternId] : null;
+                                    }
+                                    
+                                    return (
+                                      <ScoresheetGroupPreview
+                                        key={group.id}
+                                        group={group}
+                                        scoresheets={group.scoresheets || []}
+                                        discipline={pbbDiscipline}
+                                        formData={formData}
+                                        scoresheetImage={scoresheetData}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                  <p className="text-muted-foreground">No disciplines require scoresheet selections.</p>
-                </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-10 border-2 border-dashed rounded-lg">
+              <p className="text-muted-foreground">No disciplines to preview.</p>
+            </div>
+          )}
+        </section>
 
       </CardContent>
     </motion.div>

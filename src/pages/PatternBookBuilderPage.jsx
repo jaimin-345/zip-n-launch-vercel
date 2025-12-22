@@ -39,6 +39,11 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode, allDisciplines = nu
     // Get all merged disciplines with the same name (if provided)
     const disciplinesToCheck = allDisciplines || [pbbDiscipline];
     
+    // Check if this is a scoresheet-only discipline (no pattern requirement)
+    const isScoresheetOnly = disciplinesToCheck.some(disc => 
+        disc && (disc.pattern_type === 'scoresheet_only' || (!disc.pattern && disc.scoresheet))
+    );
+    
     // Aggregate all selected divisions and grouped divisions across merged disciplines
     const allSelectedDivisions = new Set();
     const allGroupedDivisions = new Set();
@@ -63,7 +68,12 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode, allDisciplines = nu
         return false;
     }
     
-    // All selected divisions must be grouped
+    // For scoresheet-only disciplines: complete if divisions are selected (no grouping required)
+    if (isScoresheetOnly) {
+        return true; // Scoresheet-only disciplines are complete when divisions are selected
+    }
+    
+    // For pattern disciplines: All selected divisions must be grouped
     return allSelectedDivisions.size === allGroupedDivisions.size && 
            [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
 };

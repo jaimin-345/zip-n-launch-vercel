@@ -298,6 +298,11 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     }, [pbbDiscipline?.id, formData?.patternSelections]);
     
     const isComplete = useMemo(() => {
+        // Check if this is a scoresheet-only discipline (no pattern requirement)
+        const isScoresheetOnly = allDisciplines.some(disc => 
+            disc && (disc.pattern_type === 'scoresheet_only' || (!disc.pattern && disc.scoresheet))
+        );
+        
         // Use divisionOrder as source of truth - if divisions exist in divisionOrder, 
         // they are "selected". If they're all in patternGroups, they're "complete"
         const allSelectedDivisions = new Set();
@@ -323,7 +328,12 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             return false;
         }
         
-        // All selected divisions must be grouped
+        // For scoresheet-only disciplines: complete if divisions are selected (no grouping required)
+        if (isScoresheetOnly) {
+            return true; // Scoresheet-only disciplines are complete when divisions are selected
+        }
+        
+        // For pattern disciplines: All selected divisions must be grouped
         const allGrouped = allSelectedDivisions.size === allGroupedDivisions.size && 
                [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
         

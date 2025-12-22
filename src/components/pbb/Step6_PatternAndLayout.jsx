@@ -269,17 +269,49 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     }
   }, [formData.patternSelections]);
 
-  // Get disciplines with patterns and merge duplicates by name
-  const rawPatternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+  // Get disciplines with patterns OR scoresheet-only and merge duplicates by name
+  const rawPatternDisciplines = (formData.disciplines || []).filter(d => {
+    // Include disciplines with patterns
+    if (d.pattern) return true;
+    // Include scoresheet-only disciplines
+    if (d.pattern_type === 'scoresheet_only' || (!d.pattern && d.scoresheet)) return true;
+    return false;
+  });
   
   // Merge disciplines with the same name and filter out empty groups
   const patternDisciplines = rawPatternDisciplines.reduce((acc, discipline) => {
     const existingIndex = acc.findIndex(d => d.name === discipline.name);
     
+    // Check if this is a scoresheet-only discipline
+    const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+    
     // Filter out groups that don't have actual divisions/content
-    const validGroups = (discipline.patternGroups || []).filter(group => 
+    let validGroups = (discipline.patternGroups || []).filter(group => 
       group.divisions && group.divisions.length > 0
     );
+    
+    // For scoresheet-only disciplines: if no groups exist but divisions are selected, create a default group
+    if (isScoresheetOnly && validGroups.length === 0 && discipline.divisionOrder && discipline.divisionOrder.length > 0) {
+      // Create a default group from selected divisions
+      const divisionsFromOrder = discipline.divisionOrder.map(divId => {
+        // Parse division ID format: "assocId-divisionName"
+        const [assocId, ...divisionParts] = divId.split('-');
+        const divisionName = divisionParts.join('-');
+        return {
+          id: divId,
+          assocId: assocId,
+          division: divisionName
+        };
+      });
+      
+      if (divisionsFromOrder.length > 0) {
+        validGroups = [{
+          id: `group-${discipline.id}-default`,
+          name: 'Group 1',
+          divisions: divisionsFromOrder
+        }];
+      }
+    }
     
     if (existingIndex === -1) {
       // First occurrence - add to array with filtered groups
@@ -513,6 +545,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     const groups = discipline.patternGroups || [];
     if (groups.length === 0) return false;
     
+    // Check if this is a scoresheet-only discipline
+    const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+    
+    // For scoresheet-only disciplines: complete if they have groups with divisions (no pattern selection needed)
+    if (isScoresheetOnly) {
+      return groups.every(group => group.divisions && group.divisions.length > 0);
+    }
+    
+    // For pattern disciplines: all groups must have pattern selections
     return groups.every(group => {
       const selection = getPatternSelection(discipline.id, group.id);
       return selection?.patternId;
@@ -779,10 +820,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 {patternDisciplines.map((discipline) => {
                   const groups = discipline.patternGroups || [];
                   const isComplete = isDisciplineComplete(discipline);
-                  const assignedCount = groups.filter(group => {
-                    const selection = getPatternSelection(discipline.id, group.id);
-                    return selection?.patternId;
-                  }).length;
+                  const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                  
+                  // For scoresheet-only: count groups with divisions. For pattern disciplines: count groups with pattern selections
+                  const assignedCount = isScoresheetOnly
+                    ? groups.filter(group => group.divisions && group.divisions.length > 0).length
+                    : groups.filter(group => {
+                        const selection = getPatternSelection(discipline.id, group.id);
+                        return selection?.patternId;
+                      }).length;
                   
                   return (
                     <div
@@ -807,7 +853,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         <div>
                           <p className="font-semibold text-sm">{discipline.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {assignedCount} pattern{assignedCount !== 1 ? 's' : ''} assigned
+                            {isScoresheetOnly 
+                              ? `${assignedCount} group${assignedCount !== 1 ? 's' : ''} configured`
+                              : `${assignedCount} pattern${assignedCount !== 1 ? 's' : ''} assigned`
+                            }
                           </p>
                         </div>
                       </div>
@@ -842,12 +891,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {/* Pattern selection accordion-style list */}
         {patternDisciplines.length > 0 && (
           <section>
-            <h3 className="text-lg font-semibold mb-4">Pattern Selection</h3>
+            <h3 className="text-lg font-semibold mb-4">Discipline Configuration</h3>
             <div className="space-y-2">
               {patternDisciplines.map((discipline, logicalIndex) => {
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                 const isOpen = openDisciplineId === discipline.id;
                 const groups = discipline.patternGroups || [];
+                
+                // Check if this is a scoresheet-only discipline
+                const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
                 
                 // Filter judges by this discipline's association
                 const disciplineJudges = [];
@@ -889,15 +941,25 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       </div>
                       
                       <div className="flex-1 flex items-center gap-2 flex-wrap min-h-[40px]">
-                        {/* Pattern Set (Maneuvers) dropdown - database driven */}
-                        {/* Pattern Set (Maneuvers) dropdown - Multi-select */}
-                        {/* Reference Style Selection: Difficulty -> Pattern */}
-                        <div 
-                          className="flex items-center gap-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Select Difficulty (Multi-Select) */}
-                            <Popover>
+                        {/* Show scoresheet-only badge */}
+                        {isScoresheetOnly && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
+                            Scoresheet Only
+                          </Badge>
+                        )}
+                        
+                        {/* Pattern selection UI - only show for non-scoresheet-only disciplines */}
+                        {!isScoresheetOnly && (
+                          <>
+                            {/* Pattern Set (Maneuvers) dropdown - database driven */}
+                            {/* Pattern Set (Maneuvers) dropdown - Multi-select */}
+                            {/* Reference Style Selection: Difficulty -> Pattern */}
+                            <div 
+                              className="flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Select Difficulty (Multi-Select) */}
+                                <Popover>
                                 <PopoverTrigger asChild>
                                     <Button 
                                       variant="outline" 
@@ -1076,6 +1138,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             </div>
                           );
                         })()}
+                          </>
+                        )}
 
                         {/* Display assigned labels with values */}
                         {formData.judgeSelections?.[disciplineIndex] && (
@@ -1110,54 +1174,56 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       <div className="px-4 pb-4 pt-2 space-y-4">
                         {/* Group Level Details */}
                         <div className="space-y-3">
-                          {groups.map((group, groupIndex) => {
-                            const currentSelection = getPatternSelection(discipline.id, group.id);
-                            const filteredPatterns = getFilteredPatterns(discipline.id);
-                            
-                            return (
-                              <div
-                                key={group.id}
-                                className="p-4 border rounded-lg bg-background/50 space-y-4"
-                              >
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <Label className="font-semibold text-base">{group.name}</Label>
-                                    {/* Show pattern badge if selected */}
-                                    {currentSelection?.patternName && (() => {
-                                      const patternName = currentSelection.patternName || '';
-                                      // Remove .pdf extension if present
-                                      const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                                      const version = currentSelection.version || '';
-                                      // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
-                                      const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                                      return (
-                                        <PatternBadgeWithHover 
-                                          patternId={currentSelection.patternId} 
-                                          displayText={displayText}
-                                          formData={formData}
-                                        />
-                                      );
-                                    })()}
+                          {groups.length > 0 ? (
+                            groups.map((group, groupIndex) => {
+                              const currentSelection = getPatternSelection(discipline.id, group.id);
+                              const filteredPatterns = getFilteredPatterns(discipline.id);
+                              
+                              return (
+                                <div
+                                  key={group.id}
+                                  className="p-4 border rounded-lg bg-background/50 space-y-4"
+                                >
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <Label className="font-semibold text-base">{group.name}</Label>
+                                      {/* Show pattern badge if selected (only for pattern disciplines) */}
+                                      {!isScoresheetOnly && currentSelection?.patternName && (() => {
+                                        const patternName = currentSelection.patternName || '';
+                                        // Remove .pdf extension if present
+                                        const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                                        const version = currentSelection.version || '';
+                                        // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
+                                        const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                                        return (
+                                          <PatternBadgeWithHover 
+                                            patternId={currentSelection.patternId} 
+                                            displayText={displayText}
+                                            formData={formData}
+                                          />
+                                        );
+                                      })()}
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {(group.divisions || []).map(div => (
+                                        <Badge
+                                          key={div.id || `${div.assocId}-${div.division}`}
+                                          variant="secondary"
+                                          className="text-xs"
+                                        >
+                                          {div.division || div.id}
+                                        </Badge>
+                                      ))}
+                                    </div>
                                   </div>
-                                  <div className="flex flex-wrap gap-1 mt-2">
-                                    {(group.divisions || []).map(div => (
-                                      <Badge
-                                        key={`${div.assocId}-${div.division}`}
-                                        variant="secondary"
-                                        className="text-xs"
-                                      >
-                                        {div.division}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
 
-                                {/* Pattern Selection - Pattern Only (Filtered by Discipline Level Difficulty) */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm text-muted-foreground">Select Pattern</Label>
-                                    <div className="flex gap-2">
-                                        {/* Pattern Selector */}
-                                        <Select
+                                {/* Pattern Selection - Only show for non-scoresheet-only disciplines */}
+                                {!isScoresheetOnly && (
+                                  <div className="space-y-2">
+                                      <Label className="text-sm text-muted-foreground">Select Pattern</Label>
+                                      <div className="flex gap-2">
+                                          {/* Pattern Selector */}
+                                          <Select
                                             value={currentSelection?.patternId?.toString() || ''}
                                             onValueChange={(value) => {
                                                 const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
@@ -1281,10 +1347,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                </div>
+                                  </div>
+                                )}
                               </div>
                             );
-                          })}
+                          })
+                          ) : (
+                            <div className="p-4 border rounded-lg bg-muted/30 text-center text-sm text-muted-foreground">
+                              No groups configured. Please go back to Step 3 to configure divisions.
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}

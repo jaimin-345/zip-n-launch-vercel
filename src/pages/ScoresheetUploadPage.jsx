@@ -549,8 +549,8 @@ const ScoresheetUploadPage = () => {
                                 <div>
                                     <h3 className="font-semibold mb-2">Pattern Details</h3>
                                     <div className="text-sm space-y-1">
-                                        <p><span className="font-medium">Association:</span> {selectedScoresheet.pattern?.association_name}</p>
-                                        <p><span className="font-medium">Discipline:</span> {selectedScoresheet.pattern?.discipline}</p>
+                                        <p><span className="font-medium">Association:</span> {selectedScoresheet.association_abbrev || selectedScoresheet.pattern?.association_name || 'N/A'}</p>
+                                        <p><span className="font-medium">Discipline:</span> {selectedScoresheet.discipline || selectedScoresheet.pattern?.discipline || 'N/A'}</p>
                                     </div>
                                 </div>
                                 {selectedScoresheet.image_url && (

@@ -106,6 +106,8 @@ import React, { useMemo } from 'react';
         const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = React.useState(false);
         const [customDivisionAssocId, setCustomDivisionAssocId] = React.useState(null);
         const [activeAssocTab, setActiveAssocTab] = React.useState(null);
+        const [activeTab, setActiveTab] = React.useState('divisions');
+        const prevDisciplineIdRef = React.useRef(null);
 
         // Use mergedDisciplines if provided, otherwise just the single discipline
         const allDisciplines = mergedDisciplines && mergedDisciplines.length > 0 ? mergedDisciplines : [pbbDiscipline];
@@ -344,6 +346,11 @@ import React, { useMemo } from 'react';
         // Check hasScheduled across all merged disciplines
         const hasScheduled = allDisciplines.some(disc => disc.divisionOrder && disc.divisionOrder.length > 0);
 
+        // Check if this is a scoresheet-only discipline
+        const isScoresheetOnly = allDisciplines.some(disc => 
+            disc && (disc.pattern_type === 'scoresheet_only' || (!disc.pattern && disc.scoresheet))
+        );
+
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
 
         // Helper to find the correct discipline for a given association ID
@@ -351,11 +358,36 @@ import React, { useMemo } from 'react';
             return allDisciplines.find(d => d.selectedAssociations?.[assocId]) || pbbDiscipline;
         };
 
-        // Determine default tab based on completion status
-        const defaultTab = isComplete ? "grouping" : "divisions";
+        // Auto-open appropriate tab when component mounts or discipline changes
+        // For scoresheet-only: open tab 1 (divisions)
+        // For non-scoresheet-only: open tab 3 (grouping) if enabled, otherwise appropriate tab
+        // Only run when discipline ID changes (not when divisions are selected)
+        React.useEffect(() => {
+            // Only auto-open tab when discipline changes or on initial mount
+            const disciplineChanged = prevDisciplineIdRef.current !== pbbDiscipline.id;
+            if (disciplineChanged || prevDisciplineIdRef.current === null) {
+                prevDisciplineIdRef.current = pbbDiscipline.id;
+                
+                if (isScoresheetOnly) {
+                    // Scoresheet-only: always open tab 1 (divisions)
+                    setActiveTab('divisions');
+                } else {
+                    // Non-scoresheet-only: try to open tab 3 (grouping) if enabled
+                    // Read current values at the time discipline changes
+                    if (pbbDiscipline.pattern && hasScheduled) {
+                        setActiveTab('grouping');
+                    } else if (hasSelectedDivisions) {
+                        setActiveTab('schedule');
+                    } else {
+                        setActiveTab('divisions');
+                    }
+                }
+            }
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [pbbDiscipline.id, isScoresheetOnly]); // Only depend on discipline ID and scoresheet-only status
 
         return (
-            <Tabs defaultValue={defaultTab}>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
                 {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
                     <div className="flex gap-4 mb-2">
                         <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>
@@ -365,7 +397,7 @@ import React, { useMemo } from 'react';
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="divisions">1. Select Divisions</TabsTrigger>
                     <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Add Dates &amp; Arrange Classes</TabsTrigger>
-                    <TabsTrigger value="grouping" disabled={!pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
+                    <TabsTrigger value="grouping" disabled={isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
                     {isCustomOpenShowDiscipline ? (

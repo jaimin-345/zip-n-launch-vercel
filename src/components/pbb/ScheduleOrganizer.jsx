@@ -269,13 +269,11 @@ import React, { useState, useMemo } from 'react';
 
                 <div className="p-3 border rounded-lg bg-background space-y-2">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
                             <div className="flex items-center space-x-2">
                                 <Checkbox id={`select-all-${pbbDiscipline.id}`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
                                 <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All Dates</Label>
                             </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
                             <Popover onOpenChange={(open) => {
                                 if (open && selectedDivisions.length > 0) {
                                     // When popover opens, set the calendar to show the first selected division's date
@@ -305,12 +303,12 @@ import React, { useState, useMemo } from 'react';
                                     />
                                 </PopoverContent>
                             </Popover>
-                            {formData?.showName && (
-                                <div className="text-xs font-medium text-muted-foreground">
-                                    Horse Show: {formData.showName}
-                                </div>
-                            )}
                         </div>
+                        {formData?.showName && (
+                            <div className="text-xs font-medium text-muted-foreground">
+                                Horse Show: {formData.showName}
+                            </div>
+                        )}
                     </div>
 
                     <ScrollArea className="h-60">

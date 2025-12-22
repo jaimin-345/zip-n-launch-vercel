@@ -11,7 +11,11 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const [patternData, setPatternData] = React.useState(null);
   const [maneuvers, setManeuvers] = React.useState([]);
   const [patternMedia, setPatternMedia] = React.useState(null);
+  const [scoresheetData, setScoresheetData] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
+  
+  // Check if this is a scoresheet-only discipline
+  const isScoresheetOnly = discipline?.pattern_type === 'scoresheet_only' || (!discipline?.pattern && discipline?.scoresheet);
 
   // Reset to first page when dialog opens - MUST be before any conditional returns
   React.useEffect(() => {
@@ -23,14 +27,123 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
   const groups = discipline?.patternGroups || [];
   const totalPages = groups.length;
   const currentGroup = groups[currentPage];
-  
   // Fetch pattern data when page (group) changes
   React.useEffect(() => {
       const fetchPatternDetails = async () => {
+          // For scoresheet-only disciplines, fetch from tbl_scoresheet
+          if (isScoresheetOnly) {
+              setLoading(true);
+              try {
+                  // Get association abbreviation(s) from discipline
+                  const associationIds = discipline.mergedAssociations || [discipline.association_id];
+                  const associationAbbrevs = associationIds
+                      .map(id => associationsData?.find(a => a.id === id)?.abbreviation)
+                      .filter(Boolean);
+                  
+                  
+                  // Debug: Check what scoresheets exist in the database
+                  const { data: allScoresheets } = await supabase
+                      .from('tbl_scoresheet')
+                      .select('id, discipline, association_abbrev, image_url, file_url')
+                      .limit(10);
+                  
+                  // Build query to fetch scoresheet by association and discipline name
+                  // Try multiple strategies: both filters, then just discipline, then just association
+                  let scoresheetData = null;
+                  let scoresheetError = null;
+                  
+                  // Strategy 1: Try with both discipline and association abbreviation
+                  if (associationAbbrevs.length > 0) {
+                      const { data, error } = await supabase
+                          .from('tbl_scoresheet')
+                          .select('*')
+                          .ilike('discipline', `%${discipline.name}%`)
+                          .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
+                          .maybeSingle();
+                      
+                      if (!error && data) {
+                          scoresheetData = data;
+                      } else {
+                          scoresheetError = error;
+                      }
+                  }
+                  
+                  // Strategy 2: If no match, try with just discipline name
+                  if (!scoresheetData) {
+                      const { data, error } = await supabase
+                          .from('tbl_scoresheet')
+                          .select('*')
+                          .ilike('discipline', `%${discipline.name}%`)
+                          .maybeSingle();
+                      
+                      if (!error && data) {
+                          scoresheetData = data;
+                      } else if (error) {
+                          scoresheetError = error;
+                      }
+                  }
+                  
+                  // Strategy 3: If still no match and we have association, try with just association
+                  if (!scoresheetData && associationAbbrevs.length > 0) {
+                      const { data, error } = await supabase
+                          .from('tbl_scoresheet')
+                          .select('*')
+                          .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
+                          .maybeSingle();
+                      
+                      if (!error && data) {
+                          scoresheetData = data;
+                      } else if (error) {
+                          scoresheetError = error;
+                      }
+                  }
+                  
+                  // Strategy 4: Try exact match on discipline name (case-insensitive)
+                  if (!scoresheetData) {
+                      const { data, error } = await supabase
+                          .from('tbl_scoresheet')
+                          .select('*')
+                          .eq('discipline', discipline.name)
+                          .maybeSingle();
+                      
+                      if (!error && data) {
+                          scoresheetData = data;
+                      }
+                  }
+                  
+                  if (scoresheetError && !scoresheetData) {
+                      console.error('Error fetching scoresheet:', scoresheetError);
+                  }
+                  
+                  if (!scoresheetData) {
+                      console.warn('No scoresheet found for:', {
+                          disciplineName: discipline.name,
+                          associationAbbrevs: associationAbbrevs
+                      });
+                  }
+                  
+                  setScoresheetData(scoresheetData);
+                  
+                  // Clear pattern-related data for scoresheet-only
+                  setPatternData(null);
+                  setManeuvers([]);
+                  setPatternMedia(null);
+                  
+              } catch (err) {
+                  console.error('Error fetching scoresheet preview data:', err);
+                  setScoresheetData(null);
+              } finally {
+                  setLoading(false);
+              }
+              return;
+          }
+          
+          // For pattern disciplines, fetch pattern data as before
           if (!currentGroup?.selectedPatternId) {
               setPatternData(null);
               setManeuvers([]);
               setPatternMedia(null);
+              setScoresheetData(null);
               return;
           }
 
@@ -68,6 +181,9 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
               } else {
                   setPatternMedia(null);
               }
+              
+              // Clear scoresheet data for pattern disciplines
+              setScoresheetData(null);
 
           } catch (err) {
               console.error('Error fetching pattern preview data:', err);
@@ -77,7 +193,7 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
       };
 
       fetchPatternDetails();
-  }, [currentGroup?.selectedPatternId]);
+  }, [currentGroup?.selectedPatternId, isScoresheetOnly, discipline, associationsData]);
 
   // Early return logic - AFTER all hooks have been called
   if (!discipline) return null;
@@ -147,15 +263,33 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             </div>
           )}
 
-          {/* Pattern Diagram */}
+          {/* Pattern Diagram / Scoresheet Image */}
           <div className="my-8 flex items-center justify-center min-h-[300px] bg-muted/10 rounded-lg">
             {loading ? (
-                <div className="text-muted-foreground">Loading pattern...</div>
+                <div className="text-muted-foreground">Loading {isScoresheetOnly ? 'scoresheet' : 'pattern'}...</div>
             ) : (
                 (() => {
-                    // Determine image source: Media Table > Pattern Table > Placeholder
-                    // Assuming 'url' or 'media_url' in media table, and 'image_url' or 'url' in patterns table
-                    // Adjust keys based on actual schema if known, trying generic 'url' / 'image_url'
+                    // For scoresheet-only: use scoresheet image
+                    if (isScoresheetOnly) {
+                        const scoresheetImageUrl = scoresheetData?.image_url || scoresheetData?.file_url;
+                        if (scoresheetImageUrl) {
+                            return (
+                                <img 
+                                  src={scoresheetImageUrl} 
+                                  alt="Scoresheet" 
+                                  className="max-w-full h-auto rounded-lg max-h-[500px]"
+                                />
+                            );
+                        } else {
+                            return (
+                                <div className="text-center p-8">
+                                  <p className="text-sm text-muted-foreground mt-2">No scoresheet image available</p>
+                                </div>
+                            );
+                        }
+                    }
+                    
+                    // For pattern disciplines: determine image source: Media Table > Pattern Table > Placeholder
                     const mediaUrl = patternMedia?.image_url || patternMedia?.media_url || patternMedia?.graphic_url;
                     const patternUrl = patternData?.image_url || patternData?.url;
                     const imageUrl = mediaUrl || patternUrl;
@@ -179,22 +313,24 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             )}
           </div>
 
-          {/* Pattern Steps as Text */}
-          <div className="mt-6 space-y-1 text-sm text-gray-800 dark:text-gray-200">
-            {loading ? (
-                 <p>Loading steps...</p>
-            ) : maneuvers.length > 0 ? (
-                maneuvers.map((step) => (
-                    <p key={step.step_no} className="flex gap-2">
-                        <span className="font-semibold min-w-[20px]">{step.step_no}.</span>
-                        <span>{step.instruction}</span>
-                    </p>
-                ))
-            ) : (
-                <p className="text-muted-foreground italic">No maneuver instructions found.</p>
-            )}
-            {maneuvers.length > 0 && <p className="font-semibold mt-4">Pattern Complete</p>}
-          </div>
+          {/* Pattern Steps as Text - Only show for non-scoresheet-only disciplines */}
+          {!isScoresheetOnly && (
+            <div className="mt-6 space-y-1 text-sm text-gray-800 dark:text-gray-200">
+              {loading ? (
+                   <p>Loading steps...</p>
+              ) : maneuvers.length > 0 ? (
+                  maneuvers.map((step) => (
+                      <p key={step.step_no} className="flex gap-2">
+                          <span className="font-semibold min-w-[20px]">{step.step_no}.</span>
+                          <span>{step.instruction}</span>
+                      </p>
+                  ))
+              ) : (
+                  <p className="text-muted-foreground italic">No maneuver instructions found.</p>
+              )}
+              {maneuvers.length > 0 && <p className="font-semibold mt-4">Pattern Complete</p>}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700 text-center text-xs text-gray-600 dark:text-gray-400">
