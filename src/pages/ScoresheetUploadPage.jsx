@@ -32,6 +32,8 @@ const ScoresheetUploadPage = () => {
 
     const [formData, setFormData] = useState({
         pattern_id: '',
+        association_abbrev: '',
+        discipline: '',
     });
 
     useEffect(() => {
@@ -70,6 +72,8 @@ const ScoresheetUploadPage = () => {
     const resetForm = () => {
         setFormData({
             pattern_id: '',
+            association_abbrev: '',
+            discipline: '',
         });
         setImage(null);
         setEditingScoresheetId(null);
@@ -138,6 +142,8 @@ const ScoresheetUploadPage = () => {
 
             const scoresheetPayload = {
                 pattern_id: parseInt(formData.pattern_id),
+                association_abbrev: formData.association_abbrev,
+                discipline: formData.discipline,
             };
 
             // Add image fields if new image was uploaded
@@ -193,6 +199,8 @@ const ScoresheetUploadPage = () => {
         setEditingScoresheetId(scoresheet.id);
         setFormData({
             pattern_id: scoresheet.pattern_id?.toString() || '',
+            association_abbrev: scoresheet.association_abbrev || '',
+            discipline: scoresheet.discipline || '',
         });
         if (scoresheet.image_url) {
             setImage({
@@ -273,8 +281,8 @@ const ScoresheetUploadPage = () => {
                                             {scoresheets.map(s => (
                                                 <TableRow key={s.id}>
                                                     <TableCell>{s.pattern?.pdf_file_name || 'N/A'}</TableCell>
-                                                    <TableCell>{s.pattern?.association_name || 'N/A'}</TableCell>
-                                                    <TableCell>{s.pattern?.discipline || 'N/A'}</TableCell>
+                                                    <TableCell>{s.association_abbrev || s.pattern?.association_name || 'N/A'}</TableCell>
+                                                    <TableCell>{s.discipline || s.pattern?.discipline || 'N/A'}</TableCell>
                                                     <TableCell className="space-x-2">
                                                         <Button
                                                             variant="outline"
@@ -322,7 +330,15 @@ const ScoresheetUploadPage = () => {
                             <Label htmlFor="pattern_id">Pattern *</Label>
                             <Select
                                 name="pattern_id"
-                                onValueChange={value => setFormData(p => ({ ...p, pattern_id: value }))}
+                                onValueChange={value => {
+                                    const selectedPattern = patterns.find(p => p.id.toString() === value);
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        pattern_id: value,
+                                        association_abbrev: selectedPattern?.association_name || '',
+                                        discipline: selectedPattern?.discipline || '',
+                                    }));
+                                }}
                                 value={formData.pattern_id}
                             >
                                 <SelectTrigger>
@@ -336,6 +352,27 @@ const ScoresheetUploadPage = () => {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <Label htmlFor="association_abbrev">Association</Label>
+                                <Input
+                                    id="association_abbrev"
+                                    value={formData.association_abbrev}
+                                    onChange={e => setFormData(p => ({ ...p, association_abbrev: e.target.value }))}
+                                    placeholder="e.g., AQHA"
+                                />
+                            </div>
+                            <div>
+                                <Label htmlFor="discipline">Discipline</Label>
+                                <Input
+                                    id="discipline"
+                                    value={formData.discipline}
+                                    onChange={e => setFormData(p => ({ ...p, discipline: e.target.value }))}
+                                    placeholder="e.g., Western Riding"
+                                />
+                            </div>
                         </div>
 
                         <Card>
