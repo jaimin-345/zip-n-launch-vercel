@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -53,74 +53,24 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
                   let scoresheetError = null;
                   
                   // Strategy 1: Try with both discipline and association abbreviation
-                  if (associationAbbrevs.length > 0) {
-                      const { data, error } = await supabase
-                          .from('tbl_scoresheet')
-                          .select('*')
-                          .ilike('discipline', `%${discipline.name}%`)
-                          .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
-                          .maybeSingle();
-                      
-                      if (!error && data) {
-                          scoresheetData = data;
-                      } else {
-                          scoresheetError = error;
-                      }
-                  }
+                  const { data, error } = await supabase
+                      .from('tbl_scoresheet')
+                      .select('*')
+                      .ilike('discipline', `%${discipline.name}%`)
+                      .ilike('association_abbrev', `%${discipline.association_id}%`)
+                      .maybeSingle();
                   
-                  // Strategy 2: If no match, try with just discipline name
-                  if (!scoresheetData) {
-                      const { data, error } = await supabase
-                          .from('tbl_scoresheet')
-                          .select('*')
-                          .ilike('discipline', `%${discipline.name}%`)
-                          .maybeSingle();
-                      
-                      if (!error && data) {
-                          scoresheetData = data;
-                      } else if (error) {
-                          scoresheetError = error;
-                      }
+                  if (!error && data) {
+                      scoresheetData = data;
+                  } else {
+                      scoresheetError = error;
                   }
-                  
-                  // Strategy 3: If still no match and we have association, try with just association
-                  if (!scoresheetData && associationAbbrevs.length > 0) {
-                      const { data, error } = await supabase
-                          .from('tbl_scoresheet')
-                          .select('*')
-                          .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
-                          .maybeSingle();
-                      
-                      if (!error && data) {
-                          scoresheetData = data;
-                      } else if (error) {
-                          scoresheetError = error;
-                      }
-                  }
-                  
-                  // Strategy 4: Try exact match on discipline name (case-insensitive)
-                  if (!scoresheetData) {
-                      const { data, error } = await supabase
-                          .from('tbl_scoresheet')
-                          .select('*')
-                          .eq('discipline', discipline.name)
-                          .maybeSingle();
-                      
-                      if (!error && data) {
-                          scoresheetData = data;
-                      }
-                  }
+
                   
                   if (scoresheetError && !scoresheetData) {
                       console.error('Error fetching scoresheet:', scoresheetError);
                   }
-                  
-                  if (!scoresheetData) {
-                      console.warn('No scoresheet found for:', {
-                          disciplineName: discipline.name,
-                          associationAbbrevs: associationAbbrevs
-                      });
-                  }
+
                   
                   setScoresheetData(scoresheetData);
                   
@@ -227,6 +177,9 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
               Page {currentPage + 1} of {totalPages}
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Preview of pattern book pages for {discipline?.name || 'selected discipline'}
+          </DialogDescription>
         </DialogHeader>
 
         {/* Pattern Page */}
