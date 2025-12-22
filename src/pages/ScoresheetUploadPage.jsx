@@ -28,6 +28,8 @@ const ScoresheetUploadPage = () => {
     const [editingScoresheetId, setEditingScoresheetId] = useState(null);
 
     const [patterns, setPatterns] = useState([]);
+    const [associations, setAssociations] = useState([]);
+    const [disciplines, setDisciplines] = useState([]);
     const [image, setImage] = useState(null);
 
     const [formData, setFormData] = useState({
@@ -39,6 +41,8 @@ const ScoresheetUploadPage = () => {
     useEffect(() => {
         fetchScoresheets();
         fetchPatterns();
+        fetchAssociations();
+        fetchDisciplines();
     }, []);
 
     const fetchPatterns = async () => {
@@ -51,6 +55,32 @@ const ScoresheetUploadPage = () => {
             toast({ title: 'Error fetching patterns', description: error.message, variant: 'destructive' });
         } else {
             setPatterns(data || []);
+        }
+    };
+
+    const fetchAssociations = async () => {
+        const { data, error } = await supabase
+            .from('associations')
+            .select('id, name, abbreviation')
+            .order('name');
+
+        if (error) {
+            console.error('Error fetching associations:', error);
+        } else {
+            setAssociations(data || []);
+        }
+    };
+
+    const fetchDisciplines = async () => {
+        const { data, error } = await supabase
+            .from('disciplines')
+            .select('id, name')
+            .order('name');
+
+        if (error) {
+            console.error('Error fetching disciplines:', error);
+        } else {
+            setDisciplines(data || []);
         }
     };
 
@@ -357,21 +387,39 @@ const ScoresheetUploadPage = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <Label htmlFor="association_abbrev">Association</Label>
-                                <Input
-                                    id="association_abbrev"
+                                <Select
                                     value={formData.association_abbrev}
-                                    onChange={e => setFormData(p => ({ ...p, association_abbrev: e.target.value }))}
-                                    placeholder="e.g., AQHA"
-                                />
+                                    onValueChange={value => setFormData(p => ({ ...p, association_abbrev: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select Association" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {associations.map(a => (
+                                            <SelectItem key={a.id} value={a.abbreviation || a.name}>
+                                                {a.name} {a.abbreviation ? `(${a.abbreviation})` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div>
                                 <Label htmlFor="discipline">Discipline</Label>
-                                <Input
-                                    id="discipline"
+                                <Select
                                     value={formData.discipline}
-                                    onChange={e => setFormData(p => ({ ...p, discipline: e.target.value }))}
-                                    placeholder="e.g., Western Riding"
-                                />
+                                    onValueChange={value => setFormData(p => ({ ...p, discipline: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select Discipline" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {disciplines.map(d => (
+                                            <SelectItem key={d.id} value={d.name}>
+                                                {d.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
