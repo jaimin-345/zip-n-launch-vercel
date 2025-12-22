@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/lib/supabaseClient';
@@ -83,6 +83,19 @@ const ScoresheetUploadPage = () => {
             setDisciplines(data || []);
         }
     };
+
+    // Deduplicate disciplines by name (similar to ManualPatternEntryPage)
+    const sortedDisciplineTypes = useMemo(() => {
+        const unique = [];
+        const seen = new Set();
+        for (const item of disciplines) {
+            if (!seen.has(item.name)) {
+                seen.add(item.name);
+                unique.push(item);
+            }
+        }
+        return unique.sort((a, b) => a.name.localeCompare(b.name));
+    }, [disciplines]);
 
     const fetchScoresheets = async () => {
         setIsLoading(true);
@@ -413,7 +426,7 @@ const ScoresheetUploadPage = () => {
                                         <SelectValue placeholder="Select Discipline" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {disciplines.map(d => (
+                                        {sortedDisciplineTypes.map(d => (
                                             <SelectItem key={d.id} value={d.name}>
                                                 {d.name}
                                             </SelectItem>
