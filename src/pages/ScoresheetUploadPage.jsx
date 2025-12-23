@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { X, Loader2, Eye, Trash2, PlusCircle, Pen, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Eye, Trash2, PlusCircle, Pen, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
@@ -26,6 +26,10 @@ const ScoresheetUploadPage = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [scoresheetToDelete, setScoresheetToDelete] = useState(null);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
     const [editingScoresheetId, setEditingScoresheetId] = useState(null);
 
     const [patterns, setPatterns] = useState([]);
@@ -338,55 +342,91 @@ const ScoresheetUploadPage = () => {
                         </header>
 
                         <Card>
-                            <CardHeader><CardTitle>Existing Scoresheets</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Existing Scoresheets ({scoresheets.length})</CardTitle></CardHeader>
                             <CardContent>
                                 {isLoading ? (
                                     <div className="flex justify-center items-center h-64">
                                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                     </div>
                                 ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Pattern</TableHead>
-                                                <TableHead>Association</TableHead>
-                                                <TableHead>Discipline</TableHead>
-                                                <TableHead>Actions</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {scoresheets.map(s => (
-                                                <TableRow key={s.id}>
-                                                    <TableCell>{s.pattern?.pdf_file_name || 'N/A'}</TableCell>
-                                                    <TableCell>{s.association_abbrev || s.pattern?.association_name || 'N/A'}</TableCell>
-                                                    <TableCell>{s.discipline || s.pattern?.discipline || 'N/A'}</TableCell>
-                                                    <TableCell className="space-x-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => { setSelectedScoresheet(s); setIsDetailModalOpen(true); }}
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => openEditForm(s)}
-                                                        >
-                                                            <Pen className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="destructive"
-                                                            size="sm"
-                                                            onClick={() => { setScoresheetToDelete(s); setIsDeleteDialogOpen(true); }}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
+                                    <>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Pattern</TableHead>
+                                                    <TableHead>Association</TableHead>
+                                                    <TableHead>Discipline</TableHead>
+                                                    <TableHead>Actions</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {scoresheets
+                                                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                                                    .map(s => (
+                                                    <TableRow key={s.id}>
+                                                        <TableCell>{s.pattern?.pdf_file_name || 'N/A'}</TableCell>
+                                                        <TableCell>{s.association_abbrev || s.pattern?.association_name || 'N/A'}</TableCell>
+                                                        <TableCell>{s.discipline || s.pattern?.discipline || 'N/A'}</TableCell>
+                                                        <TableCell className="space-x-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => { setSelectedScoresheet(s); setIsDetailModalOpen(true); }}
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => openEditForm(s)}
+                                                            >
+                                                                <Pen className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => { setScoresheetToDelete(s); setIsDeleteDialogOpen(true); }}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                        
+                                        {/* Pagination Controls */}
+                                        {scoresheets.length > itemsPerPage && (
+                                            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, scoresheets.length)} of {scoresheets.length} entries
+                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                                        disabled={currentPage === 1}
+                                                    >
+                                                        <ChevronLeft className="h-4 w-4" />
+                                                        Previous
+                                                    </Button>
+                                                    <span className="text-sm px-2">
+                                                        Page {currentPage} of {Math.ceil(scoresheets.length / itemsPerPage)}
+                                                    </span>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(scoresheets.length / itemsPerPage), p + 1))}
+                                                        disabled={currentPage >= Math.ceil(scoresheets.length / itemsPerPage)}
+                                                    >
+                                                        Next
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                                 {!isLoading && scoresheets.length === 0 && (
                                     <p className="text-center py-8 text-muted-foreground">No scoresheets found.</p>
