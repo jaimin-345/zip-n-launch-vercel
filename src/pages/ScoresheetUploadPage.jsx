@@ -48,16 +48,33 @@ const ScoresheetUploadPage = () => {
     }, []);
 
     const fetchPatterns = async () => {
-        const { data, error } = await supabase
+        // Fetch all patterns
+        const { data: allPatterns, error: patternsError } = await supabase
             .from('tbl_patterns')
             .select('id, pdf_file_name, association_name, discipline, division, division_level, pattern_version')
             .order('pdf_file_name');
 
-        if (error) {
-            toast({ title: 'Error fetching patterns', description: error.message, variant: 'destructive' });
-        } else {
-            setPatterns(data || []);
+        if (patternsError) {
+            toast({ title: 'Error fetching patterns', description: patternsError.message, variant: 'destructive' });
+            return;
         }
+
+        // Fetch pattern IDs that already have scoresheets
+        const { data: usedPatterns, error: usedError } = await supabase
+            .from('tbl_scoresheet')
+            .select('pattern_id')
+            .not('pattern_id', 'is', null);
+
+        if (usedError) {
+            console.error('Error fetching used patterns:', usedError);
+            setPatterns(allPatterns || []);
+            return;
+        }
+
+        // Filter out patterns that already have scoresheets
+        const usedPatternIds = new Set(usedPatterns?.map(s => s.pattern_id) || []);
+        const availablePatterns = (allPatterns || []).filter(p => !usedPatternIds.has(p.id));
+        setPatterns(availablePatterns);
     };
 
     const fetchAssociations = async () => {
