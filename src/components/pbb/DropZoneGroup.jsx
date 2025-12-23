@@ -228,6 +228,31 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [filteredPatterns, setFilteredPatterns] = useState([]);
     const [imageZoom, setImageZoom] = useState(1);
 
+    // Inject CSS to fix pattern select truncation on iOS/iPad
+    useEffect(() => {
+        const styleId = 'pattern-select-fix';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                .pattern-select-trigger > span {
+                    display: block !important;
+                    overflow: visible !important;
+                    text-overflow: unset !important;
+                    white-space: nowrap !important;
+                    -webkit-line-clamp: unset !important;
+                    line-clamp: unset !important;
+                    max-height: none !important;
+                    -webkit-box-orient: unset !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        return () => {
+            // Cleanup on unmount (optional, style can stay for other instances)
+        };
+    }, []);
+
     // Get association name from discipline or divisions
     const getAssociationName = () => {
         // Try to get from discipline's association_id first
@@ -432,8 +457,19 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     handlePatternSelect(patternId);
                                 }}
                             >
-                                <SelectTrigger className="mt-1 h-9">
-                                    <SelectValue placeholder={loadingPatterns ? "Loading..." : "Select pattern..."} />
+                                <SelectTrigger className="mt-1 h-9 pattern-select-trigger">
+                                    <SelectValue placeholder={loadingPatterns ? "Loading..." : "Select pattern..."}>
+                                        {currentPatternSelection?.patternId ? (() => {
+                                            const selectedPattern = filteredPatterns.find(p => p.id.toString() === currentPatternSelection.patternId.toString()) || dbPatterns.find(p => p.id.toString() === currentPatternSelection.patternId.toString());
+                                            if (selectedPattern) {
+                                                const fileName = selectedPattern.pdf_file_name?.trim() || '';
+                                                const match = fileName.match(/(\d+)(?:\..*)?$/);
+                                                const patternNum = match ? parseInt(match[1], 10) : selectedPattern.id;
+                                                return `Pattern ${patternNum}`;
+                                            }
+                                            return `Pattern ${currentPatternSelection.patternId}`;
+                                        })() : null}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredPatterns.length > 0 ? (

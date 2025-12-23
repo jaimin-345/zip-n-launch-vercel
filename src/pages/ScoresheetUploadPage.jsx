@@ -497,7 +497,7 @@ const ScoresheetUploadPage = () => {
                                     <SelectContent>
                                         {patterns.map(p => (
                                             <SelectItem key={p.id} value={p.id.toString()}>
-                                                {p.pdf_file_name} - {p.association_name} ({p.discipline})
+                                                {p.pdf_file_name} - {p.association_name} ({p.discipline}) - {p.pattern_version}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
