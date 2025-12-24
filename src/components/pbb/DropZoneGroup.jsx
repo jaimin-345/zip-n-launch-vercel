@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { GripVertical, Trash2, Edit, Calendar as CalendarIcon, X, Save, Sparkles, AlertCircle, Eye, Check, ChevronsUpDown, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -227,6 +228,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [patternImage, setPatternImage] = useState(null);
     const [filteredPatterns, setFilteredPatterns] = useState([]);
     const [imageZoom, setImageZoom] = useState(1);
+    const [hoveredPatternId, setHoveredPatternId] = useState(null);
+    const [hoveredPatternImage, setHoveredPatternImage] = useState(null);
+    const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
+    const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
 
     // Inject CSS to fix pattern select truncation on iOS/iPad
     useEffect(() => {
@@ -363,6 +368,33 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         fetchPatternDetails();
     }, [currentPatternId]);
 
+    // Fetch pattern image when hovering over a pattern in dropdown
+    useEffect(() => {
+        const fetchHoveredPatternImage = async () => {
+            if (!hoveredPatternId) {
+                setHoveredPatternImage(null);
+                return;
+            }
+            setLoadingHoveredImage(true);
+            try {
+                const { data: imageData, error: imageError } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('image_url')
+                    .eq('pattern_id', hoveredPatternId)
+                    .maybeSingle();
+                
+                if (imageError) console.error('Error fetching hovered pattern image:', imageError);
+                setHoveredPatternImage(imageData?.image_url || null);
+            } catch (err) {
+                console.error('Error fetching hovered pattern image:', err);
+                setHoveredPatternImage(null);
+            } finally {
+                setLoadingHoveredImage(false);
+            }
+        };
+        fetchHoveredPatternImage();
+    }, [hoveredPatternId]);
+
 
     const divisionsWithDetails = group.divisions.map(div => {
         const id = div.id || `${div.assocId}-${div.division}`;
@@ -449,6 +481,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             <Select 
                                 value={currentPatternSelection?.patternId?.toString() || ''}
                                 onValueChange={(patternId) => {
+                                    // Hide preview when pattern is selected
+                                    setHoveredPatternId(null);
                                     // Find the selected pattern from filtered patterns and auto-set difficulty
                                     const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId) || dbPatterns.find(p => p.id.toString() === patternId);
                                     if (selectedPattern?.pattern_version) {
@@ -471,11 +505,26 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         })() : null}
                                     </SelectValue>
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent 
+                                    onMouseLeave={() => {
+                                        setHoveredPatternId(null);
+                                    }}
+                                >
                                     {filteredPatterns.length > 0 ? (
                                         filteredPatterns.map((pattern) => (
-                                            <SelectItem key={pattern.id} value={pattern.id.toString()}>
-                                                <div className="flex items-center gap-2">
+                                            <SelectItem 
+                                                key={pattern.id}
+                                                value={pattern.id.toString()}
+                                                onMouseEnter={(e) => {
+                                                    setHoveredPatternId(pattern.id);
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setHoverPosition({ x: rect.right, y: rect.top });
+                                                }}
+                                                onMouseLeave={() => {
+                                                    setHoveredPatternId(null);
+                                                }}
+                                            >
+                                                <div className="flex items-center gap-2 w-full">
                                                     <span>{(() => {
                                                         // Extract pattern number from pdf_file_name (e.g., "WesternRiding0001" → "1", "WesternRiding0001.L1" → "1")
                                                         const fileName = pattern.pdf_file_name?.trim() || '';
@@ -497,6 +546,42 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     )}
                                 </SelectContent>
                             </Select>
+                            {/* Hover Preview - Rendered via portal at body level */}
+                            {hoveredPatternId && typeof document !== 'undefined' && createPortal(
+                                <div
+                                    className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-3 w-[500px] pointer-events-auto"
+                                    style={{
+                                        left: `${hoverPosition.x + 10}px`,
+                                        top: `${hoverPosition.y}px`,
+                                    }}
+                                    onMouseLeave={() => {
+                                        setHoveredPatternId(null);
+                                    }}
+                                >
+                                    {loadingHoveredImage ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        </div>
+                                    ) : hoveredPatternImage ? (
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium text-sm">Pattern Preview</h4>
+                                            <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                <img 
+                                                    src={hoveredPatternImage} 
+                                                    alt="Pattern Diagram" 
+                                                    className="w-full h-auto object-contain max-h-[450px]"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-sm text-muted-foreground py-4">
+                                            No image available for this pattern.
+                                        </div>
+                                    )}
+                                </div>,
+                                document.body
+                            )}
                         </div>
                         
                         {/* Difficulty Dropdown (2nd - auto-set when pattern selected) */}
