@@ -74,22 +74,74 @@ const ManualPatternEntryPage = () => {
         if (assocError) toast({ title: 'Error fetching associations', description: assocError.message, variant: 'destructive' });
         else setAssociations(assocData);
 
-        const { data: discData, error: discError } = await supabase.from('disciplines').select('id, name').order('name');
-        if (discError) toast({ title: 'Error fetching disciplines', description: discError.message, variant: 'destructive' });
-        else setDisciplines(discData);
+        // Fetch disciplines with direct association_id
+        const { data: discData, error: discError } = await supabase.from('disciplines').select('id, name, association_id').order('name');
+        if (discError) {
+            toast({ title: 'Error fetching disciplines', description: discError.message, variant: 'destructive' });
+            return;
+        }
+
+        // Fetch discipline_associations separately
+        const { data: discAssocData, error: discAssocError } = await supabase
+            .from('discipline_associations')
+            .select('discipline_id, association_id');
+        
+        if (discAssocError) {
+            // If discipline_associations table doesn't exist or has issues, just use direct association_id
+            console.warn('Could not fetch discipline_associations:', discAssocError.message);
+        }
+
+        // Map disciplines to include all association IDs
+        const mappedDisciplines = discData.map(d => {
+            const associationIds = [];
+            // Add direct association_id if exists
+            if (d.association_id) {
+                associationIds.push(d.association_id);
+            }
+            // Add association_ids from junction table if available
+            if (discAssocData) {
+                discAssocData
+                    .filter(da => da.discipline_id === d.id)
+                    .forEach(da => {
+                        if (da.association_id && !associationIds.includes(da.association_id)) {
+                            associationIds.push(da.association_id);
+                        }
+                    });
+            }
+            return {
+                ...d,
+                association_ids: associationIds
+            };
+        });
+        setDisciplines(mappedDisciplines);
     }, [toast]);
 
     const sortedDisciplineTypes = useMemo(() => {
+        // Filter disciplines based on selected association
+        let filtered = disciplines;
+        if (formData.association_name) {
+            // Find the selected association's ID
+            const selectedAssociation = associations.find(a => a.name === formData.association_name);
+            if (selectedAssociation) {
+                filtered = disciplines.filter(d => 
+                    d.association_ids && d.association_ids.includes(selectedAssociation.id)
+                );
+            } else {
+                filtered = [];
+            }
+        }
+        
+        // Remove duplicates by name
         const unique = [];
         const seen = new Set();
-        for (const item of disciplines) {
+        for (const item of filtered) {
             if (!seen.has(item.name)) {
-            seen.add(item.name);
-            unique.push(item);
+                seen.add(item.name);
+                unique.push(item);
             }
         }
         return unique.sort((a, b) => a.name.localeCompare(b.name));
-    }, [disciplines]);
+    }, [disciplines, formData.association_name, associations]);
 
     useEffect(() => {
         fetchPatterns();
@@ -384,12 +436,14 @@ const ManualPatternEntryPage = () => {
                         <Card>
                             <CardHeader><CardTitle>Pattern Info</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Select name="association_name" onValueChange={value => setFormData(p => ({...p, association_name: value}))} value={formData.association_name}>
+                                <Select name="association_name" onValueChange={value => {
+                                    setFormData(p => ({...p, association_name: value, discipline: ''}));
+                                }} value={formData.association_name}>
                                     <SelectTrigger><SelectValue placeholder="Select Association*" /></SelectTrigger>
                                     <SelectContent>{associations.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent>
                                 </Select>
-                                <Select name="discipline" onValueChange={value => setFormData(p => ({...p, discipline: value}))} value={formData.discipline}>
-                                    <SelectTrigger><SelectValue placeholder="Select Discipline*" /></SelectTrigger>
+                                <Select name="discipline" onValueChange={value => setFormData(p => ({...p, discipline: value}))} value={formData.discipline} disabled={!formData.association_name}>
+                                    <SelectTrigger><SelectValue placeholder={formData.association_name ? "Select Discipline*" : "Select Association first"} /></SelectTrigger>
                                     <SelectContent>{sortedDisciplineTypes.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
                                 </Select>
                                 <Input name="division" placeholder="Division*" value={formData.division} onChange={handleInputChange} />

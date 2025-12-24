@@ -40,37 +40,57 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
                       .map(id => associationsData?.find(a => a.id === id)?.abbreviation)
                       .filter(Boolean);
                   
-                  
-                  // Debug: Check what scoresheets exist in the database
-                  const { data: allScoresheets } = await supabase
-                      .from('tbl_scoresheet')
-                      .select('id, discipline, association_abbrev, image_url, file_url')
-                      .limit(10);
-                  
                   // Build query to fetch scoresheet by association and discipline name
                   // Try multiple strategies: both filters, then just discipline, then just association
                   let scoresheetData = null;
-                  let scoresheetError = null;
                   
-                  // Strategy 1: Try with both discipline and association abbreviation
-                  const { data, error } = await supabase
-                      .from('tbl_scoresheet')
-                      .select('*')
-                      .ilike('discipline', `%${discipline.name}%`)
-                      .ilike('association_abbrev', `%${discipline.association_id}%`)
-                      .maybeSingle();
-                  
-                  if (!error && data) {
-                      scoresheetData = data;
-                  } else {
-                      scoresheetError = error;
+                  // Strategy 1: Try with both discipline and association abbreviation(s)
+                  if (associationAbbrevs.length > 0) {
+                      // Try exact match first for each abbreviation
+                      for (const abbrev of associationAbbrevs) {
+                          const { data, error } = await supabase
+                              .from('tbl_scoresheet')
+                              .select('*')
+                              .ilike('discipline', `%${discipline.name}%`)
+                              .eq('association_abbrev', abbrev)
+                              .limit(1);
+                          
+                          if (!error && data && data.length > 0) {
+                              scoresheetData = data[0];
+                              break;
+                          }
+                      }
+                      
+                      // If no exact match, try with ilike for abbreviation
+                      if (!scoresheetData) {
+                          for (const abbrev of associationAbbrevs) {
+                              const { data, error } = await supabase
+                                  .from('tbl_scoresheet')
+                                  .select('*')
+                                  .ilike('discipline', `%${discipline.name}%`)
+                                  .ilike('association_abbrev', `%${abbrev}%`)
+                                  .limit(1);
+                              
+                              if (!error && data && data.length > 0) {
+                                  scoresheetData = data[0];
+                                  break;
+                              }
+                          }
+                      }
                   }
-
                   
-                  if (scoresheetError && !scoresheetData) {
-                      console.error('Error fetching scoresheet:', scoresheetError);
+                  // Strategy 2: If still no match, try with just discipline name
+                  if (!scoresheetData) {
+                      const { data, error } = await supabase
+                          .from('tbl_scoresheet')
+                          .select('*')
+                          .ilike('discipline', `%${discipline.name}%`)
+                          .limit(1);
+                      
+                      if (!error && data && data.length > 0) {
+                          scoresheetData = data[0];
+                      }
                   }
-
                   
                   setScoresheetData(scoresheetData);
                   

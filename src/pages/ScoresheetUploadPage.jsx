@@ -95,30 +95,82 @@ const ScoresheetUploadPage = () => {
     };
 
     const fetchDisciplines = async () => {
-        const { data, error } = await supabase
+        // Fetch disciplines with direct association_id
+        const { data: discData, error: discError } = await supabase
             .from('disciplines')
-            .select('id, name')
+            .select('id, name, association_id')
             .order('name');
 
-        if (error) {
-            console.error('Error fetching disciplines:', error);
-        } else {
-            setDisciplines(data || []);
+        if (discError) {
+            console.error('Error fetching disciplines:', discError);
+            return;
         }
+
+        // Fetch discipline_associations separately
+        const { data: discAssocData, error: discAssocError } = await supabase
+            .from('discipline_associations')
+            .select('discipline_id, association_id');
+        
+        if (discAssocError) {
+            // If discipline_associations table doesn't exist or has issues, just use direct association_id
+            console.warn('Could not fetch discipline_associations:', discAssocError.message);
+        }
+
+        // Map disciplines to include all association IDs
+        const mappedDisciplines = (discData || []).map(d => {
+            const associationIds = [];
+            // Add direct association_id if exists
+            if (d.association_id) {
+                associationIds.push(d.association_id);
+            }
+            // Add association_ids from junction table if available
+            if (discAssocData) {
+                discAssocData
+                    .filter(da => da.discipline_id === d.id)
+                    .forEach(da => {
+                        if (da.association_id && !associationIds.includes(da.association_id)) {
+                            associationIds.push(da.association_id);
+                        }
+                    });
+            }
+            return {
+                ...d,
+                association_ids: associationIds
+            };
+        });
+        setDisciplines(mappedDisciplines);
     };
 
-    // Deduplicate disciplines by name (similar to ManualPatternEntryPage)
+    // Deduplicate and filter disciplines by name and selected association (when in manual mode)
     const sortedDisciplineTypes = useMemo(() => {
+        // Filter disciplines based on selected association when in manual mode
+        let filtered = disciplines;
+        if (selectionMode === 'manual' && formData.association_abbrev) {
+            // Find the selected association's ID by matching abbreviation or name
+            const selectedAssociation = associations.find(a => 
+                (a.abbreviation && a.abbreviation === formData.association_abbrev) || 
+                a.name === formData.association_abbrev
+            );
+            if (selectedAssociation) {
+                filtered = disciplines.filter(d => 
+                    d.association_ids && d.association_ids.includes(selectedAssociation.id)
+                );
+            } else {
+                filtered = [];
+            }
+        }
+        
+        // Remove duplicates by name
         const unique = [];
         const seen = new Set();
-        for (const item of disciplines) {
+        for (const item of filtered) {
             if (!seen.has(item.name)) {
                 seen.add(item.name);
                 unique.push(item);
             }
         }
         return unique.sort((a, b) => a.name.localeCompare(b.name));
-    }, [disciplines]);
+    }, [disciplines, formData.association_abbrev, selectionMode, associations]);
 
     const fetchScoresheets = async () => {
         setIsLoading(true);
@@ -512,7 +564,9 @@ const ScoresheetUploadPage = () => {
                                     <Label htmlFor="association_abbrev">Association *</Label>
                                     <Select
                                         value={formData.association_abbrev}
-                                        onValueChange={value => setFormData(p => ({ ...p, association_abbrev: value }))}
+                                        onValueChange={value => {
+                                            setFormData(p => ({ ...p, association_abbrev: value, discipline: '' }));
+                                        }}
                                     >
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select Association" />
@@ -531,9 +585,10 @@ const ScoresheetUploadPage = () => {
                                     <Select
                                         value={formData.discipline}
                                         onValueChange={value => setFormData(p => ({ ...p, discipline: value }))}
+                                        disabled={!formData.association_abbrev}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select Discipline" />
+                                            <SelectValue placeholder={formData.association_abbrev ? "Select Discipline" : "Select Association first"} />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {sortedDisciplineTypes.map(d => (
