@@ -3,6 +3,7 @@ import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { fetchImageAsBase64, fetchPatternAndScoresheetAssets } from './pdfHelpers';
 import { supabase } from '@/lib/supabaseClient';
+import { parseLocalDate } from '@/lib/utils';
 import patternDiagram from '@/assets/pattern-diagram-sample.png';
 
 export const generatePatternBookPdf = async (pbbData) => {
@@ -223,7 +224,7 @@ export const generatePatternBookPdf = async (pbbData) => {
         doc.setFontSize(24);
         
         if (pbbData.startDate && pbbData.endDate) {
-            const dateText = `${format(new Date(pbbData.startDate), 'MMMM d')} – ${format(new Date(pbbData.endDate), 'd, yyyy')}`;
+            const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
             doc.text(dateText, pageWidth / 2, centerY + 20, { align: 'center' });
         }
         
@@ -275,7 +276,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.setFontSize(16);
             doc.setFont('helvetica', 'normal');
             if (pbbData.startDate && pbbData.endDate) {
-                const dateText = `${format(new Date(pbbData.startDate), 'MMMM d')} – ${format(new Date(pbbData.endDate), 'd, yyyy')}`;
+                const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
                 doc.text(dateText, pageWidth / 2, pageHeight / 2, { align: 'center' });
             }
             
@@ -499,7 +500,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             // Discipline name and date (left side) - wrap if needed
             doc.setFontSize(11);
             doc.setFont('helvetica', 'normal');
-            const dateStr = competitionDate ? format(new Date(competitionDate), 'MM-dd-yyyy') : '';
+            const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
             const disciplineText = `${discipline.name.toUpperCase()} - ${dateStr}`;
             const disciplineMaxWidth = pageWidth - margin * 2;
             const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
@@ -584,7 +585,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                 // Discipline name and date (left side) - wrap if needed
                 doc.setFontSize(11);
                 doc.setFont('times', 'normal');
-                const dateStr = competitionDate ? format(new Date(competitionDate), 'MM-dd-yyyy') : '';
+                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                 const disciplineText = `${discipline.name.toUpperCase()} - ${dateStr}`;
                 const disciplineMaxWidth = pageWidth - margin * 2;
                 const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
@@ -784,7 +785,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(14);
             doc.setTextColor(60, 60, 60);
-            const dateFormatted = format(new Date(dateStr), 'EEEE, MMMM d, yyyy');
+            const dateFormatted = format(parseLocalDate(dateStr), 'EEEE, MMMM d, yyyy');
             doc.text(dateFormatted, margin, yPos);
             yPos += 30;
     
