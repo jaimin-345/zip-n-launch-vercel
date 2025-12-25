@@ -32,6 +32,10 @@ const ScoresheetUploadPage = () => {
     const itemsPerPage = 10;
     const [editingScoresheetId, setEditingScoresheetId] = useState(null);
 
+    // Filter states
+    const [filterAssociation, setFilterAssociation] = useState('all');
+    const [filterDiscipline, setFilterDiscipline] = useState('all');
+
     const [patterns, setPatterns] = useState([]);
     const [associations, setAssociations] = useState([]);
     const [disciplines, setDisciplines] = useState([]);
@@ -171,6 +175,42 @@ const ScoresheetUploadPage = () => {
         }
         return unique.sort((a, b) => a.name.localeCompare(b.name));
     }, [disciplines, formData.association_abbrev, selectionMode, associations]);
+
+    // Get unique associations from existing scoresheets for filter
+    const uniqueAssociationsInScoresheets = useMemo(() => {
+        const abbrevs = new Set();
+        scoresheets.forEach(s => {
+            const assoc = s.association_abbrev || s.pattern?.association_name;
+            if (assoc) abbrevs.add(assoc);
+        });
+        return Array.from(abbrevs).sort();
+    }, [scoresheets]);
+
+    // Get unique disciplines from existing scoresheets for filter
+    const uniqueDisciplinesInScoresheets = useMemo(() => {
+        const discs = new Set();
+        scoresheets.forEach(s => {
+            const disc = s.discipline || s.pattern?.discipline;
+            if (disc) discs.add(disc);
+        });
+        return Array.from(discs).sort();
+    }, [scoresheets]);
+
+    // Filtered scoresheets based on selected filters
+    const filteredScoresheets = useMemo(() => {
+        return scoresheets.filter(s => {
+            const assoc = s.association_abbrev || s.pattern?.association_name;
+            const disc = s.discipline || s.pattern?.discipline;
+            const matchAssoc = filterAssociation === 'all' || assoc === filterAssociation;
+            const matchDisc = filterDiscipline === 'all' || disc === filterDiscipline;
+            return matchAssoc && matchDisc;
+        });
+    }, [scoresheets, filterAssociation, filterDiscipline]);
+
+    // Reset to page 1 when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterAssociation, filterDiscipline]);
 
     const fetchScoresheets = async () => {
         setIsLoading(true);
@@ -394,8 +434,45 @@ const ScoresheetUploadPage = () => {
                         </header>
 
                         <Card>
-                            <CardHeader><CardTitle>Existing Scoresheets ({scoresheets.length})</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Existing Scoresheets ({filteredScoresheets.length})</CardTitle></CardHeader>
                             <CardContent>
+                                {/* Filters */}
+                                <div className="flex flex-wrap gap-4 mb-4 items-end">
+                                    <div className="w-48">
+                                        <Label className="text-sm mb-1 block">Association</Label>
+                                        <Select value={filterAssociation} onValueChange={setFilterAssociation}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All Associations" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Associations</SelectItem>
+                                                {uniqueAssociationsInScoresheets.map(abbrev => (
+                                                    <SelectItem key={abbrev} value={abbrev}>{abbrev}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="w-48">
+                                        <Label className="text-sm mb-1 block">Discipline</Label>
+                                        <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All Disciplines" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Disciplines</SelectItem>
+                                                {uniqueDisciplinesInScoresheets.map(disc => (
+                                                    <SelectItem key={disc} value={disc}>{disc}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {(filterAssociation !== 'all' || filterDiscipline !== 'all') && (
+                                        <Button variant="ghost" size="sm" onClick={() => { setFilterAssociation('all'); setFilterDiscipline('all'); }}>
+                                            <X className="h-4 w-4 mr-1" /> Clear
+                                        </Button>
+                                    )}
+                                </div>
+
                                 {isLoading ? (
                                     <div className="flex justify-center items-center h-64">
                                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -412,7 +489,7 @@ const ScoresheetUploadPage = () => {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {scoresheets
+                                                {filteredScoresheets
                                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                                     .map(s => (
                                                     <TableRow key={s.id}>
@@ -448,10 +525,10 @@ const ScoresheetUploadPage = () => {
                                         </Table>
                                         
                                         {/* Pagination Controls */}
-                                        {scoresheets.length > itemsPerPage && (
+                                        {filteredScoresheets.length > itemsPerPage && (
                                             <div className="flex items-center justify-between mt-4 pt-4 border-t">
                                                 <p className="text-sm text-muted-foreground">
-                                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, scoresheets.length)} of {scoresheets.length} entries
+                                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredScoresheets.length)} of {filteredScoresheets.length} entries
                                                 </p>
                                                 <div className="flex items-center gap-2">
                                                     <Button
@@ -464,13 +541,13 @@ const ScoresheetUploadPage = () => {
                                                         Previous
                                                     </Button>
                                                     <span className="text-sm px-2">
-                                                        Page {currentPage} of {Math.ceil(scoresheets.length / itemsPerPage)}
+                                                        Page {currentPage} of {Math.ceil(filteredScoresheets.length / itemsPerPage)}
                                                     </span>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(scoresheets.length / itemsPerPage), p + 1))}
-                                                        disabled={currentPage >= Math.ceil(scoresheets.length / itemsPerPage)}
+                                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredScoresheets.length / itemsPerPage), p + 1))}
+                                                        disabled={currentPage >= Math.ceil(filteredScoresheets.length / itemsPerPage)}
                                                     >
                                                         Next
                                                         <ChevronRight className="h-4 w-4" />
@@ -480,7 +557,7 @@ const ScoresheetUploadPage = () => {
                                         )}
                                     </>
                                 )}
-                                {!isLoading && scoresheets.length === 0 && (
+                                {!isLoading && filteredScoresheets.length === 0 && (
                                     <p className="text-center py-8 text-muted-foreground">No scoresheets found.</p>
                                 )}
                             </CardContent>
