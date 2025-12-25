@@ -71,8 +71,8 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     } else {
         // AQHA/APHA layout
         leftColumn = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
-        middleColumn = ['Trail', 'In-Hand Trail', 'Ranch Trail'];
-        rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping', 'VRH-RHC Ranch Trail', 'English Versatility', 'Western Versatility'];
+        middleColumn = ['Trail', 'In-Hand Trail', 'Ranch Trail', 'VRH-RHC Ranch Trail'];
+        rightColumn = ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping', 'English Versatility', 'Western Versatility'];
     }
 
     const getDisciplinesByNames = (names) => {

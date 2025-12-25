@@ -282,10 +282,12 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             if (!pbbDiscipline?.name) return;
             setLoadingPatterns(true);
             try {
+                // Use exact match (case-insensitive) to avoid matching substrings
+                // For example, "Reining" should not match "Ranch Reining"
                 let query = supabase
                     .from('tbl_patterns')
                     .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
-                    .ilike('discipline', `%${pbbDiscipline.name}%`);
+                    .ilike('discipline', pbbDiscipline.name);
                 
                 // Filter by association if available
                 if (associationName) {

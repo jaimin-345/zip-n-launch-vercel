@@ -112,10 +112,12 @@ const detectGroupType = (divisions) => {
     
     setLoadingPatterns(prev => ({ ...prev, [disciplineId]: true }));
     try {
+      // Use exact match (case-insensitive) to avoid matching substrings
+      // For example, "Reining" should not match "Ranch Reining"
       let query = supabase
         .from('tbl_patterns')
         .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
-        .ilike('discipline', `%${disciplineName}%`);
+        .ilike('discipline', disciplineName);
       
       if (associationName) {
         query = query.ilike('association_name', `%${associationName}%`);

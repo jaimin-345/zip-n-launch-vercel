@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -241,6 +242,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [maneuversRangeMap, setManeuversRangeMap] = useState({});
   // New state for "Reference" style selection
   const [disciplineSelections, setDisciplineSelections] = useState({}); // { [disciplineId]: { difficulty: ['ALL'] } }
+  
+  // State for hover functionality
+  const [hoveredPatternId, setHoveredPatternId] = useState(null);
+  const [hoveredPatternImage, setHoveredPatternImage] = useState(null);
+  const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
+  const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
 
   // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
@@ -348,10 +355,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     try {
       // Fetch ALL patterns for this discipline (no association filter at discipline level)
       // Group-level filtering will be applied in the Select dropdown
+      // Use exact match (case-insensitive) to avoid matching substrings
+      // For example, "Reining" should not match "Ranch Reining"
       let query = supabase
         .from('tbl_patterns')
         .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
-        .ilike('discipline', `%${discipline.name}%`);
+        .ilike('discipline', discipline.name);
       
       const { data, error } = await query;
       if (error) throw error;
@@ -371,6 +380,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       fetchPatternsForDiscipline(discipline);
     });
   }, [patternDisciplines.length]);
+
+  // Fetch pattern image when hovering over a pattern in dropdown
+  useEffect(() => {
+    const fetchHoveredPatternImage = async () => {
+      if (!hoveredPatternId) {
+        setHoveredPatternImage(null);
+        return;
+      }
+      setLoadingHoveredImage(true);
+      try {
+        const { data: imageData, error: imageError } = await supabase
+          .from('tbl_pattern_media')
+          .select('image_url')
+          .eq('pattern_id', hoveredPatternId)
+          .maybeSingle();
+        
+        if (imageError) console.error('Error fetching hovered pattern image:', imageError);
+        setHoveredPatternImage(imageData?.image_url || null);
+      } catch (err) {
+        console.error('Error fetching hovered pattern image:', err);
+        setHoveredPatternImage(null);
+      } finally {
+        setLoadingHoveredImage(false);
+      }
+    };
+    fetchHoveredPatternImage();
+  }, [hoveredPatternId]);
 
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
     setFormData(prev => {
@@ -1226,6 +1262,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                           <Select
                                             value={currentSelection?.patternId?.toString() || ''}
                                             onValueChange={(value) => {
+                                                // Hide preview when pattern is selected
+                                                setHoveredPatternId(null);
                                                 const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
                                                 const patternManeuversRange = selectedPattern?.maneuvers_range || '';
                                                 handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
@@ -1234,7 +1272,12 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                             <SelectTrigger className="flex-1 bg-background">
                                                 <SelectValue placeholder="Select Pattern" />
                                             </SelectTrigger>
-                                            <SelectContent className="max-h-[300px]">
+                                            <SelectContent 
+                                                className="max-h-[300px]"
+                                                onMouseLeave={() => {
+                                                    setHoveredPatternId(null);
+                                                }}
+                                            >
                                                 {(() => {
                                                     // Use Discipline Level Difficulty (Multi-Select)
                                                     const difficulty = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
@@ -1317,8 +1360,31 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     });
                                                     filtered = uniquePatterns;
                                                     
-                                                     // Sort by name (numeric)
+                                                    // Sort by pattern level (pattern_version) first, then by name (numeric)
                                                     filtered.sort((a, b) => {
+                                                        // Define pattern level order (pattern_version)
+                                                        const levelOrder = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot', 'ALL', 'L1', 'GR/NOV'];
+                                                        const aLevel = a.pattern_version || 'ALL';
+                                                        const bLevel = b.pattern_version || 'ALL';
+                                                        const aIndex = levelOrder.indexOf(aLevel);
+                                                        const bIndex = levelOrder.indexOf(bLevel);
+                                                        
+                                                        // If both are in the order list, sort by index
+                                                        if (aIndex !== -1 && bIndex !== -1) {
+                                                            if (aIndex !== bIndex) {
+                                                                return aIndex - bIndex;
+                                                            }
+                                                        } else if (aIndex !== -1) {
+                                                            return -1;
+                                                        } else if (bIndex !== -1) {
+                                                            return 1;
+                                                        } else {
+                                                            // If neither is in the list, sort alphabetically by level
+                                                            const levelCompare = aLevel.localeCompare(bLevel);
+                                                            if (levelCompare !== 0) return levelCompare;
+                                                        }
+                                                        
+                                                        // If same level, sort by name (numeric)
                                                         const nameA = a.pdf_file_name?.trim() || '';
                                                         const nameB = b.pdf_file_name?.trim() || '';
                                                         return nameA.localeCompare(nameB, undefined, { numeric: true });
@@ -1336,7 +1402,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             : `Pattern ${idx + 1} (${version})`;
                                                         
                                                         return (
-                                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                            <SelectItem 
+                                                                key={p.id} 
+                                                                value={p.id.toString()}
+                                                                onMouseEnter={(e) => {
+                                                                    setHoveredPatternId(p.id);
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    setHoverPosition({ x: rect.right, y: rect.top });
+                                                                }}
+                                                                onMouseLeave={() => {
+                                                                    setHoveredPatternId(null);
+                                                                }}
+                                                            >
                                                                 <div className="flex items-center gap-2">
                                                                     <span>{displayLabel}</span>
                                                                 </div>
@@ -1346,6 +1423,42 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 })()}
                                             </SelectContent>
                                         </Select>
+                                        {/* Hover Preview - Rendered via portal at body level */}
+                                        {hoveredPatternId && typeof document !== 'undefined' && createPortal(
+                                            <div
+                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-3 w-[500px] pointer-events-auto"
+                                                style={{
+                                                    left: `${hoverPosition.x + 10}px`,
+                                                    top: `${hoverPosition.y}px`,
+                                                }}
+                                                onMouseLeave={() => {
+                                                    setHoveredPatternId(null);
+                                                }}
+                                            >
+                                                {loadingHoveredImage ? (
+                                                    <div className="flex items-center justify-center py-8">
+                                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                                    </div>
+                                                ) : hoveredPatternImage ? (
+                                                    <div className="space-y-2">
+                                                        <h4 className="font-medium text-sm">Pattern Preview</h4>
+                                                        <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                            <img 
+                                                                src={hoveredPatternImage} 
+                                                                alt="Pattern Diagram" 
+                                                                className="w-full h-auto object-contain max-h-[450px]"
+                                                                loading="lazy"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-sm text-muted-foreground py-4">
+                                                        No image available for this pattern.
+                                                    </div>
+                                                )}
+                                            </div>,
+                                            document.body
+                                        )}
                                     </div>
                                   </div>
                                 )}
