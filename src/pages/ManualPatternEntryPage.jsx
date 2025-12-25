@@ -34,6 +34,10 @@ const ManualPatternEntryPage = () => {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    
+    // Filter state
+    const [filterAssociation, setFilterAssociation] = useState('');
+    const [filterDiscipline, setFilterDiscipline] = useState('');
 
     const [associations, setAssociations] = useState([]);
     const [disciplines, setDisciplines] = useState([]);
@@ -142,6 +146,31 @@ const ManualPatternEntryPage = () => {
         }
         return unique.sort((a, b) => a.name.localeCompare(b.name));
     }, [disciplines, formData.association_name, associations]);
+
+    // Filtered patterns for table display
+    const filteredPatterns = useMemo(() => {
+        return patterns.filter(p => {
+            const matchesAssociation = !filterAssociation || p.association_name === filterAssociation;
+            const matchesDiscipline = !filterDiscipline || p.discipline === filterDiscipline;
+            return matchesAssociation && matchesDiscipline;
+        });
+    }, [patterns, filterAssociation, filterDiscipline]);
+
+    // Get unique disciplines from patterns for the filter dropdown
+    const uniqueDisciplinesInPatterns = useMemo(() => {
+        let filtered = patterns;
+        if (filterAssociation) {
+            filtered = patterns.filter(p => p.association_name === filterAssociation);
+        }
+        const unique = [...new Set(filtered.map(p => p.discipline).filter(Boolean))];
+        return unique.sort((a, b) => a.localeCompare(b));
+    }, [patterns, filterAssociation]);
+
+    // Get unique associations from patterns for the filter dropdown
+    const uniqueAssociationsInPatterns = useMemo(() => {
+        const unique = [...new Set(patterns.map(p => p.association_name).filter(Boolean))];
+        return unique.sort((a, b) => a.localeCompare(b));
+    }, [patterns]);
 
     useEffect(() => {
         fetchPatterns();
@@ -354,7 +383,61 @@ const ManualPatternEntryPage = () => {
                         </header>
 
                         <Card>
-                            <CardHeader><CardTitle>Existing Patterns ({patterns.length})</CardTitle></CardHeader>
+                            <CardHeader>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <CardTitle>Existing Patterns ({filteredPatterns.length})</CardTitle>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Select 
+                                            value={filterAssociation} 
+                                            onValueChange={(val) => {
+                                                setFilterAssociation(val === 'all' ? '' : val);
+                                                setFilterDiscipline('');
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="All Associations" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Associations</SelectItem>
+                                                {uniqueAssociationsInPatterns.map(a => (
+                                                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select 
+                                            value={filterDiscipline} 
+                                            onValueChange={(val) => {
+                                                setFilterDiscipline(val === 'all' ? '' : val);
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="All Disciplines" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Disciplines</SelectItem>
+                                                {uniqueDisciplinesInPatterns.map(d => (
+                                                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {(filterAssociation || filterDiscipline) && (
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                onClick={() => {
+                                                    setFilterAssociation('');
+                                                    setFilterDiscipline('');
+                                                    setCurrentPage(1);
+                                                }}
+                                            >
+                                                <X className="h-4 w-4 mr-1" /> Clear
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </CardHeader>
                             <CardContent>
                                 {isLoading ? (
                                     <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
@@ -371,7 +454,7 @@ const ManualPatternEntryPage = () => {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {patterns
+                                                {filteredPatterns
                                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                                     .map(p => (
                                                     <TableRow key={p.id}>
@@ -390,10 +473,10 @@ const ManualPatternEntryPage = () => {
                                         </Table>
                                         
                                         {/* Pagination Controls */}
-                                        {patterns.length > itemsPerPage && (
+                                        {filteredPatterns.length > itemsPerPage && (
                                             <div className="flex items-center justify-between mt-4 pt-4 border-t">
                                                 <p className="text-sm text-muted-foreground">
-                                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, patterns.length)} of {patterns.length} entries
+                                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredPatterns.length)} of {filteredPatterns.length} entries
                                                 </p>
                                                 <div className="flex items-center gap-2">
                                                     <Button
@@ -406,13 +489,13 @@ const ManualPatternEntryPage = () => {
                                                         Previous
                                                     </Button>
                                                     <span className="text-sm px-2">
-                                                        Page {currentPage} of {Math.ceil(patterns.length / itemsPerPage)}
+                                                        Page {currentPage} of {Math.ceil(filteredPatterns.length / itemsPerPage)}
                                                     </span>
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(patterns.length / itemsPerPage), p + 1))}
-                                                        disabled={currentPage >= Math.ceil(patterns.length / itemsPerPage)}
+                                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredPatterns.length / itemsPerPage), p + 1))}
+                                                        disabled={currentPage >= Math.ceil(filteredPatterns.length / itemsPerPage)}
                                                     >
                                                         Next
                                                         <ChevronRight className="h-4 w-4" />
