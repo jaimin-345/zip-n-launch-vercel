@@ -448,7 +448,7 @@ const ManualPatternEntryPage = () => {
                                                 <TableRow>
                                                     <TableHead>Association</TableHead>
                                                     <TableHead>Discipline</TableHead>
-                                                    <TableHead>Division</TableHead>
+                                                    <TableHead>PDF Name</TableHead>
                                                     <TableHead>Date</TableHead>
                                                     <TableHead>Actions</TableHead>
                                                 </TableRow>
@@ -460,7 +460,7 @@ const ManualPatternEntryPage = () => {
                                                     <TableRow key={p.id}>
                                                         <TableCell>{p.association_name}</TableCell>
                                                         <TableCell>{p.discipline}</TableCell>
-                                                        <TableCell>{p.division}</TableCell>
+                                                        <TableCell>{p.pdf_file_name || 'N/A'}</TableCell>
                                                         <TableCell>{p.pattern_date ? format(parseISO(p.pattern_date), 'PPP') : 'N/A'}</TableCell>
                                                         <TableCell className="space-x-2">
                                                             <Button variant="outline" size="sm" onClick={() => { setSelectedPattern(p); setIsDetailModalOpen(true); }}><Eye className="h-4 w-4" /></Button>
