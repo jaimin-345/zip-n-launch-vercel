@@ -284,23 +284,39 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         fetchWorkingCowHorseScoresheets();
     }, [formData.associations]);
 
-    // Handler for scoresheet selection
+    // Handler for scoresheet selection (toggle behavior - click again to unselect)
     const handleScoresheetSelect = (disciplineKey, scoresheetId) => {
-        setFormData(prev => {
-            const newDisciplineScoresheetSelections = { ...(prev.disciplineScoresheetSelections || {}) };
-            
-            // Find the scoresheet data
-            const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === String(scoresheetId));
-            
-            newDisciplineScoresheetSelections[disciplineKey] = selectedScoresheet ? {
-                id: selectedScoresheet.id,
-                image_url: selectedScoresheet.image_url,
-                displayName: selectedScoresheet.displayName,
-                storage_path: selectedScoresheet.storage_path
-            } : null;
-            
-            return { ...prev, disciplineScoresheetSelections: newDisciplineScoresheetSelections };
-        });
+        const currentSelection = formData.disciplineScoresheetSelections?.[disciplineKey];
+        
+        // If clicking the same value, unselect it
+        if (currentSelection && String(currentSelection.id) === String(scoresheetId)) {
+            setFormData(prev => {
+                const newSelections = { ...prev.disciplineScoresheetSelections };
+                delete newSelections[disciplineKey];
+                return {
+                    ...prev,
+                    disciplineScoresheetSelections: newSelections
+                };
+            });
+            return;
+        }
+        
+        // Otherwise, select the new value
+        const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === String(scoresheetId));
+        if (selectedScoresheet) {
+            setFormData(prev => ({
+                ...prev,
+                disciplineScoresheetSelections: {
+                    ...prev.disciplineScoresheetSelections,
+                    [disciplineKey]: {
+                        id: selectedScoresheet.id,
+                        image_url: selectedScoresheet.image_url,
+                        displayName: selectedScoresheet.displayName,
+                        storage_path: selectedScoresheet.storage_path
+                    }
+                }
+            }));
+        }
     };
 
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
