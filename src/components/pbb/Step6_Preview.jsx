@@ -451,7 +451,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     loadAssociations();
   }, []);
 
-  // Fetch scoresheet data for scoresheet-only disciplines
+  // Fetch scoresheet data for scoresheet-only disciplines (use user selection from Step 2 if available)
   useEffect(() => {
     const fetchScoresheetOnlyData = async () => {
       const scoresheetOnlyDisciplines = allDisciplines.filter(d => 
@@ -464,6 +464,16 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         const scoresheetMap = { ...selectedScoresheetDetails };
         
         for (const discipline of scoresheetOnlyDisciplines) {
+          // Check if user has selected a scoresheet in Step 2 (via disciplineScoresheetSelections)
+          const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
+          const userSelectedScoresheet = formData.disciplineScoresheetSelections?.[disciplineKey];
+          
+          if (userSelectedScoresheet && userSelectedScoresheet.image_url) {
+            // Use user-selected scoresheet from Step 2
+            scoresheetMap[`scoresheet-only-${discipline.id}`] = userSelectedScoresheet;
+            continue;
+          }
+
           // Get association abbreviation(s)
           const associationIds = discipline.mergedAssociations || [discipline.association_id];
           const associationAbbrevs = associationIds
@@ -513,22 +523,8 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
             }
           }
 
-          // Strategy 4: Exact match on discipline name (case-insensitive)
-          if (!scoresheetResult) {
-            const { data, error } = await supabase
-              .from('tbl_scoresheet')
-              .select('*')
-              .ilike('discipline', discipline.name)
-              .maybeSingle();
-            
-            if (!error && data) {
-              scoresheetResult = data;
-            }
-          }
-
           // Store scoresheet data with a key based on discipline ID
           if (scoresheetResult) {
-            // Use discipline ID as key for scoresheet-only disciplines
             scoresheetMap[`scoresheet-only-${discipline.id}`] = scoresheetResult;
           }
         }
@@ -542,7 +538,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     if (associationsData.length > 0) {
       fetchScoresheetOnlyData();
     }
-  }, [allDisciplines, associationsData]);
+  }, [allDisciplines, associationsData, formData.disciplineScoresheetSelections]);
   
   const handlePatternSelectionChange = (disciplineId, groupId, newPatternId) => {
     setFormData(prev => {

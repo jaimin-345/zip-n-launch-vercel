@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -11,10 +11,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/lib/supabaseClient';
 
-const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName }) => {
+const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName, scoresheetOptions, selectedScoresheetId, onScoresheetSelect }) => {
     const isSelected = selectedDisciplineKeys.has(getDisciplineKey(disc));
     const disciplineKey = getDisciplineKey(disc);
+    
+    // Check if this is Working Cow Horse for AQHA
+    const showScoresheetDropdown = isSelected && 
+        disc.name === 'Working Cow Horse' && 
+        disc.association_id === 'AQHA' &&
+        scoresheetOptions && 
+        scoresheetOptions.length > 0;
     
     return (
         <div className="space-y-1">
@@ -28,6 +37,27 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
                     {displayName || disc.name}
                 </Label>
             </div>
+            {/* Scoresheet Dropdown for Working Cow Horse */}
+            {showScoresheetDropdown && (
+                <div className="ml-6 mt-2 space-y-1">
+                    <Label className="text-xs text-muted-foreground">Select Score Sheet</Label>
+                    <Select 
+                        value={selectedScoresheetId || ''} 
+                        onValueChange={(value) => onScoresheetSelect(disciplineKey, value)}
+                    >
+                        <SelectTrigger className="w-48 h-8 text-xs">
+                            <SelectValue placeholder="Select Score Sheet" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {scoresheetOptions.map(ss => (
+                                <SelectItem key={ss.id} value={String(ss.id)} className="text-xs">
+                                    {ss.displayName}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             {isSelected && dualApprovedAssociations && dualApprovedAssociations.length > 0 && (
                 <div className="ml-6 mt-1 space-y-1">
                     <span className="text-xs text-muted-foreground">Dual-Approved With:</span>
@@ -50,7 +80,7 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
     );
 };
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
     if (disciplines.length === 0) return null;
 
     // Define the custom 3-column layout based on association
@@ -83,88 +113,82 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     const middleDisciplines = getDisciplinesByNames(middleColumn);
     const rightDisciplines = getDisciplinesByNames(rightColumn);
 
+    const renderDisc = (disc) => {
+        const disciplineKey = getDisciplineKey(disc);
+        const selectedScoresheetId = disciplineScoresheetSelections?.[disciplineKey]?.id;
+        return (
+            <DisciplineCheckboxWithDualApproved
+                key={disc.id}
+                disc={disc}
+                selectedDisciplineKeys={selectedDisciplineKeys}
+                onDisciplineToggle={onDisciplineToggle}
+                getDisciplineKey={getDisciplineKey}
+                dualApprovedAssociations={dualApprovedAssociations}
+                dualApprovedSelections={dualApprovedSelections}
+                onDualApprovedToggle={onDualApprovedToggle}
+                displayName={disc.name.replace(' at Halter', '')}
+                scoresheetOptions={scoresheetOptions}
+                selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : null}
+                onScoresheetSelect={onScoresheetSelect}
+            />
+        );
+    };
+
     return (
         <div className="space-y-1.5">
             <h4 className="text-sm font-semibold text-muted-foreground px-1.5">{title}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-1.5">
                 {/* Left Column */}
                 <div className="space-y-2">
-                    {leftDisciplines.map(disc => (
-                        <DisciplineCheckboxWithDualApproved
-                            key={disc.id}
-                            disc={disc}
-                            selectedDisciplineKeys={selectedDisciplineKeys}
-                            onDisciplineToggle={onDisciplineToggle}
-                            getDisciplineKey={getDisciplineKey}
-                            dualApprovedAssociations={dualApprovedAssociations}
-                            dualApprovedSelections={dualApprovedSelections}
-                            onDualApprovedToggle={onDualApprovedToggle}
-                            displayName={disc.name.replace(' at Halter', '')}
-                        />
-                    ))}
+                    {leftDisciplines.map(renderDisc)}
                 </div>
 
                 {/* Middle Column */}
                 <div className="space-y-2">
-                    {middleDisciplines.map(disc => (
-                        <DisciplineCheckboxWithDualApproved
-                            key={disc.id}
-                            disc={disc}
-                            selectedDisciplineKeys={selectedDisciplineKeys}
-                            onDisciplineToggle={onDisciplineToggle}
-                            getDisciplineKey={getDisciplineKey}
-                            dualApprovedAssociations={dualApprovedAssociations}
-                            dualApprovedSelections={dualApprovedSelections}
-                            onDualApprovedToggle={onDualApprovedToggle}
-                        />
-                    ))}
+                    {middleDisciplines.map(renderDisc)}
                 </div>
 
                 {/* Right Column */}
                 <div className="space-y-2">
-                    {rightDisciplines.map(disc => (
-                        <DisciplineCheckboxWithDualApproved
-                            key={disc.id}
-                            disc={disc}
-                            selectedDisciplineKeys={selectedDisciplineKeys}
-                            onDisciplineToggle={onDisciplineToggle}
-                            getDisciplineKey={getDisciplineKey}
-                            dualApprovedAssociations={dualApprovedAssociations}
-                            dualApprovedSelections={dualApprovedSelections}
-                            onDualApprovedToggle={onDualApprovedToggle}
-                        />
-                    ))}
+                    {rightDisciplines.map(renderDisc)}
                 </div>
             </div>
         </div>
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
     if (disciplines.length === 0) return null;
 
     return (
         <div className="space-y-1.5">
             <h4 className="text-sm font-semibold text-muted-foreground px-1.5">{title}</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1.5">
-                {disciplines.map(disc => (
-                    <DisciplineCheckboxWithDualApproved
-                        key={disc.id}
-                        disc={disc}
-                        selectedDisciplineKeys={selectedDisciplineKeys}
-                        onDisciplineToggle={onDisciplineToggle}
-                        getDisciplineKey={getDisciplineKey}
-                        dualApprovedAssociations={dualApprovedAssociations}
-                        dualApprovedSelections={dualApprovedSelections}
-                        onDualApprovedToggle={onDualApprovedToggle}
-                    />
-                ))}
+                {disciplines.map(disc => {
+                    const disciplineKey = getDisciplineKey(disc);
+                    const selectedScoresheetId = disciplineScoresheetSelections?.[disciplineKey]?.id;
+                    return (
+                        <DisciplineCheckboxWithDualApproved
+                            key={disc.id}
+                            disc={disc}
+                            selectedDisciplineKeys={selectedDisciplineKeys}
+                            onDisciplineToggle={onDisciplineToggle}
+                            getDisciplineKey={getDisciplineKey}
+                            dualApprovedAssociations={dualApprovedAssociations}
+                            dualApprovedSelections={dualApprovedSelections}
+                            onDualApprovedToggle={onDualApprovedToggle}
+                            scoresheetOptions={scoresheetOptions}
+                            selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : null}
+                            onScoresheetSelect={onScoresheetSelect}
+                        />
+                    );
+                })}
             </div>
         </div>
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -197,11 +221,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             <AccordionContent className="p-3 space-y-3">
                 {categorized.custom.length > 0 && (
                     (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
-                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} /> :
-                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} /> :
+                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />
                 )}
-                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />}
-                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} />}
+                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />}
+                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />}
             </AccordionContent>
         </AccordionItem>
     );
@@ -212,6 +236,71 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const [customDisciplineName, setCustomDisciplineName] = React.useState('');
     const [isCustomDisciplineModalOpen, setIsCustomDisciplineModalOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
+
+    // Fetch Working Cow Horse scoresheets for AQHA (without pattern_id)
+    useEffect(() => {
+        const fetchWorkingCowHorseScoresheets = async () => {
+            // Check if AQHA is selected
+            if (!formData.associations?.['AQHA']) return;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('tbl_scoresheet')
+                    .select('id, discipline, association_abbrev, image_url, storage_path')
+                    .eq('discipline', 'Working Cow Horse')
+                    .eq('association_abbrev', 'AQHA')
+                    .is('pattern_id', null);
+                
+                if (error) throw error;
+                
+                // Parse scoresheet names from storage_path to create display names
+                const scoresheetOptions = (data || []).map(ss => {
+                    // Extract display name from storage_path
+                    // Example: "scoresheets/abc-WorkingCowHorse_CowWork_LTD_0000.ALL.SS.AQHA.jpg" -> "Cow Work - Limited"
+                    let displayName = 'Scoresheet';
+                    const path = ss.storage_path || '';
+                    
+                    if (path.includes('_LTD_') || path.includes('_Limited_')) {
+                        displayName = 'Cow Work - Limited';
+                    } else if (path.includes('_BDBD_') || path.includes('_Open_')) {
+                        displayName = 'Cow Work - Open';
+                    } else if (path.includes('_Rookie_') || path.includes('Rookie')) {
+                        displayName = 'Cow Work - Rookie';
+                    } else if (path.includes('CowWork_0000') && !path.includes('_LTD_') && !path.includes('_BDBD_')) {
+                        displayName = 'Cow Work - Open';
+                    }
+                    
+                    return { ...ss, displayName };
+                });
+                
+                setWorkingCowHorseScoresheets(scoresheetOptions);
+            } catch (err) {
+                console.error('Error fetching Working Cow Horse scoresheets:', err);
+            }
+        };
+        
+        fetchWorkingCowHorseScoresheets();
+    }, [formData.associations]);
+
+    // Handler for scoresheet selection
+    const handleScoresheetSelect = (disciplineKey, scoresheetId) => {
+        setFormData(prev => {
+            const newDisciplineScoresheetSelections = { ...(prev.disciplineScoresheetSelections || {}) };
+            
+            // Find the scoresheet data
+            const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === String(scoresheetId));
+            
+            newDisciplineScoresheetSelections[disciplineKey] = selectedScoresheet ? {
+                id: selectedScoresheet.id,
+                image_url: selectedScoresheet.image_url,
+                displayName: selectedScoresheet.displayName,
+                storage_path: selectedScoresheet.storage_path
+            } : null;
+            
+            return { ...prev, disciplineScoresheetSelections: newDisciplineScoresheetSelections };
+        });
+    };
 
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
     const isVrhMode = formData.showType === 'versatility-ranch';
@@ -480,6 +569,9 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     dualApprovedAssociations={showDualApproved ? dualApprovedAssociations : []}
                                     dualApprovedSelections={formData.dualApprovedSelections || {}}
                                     onDualApprovedToggle={handleDualApprovedToggle}
+                                    scoresheetOptions={workingCowHorseScoresheets}
+                                    disciplineScoresheetSelections={formData.disciplineScoresheetSelections || {}}
+                                    onScoresheetSelect={handleScoresheetSelect}
                                 />
                             );
                         })}
