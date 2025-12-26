@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/lib/supabaseClient';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Scale, Eye, EyeOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 
 // US States list
 const US_STATES = [
@@ -97,6 +99,24 @@ const ProfilePage = () => {
         disciplines: []
     }]);
 
+    // Judge Profile
+    const [isCardedJudge, setIsCardedJudge] = useState(false);
+    const [cardedAssociations, setCardedAssociations] = useState([]);
+    const [showCardedAssociationsPublicly, setShowCardedAssociationsPublicly] = useState(false);
+    const [dbAssociations, setDbAssociations] = useState([]);
+
+    useEffect(() => {
+        // Fetch associations from database
+        const fetchAssociations = async () => {
+            const { data } = await supabase
+                .from('associations')
+                .select('id, name, abbreviation')
+                .order('sort_order', { ascending: true });
+            setDbAssociations(data || []);
+        };
+        fetchAssociations();
+    }, []);
+
     useEffect(() => {
         if (!loading && !user) {
             // Redirect or show login prompt if not logged in
@@ -119,6 +139,11 @@ const ProfilePage = () => {
             } else {
                 setHorses([{ id: Date.now(), name: '', breed: '', ageDivision: '', disciplines: [] }]);
             }
+
+            // Judge Profile
+            setIsCardedJudge(meta.isCardedJudge || false);
+            setCardedAssociations(meta.cardedAssociations || []);
+            setShowCardedAssociationsPublicly(meta.showCardedAssociationsPublicly || false);
         }
     }, [user, loading, navigate]);
 
@@ -186,6 +211,12 @@ const ProfilePage = () => {
         }));
     };
 
+    const toggleCardedAssociation = (assocId) => {
+        setCardedAssociations(prev => 
+            prev.includes(assocId) ? prev.filter(a => a !== assocId) : [...prev, assocId]
+        );
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -201,7 +232,11 @@ const ProfilePage = () => {
             primaryDisciplines,
             levelDesignations,
             associationMemberships,
-            horses: horses.filter(h => h.name)
+            horses: horses.filter(h => h.name),
+            // Judge Profile
+            isCardedJudge,
+            cardedAssociations: isCardedJudge ? cardedAssociations : [],
+            showCardedAssociationsPublicly: isCardedJudge ? showCardedAssociationsPublicly : false
         };
 
         if (profilePicture) {
@@ -461,7 +496,98 @@ const ProfilePage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Section 3: Horse Information */}
+                                    {/* Section 3: Judge Profile */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+                                            <Scale className="h-5 w-5" /> Judge Profile
+                                        </h3>
+                                        
+                                        {/* Carded Judge Toggle */}
+                                        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor="carded-judge" className="text-base font-medium">I am a carded judge</Label>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Enable this to access the Judge's Toolbox and set your carded associations.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                id="carded-judge"
+                                                checked={isCardedJudge}
+                                                onCheckedChange={setIsCardedJudge}
+                                            />
+                                        </div>
+
+                                        {isCardedJudge && (
+                                            <>
+                                                {/* Carded Associations */}
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm">Carded Associations</Label>
+                                                    <Select 
+                                                        value={cardedAssociations[cardedAssociations.length - 1] || ''} 
+                                                        onValueChange={(value) => {
+                                                            if (!cardedAssociations.includes(value)) {
+                                                                setCardedAssociations(prev => [...prev, value]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select associations you are carded with" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {dbAssociations.map(assoc => (
+                                                                <SelectItem key={assoc.id} value={assoc.id} disabled={cardedAssociations.includes(assoc.id)}>
+                                                                    {assoc.abbreviation || assoc.name} {cardedAssociations.includes(assoc.id) && '✓'}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {cardedAssociations.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                                            {cardedAssociations.map(assocId => {
+                                                                const assoc = dbAssociations.find(a => a.id === assocId);
+                                                                return (
+                                                                    <Badge 
+                                                                        key={assocId}
+                                                                        variant="secondary"
+                                                                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                                                                        onClick={(e) => { e.preventDefault(); toggleCardedAssociation(assocId); }}
+                                                                    >
+                                                                        {assoc?.abbreviation || assocId} ×
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Public Visibility Toggle */}
+                                                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                                                    <div className="flex items-center gap-3">
+                                                        {showCardedAssociationsPublicly ? (
+                                                            <Eye className="h-5 w-5 text-muted-foreground" />
+                                                        ) : (
+                                                            <EyeOff className="h-5 w-5 text-muted-foreground" />
+                                                        )}
+                                                        <div className="space-y-0.5">
+                                                            <Label htmlFor="public-carded" className="text-base font-medium">
+                                                                Publicly display my carded associations
+                                                            </Label>
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Allow show managers to see which associations you are carded with.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch
+                                                        id="public-carded"
+                                                        checked={showCardedAssociationsPublicly}
+                                                        onCheckedChange={setShowCardedAssociationsPublicly}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Section 4: Horse Information */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between border-b pb-2">
                                             <h3 className="text-lg font-semibold">Horse Information</h3>

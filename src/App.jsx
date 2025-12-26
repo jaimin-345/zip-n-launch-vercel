@@ -82,6 +82,7 @@ import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
 import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagementPage';
 import AccountSecurityPage from '@/pages/AccountSecurityPage';
 import ScoresheetUploadPage from '@/pages/ScoresheetUploadPage';
+import JudgesToolboxPage from '@/pages/JudgesToolboxPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -95,6 +96,7 @@ function App() {
                   <Route path="/update-password" element={<UpdatePasswordPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/account-security" element={<AccountSecurityPage />} />
+                  <Route path="/judges-toolbox" element={<JudgesToolboxPage />} />
                   <Route path="/customize/:id" element={<CustomizePage />} />
                   <Route path="/contributors" element={<ContributorsPage />} />
                   <Route path="/contributor-portal" element={<RoleBasedRoute requiredPermission="patterns:upload"><ContributorPortalPage /></RoleBasedRoute>} />
