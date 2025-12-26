@@ -406,12 +406,26 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   useEffect(() => {
     const fetchScoresheetDetails = async () => {
       const selectedIds = [];
+      const patternIdToDisciplineMap = {}; // Map pattern_id to discipline info
+      
       if (formData.patternSelections) {
-        Object.values(formData.patternSelections).forEach(disciplineSels => {
+        Object.entries(formData.patternSelections).forEach(([disciplineId, disciplineSels]) => {
           if (disciplineSels) {
-            Object.values(disciplineSels).forEach(val => {
+            // Find the discipline to get association_id and name
+            const discipline = formData.disciplines?.find(d => d.id === disciplineId);
+            
+            Object.entries(disciplineSels).forEach(([groupId, val]) => {
               const id = typeof val === 'object' ? val?.patternId : val;
-              if (id) selectedIds.push(id);
+              if (id) {
+                selectedIds.push(id);
+                // Store mapping for fallback query
+                if (discipline) {
+                  patternIdToDisciplineMap[id] = {
+                    association_id: discipline.association_id,
+                    disciplineName: discipline.name
+                  };
+                }
+              }
             });
           }
         });
@@ -445,11 +459,43 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           .select('id, pattern_id, image_url, storage_path')
           .in('pattern_id', uniqueIds);
 
-        if (data) {
+        if (data && data.length > 0) {
           data.forEach(s => {
             scoresheetMap[s.pattern_id] = s;
           });
         }
+        
+        // Fallback: If pattern_id query returned empty or missing data, try by association_abbrev and discipline
+        const missingPatternIds = uniqueIds.filter(id => !scoresheetMap[id]);
+        
+        if (missingPatternIds.length > 0 && associationsData.length > 0) {
+          for (const patternId of missingPatternIds) {
+            const disciplineInfo = patternIdToDisciplineMap[patternId];
+            if (disciplineInfo) {
+              // Get association abbreviation
+              const association = associationsData.find(a => a.id === disciplineInfo.association_id);
+              const associationAbbrev = association?.abbreviation;
+              
+              if (associationAbbrev && disciplineInfo.disciplineName) {
+                try {
+                  const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('tbl_scoresheet')
+                    .select('id, pattern_id, image_url, storage_path')
+                    .eq('association_abbrev', associationAbbrev)
+                    .eq('discipline', disciplineInfo.disciplineName)
+                    .maybeSingle();
+                  
+                  if (!fallbackError && fallbackData) {
+                    scoresheetMap[patternId] = fallbackData;
+                  }
+                } catch (fallbackErr) {
+                  console.error(`Error fetching fallback scoresheet for pattern ${patternId}:`, fallbackErr);
+                }
+              }
+            }
+          }
+        }
+        
         setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
       } catch (err) {
         console.error("Error fetching scoresheet details:", err);
@@ -457,7 +503,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     };
 
     fetchScoresheetDetails();
-  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections)]);
+  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), associationsData]);
 
   // Fetch associations data
   useEffect(() => {

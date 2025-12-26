@@ -42,13 +42,16 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
                 <div className="ml-6 mt-2 space-y-1">
                     <Label className="text-xs text-muted-foreground">Select Score Sheet</Label>
                     <Select 
-                        value={selectedScoresheetId || ''} 
-                        onValueChange={(value) => onScoresheetSelect(disciplineKey, value)}
+                        value={selectedScoresheetId || 'none'} 
+                        onValueChange={(value) => onScoresheetSelect(disciplineKey, value === 'none' ? '' : value)}
                     >
                         <SelectTrigger className="w-48 h-8 text-xs">
                             <SelectValue placeholder="Select Score Sheet" />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="none" className="text-xs">
+                                Select Score Sheet
+                            </SelectItem>
                             {scoresheetOptions.map(ss => (
                                 <SelectItem key={ss.id} value={String(ss.id)} className="text-xs">
                                     {ss.displayName}
@@ -128,7 +131,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
                 onDualApprovedToggle={onDualApprovedToggle}
                 displayName={disc.name.replace(' at Halter', '')}
                 scoresheetOptions={scoresheetOptions}
-                selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : null}
+                selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : undefined}
                 onScoresheetSelect={onScoresheetSelect}
             />
         );
@@ -178,7 +181,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
                             dualApprovedSelections={dualApprovedSelections}
                             onDualApprovedToggle={onDualApprovedToggle}
                             scoresheetOptions={scoresheetOptions}
-                            selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : null}
+                            selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : undefined}
                             onScoresheetSelect={onScoresheetSelect}
                         />
                     );
@@ -284,8 +287,21 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         fetchWorkingCowHorseScoresheets();
     }, [formData.associations]);
 
-    // Handler for scoresheet selection (toggle behavior - click again to unselect)
+    // Handler for scoresheet selection (toggle behavior - select or unselect)
     const handleScoresheetSelect = (disciplineKey, scoresheetId) => {
+        // If empty string or 'none', unselect
+        if (!scoresheetId || scoresheetId === 'none' || scoresheetId === '') {
+            setFormData(prev => {
+                const newSelections = { ...prev.disciplineScoresheetSelections };
+                delete newSelections[disciplineKey];
+                return {
+                    ...prev,
+                    disciplineScoresheetSelections: newSelections
+                };
+            });
+            return;
+        }
+        
         const currentSelection = formData.disciplineScoresheetSelections?.[disciplineKey];
         
         // If clicking the same value, unselect it
