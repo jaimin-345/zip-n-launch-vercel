@@ -407,6 +407,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     const fetchScoresheetDetails = async () => {
       const selectedIds = [];
       const patternIdToDisciplineMap = {}; // Map pattern_id to discipline info
+      const disciplinesNeedingScoresheet = []; // Disciplines with scoresheets but no pattern selections
       
       if (formData.patternSelections) {
         Object.entries(formData.patternSelections).forEach(([disciplineId, disciplineSels]) => {
@@ -422,10 +423,28 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 if (discipline) {
                   patternIdToDisciplineMap[id] = {
                     association_id: discipline.association_id,
-                    disciplineName: discipline.name
+                    disciplineName: discipline.name,
+                    disciplineId: disciplineId
                   };
                 }
               }
+            });
+          }
+        });
+      }
+
+      // Also collect disciplines that have scoresheets but no pattern selections
+      if (formData.disciplines && associationsData.length > 0) {
+        formData.disciplines.forEach(discipline => {
+          const hasScoresheet = discipline.scoresheet || discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+          const hasPatternSelection = formData.patternSelections?.[discipline.id];
+          
+          // If discipline has scoresheet but no pattern selection, add it for scoresheet fetching
+          if (hasScoresheet && !hasPatternSelection) {
+            disciplinesNeedingScoresheet.push({
+              disciplineId: discipline.id,
+              association_id: discipline.association_id,
+              disciplineName: discipline.name
             });
           }
         });
@@ -446,64 +465,93 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         });
       }
 
-      if (uniqueIds.length === 0) {
-        if (Object.keys(scoresheetMap).length > 0) {
-          setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
-        }
-        return;
-      }
+      // Fetch scoresheets by pattern_id if we have pattern selections
+      if (uniqueIds.length > 0) {
+        try {
+          const { data, error } = await supabase
+            .from('tbl_scoresheet')
+            .select('id, pattern_id, image_url, storage_path')
+            .in('pattern_id', uniqueIds);
 
-      try {
-        const { data, error } = await supabase
-          .from('tbl_scoresheet')
-          .select('id, pattern_id, image_url, storage_path')
-          .in('pattern_id', uniqueIds);
-
-        if (data && data.length > 0) {
-          data.forEach(s => {
-            scoresheetMap[s.pattern_id] = s;
-          });
-        }
-        
-        // Fallback: If pattern_id query returned empty or missing data, try by association_abbrev and discipline
-        const missingPatternIds = uniqueIds.filter(id => !scoresheetMap[id]);
-        
-        if (missingPatternIds.length > 0 && associationsData.length > 0) {
-          for (const patternId of missingPatternIds) {
-            const disciplineInfo = patternIdToDisciplineMap[patternId];
-            if (disciplineInfo) {
-              // Get association abbreviation
-              const association = associationsData.find(a => a.id === disciplineInfo.association_id);
-              const associationAbbrev = association?.abbreviation;
-              
-              if (associationAbbrev && disciplineInfo.disciplineName) {
-                try {
-                  const { data: fallbackData, error: fallbackError } = await supabase
-                    .from('tbl_scoresheet')
-                    .select('id, pattern_id, image_url, storage_path')
-                    .eq('association_abbrev', associationAbbrev)
-                    .eq('discipline', disciplineInfo.disciplineName)
-                    .maybeSingle();
-                  
-                  if (!fallbackError && fallbackData) {
-                    scoresheetMap[patternId] = fallbackData;
+          if (data && data.length > 0) {
+            data.forEach(s => {
+              scoresheetMap[s.pattern_id] = s;
+            });
+          }
+          
+          // Fallback: If pattern_id query returned empty or missing data, try by association_abbrev and discipline
+          const missingPatternIds = uniqueIds.filter(id => !scoresheetMap[id]);
+          
+          if (missingPatternIds.length > 0 && associationsData.length > 0) {
+            for (const patternId of missingPatternIds) {
+              const disciplineInfo = patternIdToDisciplineMap[patternId];
+              if (disciplineInfo) {
+                // Get association abbreviation
+                const association = associationsData.find(a => a.id === disciplineInfo.association_id);
+                const associationAbbrev = association?.abbreviation;
+                
+                if (associationAbbrev && disciplineInfo.disciplineName) {
+                  try {
+                    const { data: fallbackData, error: fallbackError } = await supabase
+                      .from('tbl_scoresheet')
+                      .select('id, pattern_id, image_url, storage_path')
+                      .eq('association_abbrev', associationAbbrev)
+                      .eq('discipline', disciplineInfo.disciplineName)
+                      .maybeSingle();
+                    
+                    if (!fallbackError && fallbackData) {
+                      scoresheetMap[patternId] = fallbackData;
+                    }
+                  } catch (fallbackErr) {
+                    console.error(`Error fetching fallback scoresheet for pattern ${patternId}:`, fallbackErr);
                   }
-                } catch (fallbackErr) {
-                  console.error(`Error fetching fallback scoresheet for pattern ${patternId}:`, fallbackErr);
                 }
               }
             }
           }
+        } catch (err) {
+          console.error("Error fetching scoresheet details by pattern_id:", err);
         }
-        
-        setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
-      } catch (err) {
-        console.error("Error fetching scoresheet details:", err);
       }
+
+      // Fetch scoresheets for disciplines that have scoresheets but no pattern selections
+      if (disciplinesNeedingScoresheet.length > 0 && associationsData.length > 0) {
+        for (const discInfo of disciplinesNeedingScoresheet) {
+          // Skip if already has user-selected scoresheet
+          const disciplineKey = `${discInfo.association_id}-none-${discInfo.disciplineName}-none`;
+          if (scoresheetMap[`user-selected-${disciplineKey}`]) {
+            continue;
+          }
+
+          // Get association abbreviation
+          const association = associationsData.find(a => a.id === discInfo.association_id);
+          const associationAbbrev = association?.abbreviation;
+          
+          if (associationAbbrev && discInfo.disciplineName) {
+            try {
+              const { data: fallbackData, error: fallbackError } = await supabase
+                .from('tbl_scoresheet')
+                .select('id, pattern_id, image_url, storage_path')
+                .eq('association_abbrev', associationAbbrev)
+                .eq('discipline', discInfo.disciplineName)
+                .maybeSingle();
+              
+              if (!fallbackError && fallbackData) {
+                // Store with discipline ID key for lookup
+                scoresheetMap[`discipline-${discInfo.disciplineId}`] = fallbackData;
+              }
+            } catch (fallbackErr) {
+              console.error(`Error fetching scoresheet for discipline ${discInfo.disciplineId}:`, fallbackErr);
+            }
+          }
+        }
+      }
+      
+      setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
     };
 
     fetchScoresheetDetails();
-  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), associationsData]);
+  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), JSON.stringify(formData.disciplines), associationsData]);
 
   // Fetch associations data
   useEffect(() => {
@@ -958,10 +1006,20 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                       // Use discipline ID key for scoresheet-only
                                       scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
                                     } else {
-                                      // For pattern disciplines, use pattern selection
+                                      // For pattern disciplines, try pattern selection first
                                       const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
                                       const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                                      scoresheetData = selectedPatternId ? selectedScoresheetDetails[selectedPatternId] : null;
+                                      
+                                      if (selectedPatternId) {
+                                        // Try to get scoresheet by pattern_id
+                                        scoresheetData = selectedScoresheetDetails[selectedPatternId] || null;
+                                      }
+                                      
+                                      // Fallback: If pattern_id lookup failed or no pattern selected, try discipline-based lookup
+                                      // This handles cases where pattern preview data doesn't exist but scoresheet does
+                                      if (!scoresheetData) {
+                                        scoresheetData = selectedScoresheetDetails[`discipline-${pbbDiscipline.id}`] || null;
+                                      }
                                     }
                                     
                                     return (
