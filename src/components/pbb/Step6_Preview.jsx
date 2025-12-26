@@ -402,7 +402,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     fetchSelectedPatternDetails();
   }, [JSON.stringify(formData.patternSelections)]);
 
-  // Fetch scoresheet images based on selected patterns
+  // Fetch scoresheet images based on selected patterns AND user-selected scoresheets
   useEffect(() => {
     const fetchScoresheetDetails = async () => {
       const selectedIds = [];
@@ -418,8 +418,26 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
       }
 
       const uniqueIds = [...new Set(selectedIds)].filter(id => !isNaN(parseInt(id)) && isFinite(id));
+      
+      // Start with user-selected scoresheets from Step 2 (disciplineScoresheetSelections)
+      const scoresheetMap = {};
+      
+      // Add user-selected scoresheets (e.g., Working Cow Horse)
+      if (formData.disciplineScoresheetSelections) {
+        Object.entries(formData.disciplineScoresheetSelections).forEach(([disciplineKey, scoresheetData]) => {
+          if (scoresheetData && scoresheetData.storage_path) {
+            // Store with discipline key prefix for easy lookup
+            scoresheetMap[`user-selected-${disciplineKey}`] = scoresheetData;
+          }
+        });
+      }
 
-      if (uniqueIds.length === 0) return;
+      if (uniqueIds.length === 0) {
+        if (Object.keys(scoresheetMap).length > 0) {
+          setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
+        }
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -428,19 +446,18 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           .in('pattern_id', uniqueIds);
 
         if (data) {
-          const scoresheetMap = {};
           data.forEach(s => {
             scoresheetMap[s.pattern_id] = s;
           });
-          setSelectedScoresheetDetails(scoresheetMap);
         }
+        setSelectedScoresheetDetails(prev => ({ ...prev, ...scoresheetMap }));
       } catch (err) {
         console.error("Error fetching scoresheet details:", err);
       }
     };
 
     fetchScoresheetDetails();
-  }, [JSON.stringify(formData.patternSelections)]);
+  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections)]);
 
   // Fetch associations data
   useEffect(() => {
@@ -880,11 +897,18 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                 <div className="space-y-6">
                                   {groups.map((group, groupIndex) => {
                                     // For scoresheet-only disciplines, use discipline ID as key
-                                    // For pattern disciplines, use pattern ID
+                                    // For pattern disciplines, use pattern ID OR user-selected scoresheet
                                     const isScoresheetOnly = pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern;
                                     let scoresheetData = null;
                                     
-                                    if (isScoresheetOnly) {
+                                    // First, check if user has selected a scoresheet for this discipline in Step 2
+                                    const disciplineKey = `${pbbDiscipline.association_id}-${pbbDiscipline.sub_association_type || 'none'}-${pbbDiscipline.name}-${pbbDiscipline.pattern_type || 'none'}`;
+                                    const userSelectedScoresheet = selectedScoresheetDetails[`user-selected-${disciplineKey}`];
+                                    
+                                    if (userSelectedScoresheet) {
+                                      // Use user-selected scoresheet (e.g., for Working Cow Horse)
+                                      scoresheetData = userSelectedScoresheet;
+                                    } else if (isScoresheetOnly) {
                                       // Use discipline ID key for scoresheet-only
                                       scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
                                     } else {

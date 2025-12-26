@@ -257,17 +257,18 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                 // Parse scoresheet names from storage_path to create display names
                 const scoresheetOptions = (data || []).map(ss => {
                     // Extract display name from storage_path
-                    // Example: "scoresheets/abc-WorkingCowHorse_CowWork_LTD_0000.ALL.SS.AQHA.jpg" -> "Cow Work - Limited"
+                    // Map storage paths to display names:
+                    // CowWork_0000 (no suffix) -> "Cow Work - Open"
+                    // CowWork_LTD_0000 -> "Cow Work - Limited" 
+                    // CowWork_BDBD_0000 -> "Cow Work - Rookie"
                     let displayName = 'Scoresheet';
                     const path = ss.storage_path || '';
                     
-                    if (path.includes('_LTD_') || path.includes('_Limited_')) {
+                    if (path.includes('_LTD_')) {
                         displayName = 'Cow Work - Limited';
-                    } else if (path.includes('_BDBD_') || path.includes('_Open_')) {
-                        displayName = 'Cow Work - Open';
-                    } else if (path.includes('_Rookie_') || path.includes('Rookie')) {
+                    } else if (path.includes('_BDBD_')) {
                         displayName = 'Cow Work - Rookie';
-                    } else if (path.includes('CowWork_0000') && !path.includes('_LTD_') && !path.includes('_BDBD_')) {
+                    } else if (path.includes('CowWork')) {
                         displayName = 'Cow Work - Open';
                     }
                     
