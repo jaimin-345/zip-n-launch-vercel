@@ -1360,31 +1360,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     });
                                                     filtered = uniquePatterns;
                                                     
-                                                    // Sort by pattern level (pattern_version) first, then by name (numeric)
+                                                    // Sort by pattern name/number (simple flat list - original sorting)
                                                     filtered.sort((a, b) => {
-                                                        // Define pattern level order (pattern_version)
-                                                        const levelOrder = ['Championship', 'Skilled', 'Intermediate', 'Beginner', 'Walk-Trot', 'ALL', 'L1', 'GR/NOV'];
-                                                        const aLevel = a.pattern_version || 'ALL';
-                                                        const bLevel = b.pattern_version || 'ALL';
-                                                        const aIndex = levelOrder.indexOf(aLevel);
-                                                        const bIndex = levelOrder.indexOf(bLevel);
-                                                        
-                                                        // If both are in the order list, sort by index
-                                                        if (aIndex !== -1 && bIndex !== -1) {
-                                                            if (aIndex !== bIndex) {
-                                                                return aIndex - bIndex;
-                                                            }
-                                                        } else if (aIndex !== -1) {
-                                                            return -1;
-                                                        } else if (bIndex !== -1) {
-                                                            return 1;
-                                                        } else {
-                                                            // If neither is in the list, sort alphabetically by level
-                                                            const levelCompare = aLevel.localeCompare(bLevel);
-                                                            if (levelCompare !== 0) return levelCompare;
-                                                        }
-                                                        
-                                                        // If same level, sort by name (numeric)
                                                         const nameA = a.pdf_file_name?.trim() || '';
                                                         const nameB = b.pdf_file_name?.trim() || '';
                                                         return nameA.localeCompare(nameB, undefined, { numeric: true });
@@ -1398,8 +1375,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                         const patternNumber = extractPatternNumber(p.pdf_file_name);
                                                         const version = p.pattern_version || 'ALL';
                                                         const displayLabel = patternNumber !== null 
-                                                            ? `pattern ${patternNumber} (${version})`
-                                                            : `Pattern ${idx + 1} (${version})`;
+                                                            ? `Pattern ${patternNumber}`
+                                                            : `Pattern ${p.id}`;
                                                         
                                                         return (
                                                             <SelectItem 
@@ -1407,15 +1384,35 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                                 value={p.id.toString()}
                                                                 onMouseEnter={(e) => {
                                                                     setHoveredPatternId(p.id);
-                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                    setHoverPosition({ x: rect.right, y: rect.top });
+                                                                    // Center the preview in the middle of the screen
+                                                                    const screenWidth = window.innerWidth;
+                                                                    const screenHeight = window.innerHeight;
+                                                                    setHoverPosition({ 
+                                                                        x: screenWidth / 2, 
+                                                                        y: screenHeight / 2 
+                                                                    });
                                                                 }}
-                                                                onMouseLeave={() => {
-                                                                    setHoveredPatternId(null);
+                                                                onMouseLeave={(e) => {
+                                                                    // Don't hide immediately - let the preview handle its own mouse leave
+                                                                    // Only hide if we're not moving to the preview
+                                                                    const relatedTarget = e.relatedTarget;
+                                                                    if (relatedTarget && relatedTarget.closest('.fixed.z-\\[9999\\]')) {
+                                                                        return; // Moving to preview, don't hide
+                                                                    }
+                                                                    // Small delay to allow mouse to move to preview
+                                                                    setTimeout(() => {
+                                                                        setHoveredPatternId(prev => {
+                                                                            // Only clear if still the same pattern (to avoid race conditions)
+                                                                            return prev === p.id ? null : prev;
+                                                                        });
+                                                                    }, 100);
                                                                 }}
                                                             >
-                                                                <div className="flex items-center gap-2">
+                                                                <div className="flex items-center gap-2 w-full">
                                                                     <span>{displayLabel}</span>
+                                                                    {version && (
+                                                                        <Badge variant="outline" className="text-xs">{version}</Badge>
+                                                                    )}
                                                                 </div>
                                                             </SelectItem>
                                                         );
@@ -1423,13 +1420,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 })()}
                                             </SelectContent>
                                         </Select>
-                                        {/* Hover Preview - Rendered via portal at body level */}
+                                        {/* Hover Preview - Rendered via portal at body level, centered */}
                                         {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                             <div
-                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-3 w-[500px] pointer-events-auto"
+                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
                                                 style={{
-                                                    left: `${hoverPosition.x + 10}px`,
-                                                    top: `${hoverPosition.y}px`,
+                                                    left: '50%',
+                                                    top: '50%',
+                                                    transform: 'translate(-50%, -50%)',
+                                                }}
+                                                onMouseEnter={() => {
+                                                    // Keep preview visible when hovering over it
+                                                    if (hoveredPatternId) {
+                                                        setHoveredPatternId(hoveredPatternId);
+                                                    }
                                                 }}
                                                 onMouseLeave={() => {
                                                     setHoveredPatternId(null);
@@ -1446,7 +1450,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             <img 
                                                                 src={hoveredPatternImage} 
                                                                 alt="Pattern Diagram" 
-                                                                className="w-full h-auto object-contain max-h-[450px]"
+                                                                className="w-full h-auto object-contain max-h-[600px]"
                                                                 loading="lazy"
                                                             />
                                                         </div>

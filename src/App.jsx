@@ -52,6 +52,7 @@ import EmployeeArenaSchedulingManagerPage from '@/pages/EmployeeArenaSchedulingM
 import AwardsPresenterManagerPage from '@/pages/AwardsPresenterManagerPage';
 import UpdatePasswordPage from '@/pages/UpdatePasswordPage';
 import ProfilePage from '@/pages/ProfilePage';
+import JudgesPortalPage from '@/pages/JudgesPortalPage';
 import AdminRoute from '@/components/AdminRoute';
 import RoleBasedRoute from '@/components/RoleBasedRoute';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
@@ -155,6 +156,7 @@ function App() {
 
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
+                  <Route path="/judges-portal" element={<JudgesPortalPage />} />
                   <Route path="/pattern-hub" element={<PatternHubPage />} />
                   <Route path="/store" element={<StorePage />} />
                   <Route path="/product/:id" element={<ProductDetailPage />} />

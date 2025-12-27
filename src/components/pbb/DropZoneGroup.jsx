@@ -313,11 +313,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         if (dbPatterns.length > 0) {
             let filtered = dbPatterns;
             // Apply difficulty filter
-            // Apply difficulty filter
             if (selectedDifficulty && selectedDifficulty !== 'ALL') {
                 filtered = filtered.filter(p => p.pattern_version === selectedDifficulty);
             }
-            // Sort nicely
+            // Sort nicely by pattern name/number (original sorting)
             filtered.sort((a, b) => {
                  const nameA = a.pdf_file_name?.trim() || '';
                  const nameB = b.pdf_file_name?.trim() || '';
@@ -519,11 +518,28 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                 value={pattern.id.toString()}
                                                 onMouseEnter={(e) => {
                                                     setHoveredPatternId(pattern.id);
-                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                    setHoverPosition({ x: rect.right, y: rect.top });
+                                                    // Center the preview in the middle of the screen
+                                                    const screenWidth = window.innerWidth;
+                                                    const screenHeight = window.innerHeight;
+                                                    setHoverPosition({ 
+                                                        x: screenWidth / 2, 
+                                                        y: screenHeight / 2 
+                                                    });
                                                 }}
-                                                onMouseLeave={() => {
-                                                    setHoveredPatternId(null);
+                                                onMouseLeave={(e) => {
+                                                    // Don't hide immediately - let the preview handle its own mouse leave
+                                                    // Only hide if we're not moving to the preview
+                                                    const relatedTarget = e.relatedTarget;
+                                                    if (relatedTarget && relatedTarget.closest('.fixed.z-\\[9999\\]')) {
+                                                        return; // Moving to preview, don't hide
+                                                    }
+                                                    // Small delay to allow mouse to move to preview
+                                                    setTimeout(() => {
+                                                        setHoveredPatternId(prev => {
+                                                            // Only clear if still the same pattern (to avoid race conditions)
+                                                            return prev === pattern.id ? null : prev;
+                                                        });
+                                                    }, 100);
                                                 }}
                                             >
                                                 <div className="flex items-center gap-2 w-full">
@@ -548,13 +564,20 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     )}
                                 </SelectContent>
                             </Select>
-                            {/* Hover Preview - Rendered via portal at body level */}
+                            {/* Hover Preview - Rendered via portal at body level, centered */}
                             {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                 <div
-                                    className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-3 w-[500px] pointer-events-auto"
+                                    className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
                                     style={{
-                                        left: `${hoverPosition.x + 10}px`,
-                                        top: `${hoverPosition.y}px`,
+                                        left: '50%',
+                                        top: '50%',
+                                        transform: 'translate(-50%, -50%)',
+                                    }}
+                                    onMouseEnter={() => {
+                                        // Keep preview visible when hovering over it
+                                        if (hoveredPatternId) {
+                                            setHoveredPatternId(hoveredPatternId);
+                                        }
                                     }}
                                     onMouseLeave={() => {
                                         setHoveredPatternId(null);
@@ -571,7 +594,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                 <img 
                                                     src={hoveredPatternImage} 
                                                     alt="Pattern Diagram" 
-                                                    className="w-full h-auto object-contain max-h-[450px]"
+                                                    className="w-full h-auto object-contain max-h-[600px]"
                                                     loading="lazy"
                                                 />
                                             </div>
