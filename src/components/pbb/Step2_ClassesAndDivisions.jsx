@@ -14,16 +14,16 @@ import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/association
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabaseClient';
 
-const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName, scoresheetOptions, selectedScoresheetId, onScoresheetSelect }) => {
+const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName, vrhRanchCowWorkOptions, selectedVrhRanchCowWork, onVrhRanchCowWorkSelect }) => {
     const isSelected = selectedDisciplineKeys.has(getDisciplineKey(disc));
     const disciplineKey = getDisciplineKey(disc);
     
-    // Check if this is Working Cow Horse for AQHA
-    const showScoresheetDropdown = isSelected && 
-        disc.name === 'Working Cow Horse' && 
+    // Check if this is VRH-RHC Ranch CowWork for AQHA
+    const showVrhRanchCowWorkDropdown = isSelected && 
+        (disc.name === 'VRH-RHC Ranch CowWork' || disc.name === 'Ranch Cow Work') && 
         disc.association_id === 'AQHA' &&
-        scoresheetOptions && 
-        scoresheetOptions.length > 0;
+        vrhRanchCowWorkOptions && 
+        vrhRanchCowWorkOptions.length > 0;
     
     return (
         <div className="space-y-1">
@@ -37,24 +37,24 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
                     {displayName || disc.name}
                 </Label>
             </div>
-            {/* Scoresheet Dropdown for Working Cow Horse */}
-            {showScoresheetDropdown && (
+            {/* VRH-RHC Ranch CowWork Dropdown */}
+            {showVrhRanchCowWorkDropdown && (
                 <div className="ml-6 mt-2 space-y-1">
-                    <Label className="text-xs text-muted-foreground">Select Score Sheet</Label>
+                    <Label className="text-xs text-muted-foreground">Select Scoresheet</Label>
                     <Select 
-                        value={selectedScoresheetId || 'none'} 
-                        onValueChange={(value) => onScoresheetSelect(disciplineKey, value === 'none' ? '' : value)}
+                        value={selectedVrhRanchCowWork || 'none'} 
+                        onValueChange={(value) => onVrhRanchCowWorkSelect(disciplineKey, value === 'none' ? '' : value)}
                     >
-                        <SelectTrigger className="w-48 h-8 text-xs">
-                            <SelectValue placeholder="Select Score Sheet" />
+                        <SelectTrigger className="w-56 h-8 text-xs">
+                            <SelectValue placeholder="Select Scoresheet" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none" className="text-xs">
-                                Select Score Sheet
+                                Select Scoresheet
                             </SelectItem>
-                            {scoresheetOptions.map(ss => (
-                                <SelectItem key={ss.id} value={String(ss.id)} className="text-xs">
-                                    {ss.displayName}
+                            {vrhRanchCowWorkOptions.map(option => (
+                                <SelectItem key={option.value} value={option.value} className="text-xs">
+                                    {option.label}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -83,7 +83,7 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
     );
 };
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect }) => {
     if (disciplines.length === 0) return null;
 
     // Define the custom 3-column layout based on association
@@ -118,7 +118,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
 
     const renderDisc = (disc) => {
         const disciplineKey = getDisciplineKey(disc);
-        const selectedScoresheetId = disciplineScoresheetSelections?.[disciplineKey]?.id;
+        const selectedVrhRanchCowWork = vrhRanchCowWorkSelections?.[disciplineKey];
         return (
             <DisciplineCheckboxWithDualApproved
                 key={disc.id}
@@ -130,9 +130,9 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
                 dualApprovedSelections={dualApprovedSelections}
                 onDualApprovedToggle={onDualApprovedToggle}
                 displayName={disc.name.replace(' at Halter', '')}
-                scoresheetOptions={scoresheetOptions}
-                selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : undefined}
-                onScoresheetSelect={onScoresheetSelect}
+                vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
+                selectedVrhRanchCowWork={selectedVrhRanchCowWork}
+                onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect}
             />
         );
     };
@@ -160,7 +160,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect }) => {
     if (disciplines.length === 0) return null;
 
     return (
@@ -169,7 +169,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1.5">
                 {disciplines.map(disc => {
                     const disciplineKey = getDisciplineKey(disc);
-                    const selectedScoresheetId = disciplineScoresheetSelections?.[disciplineKey]?.id;
+                    const selectedVrhRanchCowWork = vrhRanchCowWorkSelections?.[disciplineKey];
                     return (
                         <DisciplineCheckboxWithDualApproved
                             key={disc.id}
@@ -180,9 +180,9 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
                             dualApprovedAssociations={dualApprovedAssociations}
                             dualApprovedSelections={dualApprovedSelections}
                             onDualApprovedToggle={onDualApprovedToggle}
-                            scoresheetOptions={scoresheetOptions}
-                            selectedScoresheetId={selectedScoresheetId ? String(selectedScoresheetId) : undefined}
-                            onScoresheetSelect={onScoresheetSelect}
+                            vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
+                            selectedVrhRanchCowWork={selectedVrhRanchCowWork}
+                            onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect}
                         />
                     );
                 })}
@@ -191,16 +191,27 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, scoresheetOptions, disciplineScoresheetSelections, onScoresheetSelect }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
     const categorized = useMemo(() => {
         const custom = disciplines.filter(d => d.pattern_type === 'custom');
         const rulebook = disciplines.filter(d => d.pattern_type === 'rulebook');
-        const scoresheet = disciplines.filter(d => d.pattern_type === 'none' || d.pattern_type === 'scoresheet_only');
+        // Filter out VRH-RHC Ranch CowWork Rookie and Limited for AQHA (they will be shown via dropdown)
+        const scoresheet = disciplines.filter(d => {
+            if (d.pattern_type === 'none' || d.pattern_type === 'scoresheet_only') {
+                // Hide VRH-RHC Ranch CowWork Rookie and Limited for AQHA
+                if (association.id === 'AQHA' && 
+                    (d.name === 'VRH-RHC Ranch CowWork Rookie' || d.name === 'VRH-RHC Ranch CowWork Limited')) {
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        });
         return { custom, rulebook, scoresheet };
-    }, [disciplines]);
+    }, [disciplines, association.id]);
 
     return (
         <AccordionItem value={groupKey} className="border rounded-lg overflow-hidden">
@@ -224,11 +235,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             <AccordionContent className="p-3 space-y-3">
                 {categorized.custom.length > 0 && (
                     (association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
-                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} /> :
-                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />
+                        <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} /> :
+                        <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />
                 )}
-                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />}
-                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} scoresheetOptions={scoresheetOptions} disciplineScoresheetSelections={disciplineScoresheetSelections} onScoresheetSelect={onScoresheetSelect} />}
+                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
+                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
             </AccordionContent>
         </AccordionItem>
     );
@@ -239,100 +250,51 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const [customDisciplineName, setCustomDisciplineName] = React.useState('');
     const [isCustomDisciplineModalOpen, setIsCustomDisciplineModalOpen] = React.useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
-
-    // Fetch Working Cow Horse scoresheets for AQHA (without pattern_id)
-    useEffect(() => {
-        const fetchWorkingCowHorseScoresheets = async () => {
-            // Check if AQHA is selected
-            if (!formData.associations?.['AQHA']) return;
-            
-            try {
-                const { data, error } = await supabase
-                    .from('tbl_scoresheet')
-                    .select('id, discipline, association_abbrev, image_url, storage_path')
-                    .eq('discipline', 'Working Cow Horse')
-                    .eq('association_abbrev', 'AQHA')
-                    .is('pattern_id', null);
-                
-                if (error) throw error;
-                
-                // Parse scoresheet names from storage_path to create display names
-                const scoresheetOptions = (data || []).map(ss => {
-                    // Extract display name from storage_path
-                    // Map storage paths to display names:
-                    // CowWork_0000 (no suffix) -> "Cow Work - Open"
-                    // CowWork_LTD_0000 -> "Cow Work - Limited" 
-                    // CowWork_BDBD_0000 -> "Cow Work - Rookie"
-                    let displayName = 'Scoresheet';
-                    const path = ss.storage_path || '';
-                    
-                    if (path.includes('_LTD_')) {
-                        displayName = 'Cow Work - Limited';
-                    } else if (path.includes('_BDBD_')) {
-                        displayName = 'Cow Work - Rookie';
-                    } else if (path.includes('CowWork')) {
-                        displayName = 'Cow Work - Open';
-                    }
-                    
-                    return { ...ss, displayName };
-                });
-                
-                setWorkingCowHorseScoresheets(scoresheetOptions);
-            } catch (err) {
-                console.error('Error fetching Working Cow Horse scoresheets:', err);
-            }
-        };
-        
-        fetchWorkingCowHorseScoresheets();
-    }, [formData.associations]);
-
-    // Handler for scoresheet selection (toggle behavior - select or unselect)
-    const handleScoresheetSelect = (disciplineKey, scoresheetId) => {
-        // If empty string or 'none', unselect
-        if (!scoresheetId || scoresheetId === 'none' || scoresheetId === '') {
+    
+    // VRH-RHC Ranch CowWork options
+    const vrhRanchCowWorkOptions = [
+        { value: 'open', label: 'VRH-RHC Ranch CowWork' },
+        { value: 'rookie', label: 'VRH-RHC Ranch CowWork Rookie' },
+        { value: 'limited', label: 'VRH-RHC Ranch CowWork Limited' }
+    ];
+    
+    // Handler for VRH-RHC Ranch CowWork selection
+    const handleVrhRanchCowWorkSelect = (disciplineKey, value) => {
+        if (!value || value === 'none' || value === '') {
             setFormData(prev => {
-                const newSelections = { ...prev.disciplineScoresheetSelections };
+                const newSelections = { ...prev.vrhRanchCowWorkSelections };
                 delete newSelections[disciplineKey];
                 return {
                     ...prev,
-                    disciplineScoresheetSelections: newSelections
+                    vrhRanchCowWorkSelections: newSelections
                 };
             });
             return;
         }
         
-        const currentSelection = formData.disciplineScoresheetSelections?.[disciplineKey];
+        const currentSelection = formData.vrhRanchCowWorkSelections?.[disciplineKey];
         
         // If clicking the same value, unselect it
-        if (currentSelection && String(currentSelection.id) === String(scoresheetId)) {
+        if (currentSelection && String(currentSelection) === String(value)) {
             setFormData(prev => {
-                const newSelections = { ...prev.disciplineScoresheetSelections };
+                const newSelections = { ...prev.vrhRanchCowWorkSelections };
                 delete newSelections[disciplineKey];
                 return {
                     ...prev,
-                    disciplineScoresheetSelections: newSelections
+                    vrhRanchCowWorkSelections: newSelections
                 };
             });
             return;
         }
         
         // Otherwise, select the new value
-        const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === String(scoresheetId));
-        if (selectedScoresheet) {
-            setFormData(prev => ({
-                ...prev,
-                disciplineScoresheetSelections: {
-                    ...prev.disciplineScoresheetSelections,
-                    [disciplineKey]: {
-                        id: selectedScoresheet.id,
-                        image_url: selectedScoresheet.image_url,
-                        displayName: selectedScoresheet.displayName,
-                        storage_path: selectedScoresheet.storage_path
-                    }
-                }
-            }));
-        }
+        setFormData(prev => ({
+            ...prev,
+            vrhRanchCowWorkSelections: {
+                ...prev.vrhRanchCowWorkSelections,
+                [disciplineKey]: value
+            }
+        }));
     };
 
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
@@ -602,9 +564,9 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     dualApprovedAssociations={showDualApproved ? dualApprovedAssociations : []}
                                     dualApprovedSelections={formData.dualApprovedSelections || {}}
                                     onDualApprovedToggle={handleDualApprovedToggle}
-                                    scoresheetOptions={workingCowHorseScoresheets}
-                                    disciplineScoresheetSelections={formData.disciplineScoresheetSelections || {}}
-                                    onScoresheetSelect={handleScoresheetSelect}
+                                    vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
+                                    vrhRanchCowWorkSelections={formData.vrhRanchCowWorkSelections || {}}
+                                    onVrhRanchCowWorkSelect={handleVrhRanchCowWorkSelect}
                                 />
                             );
                         })}

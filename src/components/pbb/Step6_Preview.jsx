@@ -472,12 +472,73 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
       // Start with user-selected scoresheets from Step 2 (disciplineScoresheetSelections)
       const scoresheetMap = {};
       
-      // Add user-selected scoresheets (e.g., Working Cow Horse)
+      // Add user-selected scoresheets from Step 2 (e.g., Working Cow Horse)
       if (formData.disciplineScoresheetSelections) {
         Object.entries(formData.disciplineScoresheetSelections).forEach(([disciplineKey, scoresheetData]) => {
           if (scoresheetData && scoresheetData.storage_path) {
             // Store with discipline key prefix for easy lookup
             scoresheetMap[`user-selected-${disciplineKey}`] = scoresheetData;
+          }
+        });
+      }
+      
+      // Add VRH-RHC Ranch CowWork scoresheets from Step 2 dropdown selection
+      if (formData.vrhRanchCowWorkSelections && associationsData.length > 0) {
+        for (const [disciplineKey, selectedType] of Object.entries(formData.vrhRanchCowWorkSelections)) {
+          if (selectedType) {
+            // Parse discipline key to get association_id and discipline name
+            // Format: association_id-sub_association_type-discipline_name-pattern_type
+            const parts = disciplineKey.split('-');
+            if (parts.length >= 3) {
+              const associationId = parts[0];
+              const disciplineName = parts.slice(2, -1).join('-'); // Handle names with hyphens
+              
+              // Map selected type to discipline name for database query
+              let queryDisciplineName = 'VRH-RHC Ranch CowWork';
+              if (selectedType === 'rookie') {
+                queryDisciplineName = 'VRH-RHC Ranch CowWork Rookie';
+              } else if (selectedType === 'limited') {
+                queryDisciplineName = 'VRH-RHC Ranch CowWork Limited';
+              }
+              
+              // Get association abbreviation
+              const association = associationsData.find(a => a.id === associationId);
+              const associationAbbrev = association?.abbreviation;
+              
+              if (associationAbbrev) {
+                try {
+                  const { data: scoresheetData, error: scoresheetError } = await supabase
+                    .from('tbl_scoresheet')
+                    .select('id, pattern_id, image_url, storage_path, discipline, association_abbrev')
+                    .eq('association_abbrev', associationAbbrev)
+                    .eq('discipline', queryDisciplineName)
+                    .maybeSingle();
+                  
+                  if (!scoresheetError && scoresheetData) {
+                    // Store with discipline key for lookup
+                    scoresheetMap[`vrh-ranch-cowwork-${disciplineKey}`] = scoresheetData;
+                  }
+                } catch (err) {
+                  console.error(`Error fetching VRH-RHC Ranch CowWork scoresheet for ${selectedType}:`, err);
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      // Add scoresheets selected in Step 3 (from patternSelections - per group)
+      if (formData.patternSelections) {
+        Object.entries(formData.patternSelections).forEach(([disciplineId, disciplineSels]) => {
+          if (disciplineSels) {
+            Object.entries(disciplineSels).forEach(([groupId, selection]) => {
+              // Check if this selection has scoresheetData (from Step 3 dropdown)
+              if (selection && typeof selection === 'object' && selection.scoresheetData) {
+                const scoresheetData = selection.scoresheetData;
+                // Store with a key that includes both disciplineId and groupId for per-group lookup
+                scoresheetMap[`step3-selected-${disciplineId}-${groupId}`] = scoresheetData;
+              }
+            });
           }
         });
       }
@@ -568,7 +629,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     };
 
     fetchScoresheetDetails();
-  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), JSON.stringify(formData.disciplines), associationsData]);
+  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), JSON.stringify(formData.vrhRanchCowWorkSelections), JSON.stringify(formData.disciplines), associationsData]);
 
   // Fetch associations data
   useEffect(() => {
@@ -1012,30 +1073,44 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                     const isScoresheetOnly = pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern;
                                     let scoresheetData = null;
                                     
-                                    // First, check if user has selected a scoresheet for this discipline in Step 2
-                                    const disciplineKey = `${pbbDiscipline.association_id}-${pbbDiscipline.sub_association_type || 'none'}-${pbbDiscipline.name}-${pbbDiscipline.pattern_type || 'none'}`;
-                                    const userSelectedScoresheet = selectedScoresheetDetails[`user-selected-${disciplineKey}`];
-                                    
-                                    if (userSelectedScoresheet) {
-                                      // Use user-selected scoresheet (e.g., for Working Cow Horse)
-                                      scoresheetData = userSelectedScoresheet;
-                                    } else if (isScoresheetOnly) {
-                                      // Use discipline ID key for scoresheet-only
-                                      scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
+                                    // Priority 1: Check if scoresheet was selected in Step 3 (per group)
+                                    const step3Scoresheet = selectedScoresheetDetails[`step3-selected-${pbbDiscipline.id}-${group.id}`];
+                                    if (step3Scoresheet) {
+                                      scoresheetData = step3Scoresheet;
                                     } else {
-                                      // For pattern disciplines, try pattern selection first
-                                      const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                                      const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                      // Priority 2: Check if VRH-RHC Ranch CowWork was selected in Step 2
+                                      const disciplineKey = `${pbbDiscipline.association_id}-${pbbDiscipline.sub_association_type || 'none'}-${pbbDiscipline.name}-${pbbDiscipline.pattern_type || 'none'}`;
+                                      const vrhRanchCowWorkScoresheet = selectedScoresheetDetails[`vrh-ranch-cowwork-${disciplineKey}`];
                                       
-                                      if (selectedPatternId) {
-                                        // Try to get scoresheet by pattern_id
-                                        scoresheetData = selectedScoresheetDetails[selectedPatternId] || null;
-                                      }
-                                      
-                                      // Fallback: If pattern_id lookup failed or no pattern selected, try discipline-based lookup
-                                      // This handles cases where pattern preview data doesn't exist but scoresheet does
-                                      if (!scoresheetData) {
-                                        scoresheetData = selectedScoresheetDetails[`discipline-${pbbDiscipline.id}`] || null;
+                                      if (vrhRanchCowWorkScoresheet) {
+                                        // Use VRH-RHC Ranch CowWork scoresheet from Step 2 dropdown
+                                        scoresheetData = vrhRanchCowWorkScoresheet;
+                                      } else {
+                                        // Priority 3: Check if user has selected a scoresheet for this discipline in Step 2
+                                        const userSelectedScoresheet = selectedScoresheetDetails[`user-selected-${disciplineKey}`];
+                                        
+                                        if (userSelectedScoresheet) {
+                                          // Use user-selected scoresheet (e.g., for Working Cow Horse)
+                                          scoresheetData = userSelectedScoresheet;
+                                        } else if (isScoresheetOnly) {
+                                          // Use discipline ID key for scoresheet-only
+                                          scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
+                                        } else {
+                                          // For pattern disciplines, try pattern selection first
+                                          const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                          const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                          
+                                          if (selectedPatternId) {
+                                            // Try to get scoresheet by pattern_id
+                                            scoresheetData = selectedScoresheetDetails[selectedPatternId] || null;
+                                          }
+                                          
+                                          // Fallback: If pattern_id lookup failed or no pattern selected, try discipline-based lookup
+                                          // This handles cases where pattern preview data doesn't exist but scoresheet does
+                                          if (!scoresheetData) {
+                                            scoresheetData = selectedScoresheetDetails[`discipline-${pbbDiscipline.id}`] || null;
+                                          }
+                                        }
                                       }
                                     }
                                     

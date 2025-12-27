@@ -232,6 +232,62 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [hoveredPatternImage, setHoveredPatternImage] = useState(null);
     const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
     const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
+    
+    // State for Working Cow Horse scoresheets (AQHA only)
+    const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
+    const [loadingScoresheets, setLoadingScoresheets] = useState(false);
+    
+    // Check if this is Working Cow Horse for AQHA
+    const isWorkingCowHorseAQHA = pbbDiscipline?.name === 'Working Cow Horse' && 
+        (pbbDiscipline?.association_id === 'AQHA' || 
+         (group.divisions?.length > 0 && group.divisions[0]?.assocId === 'AQHA'));
+
+    // Fetch Working Cow Horse scoresheets for AQHA (without pattern_id)
+    useEffect(() => {
+        const fetchWorkingCowHorseScoresheets = async () => {
+            if (!isWorkingCowHorseAQHA) {
+                setWorkingCowHorseScoresheets([]);
+                return;
+            }
+            
+            setLoadingScoresheets(true);
+            try {
+                const { data, error } = await supabase
+                    .from('tbl_scoresheet')
+                    .select('id, discipline, association_abbrev, image_url, storage_path')
+                    .eq('discipline', 'Working Cow Horse')
+                    .eq('association_abbrev', 'AQHA')
+                    .is('pattern_id', null);
+                
+                if (error) throw error;
+                
+                // Parse scoresheet names from storage_path to create display names
+                const scoresheetOptions = (data || []).map(ss => {
+                    let displayName = 'Scoresheet';
+                    const path = ss.storage_path || '';
+                    
+                    if (path.includes('_LTD_')) {
+                        displayName = 'Cow Work - Limited';
+                    } else if (path.includes('_BDBD_')) {
+                        displayName = 'Cow Work - Rookie';
+                    } else if (path.includes('CowWork')) {
+                        displayName = 'Cow Work - Open';
+                    }
+                    
+                    return { ...ss, displayName };
+                });
+                
+                setWorkingCowHorseScoresheets(scoresheetOptions);
+            } catch (err) {
+                console.error('Error fetching Working Cow Horse scoresheets:', err);
+                setWorkingCowHorseScoresheets([]);
+            } finally {
+                setLoadingScoresheets(false);
+            }
+        };
+        
+        fetchWorkingCowHorseScoresheets();
+    }, [isWorkingCowHorseAQHA]);
 
     // Inject CSS to fix pattern select truncation on iOS/iPad
     useEffect(() => {
@@ -632,6 +688,63 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             </Select>
                         </div>
                     </div>
+                    
+                    {/* Working Cow Horse Scoresheet Dropdown (AQHA only) */}
+                    {isWorkingCowHorseAQHA && workingCowHorseScoresheets.length > 0 && (
+                        <div className="mt-2">
+                            <Label className="text-xs text-muted-foreground mb-1 block">Select Score Sheet</Label>
+                            <Select 
+                                value={currentPatternSelection?.scoresheetId?.toString() || 'none'} 
+                                onValueChange={(value) => {
+                                    if (value === 'none') {
+                                        setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            if (newSelections[disciplineId]?.[group.id]) {
+                                                const updated = { ...newSelections[disciplineId][group.id] };
+                                                delete updated.scoresheetId;
+                                                delete updated.scoresheetData;
+                                                newSelections[disciplineId][group.id] = Object.keys(updated).length > 0 ? updated : null;
+                                            }
+                                            return { ...prev, patternSelections: newSelections };
+                                        });
+                                    } else {
+                                        const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === value);
+                                        if (selectedScoresheet) {
+                                            setFormData(prev => {
+                                                const newSelections = { ...(prev.patternSelections || {}) };
+                                                if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+                                                newSelections[disciplineId][group.id] = {
+                                                    ...(newSelections[disciplineId][group.id] || {}),
+                                                    scoresheetId: parseInt(value),
+                                                    scoresheetData: {
+                                                        id: selectedScoresheet.id,
+                                                        image_url: selectedScoresheet.image_url,
+                                                        displayName: selectedScoresheet.displayName,
+                                                        storage_path: selectedScoresheet.storage_path
+                                                    }
+                                                };
+                                                return { ...prev, patternSelections: newSelections };
+                                            });
+                                        }
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="h-9">
+                                    <SelectValue placeholder={loadingScoresheets ? "Loading..." : "Select Score Sheet"}>
+                                        {currentPatternSelection?.scoresheetData?.displayName || 'Select Score Sheet'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Select Score Sheet</SelectItem>
+                                    {workingCowHorseScoresheets.map(ss => (
+                                        <SelectItem key={ss.id} value={String(ss.id)}>
+                                            {ss.displayName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                     
                     {hasPattern && (
                         <div className="mt-2 flex items-center gap-2">
