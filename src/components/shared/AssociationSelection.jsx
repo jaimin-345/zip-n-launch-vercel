@@ -195,6 +195,27 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
       );
     }
 
+    // NRHA and NRCHA - Approval Type only (no Show Category)
+    if (association.id.toLowerCase() === 'nrha' || association.id.toLowerCase() === 'nrcha') {
+      const assocKey = association.id.toLowerCase();
+      const approvalType = subSelections[assocKey]?.approvalType;
+      return (
+        <div className="mt-2 space-y-2 px-3 pb-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">{association.abbreviation || association.id} Approval Type</Label>
+            <Select value={approvalType || ''} onValueChange={(value) => handleSubAssociationChange(assocKey, 'approvalType', value)}>
+              <SelectTrigger><SelectValue placeholder="Select approval type..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dual">Dual-Approved</SelectItem>
+                <SelectItem value="standalone">Standalone (Special Event)</SelectItem>
+                <SelectItem value="both">Both Dual-Approved & Standalone</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      );
+    }
+
     return null;
   };
 
