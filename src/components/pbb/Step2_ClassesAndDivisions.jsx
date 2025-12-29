@@ -374,7 +374,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         if (isVrhMode) {
             relevantAssociationIds = ['versatility-ranch'];
         } else if (isOpenShowMode) {
-            relevantAssociationIds = ['open-show']; // Open show uses open-show association
+            relevantAssociationIds = ['AQHA']; // Open show uses AQHA as a base
         } else {
             relevantAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
             
