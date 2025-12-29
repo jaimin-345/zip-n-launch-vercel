@@ -32,13 +32,14 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
     }));
   };
   
-  const NsbaDualApprovedWithSelector = () => {
+  // Reusable Dual-Approved With Selector for NSBA, NRHA, NRCHA
+  const DualApprovedWithSelector = ({ assocKey }) => {
     const selectedOtherAssociations = Object.keys(formData.associations || {})
-        .filter(key => key.toLowerCase() !== 'nsba' && formData.associations[key] && !formData.primaryAffiliates.includes(key))
+        .filter(key => key.toLowerCase() !== assocKey.toLowerCase() && formData.associations[key] && !formData.primaryAffiliates.includes(key))
         .map(key => allAssociations.find(a => a.id === key))
         .filter(Boolean);
 
-    const selectedValues = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+    const selectedValues = formData.subAssociationSelections?.[assocKey]?.dualApprovedWith || [];
     
     return (
         <Popover>
@@ -65,17 +66,17 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
                                 key={assoc.id}
                                 value={assoc.id}
                                 onSelect={(currentValue) => {
-                                    const currentSelection = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+                                    const currentSelection = formData.subAssociationSelections?.[assocKey]?.dualApprovedWith || [];
                                     const newSelection = currentSelection.includes(currentValue)
                                         ? currentSelection.filter((item) => item !== currentValue)
                                         : [...currentSelection, currentValue];
-                                    handleSubAssociationChange('nsba', 'dualApprovedWith', newSelection);
+                                    handleSubAssociationChange(assocKey, 'dualApprovedWith', newSelection);
                                 }}
                             >
                                 <Check
                                     className={cn(
                                         "mr-2 h-4 w-4",
-                                        (formData.subAssociationSelections?.nsba?.dualApprovedWith || []).includes(assoc.id) ? "opacity-100" : "opacity-0"
+                                        (formData.subAssociationSelections?.[assocKey]?.dualApprovedWith || []).includes(assoc.id) ? "opacity-100" : "opacity-0"
                                     )}
                                 />
                                 {assoc.name}
@@ -188,14 +189,14 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
           {(approvalType === 'dual' || approvalType === 'both') && (
             <div>
               <Label className="text-xs text-muted-foreground">Dual-Approved With</Label>
-              <NsbaDualApprovedWithSelector />
+              <DualApprovedWithSelector assocKey="nsba" />
             </div>
           )}
         </div>
       );
     }
 
-    // NRHA and NRCHA - Approval Type only (no Show Category)
+    // NRHA and NRCHA - Approval Type and Dual-Approved With (no Show Category)
     if (association.id.toLowerCase() === 'nrha' || association.id.toLowerCase() === 'nrcha') {
       const assocKey = association.id.toLowerCase();
       const approvalType = subSelections[assocKey]?.approvalType;
@@ -212,6 +213,12 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
               </SelectContent>
             </Select>
           </div>
+          {(approvalType === 'dual' || approvalType === 'both') && (
+            <div>
+              <Label className="text-xs text-muted-foreground">Dual-Approved With</Label>
+              <DualApprovedWithSelector assocKey={assocKey} />
+            </div>
+          )}
         </div>
       );
     }
