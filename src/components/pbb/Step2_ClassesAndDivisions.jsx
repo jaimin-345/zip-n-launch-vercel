@@ -392,10 +392,21 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         const subSelections = formData.subAssociationSelections || {};
 
         const groups = [];
+        
+        // Debug: Log when in open show mode
+        if (isOpenShowMode) {
+            console.log('[Step2] isOpenShowMode:', isOpenShowMode);
+            console.log('[Step2] relevantAssociationIds:', relevantAssociationIds);
+            console.log('[Step2] associationsData ids:', associationsData.map(a => a.id));
+            console.log('[Step2] disciplineLibrary open-show count:', disciplineLibrary.filter(d => d.association_id === 'open-show').length);
+        }
 
         relevantAssociationIds.forEach(assocId => {
             const association = associationsData.find(a => a.id === assocId);
-            if (!association) return;
+            if (!association) {
+                console.log('[Step2] Association not found:', assocId);
+                return;
+            }
 
             const selectedSubTypes = subSelections[assocId]?.types || [];
             
