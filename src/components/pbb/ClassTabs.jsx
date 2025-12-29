@@ -359,7 +359,21 @@ import React, { useMemo } from 'react';
             disc && (disc.pattern_type === 'scoresheet_only' || (!disc.pattern && disc.scoresheet))
         );
 
-        const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
+        // Get dual-approved settings for NSBA, NRHA, and NRCHA
+        const dualApprovedSettings = useMemo(() => {
+            const subSelections = formData.subAssociationSelections || {};
+            const settings = {};
+            
+            ['nsba', 'nrha', 'nrcha'].forEach(assocKey => {
+                const approvalType = subSelections[assocKey]?.approvalType;
+                const dualApprovedWith = subSelections[assocKey]?.dualApprovedWith || [];
+                if ((approvalType === 'dual' || approvalType === 'both') && dualApprovedWith.length > 0) {
+                    settings[assocKey.toUpperCase()] = dualApprovedWith;
+                }
+            });
+            
+            return settings;
+        }, [formData.subAssociationSelections]);
 
         // Helper to find the correct discipline for a given association ID
         const getDisciplineForAssoc = (assocId) => {
@@ -429,7 +443,13 @@ import React, { useMemo } from 'react';
                                                     {subTypeName}
                                                 </Badge>
                                             )}
-                                            {discForAssoc.isDualApproved && nsbaDualApprovedWith.includes(assocId) && <Badge variant="dualApproved">NSBA Dual-Approved</Badge>}
+                                            {/* Show dual-approved badges for NSBA, NRHA, NRCHA */}
+                                            {Object.entries(dualApprovedSettings).map(([dualAssocId, dualApprovedWith]) => {
+                                                if (dualApprovedWith.includes(assocId)) {
+                                                    return <Badge key={`dual-${dualAssocId}`} variant="dualApproved">{dualAssocId} Dual-Approved</Badge>;
+                                                }
+                                                return null;
+                                            })}
                                             {discForAssoc.isNsbaStandalone && assocId === 'NSBA' && <Badge variant="standalone">NSBA Standalone</Badge>}
                                         </div>
                                         {divisionGroups && Array.isArray(divisionGroups) && divisionGroups.length > 0 ? divisionGroups.map((group, index) => {

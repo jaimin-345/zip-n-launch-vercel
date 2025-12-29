@@ -300,21 +300,40 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
     const isVrhMode = formData.showType === 'versatility-ranch';
 
-    // Get dual-approved associations (when NSBA is selected with 'dual' or 'both' approval type)
+    // Get dual-approved associations (when NSBA, NRHA, or NRCHA is selected with 'dual' or 'both' approval type)
     const dualApprovedAssociations = useMemo(() => {
-        const nsbaApprovalType = formData.subAssociationSelections?.nsba?.approvalType;
-        const dualApprovedWith = formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+        const result = [];
+        const subSelections = formData.subAssociationSelections || {};
         
-        // Show checkbox for both 'dual' and 'both' approval types
-        if ((nsbaApprovalType === 'dual' || nsbaApprovalType === 'both') && dualApprovedWith.length > 0) {
-            return ['NSBA']; // Return NSBA as the dual-approved option for the checkbox
-        }
-        return [];
+        // Check each association that supports dual-approval
+        ['nsba', 'nrha', 'nrcha'].forEach(assocKey => {
+            const approvalType = subSelections[assocKey]?.approvalType;
+            const dualApprovedWith = subSelections[assocKey]?.dualApprovedWith || [];
+            
+            // Show checkbox for both 'dual' and 'both' approval types
+            if ((approvalType === 'dual' || approvalType === 'both') && dualApprovedWith.length > 0) {
+                result.push(assocKey.toUpperCase());
+            }
+        });
+        
+        return result;
     }, [formData.subAssociationSelections]);
 
-    // Get dualApprovedWith associations from NSBA settings
+    // Get dualApprovedWith associations from all supporting associations
     const dualApprovedWithAssociations = useMemo(() => {
-        return formData.subAssociationSelections?.nsba?.dualApprovedWith || [];
+        const subSelections = formData.subAssociationSelections || {};
+        const allDualApprovedWith = [];
+        
+        ['nsba', 'nrha', 'nrcha'].forEach(assocKey => {
+            const dualApprovedWith = subSelections[assocKey]?.dualApprovedWith || [];
+            dualApprovedWith.forEach(assocId => {
+                if (!allDualApprovedWith.includes(assocId)) {
+                    allDualApprovedWith.push(assocId);
+                }
+            });
+        });
+        
+        return allDualApprovedWith;
     }, [formData.subAssociationSelections]);
 
     const selectedDisciplineKeys = useMemo(() => 
@@ -359,11 +378,15 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         } else {
             relevantAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
             
-            // Hide NSBA disciplines when NSBA is selected with Dual-Approved type only
-            const nsbaApprovalType = formData.subAssociationSelections?.nsba?.approvalType;
-            if (relevantAssociationIds.includes('NSBA') && nsbaApprovalType === 'dual') {
-                relevantAssociationIds = relevantAssociationIds.filter(id => id !== 'NSBA');
-            }
+            // Hide NSBA/NRHA/NRCHA disciplines when they are selected with Dual-Approved type only
+            const subSelections = formData.subAssociationSelections || {};
+            ['NSBA', 'NRHA', 'NRCHA'].forEach(assocId => {
+                const assocKey = assocId.toLowerCase();
+                const approvalType = subSelections[assocKey]?.approvalType;
+                if (relevantAssociationIds.includes(assocId) && approvalType === 'dual') {
+                    relevantAssociationIds = relevantAssociationIds.filter(id => id !== assocId);
+                }
+            });
         }
 
         const subSelections = formData.subAssociationSelections || {};
