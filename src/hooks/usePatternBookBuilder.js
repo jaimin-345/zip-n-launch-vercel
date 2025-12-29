@@ -223,21 +223,21 @@ export const usePatternBookBuilder = (projectId) => {
   }, [setFormData]);
 
   const resetCurrentStep = useCallback((currentStep) => {
+    // When resetting Step 1, also clear completedSteps for step 1
+    if (currentStep === 1) {
+      setCompletedSteps(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(1);
+        return newSet;
+      });
+    }
+
     setFormData(prev => {
       switch (currentStep) {
         case 1:
+          // Reset Step 1 AND all subsequent steps data
           return {
-            ...prev,
-            showName: '',
-            associations: {},
-            subAssociationSelections: {},
-            customAssociations: [],
-            primaryAffiliates: [],
-            nsbaApprovalType: '',
-            nsbaCategory: '',
-            nsbaDualApprovedWith: [],
-            phbaHorseType: 'stock',
-            pthaHorseType: 'stock',
+            ...initialFormData,
           };
         case 2:
           return { ...prev, disciplines: [] };
