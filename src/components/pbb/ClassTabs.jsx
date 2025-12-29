@@ -299,28 +299,28 @@ import React, { useMemo } from 'react';
                     const nonProAllowedDisciplines = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
                     const shouldShowNonPro = nonProAllowedDisciplines.includes(pbbDiscipline.name);
                     
-                    // SHTX (Stock Horse of Texas) disciplines should only show Open, Non-Pro, Youth (hide Amateur)
-                    const shtxDisciplines = ['Stock Horse Pleasure', 'Stock Horse Trail', 'Reining', 'Cow Work'];
-                    const isShtxDiscipline = shtxDisciplines.includes(pbbDiscipline.name) && assocId === 'SHTX';
+                    // Associations that should only show Open, Non-Pro, Youth (hide Amateur)
+                    const openNonProYouthOnlyAssocs = ['SHTX', 'NRHA'];
+                    const isOpenNonProYouthOnlyAssoc = openNonProYouthOnlyAssocs.includes(assocId);
                     
                     divisionMap[assocId] = divisions
                         .filter(d => {
                             if (shouldHideOpenCategories) {
                                 return d.group.toLowerCase() !== 'open';
                             }
-                            // Hide Non-Pro division group entirely unless discipline allows it (for non-SHTX)
-                            if (d.group === 'Non-Pro' && !shouldShowNonPro && !isShtxDiscipline) {
+                            // Hide Non-Pro division group entirely unless discipline allows it (for non Open/Non-Pro/Youth only assocs)
+                            if (d.group === 'Non-Pro' && !shouldShowNonPro && !isOpenNonProYouthOnlyAssoc) {
                                 return false;
                             }
-                            // Hide Amateur for SHTX disciplines - only show Open, Non-Pro, Youth
-                            if (isShtxDiscipline && d.group === 'Amateur') {
+                            // Hide Amateur for SHTX/NRHA - only show Open, Non-Pro, Youth
+                            if (isOpenNonProYouthOnlyAssoc && d.group === 'Amateur') {
                                 return false;
                             }
                             return true;
                         })
                         .map(d => {
-                            // Filter Non-Pro levels to only show matching discipline (for non-SHTX)
-                            if (shouldShowNonPro && d.group === 'Non-Pro' && !isShtxDiscipline) {
+                            // Filter Non-Pro levels to only show matching discipline (for non Open/Non-Pro/Youth only assocs)
+                            if (shouldShowNonPro && d.group === 'Non-Pro' && !isOpenNonProYouthOnlyAssoc) {
                                 return {
                                     ...d,
                                     levels: d.levels.filter(level => {
