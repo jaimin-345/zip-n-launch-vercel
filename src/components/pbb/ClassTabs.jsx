@@ -300,7 +300,7 @@ import React, { useMemo } from 'react';
                     const shouldShowNonPro = nonProAllowedDisciplines.includes(pbbDiscipline.name);
                     
                     // Associations that should only show Open, Non-Pro, Youth (hide Amateur)
-                    const openNonProYouthOnlyAssocs = ['SHTX', 'NRHA'];
+                    const openNonProYouthOnlyAssocs = ['SHTX', 'NRHA', 'NRCHA'];
                     const isOpenNonProYouthOnlyAssoc = openNonProYouthOnlyAssocs.includes(assocId);
                     
                     divisionMap[assocId] = divisions
