@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -233,6 +233,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
     const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
     
+    // Filter states for pattern selection
+    const [filterAssociation, setFilterAssociation] = useState('all');
+    const [filterDiscipline, setFilterDiscipline] = useState('all');
+    
     // State for Working Cow Horse scoresheets (AQHA only)
     const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
     const [loadingScoresheets, setLoadingScoresheets] = useState(false);
@@ -331,23 +335,34 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     };
 
     const associationName = getAssociationName();
+    
+    // Check if this discipline is from open-show association
+    const isOpenShowDiscipline = pbbDiscipline?.selectedAssociations?.['open-show'] || 
+                                 pbbDiscipline?.association_id === 'open-show';
 
-    // Fetch patterns from tbl_patterns based on discipline name AND association
+    // Fetch patterns from tbl_patterns - for open-show, fetch all patterns; for others, filter by discipline/association
     useEffect(() => {
         const fetchPatterns = async () => {
             if (!pbbDiscipline?.name) return;
             setLoadingPatterns(true);
             try {
-                // Use exact match (case-insensitive) to avoid matching substrings
-                // For example, "Reining" should not match "Ranch Reining"
                 let query = supabase
                     .from('tbl_patterns')
-                    .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
-                    .ilike('discipline', pbbDiscipline.name);
+                    .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name');
                 
-                // Filter by association if available
-                if (associationName) {
-                    query = query.ilike('association_name', `%${associationName}%`);
+                // For open-show disciplines, fetch ALL patterns (will be filtered by UI filters)
+                // For other disciplines, filter by discipline name and association (original behavior)
+                if (isOpenShowDiscipline) {
+                    // Fetch all patterns for open-show - no initial filter
+                } else {
+                    // Use exact match (case-insensitive) to avoid matching substrings
+                    // For example, "Reining" should not match "Ranch Reining"
+                    query = query.ilike('discipline', pbbDiscipline.name);
+                    
+                    if (associationName) {
+                        // For other associations, filter by association name
+                        query = query.ilike('association_name', `%${associationName}%`);
+                    }
                 }
                 
                 const { data, error } = await query;
@@ -362,27 +377,101 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name, associationName]);
+    }, [pbbDiscipline?.name, associationName, isOpenShowDiscipline]);
 
-    // Filter patterns based on difficulty
+    // Get unique associations and disciplines from patterns for filters
+    const patternAssociations = useMemo(() => {
+        const assocs = new Set();
+        dbPatterns.forEach(p => {
+            if (p.association_name) {
+                assocs.add(p.association_name);
+            }
+        });
+        return Array.from(assocs).sort();
+    }, [dbPatterns]);
+
+    const patternDisciplines = useMemo(() => {
+        const discs = new Set();
+        dbPatterns.forEach(p => {
+            if (p.discipline) {
+                discs.add(p.discipline);
+            }
+        });
+        return Array.from(discs).sort();
+    }, [dbPatterns]);
+
+    // Filter patterns based on difficulty, association, and discipline
     useEffect(() => {
         if (dbPatterns.length > 0) {
             let filtered = dbPatterns;
-            // Apply difficulty filter
+            
+            // Only apply association and discipline filters for open-show disciplines
+            if (isOpenShowDiscipline) {
+                // Apply association filter
+                if (filterAssociation && filterAssociation !== 'all') {
+                    filtered = filtered.filter(p => 
+                        p.association_name && 
+                        (p.association_name.toLowerCase().includes(filterAssociation.toLowerCase()) ||
+                         filterAssociation.toLowerCase().includes(p.association_name.toLowerCase()))
+                    );
+                }
+                
+                // Apply discipline filter
+                if (filterDiscipline && filterDiscipline !== 'all') {
+                    filtered = filtered.filter(p => 
+                        p.discipline && 
+                        p.discipline.toLowerCase().includes(filterDiscipline.toLowerCase())
+                    );
+                }
+                
+                // For open-show disciplines, show all patterns when no filters are set (don't filter by open-show)
+                // This allows users to see patterns from all associations and disciplines
+            }
+            // For non-open-show disciplines, no additional filtering needed (already filtered in query)
+            
+            // Apply difficulty filter (for all associations)
             if (selectedDifficulty && selectedDifficulty !== 'ALL') {
                 filtered = filtered.filter(p => p.pattern_version === selectedDifficulty);
             }
-            // Sort nicely by pattern name/number (original sorting)
+            
+            // Sort by discipline first, then by pattern number within each discipline
             filtered.sort((a, b) => {
-                 const nameA = a.pdf_file_name?.trim() || '';
-                 const nameB = b.pdf_file_name?.trim() || '';
-                 return nameA.localeCompare(nameB, undefined, { numeric: true });
+                const nameA = a.pdf_file_name?.trim() || '';
+                const nameB = b.pdf_file_name?.trim() || '';
+                const disciplineA = a.discipline?.trim() || '';
+                const disciplineB = b.discipline?.trim() || '';
+                
+                // First sort by discipline (alphabetically)
+                if (disciplineA !== disciplineB) {
+                    return disciplineA.localeCompare(disciplineB);
+                }
+                
+                // Within the same discipline, sort by pattern number
+                const extractPatternNumber = (fileName) => {
+                    // Try to match trailing digits before optional dot/extension
+                    const match = fileName.match(/(\d+)(?:\..*)?$/);
+                    if (match) {
+                        return parseInt(match[1], 10);
+                    }
+                    // Fallback: try to find any number in the filename
+                    const anyNumber = fileName.match(/\d+/);
+                    return anyNumber ? parseInt(anyNumber[0], 10) : 0;
+                };
+                
+                const numA = extractPatternNumber(nameA);
+                const numB = extractPatternNumber(nameB);
+                
+                // Sort by numeric value within the same discipline
+                if (numA !== numB) {
+                    return numA - numB;
+                }
+                return nameA.localeCompare(nameB, undefined, { numeric: true });
             });
             setFilteredPatterns(filtered);
         } else {
             setFilteredPatterns([]);
         }
-    }, [selectedDifficulty, dbPatterns]);
+    }, [selectedDifficulty, dbPatterns, filterAssociation, filterDiscipline, isOpenShowDiscipline]);
 
   // Fetch maneuvers and image when pattern is selected
   useEffect(() => {
@@ -530,6 +619,46 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             {group.divisions.length > 0 && (
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
+
+                    {/* Filter Section - Only show for open-show disciplines */}
+                    {isOpenShowDiscipline && (patternAssociations.length > 1 || patternDisciplines.length > 1) && (
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <Label className="text-xs text-muted-foreground">Filter by Association</Label>
+                                <Select 
+                                    value={filterAssociation}
+                                    onValueChange={setFilterAssociation}
+                                >
+                                    <SelectTrigger className="mt-1 h-9">
+                                        <SelectValue placeholder="All Associations" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Associations</SelectItem>
+                                        {patternAssociations.map(assoc => (
+                                            <SelectItem key={assoc} value={assoc}>{assoc}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label className="text-xs text-muted-foreground">Filter by Discipline</Label>
+                                <Select 
+                                    value={filterDiscipline}
+                                    onValueChange={setFilterDiscipline}
+                                >
+                                    <SelectTrigger className="mt-1 h-9">
+                                        <SelectValue placeholder="All Disciplines" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Disciplines</SelectItem>
+                                        {patternDisciplines.map(disc => (
+                                            <SelectItem key={disc} value={disc}>{disc}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3 mb-2">
                         {/* Pattern Selection Dropdown (1st) */}

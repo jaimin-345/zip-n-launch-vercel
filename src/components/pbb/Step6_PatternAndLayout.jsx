@@ -353,14 +353,22 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     setLoadingPatterns(prev => ({ ...prev, [disciplineId]: true }));
     
     try {
-      // Fetch ALL patterns for this discipline (no association filter at discipline level)
-      // Group-level filtering will be applied in the Select dropdown
-      // Use exact match (case-insensitive) to avoid matching substrings
-      // For example, "Reining" should not match "Ranch Reining"
+      // Check if this is an open-show discipline
+      const isOpenShowDiscipline = discipline?.selectedAssociations?.['open-show'] || 
+                                   discipline?.association_id === 'open-show';
+      
       let query = supabase
         .from('tbl_patterns')
-        .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
-        .ilike('discipline', discipline.name);
+        .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name');
+      
+      // For open-show disciplines, fetch ALL patterns (no discipline filter)
+      // For other disciplines, filter by discipline name
+      if (!isOpenShowDiscipline) {
+        // Use exact match (case-insensitive) to avoid matching substrings
+        // For example, "Reining" should not match "Ranch Reining"
+        query = query.ilike('discipline', discipline.name);
+      }
+      // For open-show, fetch all patterns without discipline filter
       
       const { data, error } = await query;
       if (error) throw error;
@@ -1283,67 +1291,76 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     const difficulty = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
                                                     let filtered = getFilteredPatterns(discipline.id);
 
-                                                    // Filter by group associations based on Primary logic
-                                                    const groupAssociations = getGroupAssociationNames(group);
-                                                    const allGroupAssocNames = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
+                                                    // Check if this is an open-show discipline
+                                                    const isOpenShowDiscipline = discipline?.selectedAssociations?.['open-show'] || 
+                                                                                 discipline?.association_id === 'open-show';
                                                     
-                                                    if (allGroupAssocNames.length > 0) {
-                                                        const filteredByAssoc = filtered.filter(pattern => {
-                                                            const patternAssocName = (pattern.association_name || '').trim();
-                                                            if (!patternAssocName) {
-                                                                // If pattern has no association name, exclude it (patterns should have association names)
-                                                                return false;
-                                                            }
-                                                            
-                                                            const patternAssocLower = patternAssocName.toLowerCase();
-                                                            
-                                                            return allGroupAssocNames.some(assocName => {
-                                                                const assocNameLower = (assocName || '').trim().toLowerCase();
-                                                                if (!assocNameLower) return false;
-                                                                
-                                                                // 1. Exact match (case-insensitive)
-                                                                if (patternAssocLower === assocNameLower) return true;
-                                                                
-                                                                // 2. Pattern starts with association abbreviation (e.g., "AQHA - ..." matches "AQHA")
-                                                                if (patternAssocLower.startsWith(assocNameLower + ' ') || 
-                                                                    patternAssocLower.startsWith(assocNameLower + '-')) {
-                                                                    return true;
-                                                                }
-                                                                
-                                                                // 3. Association abbreviation matches pattern's first word before dash/space
-                                                                // (e.g., "AQHA" matches "AQHA - American Quarter Horse Association")
-                                                                const patternFirstPart = patternAssocLower.split(/[\s-]+/)[0];
-                                                                if (patternFirstPart === assocNameLower) return true;
-                                                                
-                                                                // 4. Pattern contains full association name (for cases like "American Quarter Horse Association" in pattern)
-                                                                // Only if the association name is longer than 3 chars to avoid false matches
-                                                                if (assocNameLower.length > 3 && patternAssocLower.includes(assocNameLower)) {
-                                                                    return true;
-                                                                }
-                                                                
-                                                                return false;
-                                                            });
-                                                        });
+                                                    // For open-show disciplines, show all patterns without association filtering
+                                                    // For other disciplines, filter by group associations
+                                                    if (!isOpenShowDiscipline) {
+                                                        // Filter by group associations based on Primary logic
+                                                        const groupAssociations = getGroupAssociationNames(group);
+                                                        const allGroupAssocNames = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
                                                         
-                                                        // Use filtered results if we found matches, otherwise show "No patterns found"
-                                                        if (filteredByAssoc.length > 0) {
-                                                            // Deduplicate by pattern ID to avoid showing same pattern multiple times
-                                                            const seenIds = new Set();
-                                                            filtered = filteredByAssoc.filter(pattern => {
-                                                                if (seenIds.has(pattern.id)) {
+                                                        if (allGroupAssocNames.length > 0) {
+                                                            const filteredByAssoc = filtered.filter(pattern => {
+                                                                const patternAssocName = (pattern.association_name || '').trim();
+                                                                if (!patternAssocName) {
+                                                                    // If pattern has no association name, exclude it (patterns should have association names)
                                                                     return false;
                                                                 }
-                                                                seenIds.add(pattern.id);
-                                                                return true;
+                                                                
+                                                                const patternAssocLower = patternAssocName.toLowerCase();
+                                                                
+                                                                return allGroupAssocNames.some(assocName => {
+                                                                    const assocNameLower = (assocName || '').trim().toLowerCase();
+                                                                    if (!assocNameLower) return false;
+                                                                    
+                                                                    // 1. Exact match (case-insensitive)
+                                                                    if (patternAssocLower === assocNameLower) return true;
+                                                                    
+                                                                    // 2. Pattern starts with association abbreviation (e.g., "AQHA - ..." matches "AQHA")
+                                                                    if (patternAssocLower.startsWith(assocNameLower + ' ') || 
+                                                                        patternAssocLower.startsWith(assocNameLower + '-')) {
+                                                                        return true;
+                                                                    }
+                                                                    
+                                                                    // 3. Association abbreviation matches pattern's first word before dash/space
+                                                                    // (e.g., "AQHA" matches "AQHA - American Quarter Horse Association")
+                                                                    const patternFirstPart = patternAssocLower.split(/[\s-]+/)[0];
+                                                                    if (patternFirstPart === assocNameLower) return true;
+                                                                    
+                                                                    // 4. Pattern contains full association name (for cases like "American Quarter Horse Association" in pattern)
+                                                                    // Only if the association name is longer than 3 chars to avoid false matches
+                                                                    if (assocNameLower.length > 3 && patternAssocLower.includes(assocNameLower)) {
+                                                                        return true;
+                                                                    }
+                                                                    
+                                                                    return false;
+                                                                });
                                                             });
+                                                            
+                                                            // Use filtered results if we found matches, otherwise show "No patterns found"
+                                                            if (filteredByAssoc.length > 0) {
+                                                                // Deduplicate by pattern ID to avoid showing same pattern multiple times
+                                                                const seenIds = new Set();
+                                                                filtered = filteredByAssoc.filter(pattern => {
+                                                                    if (seenIds.has(pattern.id)) {
+                                                                        return false;
+                                                                    }
+                                                                    seenIds.add(pattern.id);
+                                                                    return true;
+                                                                });
+                                                            } else {
+                                                                // If no matches found for this group's association, show empty (will display "No patterns")
+                                                                filtered = [];
+                                                            }
                                                         } else {
-                                                            // If no matches found for this group's association, show empty (will display "No patterns")
+                                                            // If group has no associations identified, show empty (will display "No patterns")
                                                             filtered = [];
                                                         }
-                                                    } else {
-                                                        // If group has no associations identified, show empty (will display "No patterns")
-                                                        filtered = [];
                                                     }
+                                                    // For open-show disciplines, keep all filtered patterns (no association filtering)
 
                                                     if (!difficulty.includes('ALL')) {
                                                         filtered = filtered.filter(p => difficulty.includes(p.pattern_version));
@@ -1360,10 +1377,37 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     });
                                                     filtered = uniquePatterns;
                                                     
-                                                    // Sort by pattern name/number (simple flat list - original sorting)
+                                                    // Sort by discipline first, then by pattern number within each discipline
                                                     filtered.sort((a, b) => {
                                                         const nameA = a.pdf_file_name?.trim() || '';
                                                         const nameB = b.pdf_file_name?.trim() || '';
+                                                        const disciplineA = a.discipline?.trim() || '';
+                                                        const disciplineB = b.discipline?.trim() || '';
+                                                        
+                                                        // First sort by discipline (alphabetically)
+                                                        if (disciplineA !== disciplineB) {
+                                                            return disciplineA.localeCompare(disciplineB);
+                                                        }
+                                                        
+                                                        // Within the same discipline, sort by pattern number
+                                                        const extractPatternNumber = (fileName) => {
+                                                            // Try to match trailing digits before optional dot/extension
+                                                            const match = fileName.match(/(\d+)(?:\..*)?$/);
+                                                            if (match) {
+                                                                return parseInt(match[1], 10);
+                                                            }
+                                                            // Fallback: try to find any number in the filename
+                                                            const anyNumber = fileName.match(/\d+/);
+                                                            return anyNumber ? parseInt(anyNumber[0], 10) : 0;
+                                                        };
+                                                        
+                                                        const numA = extractPatternNumber(nameA);
+                                                        const numB = extractPatternNumber(nameB);
+                                                        
+                                                        // Sort by numeric value within the same discipline
+                                                        if (numA !== numB) {
+                                                            return numA - numB;
+                                                        }
                                                         return nameA.localeCompare(nameB, undefined, { numeric: true });
                                                     });
 

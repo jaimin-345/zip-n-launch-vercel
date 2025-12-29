@@ -342,12 +342,16 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
 
     const getDivisionCounts = () => {
         // Get associations that this discipline belongs to (from merged disciplines)
+        // Prioritize selectedAssociations (what user actually selected) over association_id
         const disciplineAssocIds = new Set();
         allDisciplines.forEach(disc => {
+            // First, add associations from selectedAssociations (user's explicit selection)
             if (disc.selectedAssociations) {
                 Object.keys(disc.selectedAssociations).filter(id => disc.selectedAssociations[id]).forEach(id => disciplineAssocIds.add(id));
             }
-            if (disc.association_id) {
+            // Only add association_id if it's not already in selectedAssociations (to avoid duplicates)
+            // This handles cases where selectedAssociations might be empty but association_id exists
+            if (disc.association_id && (!disc.selectedAssociations || !disc.selectedAssociations[disc.association_id])) {
                 disciplineAssocIds.add(disc.association_id);
             }
         });

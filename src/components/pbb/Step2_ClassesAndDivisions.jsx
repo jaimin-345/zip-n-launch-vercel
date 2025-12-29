@@ -191,7 +191,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, isOpenShowMode }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -210,7 +210,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             }
             return false;
         });
-        return { custom, rulebook, scoresheet };
+        // Handle disciplines with pattern_type: 'pattern' or pattern_type: null (for open-show disciplines)
+        const pattern = disciplines.filter(d => {
+            return d.pattern_type === 'pattern' || d.pattern_type === null;
+        });
+        return { custom, rulebook, scoresheet, pattern };
     }, [disciplines, association.id]);
 
     return (
@@ -239,6 +243,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                         <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />
                 )}
                 {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
+                {categorized.pattern.length > 0 && <DisciplineCategory title="Pattern" disciplines={categorized.pattern} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
                 {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
             </AccordionContent>
         </AccordionItem>
@@ -370,13 +375,22 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const groupedDisciplines = useMemo(() => {
         if (!disciplineLibrary || !associationsData) return [];
         
+        const selectedAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+        const hasOpenShow = selectedAssociationIds.includes('open-show');
+        
         let relevantAssociationIds = [];
         if (isVrhMode) {
             relevantAssociationIds = ['versatility-ranch'];
-        } else if (isOpenShowMode) {
-            relevantAssociationIds = ['AQHA']; // Open show uses AQHA as a base
+        } else if (hasOpenShow && selectedAssociationIds.length === 1) {
+            // Only "Open Shows" is selected - show only open-show disciplines
+            relevantAssociationIds = ['open-show'];
+        } else if (hasOpenShow) {
+            // "Open Shows" is selected with other associations - show both
+            relevantAssociationIds = selectedAssociationIds.filter(id => id !== 'open-show');
+            // Add 'open-show' as a separate entry
+            relevantAssociationIds.push('open-show');
         } else {
-            relevantAssociationIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+            relevantAssociationIds = selectedAssociationIds;
             
             // Hide NSBA/NRHA/NRCHA disciplines when they are selected with Dual-Approved type only
             const subSelections = formData.subAssociationSelections || {};
@@ -394,7 +408,20 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         const groups = [];
 
         relevantAssociationIds.forEach(assocId => {
-            const association = associationsData.find(a => a.id === assocId);
+            // Handle 'open-show' association specially
+            let association;
+            if (assocId === 'open-show') {
+                // Create a fallback association object for open-show
+                association = {
+                    id: 'open-show',
+                    name: 'Open Shows',
+                    abbreviation: 'Open',
+                    sub_association_info: null
+                };
+            } else {
+                association = associationsData.find(a => a.id === assocId);
+            }
+            
             if (!association) return;
 
             const selectedSubTypes = subSelections[assocId]?.types || [];
@@ -425,6 +452,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
             } else {
                 // No sub-types or none selected - show all disciplines for this association
                 let disciplines = disciplineLibrary.filter(d => {
+                    // For 'open-show', filter by association_id = 'open-show'
                     const matchesAssoc = d.association_id === assocId;
                     const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
                     // Only include disciplines without sub-type requirement, or if no sub-types are defined
@@ -482,12 +510,12 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     }
 
                     const selectedAssocIds = Object.keys(prev.associations).filter(id => prev.associations[id]);
-                    if (isOpenShowMode) {
+                    // Set selectedAssociations based on the discipline's actual association_id
+                    // Only set 'open-show' if the discipline actually has association_id = 'open-show'
+                    if (disc.association_id === 'open-show') {
                         newDiscipline.selectedAssociations['open-show'] = true;
-                    } else {
-                        if (disc.association_id && selectedAssocIds.includes(disc.association_id)) {
-                            newDiscipline.selectedAssociations[disc.association_id] = true;
-                        }
+                    } else if (disc.association_id && selectedAssocIds.includes(disc.association_id)) {
+                        newDiscipline.selectedAssociations[disc.association_id] = true;
                     }
                     newDisciplines.push(newDiscipline);
                 }
@@ -590,6 +618,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
                                     vrhRanchCowWorkSelections={formData.vrhRanchCowWorkSelections || {}}
                                     onVrhRanchCowWorkSelect={handleVrhRanchCowWorkSelect}
+                                    isOpenShowMode={isOpenShowMode}
                                 />
                             );
                         })}
