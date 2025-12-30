@@ -497,26 +497,36 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                         }
                     });
                 } else {
-                    // Single association: Group divisions with additional Level 1 separation
-                    // Helper to check if division is Level 1
+                    // Single association: Group divisions with additional separation conditions
+                    // Helper functions for division categorization
                     const isLevel1Division = (divisionName) => {
                         const name = divisionName?.toLowerCase() || '';
                         return name.includes('level 1') || name.includes('level1') || name.includes('l1');
                     };
 
-                    const wtDivisions = isWtAffected 
-                        ? ungroupedDivisions.filter(d => isWalkTrotDivision(d.division)) 
-                        : [];
-                    
-                    // Separate Level 1 divisions from non-Level 1 (excluding WT)
-                    const nonWtDivisions = isWtAffected 
-                        ? ungroupedDivisions.filter(d => !isWalkTrotDivision(d.division)) 
-                        : [...ungroupedDivisions];
-                    
-                    const level1Divisions = nonWtDivisions.filter(d => isLevel1Division(d.division));
-                    const regularDivisions = nonWtDivisions.filter(d => !isLevel1Division(d.division));
+                    const isWalkTrotOrSmallFry = (divisionName) => {
+                        const name = divisionName?.toLowerCase() || '';
+                        return name.includes('walk-trot') || name.includes('walktrot') || name.includes('walk trot') || name.includes('small fry');
+                    };
 
-                    // Group 1: Regular (non-Level 1, non-WT) divisions
+                    const isGreenHorseOrNoviceAmateur = (divisionName) => {
+                        const name = divisionName?.toLowerCase() || '';
+                        return name.includes('green horse') || name.includes('novice amateur');
+                    };
+
+                    // Categorize divisions
+                    const wtSmallFryDivisions = ungroupedDivisions.filter(d => isWalkTrotOrSmallFry(d.division));
+                    const greenHorseNoviceDivisions = ungroupedDivisions.filter(d => 
+                        !isWalkTrotOrSmallFry(d.division) && isGreenHorseOrNoviceAmateur(d.division)
+                    );
+                    const level1Divisions = ungroupedDivisions.filter(d => 
+                        !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && isLevel1Division(d.division)
+                    );
+                    const regularDivisions = ungroupedDivisions.filter(d => 
+                        !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && !isLevel1Division(d.division)
+                    );
+
+                    // Group 1: Regular divisions
                     if (regularDivisions.length > 0) {
                         newPatternGroups.push({
                             id: `pattern-group-${Date.now()}`,
@@ -536,12 +546,22 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                         });
                     }
 
-                    // Group 3: Walk-Trot divisions
-                    if (wtDivisions.length > 0) {
+                    // Group 3: Green Horse / Novice Amateur divisions
+                    if (greenHorseNoviceDivisions.length > 0) {
                         newPatternGroups.push({
                             id: `pattern-group-${Date.now() + 2}`,
                             name: `Group ${nextPatternNum++}`,
-                            divisions: wtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                            divisions: greenHorseNoviceDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                            rulebookPatternId: '',
+                        });
+                    }
+
+                    // Group 4: Walk-Trot / Small Fry divisions
+                    if (wtSmallFryDivisions.length > 0) {
+                        newPatternGroups.push({
+                            id: `pattern-group-${Date.now() + 3}`,
+                            name: `Group ${nextPatternNum++}`,
+                            divisions: wtSmallFryDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
                             rulebookPatternId: '',
                         });
                     }
