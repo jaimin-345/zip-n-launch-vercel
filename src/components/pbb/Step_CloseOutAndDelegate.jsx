@@ -343,7 +343,13 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     };
 
     const disciplines = formData.disciplines || [];
-    const adminOwner = formData.adminOwner || {};
+    
+    // Default admin values
+    const defaultAdminOwner = {
+        adminName: 'John Doe',
+        adminEmail: 'johndoe@mailinator.com',
+    };
+    const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
 
     return (
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
