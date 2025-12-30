@@ -15,6 +15,77 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
 
+  // Function to send notifications to assigned judges
+  const sendJudgeNotifications = async () => {
+    const projectName = pbbData.showName || 'Pattern Book';
+    const projectId = pbbData.id || 'unknown';
+    const judges = [];
+
+    // Collect judges from associationJudges
+    if (pbbData.associationJudges) {
+      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
+        if (assocData?.judges) {
+          assocData.judges.forEach((judge) => {
+            if (judge.email && judge.name) {
+              judges.push({
+                email: judge.email.toLowerCase(),
+                name: judge.name,
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Also collect from officials if they have judge role
+    if (pbbData.officials) {
+      pbbData.officials.forEach((official) => {
+        if (official.email && official.name && official.role?.toLowerCase().includes('judge')) {
+          // Avoid duplicates
+          if (!judges.some(j => j.email === official.email.toLowerCase())) {
+            judges.push({
+              email: official.email.toLowerCase(),
+              name: official.name,
+            });
+          }
+        }
+      });
+    }
+
+    if (judges.length === 0) {
+      console.log('No judges to notify');
+      return;
+    }
+
+    console.log(`Sending notifications to ${judges.length} judges`);
+
+    // Insert notifications for each judge
+    const notifications = judges.map(judge => ({
+      judge_email: judge.email,
+      judge_name: judge.name,
+      project_id: projectId,
+      project_name: projectName,
+      notification_type: 'assignment',
+      message: `You have been assigned as a judge for "${projectName}". The pattern book is now published and available for review.`,
+      is_read: false,
+      created_by: email,
+    }));
+
+    try {
+      const { error } = await supabase
+        .from('judge_notifications')
+        .insert(notifications);
+
+      if (error) {
+        console.error('Error sending judge notifications:', error);
+      } else {
+        console.log('Judge notifications sent successfully');
+      }
+    } catch (err) {
+      console.error('Error sending notifications:', err);
+    }
+  };
+
   const handleSend = async () => {
     if (!email) {
       toast({
@@ -86,6 +157,9 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
         throw new Error(errorMsg);
       }
 
+      // Send notifications to assigned judges AFTER successful publish
+      await sendJudgeNotifications();
+
       // Track email sent event
       trackBehaviorEvent('pattern_book_email_sent', {
         showName: pbbData.showName,
@@ -94,7 +168,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
 
       toast({
         title: 'Success!',
-        description: `Pattern book sent to ${email} and downloaded.`,
+        description: `Pattern book sent to ${email} and downloaded. Judges have been notified.`,
       });
       onOpenChange(false);
       setEmail('');
