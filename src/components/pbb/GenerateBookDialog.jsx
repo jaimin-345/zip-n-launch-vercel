@@ -168,7 +168,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
 
       toast({
         title: 'Success!',
-        description: `Pattern book sent to ${email} and downloaded. Judges have been notified.`,
+        description: `Pattern book sent to ${email} and downloaded.`,
       });
       onOpenChange(false);
       setEmail('');
