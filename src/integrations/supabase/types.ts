@@ -1605,6 +1605,48 @@ export type Database = {
           },
         ]
       }
+      judge_notifications: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_read: boolean
+          judge_email: string
+          judge_name: string | null
+          message: string
+          notification_type: string
+          project_id: string
+          project_name: string
+          read_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_read?: boolean
+          judge_email: string
+          judge_name?: string | null
+          message: string
+          notification_type?: string
+          project_id: string
+          project_name: string
+          read_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_read?: boolean
+          judge_email?: string
+          judge_name?: string | null
+          message?: string
+          notification_type?: string
+          project_id?: string
+          project_name?: string
+          read_at?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           add_ons: Json | null
