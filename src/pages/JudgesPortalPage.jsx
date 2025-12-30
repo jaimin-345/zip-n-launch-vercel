@@ -242,58 +242,34 @@ const JudgesPortalPage = () => {
         
         // For non-admin users, filter to only assigned project scoresheets
         if (!isAdminUser && assignedProjectData.length > 0) {
-            // Extract pattern IDs from assigned projects
-            const assignedPatternIds = new Set();
-            const assignedAssociations = new Set();
-            const assignedDisciplines = new Set();
+            // Extract patternNames from assigned projects
+            const assignedPatternNames = new Set();
             
             assignedProjectData.forEach(project => {
                 const data = project.project_data;
                 
-                // Extract pattern IDs from patternSelections (correct field name)
+                // Extract patternName from patternSelections - this matches file_name pattern in scoresheets
                 if (data?.patternSelections) {
                     Object.values(data.patternSelections).forEach(disciplinePatterns => {
                         if (typeof disciplinePatterns === 'object') {
                             Object.values(disciplinePatterns).forEach(patternData => {
-                                if (patternData?.patternId) {
-                                    assignedPatternIds.add(Number(patternData.patternId));
+                                if (patternData?.patternName) {
+                                    assignedPatternNames.add(patternData.patternName);
                                 }
                             });
                         }
                     });
                 }
-                
-                // Extract associations from associations object
-                if (data?.associations) {
-                    Object.keys(data.associations).forEach(assocKey => {
-                        if (data.associations[assocKey]) {
-                            assignedAssociations.add(assocKey);
-                        }
-                    });
-                }
-                
-                // Extract disciplines from disciplines array
-                if (data?.disciplines && Array.isArray(data.disciplines)) {
-                    data.disciplines.forEach(disc => {
-                        if (disc?.name) assignedDisciplines.add(disc.name);
-                    });
-                }
             });
             
-            // Filter scoresheets to those matching assigned patterns/associations
+            // Filter scoresheets to those matching patternName from assigned projects
+            // Scoresheet file_name format: {pattern_name}.{version}.SS.{association}.png
             baseList = scoresheets.filter(s => {
-                const patternMatch = s.pattern_id && assignedPatternIds.has(Number(s.pattern_id));
-                // Match if association_abbrev starts with the assigned association code
-                const assocMatch = Array.from(assignedAssociations).some(assoc => 
-                    s.association_abbrev?.startsWith(assoc) || 
-                    s.pattern?.association_name?.startsWith(assoc)
+                const fileName = s.file_name || '';
+                // Check if any assigned pattern name is in the scoresheet file name
+                return Array.from(assignedPatternNames).some(patternName => 
+                    fileName.startsWith(patternName)
                 );
-                // Match discipline
-                const discMatch = Array.from(assignedDisciplines).some(disc =>
-                    s.discipline?.toLowerCase() === disc.toLowerCase() ||
-                    s.pattern?.discipline?.toLowerCase() === disc.toLowerCase()
-                );
-                return patternMatch || (assocMatch && discMatch);
             });
         } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
             // No assignments - show empty
@@ -360,55 +336,29 @@ const JudgesPortalPage = () => {
         
         // For non-admin users, filter to only assigned project patterns
         if (!isAdminUser && assignedProjectData.length > 0) {
-            const assignedPatternIds = new Set();
-            const assignedAssociations = new Set();
-            const assignedDisciplines = new Set();
+            const assignedPatternNames = new Set();
             
             assignedProjectData.forEach(project => {
                 const data = project.project_data;
                 
-                // Extract pattern IDs from patternSelections (correct field name)
+                // Extract patternName from patternSelections - this matches pdf_file_name in tbl_patterns
                 if (data?.patternSelections) {
                     Object.values(data.patternSelections).forEach(disciplinePatterns => {
                         if (typeof disciplinePatterns === 'object') {
                             Object.values(disciplinePatterns).forEach(patternData => {
-                                if (patternData?.patternId) {
-                                    assignedPatternIds.add(Number(patternData.patternId));
+                                if (patternData?.patternName) {
+                                    assignedPatternNames.add(patternData.patternName);
                                 }
                             });
                         }
                     });
                 }
-                
-                // Extract associations from associations object
-                if (data?.associations) {
-                    Object.keys(data.associations).forEach(assocKey => {
-                        if (data.associations[assocKey]) {
-                            assignedAssociations.add(assocKey);
-                        }
-                    });
-                }
-                
-                // Extract disciplines from disciplines array
-                if (data?.disciplines && Array.isArray(data.disciplines)) {
-                    data.disciplines.forEach(disc => {
-                        if (disc?.name) assignedDisciplines.add(disc.name);
-                    });
-                }
             });
             
-            // Filter patterns to those matching assigned projects
+            // Filter patterns to those matching patternName from assigned projects
             baseList = patterns.filter(p => {
-                const patternMatch = assignedPatternIds.has(Number(p.id));
-                // Match if association_name starts with the assigned association code
-                const assocMatch = Array.from(assignedAssociations).some(assoc => 
-                    p.association_name?.startsWith(assoc)
-                );
-                // Match discipline
-                const discMatch = Array.from(assignedDisciplines).some(disc =>
-                    p.discipline?.toLowerCase() === disc.toLowerCase()
-                );
-                return patternMatch || (assocMatch && discMatch);
+                // Match pdf_file_name against patternName from patternSelections
+                return assignedPatternNames.has(p.pdf_file_name);
             });
         } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
             // No assignments - show empty
