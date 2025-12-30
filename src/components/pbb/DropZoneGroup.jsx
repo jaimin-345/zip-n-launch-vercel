@@ -233,9 +233,19 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
     const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
     
+    // Check if this discipline is from open-show association (need this early for filter init)
+    const isOpenShowDisciplineEarly = pbbDiscipline?.selectedAssociations?.['open-show'] || 
+        pbbDiscipline?.association_id === 'open-show';
+    
     // Filter states for pattern selection
+    // For open-show disciplines, auto-set the discipline filter to the current discipline name
     const [filterAssociation, setFilterAssociation] = useState('all');
-    const [filterDiscipline, setFilterDiscipline] = useState('all');
+    const [filterDiscipline, setFilterDiscipline] = useState(() => {
+        if (isOpenShowDisciplineEarly && pbbDiscipline?.name) {
+            return pbbDiscipline.name;
+        }
+        return 'all';
+    });
     
     // State for Working Cow Horse scoresheets (AQHA only)
     const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
