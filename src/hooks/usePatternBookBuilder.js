@@ -23,6 +23,7 @@ const initialFormData = {
   venueName: '',
   venueAddress: '',
   officials: [],
+  associationJudges: {},
   staff: [],
   schedule: [],
   groupDueDates: {},
