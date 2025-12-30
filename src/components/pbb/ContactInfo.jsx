@@ -98,13 +98,18 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
   const handleSave = async () => {
     const roleName = availableRoles.find(r => r.value === selectedRole)?.label || official.role;
     
+    // Capture current values before any async operations
+    const currentName = name;
+    const currentEmail = email;
+    const currentPhone = phone;
+    
     // If user doesn't exist and email is provided, create the user
-    if (!existingUser && email && email.includes('@')) {
+    if (!existingUser && currentEmail && currentEmail.includes('@')) {
       try {
         const { data, error } = await supabase.functions.invoke('create-staff-user', {
           body: {
-            email: email,
-            name: name,
+            email: currentEmail,
+            name: currentName,
             role: roleName
           }
         });
@@ -114,7 +119,7 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
         if (data?.created) {
           toast({
             title: 'User Created',
-            description: `New user account created for ${name}. Login credentials sent to ${email}.`,
+            description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
           });
         }
       } catch (error) {
@@ -129,15 +134,17 @@ export const ContactInfo = ({ official, onUpdate, children }) => {
 
     const updatedOfficial = {
       ...official,
-      name,
-      email,
-      phone,
+      name: currentName,
+      email: currentEmail,
+      phone: currentPhone,
       roleId: selectedRole,
       role: roleName,
       existingUserId: existingUser?.id,
     };
-    onUpdate(updatedOfficial);
+    
+    // Close dialog first, then update to avoid state sync issues
     setIsOpen(false);
+    onUpdate(updatedOfficial);
   };
 
   React.useEffect(() => {
