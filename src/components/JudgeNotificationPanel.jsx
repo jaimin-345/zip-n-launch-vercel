@@ -7,14 +7,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const JudgeNotificationPanel = ({ userEmail }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
+
+    // Handle notification click - navigate to PBB in judge view mode
+    const handleNotificationClick = async (notification) => {
+        // Mark as read if not already
+        if (!notification.is_read) {
+            await markAsRead(notification.id);
+        }
+        
+        // Close the panel and navigate to PBB with judgeView mode
+        setIsOpen(false);
+        navigate(`/pattern-book-builder/${notification.project_id}?mode=judgeView`);
+    };
 
     // Fetch notifications
     useEffect(() => {
@@ -217,7 +231,7 @@ const JudgeNotificationPanel = ({ userEmail }) => {
                                                 className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
                                                     !notification.is_read ? 'bg-primary/5' : ''
                                                 }`}
-                                                onClick={() => !notification.is_read && markAsRead(notification.id)}
+                                                onClick={() => handleNotificationClick(notification)}
                                             >
                                                 <div className="flex gap-3">
                                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
