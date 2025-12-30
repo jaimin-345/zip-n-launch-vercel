@@ -215,7 +215,6 @@ const JudgesPortalPage = () => {
                 const { data, error } = await supabase
                     .from('tbl_patterns')
                     .select('id, pdf_file_name, association_name, discipline, pattern_version')
-                    .eq('review_status', 'approved')
                     .order('pdf_file_name');
                 
                 if (error) throw error;
@@ -285,7 +284,7 @@ const JudgesPortalPage = () => {
         fetchPatternImage();
     }, [selectedPattern]);
     
-    // Fetch judge favorites
+    // Fetch judge favorites - table may not exist yet
     useEffect(() => {
         const fetchFavorites = async () => {
             if (!user) return;
@@ -298,10 +297,16 @@ const JudgesPortalPage = () => {
                     .eq('judge_id', user.id)
                     .order('created_at', { ascending: false });
                 
+                // If table doesn't exist, just set empty array
+                if (error && error.code === 'PGRST205') {
+                    setFavoritePatterns([]);
+                    return;
+                }
                 if (error) throw error;
                 setFavoritePatterns(data || []);
             } catch (error) {
                 console.error('Error fetching favorites:', error);
+                setFavoritePatterns([]);
             } finally {
                 setIsLoadingFavorites(false);
             }
