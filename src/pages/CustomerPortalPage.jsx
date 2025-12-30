@@ -898,6 +898,15 @@ const CustomerPortalPage = () => {
                         <div>
                             {renderProjectList(
                                 patternBookProjects,
+                                "Pattern Books",
+                                "Build and manage your horse show pattern books.",
+                                "/pattern-book-builder",
+                                "New Pattern Book",
+                                "patternBooks",
+                                "default"
+                            )}
+                            {renderProjectList(
+                                patternBookProjects,
                                 "Pattern Portal",
                                 "Organize and store your pattern collections.",
                                 "",
@@ -905,15 +914,6 @@ const CustomerPortalPage = () => {
                                 "patternFolders",
                                 "folder",
                                 true
-                            )}
-                            {renderProjectList(
-                                patternBookProjects,
-                                "Pattern Books",
-                                "Build and manage your horse show pattern books.",
-                                "/pattern-book-builder",
-                                "New Pattern Book",
-                                "patternBooks",
-                                "default"
                             )}
                             {renderProjectList(
                                 showManagerProjects,

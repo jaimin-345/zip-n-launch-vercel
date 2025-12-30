@@ -954,32 +954,13 @@ const JudgesPortalPage = () => {
                             </CardContent>
                         </Card>
 
-                        {/* Non-admin user notice */}
-                        {!isAdminUser && (
-                            <Card className="mb-4 border-primary/30 bg-primary/5">
-                                <CardContent className="py-4">
-                                    <div className="flex items-center gap-3">
-                                        <Bell className="h-5 w-5 text-primary" />
-                                        <div>
-                                            <p className="font-medium text-sm">Assigned Content View</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                You're viewing scoresheets and patterns from your assigned shows. 
-                                                {assignedProjects.length > 0 
-                                                    ? ` (${assignedProjects.length} assignment${assignedProjects.length > 1 ? 's' : ''})` 
-                                                    : ' Check notifications for new assignments.'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
 
                         {/* Notifications/Assignments Table */}
                         <Card className="mb-6">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <Bell className="h-5 w-5" />
-                                    My Assignments
+                                    My Assigned Shows
                                 </CardTitle>
                                 <CardDescription>
                                     View your assigned shows and patterns
@@ -1076,6 +1057,26 @@ const JudgesPortalPage = () => {
                                 )}
                             </CardContent>
                         </Card>
+
+                         {/* Non-admin user notice */}
+                         {!isAdminUser && (
+                            <Card className="mb-4 border-primary/30 bg-primary/5">
+                                <CardContent className="py-4">
+                                    <div className="flex items-center gap-3">
+                                        <Bell className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="font-medium text-sm">Assigned Content View</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                You're viewing scoresheets and patterns from your assigned shows. 
+                                                {assignedProjects.length > 0 
+                                                    ? ` (${assignedProjects.length} assignment${assignedProjects.length > 1 ? 's' : ''})` 
+                                                    : ' Check notifications for new assignments.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
@@ -1406,7 +1407,7 @@ const JudgesPortalPage = () => {
                                             <div>
                                                 <CardTitle>Judge Favorite Patterns</CardTitle>
                                                 <CardDescription>
-                                                    Define your top 3 preferred patterns per context (Association + Discipline + Class)
+                                                    Define your top 3 preferred patterns per context (Association + Discipline)
                                                 </CardDescription>
                                             </div>
                                             <Button onClick={handleAddFavorite}>
