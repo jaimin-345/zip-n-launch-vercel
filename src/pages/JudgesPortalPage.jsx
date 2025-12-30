@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
     Gavel, FileText, Search, Star, BookOpen, Download, Eye, 
     ZoomIn, Heart, X, Plus, Trash2, Edit, Save, Loader2,
-    ExternalLink, Filter, Clock, Package, StickyNote, Bell
+    ExternalLink, Filter, Clock, Package, StickyNote, Bell, Calendar
 } from 'lucide-react';
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import { useToast } from '@/components/ui/use-toast';
@@ -22,6 +24,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { fetchAssociations } from '@/lib/associationsData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { format } from 'date-fns';
 
 // Admin email that has full access
 const ADMIN_EMAIL = 'johndoe@mailinator.com';
@@ -29,6 +32,7 @@ const ADMIN_EMAIL = 'johndoe@mailinator.com';
 const JudgesPortalPage = () => {
     const { user, updateUserProfile } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
     
     // Check if current user is admin (has full access)
     const isAdminUser = user?.email === ADMIN_EMAIL;
@@ -93,6 +97,10 @@ const JudgesPortalPage = () => {
     const [recentScoresheets, setRecentScoresheets] = useState([]);
     const [recentPatterns, setRecentPatterns] = useState([]);
     
+    // Notifications Table State
+    const [notificationsTableData, setNotificationsTableData] = useState([]);
+    const [isLoadingNotificationsTable, setIsLoadingNotificationsTable] = useState(false);
+    
     // Fetch assigned projects for non-admin judges
     useEffect(() => {
         const fetchAssignedProjects = async () => {
@@ -130,6 +138,93 @@ const JudgesPortalPage = () => {
         
         fetchAssignedProjects();
     }, [user?.email, isAdminUser]);
+    
+    // Fetch notifications table data with project details
+    useEffect(() => {
+        const fetchNotificationsTableData = async () => {
+            if (!user?.email) return;
+            
+            setIsLoadingNotificationsTable(true);
+            try {
+                // Get notifications for this user
+                const { data: notifications, error: notifError } = await supabase
+                    .from('judge_notifications')
+                    .select('*')
+                    .eq('judge_email', user.email.toLowerCase())
+                    .order('created_at', { ascending: false });
+                
+                if (notifError) {
+                    if (notifError.code === 'PGRST205' || notifError.code === '42P01') {
+                        setNotificationsTableData([]);
+                        return;
+                    }
+                    throw notifError;
+                }
+                
+                if (!notifications || notifications.length === 0) {
+                    setNotificationsTableData([]);
+                    return;
+                }
+                
+                // Get unique project IDs
+                const projectIds = [...new Set(notifications.map(n => n.project_id))];
+                
+                // Fetch project data for dates
+                const { data: projects, error: projError } = await supabase
+                    .from('projects')
+                    .select('id, project_name, project_data')
+                    .in('id', projectIds);
+                
+                if (projError) throw projError;
+                
+                // Create a map of project data
+                const projectMap = {};
+                (projects || []).forEach(p => {
+                    projectMap[p.id] = p;
+                });
+                
+                // Combine notifications with project data and extract pattern names
+                const tableData = notifications.map(n => {
+                    const project = projectMap[n.project_id] || {};
+                    const projectData = project.project_data || {};
+                    
+                    // Extract pattern names from patternSelections
+                    const patternNames = [];
+                    if (projectData.patternSelections) {
+                        Object.values(projectData.patternSelections).forEach(disciplinePatterns => {
+                            if (typeof disciplinePatterns === 'object') {
+                                Object.values(disciplinePatterns).forEach(patternData => {
+                                    if (patternData?.patternName) {
+                                        patternNames.push(patternData.patternName);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    
+                    return {
+                        id: n.id,
+                        project_id: n.project_id,
+                        project_name: n.project_name || project.project_name || 'Unknown Show',
+                        pattern_names: patternNames,
+                        start_date: projectData.showStartDate || null,
+                        end_date: projectData.showEndDate || null,
+                        created_at: n.created_at,
+                        is_read: n.is_read
+                    };
+                });
+                
+                setNotificationsTableData(tableData);
+            } catch (error) {
+                console.error('Error fetching notifications table data:', error);
+                setNotificationsTableData([]);
+            } finally {
+                setIsLoadingNotificationsTable(false);
+            }
+        };
+        
+        fetchNotificationsTableData();
+    }, [user?.email]);
     
     // Load user profile data
     useEffect(() => {
@@ -879,7 +974,109 @@ const JudgesPortalPage = () => {
                             </Card>
                         )}
 
-                        {/* Main Toolbox Tabs */}
+                        {/* Notifications/Assignments Table */}
+                        <Card className="mb-6">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Bell className="h-5 w-5" />
+                                    My Assignments
+                                </CardTitle>
+                                <CardDescription>
+                                    View your assigned shows and patterns
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                {isLoadingNotificationsTable ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        <span className="ml-2 text-muted-foreground">Loading assignments...</span>
+                                    </div>
+                                ) : notificationsTableData.length === 0 ? (
+                                    <div className="text-center py-8 text-muted-foreground">
+                                        <Bell className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                                        <p>No assignments yet.</p>
+                                        <p className="text-sm">You'll see your assigned shows here when you receive notifications.</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Show Name</TableHead>
+                                                    <TableHead>Pattern(s)</TableHead>
+                                                    <TableHead>Start Date</TableHead>
+                                                    <TableHead>End Date</TableHead>
+                                                    <TableHead className="text-right">Action</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {notificationsTableData.map((notification) => (
+                                                    <TableRow key={notification.id}>
+                                                        <TableCell className="font-medium">
+                                                            <div className="flex items-center gap-2">
+                                                                {!notification.is_read && (
+                                                                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                                                                )}
+                                                                {notification.project_name}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {notification.pattern_names.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                    {notification.pattern_names.slice(0, 3).map((name, idx) => (
+                                                                        <Badge key={idx} variant="secondary" className="text-xs truncate max-w-[120px]">
+                                                                            {name}
+                                                                        </Badge>
+                                                                    ))}
+                                                                    {notification.pattern_names.length > 3 && (
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            +{notification.pattern_names.length - 3} more
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-sm">—</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {notification.start_date ? (
+                                                                <div className="flex items-center gap-1 text-sm">
+                                                                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                    {format(new Date(notification.start_date), 'MMM d, yyyy')}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-sm">—</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {notification.end_date ? (
+                                                                <div className="flex items-center gap-1 text-sm">
+                                                                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                    {format(new Date(notification.end_date), 'MMM d, yyyy')}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-sm">—</span>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => navigate(`/pattern-book-builder/${notification.project_id}?mode=judgeView`)}
+                                                            >
+                                                                <Eye className="mr-2 h-4 w-4" />
+                                                                View
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="scoresheets">
