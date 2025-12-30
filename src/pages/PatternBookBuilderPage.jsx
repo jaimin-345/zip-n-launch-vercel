@@ -84,6 +84,8 @@ const PatternBookBuilderPage = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const isPreviewMode = searchParams.get('mode') === 'preview';
+    const isJudgeViewMode = searchParams.get('mode') === 'judgeView';
+    const isReadOnly = isPreviewMode || isJudgeViewMode;
     const {
         step: currentStep,
         setCurrentStep,
@@ -115,6 +117,7 @@ const PatternBookBuilderPage = () => {
         trackBehaviorEvent('pbb_session_start', {
             projectId: projectId || 'new',
             isPreviewMode,
+            isJudgeViewMode,
         });
 
         // Track time spent when leaving PBB
@@ -129,7 +132,7 @@ const PatternBookBuilderPage = () => {
                 });
             }
         };
-    }, [projectId, isPreviewMode]);
+    }, [projectId, isPreviewMode, isJudgeViewMode]);
 
     // Track step changes
     useEffect(() => {
@@ -247,8 +250,8 @@ const PatternBookBuilderPage = () => {
         const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
         switch (currentStep) {
-            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isPreviewMode} />;
-            case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} isReadOnly={isPreviewMode} />;
+            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isReadOnly} />;
+            case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} isReadOnly={isReadOnly} />;
             case 3: return (
                 <>
                     <CardHeader className="pb-3">
@@ -262,16 +265,16 @@ const PatternBookBuilderPage = () => {
                             isOpenShowMode={isOpenShowMode}
                             associationsData={associationsData}
                             divisionsData={divisionsData}
-                            isReadOnly={isPreviewMode}
+                            isReadOnly={isReadOnly}
                         />
                     </CardContent>
                 </>
             );
-            case 4: return <Step3_Details formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
-            case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} isReadOnly={isPreviewMode} />;
-            case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
-            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} onGoToStep={setCurrentStep} />;
-            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isPreviewMode} />;
+            case 4: return <Step3_Details formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
+            case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} isReadOnly={isReadOnly} />;
+            case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
+            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} onGoToStep={isJudgeViewMode ? undefined : setCurrentStep} />;
+            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
             default: return null;
         }
     };
@@ -291,7 +294,7 @@ const PatternBookBuilderPage = () => {
                         <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate a compliant, auto-filled pattern book for your show in minutes.</p>
                     </motion.div>
                     <div className="max-w-7xl mx-auto">
-                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={setCurrentStep} />
+                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={isJudgeViewMode ? undefined : setCurrentStep} disabled={isJudgeViewMode} />
                         <Card className="glass-effect">
                             <AnimatePresence mode="wait">
                                 {currentStep !== 3 ? (
@@ -303,14 +306,14 @@ const PatternBookBuilderPage = () => {
                                 )}
                             </AnimatePresence>
                             <CardFooter className="p-4 flex justify-between items-center border-t border-border">
-                                {isPreviewMode ? (
+                            {isReadOnly ? (
                                     <>
-                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1 || isJudgeViewMode}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="px-3 py-1">
-                                                <Eye className="mr-2 h-4 w-4" /> Preview Mode (Read Only)
+                                                <Eye className="mr-2 h-4 w-4" /> {isJudgeViewMode ? 'Judge View (Read Only)' : 'Preview Mode (Read Only)'}
                                             </Badge>
-                                            {currentStep < steps.length && (
+                                            {currentStep < steps.length && !isJudgeViewMode && (
                                                 <Button onClick={handleNext}>
                                                     Next <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Button>

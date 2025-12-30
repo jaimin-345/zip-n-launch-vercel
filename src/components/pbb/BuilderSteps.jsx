@@ -2,7 +2,7 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {} }) => {
+export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, disabled = false }) => {
     const getNextStepId = () => {
         for (let i = 1; i <= steps.length; i++) {
             if (!completedSteps.has(i)) {
@@ -14,7 +14,7 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
     const nextStepId = getNextStepId();
 
     const handleStepClick = (stepId) => {
-        if (setCurrentStep) {
+        if (!disabled && setCurrentStep) {
             setCurrentStep(stepId);
         }
     };
@@ -27,7 +27,13 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                 const isNext = step.id === nextStepId && !isActive;
                 return (
                     <React.Fragment key={step.id}>
-                        <div className="flex flex-col items-center text-center flex-1 cursor-pointer" onClick={() => handleStepClick(step.id)}>
+                        <div 
+                            className={cn(
+                                "flex flex-col items-center text-center flex-1",
+                                disabled ? "cursor-default opacity-80" : "cursor-pointer"
+                            )} 
+                            onClick={() => handleStepClick(step.id)}
+                        >
                             <div className={cn(
                                 'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                                 isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
