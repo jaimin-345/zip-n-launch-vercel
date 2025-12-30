@@ -367,20 +367,59 @@ const JudgesPortalPage = () => {
         }
     };
     
-    const handleDownloadScoresheet = (scoresheet) => {
-        if (scoresheet.storage_path || scoresheet.image_url) {
-            const url = scoresheet.storage_path || scoresheet.image_url;
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = scoresheet.file_name || 'scoresheet.pdf';
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
+    const handleDownloadScoresheet = async (scoresheet) => {
+        // Use image_url as the primary source (full public URL)
+        const url = scoresheet.image_url;
+        
+        if (!url) {
             toast({
                 title: 'Download Unavailable',
                 description: 'This scoresheet does not have a downloadable file.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        
+        try {
+            // Fetch the file and create a blob for proper download
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Failed to fetch file');
+            
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            
+            // Determine filename from storage_path or URL
+            let fileName = 'scoresheet.png';
+            if (scoresheet.storage_path) {
+                fileName = scoresheet.storage_path.split('/').pop() || fileName;
+            } else if (scoresheet.file_name) {
+                fileName = scoresheet.file_name;
+            } else {
+                // Extract from URL
+                const urlParts = url.split('/');
+                fileName = urlParts[urlParts.length - 1] || fileName;
+            }
+            
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up blob URL
+            window.URL.revokeObjectURL(blobUrl);
+            
+            toast({
+                title: 'Download Started',
+                description: `Downloading ${fileName}`,
+            });
+        } catch (error) {
+            console.error('Download error:', error);
+            toast({
+                title: 'Download Failed',
+                description: 'Could not download the scoresheet. Please try again.',
+                variant: 'destructive',
             });
         }
     };
