@@ -497,26 +497,49 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                         }
                     });
                 } else {
-                    // Single association: Group all divisions together
+                    // Single association: Group divisions with additional Level 1 separation
+                    // Helper to check if division is Level 1
+                    const isLevel1Division = (divisionName) => {
+                        const name = divisionName?.toLowerCase() || '';
+                        return name.includes('level 1') || name.includes('level1') || name.includes('l1');
+                    };
+
                     const wtDivisions = isWtAffected 
                         ? ungroupedDivisions.filter(d => isWalkTrotDivision(d.division)) 
                         : [];
+                    
+                    // Separate Level 1 divisions from non-Level 1 (excluding WT)
                     const nonWtDivisions = isWtAffected 
                         ? ungroupedDivisions.filter(d => !isWalkTrotDivision(d.division)) 
                         : [...ungroupedDivisions];
+                    
+                    const level1Divisions = nonWtDivisions.filter(d => isLevel1Division(d.division));
+                    const regularDivisions = nonWtDivisions.filter(d => !isLevel1Division(d.division));
 
-                    if (nonWtDivisions.length > 0) {
+                    // Group 1: Regular (non-Level 1, non-WT) divisions
+                    if (regularDivisions.length > 0) {
                         newPatternGroups.push({
                             id: `pattern-group-${Date.now()}`,
                             name: `Group ${nextPatternNum++}`,
-                            divisions: nonWtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                            divisions: regularDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
                             rulebookPatternId: '',
                         });
                     }
 
-                    if (wtDivisions.length > 0) {
+                    // Group 2: Level 1 divisions
+                    if (level1Divisions.length > 0) {
                         newPatternGroups.push({
                             id: `pattern-group-${Date.now() + 1}`,
+                            name: `Group ${nextPatternNum++}`,
+                            divisions: level1Divisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                            rulebookPatternId: '',
+                        });
+                    }
+
+                    // Group 3: Walk-Trot divisions
+                    if (wtDivisions.length > 0) {
+                        newPatternGroups.push({
+                            id: `pattern-group-${Date.now() + 2}`,
                             name: `Group ${nextPatternNum++}`,
                             divisions: wtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
                             rulebookPatternId: '',
