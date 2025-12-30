@@ -273,7 +273,7 @@ const PatternBookBuilderPage = () => {
             case 4: return <Step3_Details formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
             case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} isReadOnly={isReadOnly} />;
             case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
-            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} onGoToStep={isJudgeViewMode ? undefined : setCurrentStep} />;
+            case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} onGoToStep={setCurrentStep} />;
             case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
             default: return null;
         }
@@ -294,7 +294,7 @@ const PatternBookBuilderPage = () => {
                         <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate a compliant, auto-filled pattern book for your show in minutes.</p>
                     </motion.div>
                     <div className="max-w-7xl mx-auto">
-                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={isJudgeViewMode ? undefined : setCurrentStep} disabled={isJudgeViewMode} />
+                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={setCurrentStep} />
                         <Card className="glass-effect">
                             <AnimatePresence mode="wait">
                                 {currentStep !== 3 ? (
@@ -308,12 +308,12 @@ const PatternBookBuilderPage = () => {
                             <CardFooter className="p-4 flex justify-between items-center border-t border-border">
                             {isReadOnly ? (
                                     <>
-                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1 || isJudgeViewMode}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
+                                        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="px-3 py-1">
                                                 <Eye className="mr-2 h-4 w-4" /> {isJudgeViewMode ? 'Judge View (Read Only)' : 'Preview Mode (Read Only)'}
                                             </Badge>
-                                            {currentStep < steps.length && !isJudgeViewMode && (
+                                            {currentStep < steps.length && (
                                                 <Button onClick={handleNext}>
                                                     Next <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Button>
