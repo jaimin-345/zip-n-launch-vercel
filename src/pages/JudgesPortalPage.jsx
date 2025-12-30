@@ -23,9 +23,15 @@ import { fetchAssociations } from '@/lib/associationsData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
+// Admin email that has full access
+const ADMIN_EMAIL = 'johndoe@mailinator.com';
+
 const JudgesPortalPage = () => {
     const { user, updateUserProfile } = useAuth();
     const { toast } = useToast();
+    
+    // Check if current user is admin (has full access)
+    const isAdminUser = user?.email === ADMIN_EMAIL;
     
     // Judge Profile State
     const [isCardedJudge, setIsCardedJudge] = useState(false);
@@ -36,6 +42,11 @@ const JudgesPortalPage = () => {
     
     // Tab State
     const [activeTab, setActiveTab] = useState('scoresheets');
+    
+    // Assigned Projects State (for non-admin judges)
+    const [assignedProjects, setAssignedProjects] = useState([]);
+    const [assignedProjectData, setAssignedProjectData] = useState([]);
+    const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
     
     // Quick Score Sheet Finder State
     const [scoresheetFilters, setScoresheetFilters] = useState({
@@ -81,6 +92,44 @@ const JudgesPortalPage = () => {
     // Quick Links State
     const [recentScoresheets, setRecentScoresheets] = useState([]);
     const [recentPatterns, setRecentPatterns] = useState([]);
+    
+    // Fetch assigned projects for non-admin judges
+    useEffect(() => {
+        const fetchAssignedProjects = async () => {
+            if (!user?.email || isAdminUser) return;
+            
+            setIsLoadingAssignments(true);
+            try {
+                // Get notifications for this judge
+                const { data: notifications, error: notifError } = await supabase
+                    .from('judge_notifications')
+                    .select('project_id, project_name')
+                    .eq('judge_email', user.email);
+                
+                if (notifError) throw notifError;
+                
+                const projectIds = [...new Set(notifications?.map(n => n.project_id) || [])];
+                setAssignedProjects(projectIds);
+                
+                // Fetch project data to get patterns/scoresheets
+                if (projectIds.length > 0) {
+                    const { data: projects, error: projError } = await supabase
+                        .from('projects')
+                        .select('id, project_name, project_data')
+                        .in('id', projectIds);
+                    
+                    if (projError) throw projError;
+                    setAssignedProjectData(projects || []);
+                }
+            } catch (error) {
+                console.error('Error fetching assigned projects:', error);
+            } finally {
+                setIsLoadingAssignments(false);
+            }
+        };
+        
+        fetchAssignedProjects();
+    }, [user?.email, isAdminUser]);
     
     // Load user profile data
     useEffect(() => {
@@ -182,14 +231,51 @@ const JudgesPortalPage = () => {
         }
     }, [activeTab, toast]);
     
-    // Filter scoresheets
+    // Filter scoresheets based on user type
     useEffect(() => {
         if (scoresheets.length === 0) {
             setFilteredScoresheets([]);
             return;
         }
         
-        const filtered = scoresheets.filter(s => {
+        let baseList = scoresheets;
+        
+        // For non-admin users, filter to only assigned project scoresheets
+        if (!isAdminUser && assignedProjectData.length > 0) {
+            // Extract pattern IDs from assigned projects
+            const assignedPatternIds = new Set();
+            const assignedAssociations = new Set();
+            const assignedDisciplines = new Set();
+            
+            assignedProjectData.forEach(project => {
+                const data = project.project_data;
+                if (data?.patternAssignments) {
+                    Object.values(data.patternAssignments).forEach(assignment => {
+                        if (assignment?.patternId) assignedPatternIds.add(assignment.patternId);
+                    });
+                }
+                if (data?.selectedAssociations) {
+                    data.selectedAssociations.forEach(a => assignedAssociations.add(a));
+                }
+                if (data?.selectedDisciplines) {
+                    Object.keys(data.selectedDisciplines).forEach(d => assignedDisciplines.add(d));
+                }
+            });
+            
+            // Filter scoresheets to those matching assigned patterns/associations
+            baseList = scoresheets.filter(s => {
+                const patternMatch = s.pattern_id && assignedPatternIds.has(s.pattern_id);
+                const assocMatch = assignedAssociations.has(s.association_abbrev) || 
+                    assignedAssociations.has(s.pattern?.association_name);
+                return patternMatch || assocMatch;
+            });
+        } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
+            // No assignments - show empty
+            setFilteredScoresheets([]);
+            return;
+        }
+        
+        const filtered = baseList.filter(s => {
             const assoc = s.association_abbrev || s.pattern?.association_name;
             const disc = s.discipline || s.pattern?.discipline;
             const hasPattern = !!s.pattern_id;
@@ -206,7 +292,7 @@ const JudgesPortalPage = () => {
         });
         
         setFilteredScoresheets(filtered);
-    }, [scoresheets, scoresheetFilters]);
+    }, [scoresheets, scoresheetFilters, isAdminUser, assignedProjectData, assignedProjects, isLoadingAssignments]);
     
     // Fetch patterns
     useEffect(() => {
@@ -237,14 +323,50 @@ const JudgesPortalPage = () => {
         }
     }, [activeTab, toast]);
     
-    // Filter patterns
+    // Filter patterns based on user type
     useEffect(() => {
         if (patterns.length === 0) {
             setFilteredPatterns([]);
             return;
         }
         
-        const filtered = patterns.filter(p => {
+        let baseList = patterns;
+        
+        // For non-admin users, filter to only assigned project patterns
+        if (!isAdminUser && assignedProjectData.length > 0) {
+            const assignedPatternIds = new Set();
+            const assignedAssociations = new Set();
+            const assignedDisciplines = new Set();
+            
+            assignedProjectData.forEach(project => {
+                const data = project.project_data;
+                if (data?.patternAssignments) {
+                    Object.values(data.patternAssignments).forEach(assignment => {
+                        if (assignment?.patternId) assignedPatternIds.add(assignment.patternId);
+                    });
+                }
+                if (data?.selectedAssociations) {
+                    data.selectedAssociations.forEach(a => assignedAssociations.add(a));
+                }
+                if (data?.selectedDisciplines) {
+                    Object.keys(data.selectedDisciplines).forEach(d => assignedDisciplines.add(d));
+                }
+            });
+            
+            // Filter patterns to those matching assigned projects
+            baseList = patterns.filter(p => {
+                const patternMatch = assignedPatternIds.has(p.id);
+                const assocMatch = assignedAssociations.has(p.association_name);
+                const discMatch = assignedDisciplines.has(p.discipline);
+                return patternMatch || (assocMatch && discMatch);
+            });
+        } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
+            // No assignments - show empty
+            setFilteredPatterns([]);
+            return;
+        }
+        
+        const filtered = baseList.filter(p => {
             const matchAssoc = patternFilters.association === 'all' || 
                 p.association_name === patternFilters.association;
             const matchDisc = patternFilters.discipline === 'all' || 
@@ -257,7 +379,7 @@ const JudgesPortalPage = () => {
         });
         
         setFilteredPatterns(filtered);
-    }, [patterns, patternFilters]);
+    }, [patterns, patternFilters, isAdminUser, assignedProjectData, assignedProjects, isLoadingAssignments]);
     
     // Fetch pattern image
     useEffect(() => {
@@ -740,16 +862,36 @@ const JudgesPortalPage = () => {
                             </CardContent>
                         </Card>
 
+                        {/* Non-admin user notice */}
+                        {!isAdminUser && (
+                            <Card className="mb-4 border-primary/30 bg-primary/5">
+                                <CardContent className="py-4">
+                                    <div className="flex items-center gap-3">
+                                        <Bell className="h-5 w-5 text-primary" />
+                                        <div>
+                                            <p className="font-medium text-sm">Assigned Content View</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                You're viewing scoresheets and patterns from your assigned shows. 
+                                                {assignedProjects.length > 0 
+                                                    ? ` (${assignedProjects.length} assignment${assignedProjects.length > 1 ? 's' : ''})` 
+                                                    : ' Check notifications for new assignments.'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {/* Main Toolbox Tabs */}
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="scoresheets">
                                     <FileText className="mr-2 h-4 w-4" />
-                                    Quick Score Sheet Finder
+                                    {isAdminUser ? 'Quick Score Sheet Finder' : 'Assigned Score Sheets'}
                                 </TabsTrigger>
                                 <TabsTrigger value="patterns">
                                     <BookOpen className="mr-2 h-4 w-4" />
-                                    Pattern Finder
+                                    {isAdminUser ? 'Pattern Finder' : 'Assigned Patterns'}
                                 </TabsTrigger>
                                 <TabsTrigger value="favorites">
                                     <Star className="mr-2 h-4 w-4" />
@@ -761,12 +903,23 @@ const JudgesPortalPage = () => {
                             <TabsContent value="scoresheets" className="space-y-4">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Quick Score Sheet Finder</CardTitle>
+                                        <CardTitle>{isAdminUser ? 'Quick Score Sheet Finder' : 'Assigned Score Sheets'}</CardTitle>
                                         <CardDescription>
-                                            Find the correct score sheet instantly with filters
+                                            {isAdminUser 
+                                                ? 'Find the correct score sheet instantly with filters'
+                                                : 'Score sheets from your assigned shows'
+                                            }
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
+                                        {/* Loading state for assignments */}
+                                        {!isAdminUser && isLoadingAssignments ? (
+                                            <div className="flex items-center justify-center py-12">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                <span className="ml-2 text-muted-foreground">Loading assignments...</span>
+                                            </div>
+                                        ) : (
+                                            <>
                                         {/* Filters */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div className="space-y-2">
@@ -899,6 +1052,8 @@ const JudgesPortalPage = () => {
                                                 ))}
                                             </div>
                                         )}
+                                            </>
+                                        )}
                                     </CardContent>
                                 </Card>
                             </TabsContent>
@@ -907,12 +1062,23 @@ const JudgesPortalPage = () => {
                             <TabsContent value="patterns" className="space-y-4">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Association Rulebook Pattern Finder</CardTitle>
+                                        <CardTitle>{isAdminUser ? 'Association Rulebook Pattern Finder' : 'Assigned Patterns'}</CardTitle>
                                         <CardDescription>
-                                            Quickly locate official rulebook patterns by association
+                                            {isAdminUser 
+                                                ? 'Quickly locate official rulebook patterns by association'
+                                                : 'Patterns from your assigned shows'
+                                            }
                                         </CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
+                                        {/* Loading state for assignments */}
+                                        {!isAdminUser && isLoadingAssignments ? (
+                                            <div className="flex items-center justify-center py-12">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                <span className="ml-2 text-muted-foreground">Loading assignments...</span>
+                                            </div>
+                                        ) : (
+                                            <>
                                         {/* Filters */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div className="space-y-2">
@@ -1031,6 +1197,8 @@ const JudgesPortalPage = () => {
                                                     );
                                                 })}
                                             </div>
+                                        )}
+                                            </>
                                         )}
                                     </CardContent>
                                 </Card>
