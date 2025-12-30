@@ -207,8 +207,8 @@ const JudgesPortalPage = () => {
                         project_id: n.project_id,
                         project_name: n.project_name || project.project_name || 'Unknown Show',
                         pattern_names: patternNames,
-                        start_date: projectData.showStartDate || null,
-                        end_date: projectData.showEndDate || null,
+                        start_date: projectData.startDate || null,
+                        end_date: projectData.endDate || null,
                         created_at: n.created_at,
                         is_read: n.is_read
                     };
