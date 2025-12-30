@@ -131,6 +131,9 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
         email,
       });
 
+      // Send notifications to assigned judges immediately after download
+      await sendJudgeNotifications();
+
       toast({
         title: 'Sending Email...',
         description: 'Attaching the PDF and sending it to your inbox.',
@@ -156,9 +159,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
         }
         throw new Error(errorMsg);
       }
-
-      // Send notifications to assigned judges AFTER successful publish
-      await sendJudgeNotifications();
 
       // Track email sent event
       trackBehaviorEvent('pattern_book_email_sent', {
