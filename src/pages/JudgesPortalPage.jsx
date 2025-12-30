@@ -249,25 +249,51 @@ const JudgesPortalPage = () => {
             
             assignedProjectData.forEach(project => {
                 const data = project.project_data;
-                if (data?.patternAssignments) {
-                    Object.values(data.patternAssignments).forEach(assignment => {
-                        if (assignment?.patternId) assignedPatternIds.add(assignment.patternId);
+                
+                // Extract pattern IDs from patternSelections (correct field name)
+                if (data?.patternSelections) {
+                    Object.values(data.patternSelections).forEach(disciplinePatterns => {
+                        if (typeof disciplinePatterns === 'object') {
+                            Object.values(disciplinePatterns).forEach(patternData => {
+                                if (patternData?.patternId) {
+                                    assignedPatternIds.add(Number(patternData.patternId));
+                                }
+                            });
+                        }
                     });
                 }
-                if (data?.selectedAssociations) {
-                    data.selectedAssociations.forEach(a => assignedAssociations.add(a));
+                
+                // Extract associations from associations object
+                if (data?.associations) {
+                    Object.keys(data.associations).forEach(assocKey => {
+                        if (data.associations[assocKey]) {
+                            assignedAssociations.add(assocKey);
+                        }
+                    });
                 }
-                if (data?.selectedDisciplines) {
-                    Object.keys(data.selectedDisciplines).forEach(d => assignedDisciplines.add(d));
+                
+                // Extract disciplines from disciplines array
+                if (data?.disciplines && Array.isArray(data.disciplines)) {
+                    data.disciplines.forEach(disc => {
+                        if (disc?.name) assignedDisciplines.add(disc.name);
+                    });
                 }
             });
             
             // Filter scoresheets to those matching assigned patterns/associations
             baseList = scoresheets.filter(s => {
-                const patternMatch = s.pattern_id && assignedPatternIds.has(s.pattern_id);
-                const assocMatch = assignedAssociations.has(s.association_abbrev) || 
-                    assignedAssociations.has(s.pattern?.association_name);
-                return patternMatch || assocMatch;
+                const patternMatch = s.pattern_id && assignedPatternIds.has(Number(s.pattern_id));
+                // Match if association_abbrev starts with the assigned association code
+                const assocMatch = Array.from(assignedAssociations).some(assoc => 
+                    s.association_abbrev?.startsWith(assoc) || 
+                    s.pattern?.association_name?.startsWith(assoc)
+                );
+                // Match discipline
+                const discMatch = Array.from(assignedDisciplines).some(disc =>
+                    s.discipline?.toLowerCase() === disc.toLowerCase() ||
+                    s.pattern?.discipline?.toLowerCase() === disc.toLowerCase()
+                );
+                return patternMatch || (assocMatch && discMatch);
             });
         } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
             // No assignments - show empty
@@ -340,24 +366,48 @@ const JudgesPortalPage = () => {
             
             assignedProjectData.forEach(project => {
                 const data = project.project_data;
-                if (data?.patternAssignments) {
-                    Object.values(data.patternAssignments).forEach(assignment => {
-                        if (assignment?.patternId) assignedPatternIds.add(assignment.patternId);
+                
+                // Extract pattern IDs from patternSelections (correct field name)
+                if (data?.patternSelections) {
+                    Object.values(data.patternSelections).forEach(disciplinePatterns => {
+                        if (typeof disciplinePatterns === 'object') {
+                            Object.values(disciplinePatterns).forEach(patternData => {
+                                if (patternData?.patternId) {
+                                    assignedPatternIds.add(Number(patternData.patternId));
+                                }
+                            });
+                        }
                     });
                 }
-                if (data?.selectedAssociations) {
-                    data.selectedAssociations.forEach(a => assignedAssociations.add(a));
+                
+                // Extract associations from associations object
+                if (data?.associations) {
+                    Object.keys(data.associations).forEach(assocKey => {
+                        if (data.associations[assocKey]) {
+                            assignedAssociations.add(assocKey);
+                        }
+                    });
                 }
-                if (data?.selectedDisciplines) {
-                    Object.keys(data.selectedDisciplines).forEach(d => assignedDisciplines.add(d));
+                
+                // Extract disciplines from disciplines array
+                if (data?.disciplines && Array.isArray(data.disciplines)) {
+                    data.disciplines.forEach(disc => {
+                        if (disc?.name) assignedDisciplines.add(disc.name);
+                    });
                 }
             });
             
             // Filter patterns to those matching assigned projects
             baseList = patterns.filter(p => {
-                const patternMatch = assignedPatternIds.has(p.id);
-                const assocMatch = assignedAssociations.has(p.association_name);
-                const discMatch = assignedDisciplines.has(p.discipline);
+                const patternMatch = assignedPatternIds.has(Number(p.id));
+                // Match if association_name starts with the assigned association code
+                const assocMatch = Array.from(assignedAssociations).some(assoc => 
+                    p.association_name?.startsWith(assoc)
+                );
+                // Match discipline
+                const discMatch = Array.from(assignedDisciplines).some(disc =>
+                    p.discipline?.toLowerCase() === disc.toLowerCase()
+                );
                 return patternMatch || (assocMatch && discMatch);
             });
         } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
