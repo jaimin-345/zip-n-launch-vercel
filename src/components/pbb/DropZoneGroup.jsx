@@ -318,23 +318,34 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         };
     }, []);
 
-    // Get association name from discipline or divisions
-    const getAssociationName = () => {
-        // Try to get from discipline's association_id first
+    // Get association name from group divisions - if all divisions in group are from ONE association, use that
+    const associationName = useMemo(() => {
+        if (!group.divisions || group.divisions.length === 0) {
+            // No divisions in group, fall back to discipline's association
+            if (pbbDiscipline?.association_id) {
+                const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
+                if (assoc) return assoc.name || assoc.abbreviation;
+            }
+            return null;
+        }
+        
+        // Get unique associations from all divisions in this group
+        const uniqueAssocIds = [...new Set(group.divisions.map(d => d.assocId).filter(Boolean))];
+        
+        // If all divisions are from ONE association, use that association for pattern filtering
+        if (uniqueAssocIds.length === 1) {
+            const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
+            if (assoc) return assoc.name || assoc.abbreviation;
+        }
+        
+        // If multiple associations in group, fall back to discipline's association
         if (pbbDiscipline?.association_id) {
             const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
             if (assoc) return assoc.name || assoc.abbreviation;
         }
-        // Fallback: get from first division's assocId
-        if (group.divisions?.length > 0) {
-            const firstDivAssocId = group.divisions[0].assocId;
-            const assoc = associationsData?.find(a => a.id === firstDivAssocId);
-            if (assoc) return assoc.name || assoc.abbreviation;
-        }
+        
         return null;
-    };
-
-    const associationName = getAssociationName();
+    }, [group.divisions, pbbDiscipline?.association_id, associationsData]);
     
     // Check if this discipline is from open-show association
     const isOpenShowDiscipline = pbbDiscipline?.selectedAssociations?.['open-show'] || 
