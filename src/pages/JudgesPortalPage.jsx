@@ -242,19 +242,19 @@ const JudgesPortalPage = () => {
         
         // For non-admin users, filter to only assigned project scoresheets
         if (!isAdminUser && assignedProjectData.length > 0) {
-            // Extract patternNames from assigned projects
-            const assignedPatternNames = new Set();
+            // Extract patternIds from assigned projects
+            const assignedPatternIds = new Set();
             
             assignedProjectData.forEach(project => {
                 const data = project.project_data;
                 
-                // Extract patternName from patternSelections - this matches file_name pattern in scoresheets
+                // Extract patternId from patternSelections
                 if (data?.patternSelections) {
                     Object.values(data.patternSelections).forEach(disciplinePatterns => {
                         if (typeof disciplinePatterns === 'object') {
                             Object.values(disciplinePatterns).forEach(patternData => {
-                                if (patternData?.patternName) {
-                                    assignedPatternNames.add(patternData.patternName);
+                                if (patternData?.patternId) {
+                                    assignedPatternIds.add(patternData.patternId);
                                 }
                             });
                         }
@@ -262,14 +262,9 @@ const JudgesPortalPage = () => {
                 }
             });
             
-            // Filter scoresheets to those matching patternName from assigned projects
-            // Scoresheet file_name format: {pattern_name}.{version}.SS.{association}.png
+            // Filter scoresheets by matching pattern_id
             baseList = scoresheets.filter(s => {
-                const fileName = s.file_name || '';
-                // Check if any assigned pattern name is in the scoresheet file name
-                return Array.from(assignedPatternNames).some(patternName => 
-                    fileName.startsWith(patternName)
-                );
+                return s.pattern_id && assignedPatternIds.has(s.pattern_id);
             });
         } else if (!isAdminUser && assignedProjects.length === 0 && !isLoadingAssignments) {
             // No assignments - show empty
@@ -278,7 +273,8 @@ const JudgesPortalPage = () => {
         }
         
         const filtered = baseList.filter(s => {
-            const assoc = s.association_abbrev || s.pattern?.association_name;
+            // Normalize association - use full name from pattern if available
+            const assoc = s.pattern?.association_name || s.association_abbrev;
             const disc = s.discipline || s.pattern?.discipline;
             const hasPattern = !!s.pattern_id;
             
@@ -440,11 +436,12 @@ const JudgesPortalPage = () => {
         }
     }, [activeTab, user]);
     
-    // Get unique associations from scoresheets
+    // Get unique associations from scoresheets - prefer full name from pattern
     const scoresheetAssociations = useMemo(() => {
         const assocs = new Set();
         scoresheets.forEach(s => {
-            const assoc = s.association_abbrev || s.pattern?.association_name;
+            // Prefer full name from pattern, fallback to association_abbrev
+            const assoc = s.pattern?.association_name || s.association_abbrev;
             if (assoc) assocs.add(assoc);
         });
         return Array.from(assocs).sort();
@@ -998,7 +995,7 @@ const JudgesPortalPage = () => {
                                                                         {scoresheet.discipline || scoresheet.pattern?.discipline || 'Scoresheet'}
                                                                     </h4>
                                                                     <p className="text-xs text-muted-foreground">
-                                                                        {scoresheet.association_abbrev || scoresheet.pattern?.association_name || 'Unknown'}
+                                                                        {scoresheet.pattern?.association_name || scoresheet.association_abbrev || 'Unknown'}
                                                                     </p>
                                                                 </div>
                                                                 <Button
