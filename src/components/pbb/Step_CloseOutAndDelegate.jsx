@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const accessPhases = [
     { id: 'draft', name: 'Draft, Build, Review' },
@@ -272,6 +273,8 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
 };
 
 export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8, isReadOnly = false }) => {
+    const { user, profile } = useAuth();
+    
     const getAssociationNames = () => {
         if (!formData.associations) return 'N/A';
         return Object.keys(formData.associations).filter(key => formData.associations[key]).join(', ') || 'None';
@@ -344,10 +347,13 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
 
     const disciplines = formData.disciplines || [];
     
-    // Default admin values
+    // Default admin values from logged-in user
+    const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || 'John Doe';
+    const loggedInUserEmail = user?.email || 'johndoe@mailinator.com';
+    
     const defaultAdminOwner = {
-        adminName: 'John Doe',
-        adminEmail: 'johndoe@mailinator.com',
+        adminName: loggedInUserName,
+        adminEmail: loggedInUserEmail,
     };
     const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
 
