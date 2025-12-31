@@ -18,7 +18,6 @@ import {
     ZoomIn, Heart, X, Plus, Trash2, Edit, Save, Loader2,
     ExternalLink, Filter, Clock, Package, StickyNote, Bell, Calendar
 } from 'lucide-react';
-import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -862,27 +861,20 @@ const JudgesPortalPage = () => {
                         transition={{ duration: 0.5 }}
                         className="max-w-7xl mx-auto space-y-6"
                     >
-                        {/* Header with Notification Bell */}
-                        <div className="relative mb-8">
-                            {/* Notification Bell - Top Right */}
-                            <div className="absolute right-0 top-0">
-                                <JudgeNotificationPanel userEmail={user?.email} />
-                            </div>
-                            
-                            <div className="text-center">
-                                <motion.div
-                                    initial={{ scale: 0.9 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ duration: 0.5, delay: 0.2 }}
-                                    className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-6"
-                                >
-                                    <Gavel className="h-10 w-10 text-primary" />
-                                </motion.div>
-                                <h1 className="text-4xl font-bold mb-4">🧰 Judge's Toolbox</h1>
-                                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                    Your dedicated portal for accessing patterns, scoresheets, and managing your judge resources.
-                                </p>
-                            </div>
+                        {/* Header */}
+                        <div className="text-center mb-8">
+                            <motion.div
+                                initial={{ scale: 0.9 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.5, delay: 0.2 }}
+                                className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-6"
+                            >
+                                <Gavel className="h-10 w-10 text-primary" />
+                            </motion.div>
+                            <h1 className="text-4xl font-bold mb-4">🧰 Judge's Toolbox</h1>
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                                Your dedicated portal for accessing patterns, scoresheets, and managing your judge resources.
+                            </p>
                         </div>
 
                         {/* Judge Profile Setup & Verification */}

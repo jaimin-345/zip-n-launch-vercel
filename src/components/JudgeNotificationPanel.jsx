@@ -18,16 +18,16 @@ const JudgeNotificationPanel = ({ userEmail }) => {
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
-    // Handle notification click - navigate to PBB in judge view mode
+    // Handle notification click - navigate to Judges Portal
     const handleNotificationClick = async (notification) => {
         // Mark as read if not already
         if (!notification.is_read) {
             await markAsRead(notification.id);
         }
         
-        // Close the panel and navigate to PBB with judgeView mode
+        // Close the panel and navigate to Judges Portal
         setIsOpen(false);
-        navigate(`/pattern-book-builder/${notification.project_id}?mode=judgeView`);
+        navigate('/judges-portal');
     };
 
     // Fetch notifications
