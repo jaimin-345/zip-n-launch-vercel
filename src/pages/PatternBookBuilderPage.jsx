@@ -154,26 +154,28 @@ const PatternBookBuilderPage = () => {
         // 'approval' = "Approval and Locked" -> Read only
         // 'publication' = "Publication" -> Read only
         const hasDraftAccess = accessPhase.includes('draft');
-        const hasApprovalOrPublication = accessPhase.includes('approval') || accessPhase.includes('publication');
         
         // If no access phases set, default to view-only for staff members
         if (accessPhase.length === 0) {
             return { canEdit: false, accessPhase: [], isStaffMember: true, staffRole };
         }
         
-        // If has draft access, can edit; otherwise read-only
-        const canEdit = hasDraftAccess && !hasApprovalOrPublication;
+        // If has draft access, user can edit - this overrides any URL mode
+        const canEdit = hasDraftAccess;
         
         return { canEdit, accessPhase, isStaffMember: true, staffRole };
     }, [user?.email, formData]);
 
-    // Combine all read-only conditions
-    const isReadOnly = isPreviewMode || isJudgeViewMode || (userAccessInfo.isStaffMember && !userAccessInfo.canEdit);
-    const readOnlyReason = isPreviewMode ? 'Preview Mode' : 
-                          isJudgeViewMode ? 'Judge View' :
-                          (userAccessInfo.isStaffMember && !userAccessInfo.canEdit) ? 
-                            (userAccessInfo.accessPhase?.includes('approval') ? 'Approval & Locked' : 
-                             userAccessInfo.accessPhase?.includes('publication') ? 'Published' : 'No Edit Access') : null;
+    // Staff member access phase takes priority over URL mode parameters
+    // If user is a staff member with 'draft' access, they can edit regardless of URL params
+    const isReadOnly = userAccessInfo.isStaffMember 
+        ? !userAccessInfo.canEdit 
+        : (isPreviewMode || isJudgeViewMode);
+    
+    const readOnlyReason = userAccessInfo.isStaffMember && !userAccessInfo.canEdit
+        ? (userAccessInfo.accessPhase?.includes('approval') ? 'Approval & Locked' : 
+           userAccessInfo.accessPhase?.includes('publication') ? 'Published' : 'No Edit Access')
+        : (isPreviewMode ? 'Preview Mode' : isJudgeViewMode ? 'Judge View' : null);
 
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
