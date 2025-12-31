@@ -195,7 +195,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                     </div>
 
                     {/* Delegate Roles - Conditional */}
-                    {accessPhase.includes('draft') && (
+                    {/* {accessPhase.includes('draft') && (
                         <div className="space-y-4 p-4 border rounded-md bg-background">
                             <h4 className="font-semibold">Delegate Roles</h4>
                             {delegatedRoles.map(role => {
@@ -217,7 +217,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
 
                                         {isSelected && roleData && (
                                             <div className="pl-6 space-y-3">
-                                                {/* Discipline Selector */}
                                                 <Popover open={openPopover === role.id} onOpenChange={(isOpen) => setOpenPopover(isOpen ? role.id : null)}>
                                                     <PopoverTrigger asChild>
                                                         <Button variant="outline" className="w-full justify-start">
@@ -249,7 +248,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                                                     </PopoverContent>
                                                 </Popover>
 
-                                                {/* Deadline Picker */}
                                                 <Popover>
                                                     <PopoverTrigger asChild>
                                                         <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !roleData.deadline && "text-muted-foreground")}>
@@ -265,7 +263,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                                 );
                             })}
                         </div>
-                    )}
+                    )} */}
                 </div>
             )}
         </div>
