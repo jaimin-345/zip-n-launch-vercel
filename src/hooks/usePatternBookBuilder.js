@@ -172,20 +172,19 @@ export const usePatternBookBuilder = (projectId) => {
       completedSteps: Array.from(completedSteps),
     };
 
-    const projectPayload = {
-      project_name: formData.showName || 'Untitled Pattern Book',
-      project_type: 'pattern_book',
-      project_data: projectToSave,
-      status: 'draft',
-      user_id: user.id,
-    };
-
     let currentProjectId = sanitizedProjectId || formData.id;
 
     if (currentProjectId) {
+      // When updating existing project, only update project_data and project_name
+      // Do NOT change user_id - preserve original owner so both owner and staff can edit
+      const updatePayload = {
+        project_name: formData.showName || 'Untitled Pattern Book',
+        project_data: projectToSave,
+      };
+
       const { error } = await supabase
         .from('projects')
-        .update(projectPayload)
+        .update(updatePayload)
         .eq('id', currentProjectId);
 
       if (error) {
@@ -195,6 +194,15 @@ export const usePatternBookBuilder = (projectId) => {
       toast({ title: 'Project Saved!', description: 'Your progress has been successfully saved.' });
       return currentProjectId;
     } else {
+      // Only set user_id when creating a new project
+      const projectPayload = {
+        project_name: formData.showName || 'Untitled Pattern Book',
+        project_type: 'pattern_book',
+        project_data: projectToSave,
+        status: 'draft',
+        user_id: user.id,
+      };
+
       const newId = uuidv4();
       const { data, error } = await supabase
         .from('projects')
