@@ -41,10 +41,11 @@ const ProjectDetailModal = ({
     const [isSaving, setIsSaving] = useState(false);
 
     const isPatternBook = project?.project_type === 'pattern_book';
-    // Add judgeView mode param when opening from Judges Portal
+    // Access control is now handled inside PatternBookBuilderPage based on user's delegation access phase
+    // No need to add judgeView mode - the page will determine edit/view-only based on delegations
     const editPath = isPatternBook
-        ? `/pattern-book-builder/${project?.id}${isFromJudgesPortal ? '?mode=judgeView' : ''}`
-        : `/horse-show-manager/edit/${project?.id}${isFromJudgesPortal ? '?mode=judgeView' : ''}`;
+        ? `/pattern-book-builder/${project?.id}`
+        : `/horse-show-manager/edit/${project?.id}`;
 
     useEffect(() => {
         if (project) {
