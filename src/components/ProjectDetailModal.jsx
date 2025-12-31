@@ -53,7 +53,31 @@ const ProjectDetailModal = ({
         }
     }, [project]);
 
-    const currentUserName = profile?.full_name || user?.email || 'User';
+    // Check if current user is assigned as a judge/staff in this project
+    const getAssignedNameForProject = () => {
+        const userEmail = user?.email?.toLowerCase();
+        if (!userEmail || !project?.project_data) return null;
+        
+        // Check in associationJudges (judges data from Step 3/4)
+        const associationJudges = project.project_data.associationJudges || {};
+        for (const assocId in associationJudges) {
+            const judgesList = associationJudges[assocId];
+            if (Array.isArray(judgesList)) {
+                const matchedJudge = judgesList.find(j => j.email?.toLowerCase() === userEmail);
+                if (matchedJudge?.name) return matchedJudge.name;
+            }
+        }
+        
+        // Check in officials (staff data from Step 4)
+        const officials = project.project_data.officials || [];
+        const matchedOfficial = officials.find(o => o.email?.toLowerCase() === userEmail);
+        if (matchedOfficial?.name) return matchedOfficial.name;
+        
+        return null;
+    };
+    
+    const assignedName = getAssignedNameForProject();
+    const currentUserName = assignedName || profile?.full_name || user?.email || 'User';
     const userInitials = currentUserName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
     const handleSaveDescription = async () => {
