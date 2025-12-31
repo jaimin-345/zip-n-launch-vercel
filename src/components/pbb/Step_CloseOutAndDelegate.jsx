@@ -347,13 +347,15 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
 
     const disciplines = formData.disciplines || [];
     
-    // Default admin values from logged-in user
+    // Default admin and owner values from logged-in user
     const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || 'John Doe';
     const loggedInUserEmail = user?.email || 'johndoe@mailinator.com';
     
     const defaultAdminOwner = {
         adminName: loggedInUserName,
         adminEmail: loggedInUserEmail,
+        ownerName: loggedInUserName,
+        ownerEmail: loggedInUserEmail,
     };
     const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
 
