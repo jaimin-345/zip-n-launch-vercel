@@ -710,9 +710,8 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
         );
     }
 
-    // Folder colors - darker tab, lighter body (like Windows folder)
-    const tabColor = coverColor || '#E5A533';
-    const bodyColor = coverColor ? `${coverColor}40` : '#F5D78E';
+    // Folder colors - use primary (blue) for tab/border, transparent body
+    const tabColor = coverColor || 'hsl(var(--primary))';
 
     return (
         <motion.div
@@ -727,22 +726,24 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
             {/* Folder Tab - small tab on left like Windows folder */}
             <div className="flex items-end">
                 <div 
-                    className="h-5 w-16 rounded-t-md"
-                    style={{ backgroundColor: tabColor }}
+                    className="h-5 w-16 rounded-t-md bg-primary"
+                    style={coverColor ? { backgroundColor: coverColor } : undefined}
                 />
                 {/* Diagonal edge */}
                 <div 
                     className="h-5 w-4"
                     style={{ 
-                        background: `linear-gradient(135deg, ${tabColor} 50%, transparent 50%)`
+                        background: coverColor 
+                            ? `linear-gradient(135deg, ${coverColor} 50%, transparent 50%)`
+                            : `linear-gradient(135deg, hsl(var(--primary)) 50%, transparent 50%)`
                     }}
                 />
             </div>
             
             {/* Folder Body */}
             <div 
-                className="flex-grow rounded-lg rounded-tl-none shadow-md overflow-hidden relative"
-                style={{ backgroundColor: bodyColor, border: `1px solid ${tabColor}` }}
+                className="flex-grow rounded-lg rounded-tl-none shadow-md overflow-hidden relative bg-card border-2 border-primary"
+                style={coverColor ? { borderColor: coverColor } : undefined}
             >
                 {/* Edit Menu Button - Only visible on hover */}
                 <DropdownMenu>
@@ -764,40 +765,36 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     {/* Project Name */}
                     <div className="flex items-center gap-2 mb-3">
                         {isPatternBook ? (
-                            <BookCopy className="h-5 w-5 text-amber-800 shrink-0" />
+                            <BookCopy className="h-5 w-5 text-primary shrink-0" />
                         ) : (
-                            <CalendarDays className="h-5 w-5 text-amber-800 shrink-0" />
+                            <CalendarDays className="h-5 w-5 text-primary shrink-0" />
                         )}
-                        <h3 className="font-semibold text-amber-900 truncate">
+                        <h3 className="font-semibold text-foreground truncate">
                             {project.project_name || 'Untitled Project'}
                         </h3>
                     </div>
                     
                     {/* Project Type Badge */}
                     <div className="mb-3">
-                        <span 
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                            style={{ backgroundColor: tabColor }}
-                        >
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
                             {isPatternBook ? 'Pattern Book' : 'Horse Show'}
                         </span>
                     </div>
                     
                     {/* Project Details */}
-                    <div className="space-y-1 text-sm text-amber-800/80 mb-4">
+                    <div className="space-y-1 text-sm text-muted-foreground mb-4">
                         <p>Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}</p>
-                        <p>Status: <span className="capitalize font-medium text-amber-900">{project.status || 'Draft'}</span></p>
+                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
                         {dueDate && (
-                            <p>Due: <span className="font-medium text-amber-900">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
+                            <p>Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
                         )}
                     </div>
                     
                     {/* Action Button */}
                     <Button 
                         onClick={() => setDetailModalOpen(true)} 
-                        className="w-full text-white" 
+                        className="w-full" 
                         size="sm"
-                        style={{ backgroundColor: tabColor }}
                     >
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
