@@ -103,7 +103,7 @@ const ProjectDetailModal = ({
                 .from('projects')
                 .update({ project_data: updatedData })
                 .eq('id', project.id);
-            if (onRefresh) onRefresh();
+            // Don't call onRefresh here to prevent modal from closing
         } catch (error) {
             toast({ title: "Error saving comment", variant: "destructive" });
         }
@@ -156,10 +156,7 @@ const ProjectDetailModal = ({
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
-                {/* Header Bar */}
-                <div className="bg-emerald-500 h-2 w-full" />
-                
-                <div className="flex flex-col lg:flex-row h-[calc(90vh-60px)]">
+                <div className="flex flex-col lg:flex-row h-[calc(90vh-40px)]">
                     {/* Left Side - Project Details */}
                     <div className="flex-1 p-6 overflow-y-auto border-r border-border">
                         {/* Title Section */}
