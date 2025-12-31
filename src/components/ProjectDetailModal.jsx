@@ -1,0 +1,386 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useToast } from '@/components/ui/use-toast';
+import { 
+    Circle, 
+    Plus, 
+    Tag, 
+    CalendarDays, 
+    CheckSquare, 
+    Users, 
+    Paperclip, 
+    Link2, 
+    Send,
+    MoreHorizontal,
+    Edit2,
+    Trash2,
+    ExternalLink,
+    FileText
+} from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const ProjectDetailModal = ({ 
+    open, 
+    onClose, 
+    project, 
+    onRefresh 
+}) => {
+    const navigate = useNavigate();
+    const { user, profile } = useAuth();
+    const { toast } = useToast();
+    const [description, setDescription] = useState('');
+    const [newComment, setNewComment] = useState('');
+    const [comments, setComments] = useState([]);
+    const [editingCommentId, setEditingCommentId] = useState(null);
+    const [editingCommentText, setEditingCommentText] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    const isPatternBook = project?.project_type === 'pattern_book';
+    const editPath = isPatternBook
+        ? `/pattern-book-builder/${project?.id}`
+        : `/horse-show-manager/edit/${project?.id}`;
+
+    useEffect(() => {
+        if (project) {
+            setDescription(project.project_data?.description || '');
+            setComments(project.project_data?.comments || []);
+        }
+    }, [project]);
+
+    const currentUserName = profile?.full_name || user?.email || 'User';
+    const userInitials = currentUserName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+    const handleSaveDescription = async () => {
+        if (!project) return;
+        setIsSaving(true);
+        try {
+            const updatedData = { ...project.project_data, description };
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedData })
+                .eq('id', project.id);
+            toast({ title: "Description saved" });
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({ title: "Error saving description", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleAddComment = async () => {
+        if (!newComment.trim() || !project) return;
+        
+        const comment = {
+            id: Date.now().toString(),
+            text: newComment,
+            author: currentUserName,
+            authorId: user?.id,
+            createdAt: new Date().toISOString(),
+        };
+        
+        const updatedComments = [comment, ...comments];
+        setComments(updatedComments);
+        setNewComment('');
+        
+        try {
+            const updatedData = { ...project.project_data, comments: updatedComments };
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedData })
+                .eq('id', project.id);
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({ title: "Error saving comment", variant: "destructive" });
+        }
+    };
+
+    const handleEditComment = async (commentId, newText) => {
+        const updatedComments = comments.map(c => 
+            c.id === commentId ? { ...c, text: newText, editedAt: new Date().toISOString() } : c
+        );
+        setComments(updatedComments);
+        setEditingCommentId(null);
+        setEditingCommentText('');
+        
+        try {
+            const updatedData = { ...project.project_data, comments: updatedComments };
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedData })
+                .eq('id', project.id);
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({ title: "Error updating comment", variant: "destructive" });
+        }
+    };
+
+    const handleDeleteComment = async (commentId) => {
+        const updatedComments = comments.filter(c => c.id !== commentId);
+        setComments(updatedComments);
+        
+        try {
+            const updatedData = { ...project.project_data, comments: updatedComments };
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedData })
+                .eq('id', project.id);
+            toast({ title: "Comment deleted" });
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({ title: "Error deleting comment", variant: "destructive" });
+        }
+    };
+
+    const handleOpenProject = () => {
+        navigate(editPath);
+        onClose();
+    };
+
+    if (!project) return null;
+
+    return (
+        <Dialog open={open} onOpenChange={onClose}>
+            <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+                {/* Header Bar */}
+                <div className="bg-emerald-500 h-2 w-full" />
+                
+                <div className="flex flex-col lg:flex-row h-[calc(90vh-60px)]">
+                    {/* Left Side - Project Details */}
+                    <div className="flex-1 p-6 overflow-y-auto border-r border-border">
+                        {/* Title Section */}
+                        <div className="flex items-start gap-3 mb-6">
+                            <Circle className="h-5 w-5 mt-1 text-muted-foreground" />
+                            <div className="flex-1">
+                                <h2 className="text-xl font-semibold">{project.project_name || 'Untitled Project'}</h2>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Plus className="h-3.5 w-3.5" /> Add
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Tag className="h-3.5 w-3.5" /> Labels
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <CalendarDays className="h-3.5 w-3.5" /> Dates
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <CheckSquare className="h-3.5 w-3.5" /> Checklist
+                            </Button>
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Users className="h-3.5 w-3.5" /> Members
+                            </Button>
+                        </div>
+
+                        {/* Last Updated */}
+                        <div className="mb-6">
+                            <p className="text-sm text-muted-foreground mb-1">Last updated</p>
+                            <div className="inline-block px-3 py-1.5 bg-muted rounded-md text-sm">
+                                {format(new Date(project.updated_at), "MMM d, yyyy, h:mm a")}
+                            </div>
+                        </div>
+
+                        {/* Description */}
+                        <div className="mb-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <FileText className="h-4 w-4 text-muted-foreground" />
+                                <p className="font-medium">Description</p>
+                            </div>
+                            <Textarea
+                                placeholder="Add a more detailed description..."
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                onBlur={handleSaveDescription}
+                                className="min-h-[100px] resize-none"
+                            />
+                        </div>
+
+                        {/* Attachments */}
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                    <p className="font-medium">Attachments</p>
+                                </div>
+                                <Button variant="outline" size="sm">Add</Button>
+                            </div>
+                            
+                            {/* Links Section */}
+                            <div className="space-y-2">
+                                <p className="text-sm text-muted-foreground">Links</p>
+                                <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-primary/10 rounded">
+                                            <Link2 className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <button
+                                            onClick={handleOpenProject}
+                                            className="text-sm text-primary hover:underline font-medium"
+                                        >
+                                            Open {isPatternBook ? 'Pattern Book' : 'Show'} Editor
+                                        </button>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenProject}>
+                                        <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Side - Comments */}
+                    <div className="w-full lg:w-[380px] flex flex-col bg-muted/30">
+                        {/* Comments Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                <span className="font-medium">Comments and activity</span>
+                            </div>
+                            <Button variant="ghost" size="sm">Show details</Button>
+                        </div>
+
+                        {/* Comment Input */}
+                        <div className="p-4 border-b border-border">
+                            <div className="flex gap-3">
+                                <Avatar className="h-8 w-8">
+                                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                                        {userInitials}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 relative">
+                                    <Input
+                                        placeholder="Write a comment..."
+                                        value={newComment}
+                                        onChange={(e) => setNewComment(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleAddComment()}
+                                        className="pr-10"
+                                    />
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                                        onClick={handleAddComment}
+                                        disabled={!newComment.trim()}
+                                    >
+                                        <Send className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Comments List */}
+                        <ScrollArea className="flex-1 p-4">
+                            <div className="space-y-4">
+                                {comments.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-8">
+                                        No comments yet. Be the first to comment!
+                                    </p>
+                                ) : (
+                                    comments.map((comment) => {
+                                        const commentInitials = comment.author?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
+                                        const isOwner = comment.authorId === user?.id;
+                                        
+                                        return (
+                                            <div key={comment.id} className="flex gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback className="bg-amber-500 text-white text-xs">
+                                                        {commentInitials}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-medium text-sm">{comment.author}</span>
+                                                        <span className="text-xs text-primary hover:underline cursor-pointer">
+                                                            {format(new Date(comment.createdAt), "MMM d, yyyy, h:mm a")}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    {editingCommentId === comment.id ? (
+                                                        <div className="space-y-2">
+                                                            <Textarea
+                                                                value={editingCommentText}
+                                                                onChange={(e) => setEditingCommentText(e.target.value)}
+                                                                className="min-h-[60px]"
+                                                            />
+                                                            <div className="flex gap-2">
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    onClick={() => handleEditComment(comment.id, editingCommentText)}
+                                                                >
+                                                                    Save
+                                                                </Button>
+                                                                <Button 
+                                                                    size="sm" 
+                                                                    variant="outline" 
+                                                                    onClick={() => {
+                                                                        setEditingCommentId(null);
+                                                                        setEditingCommentText('');
+                                                                    }}
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="bg-background p-3 rounded-lg border text-sm">
+                                                                {comment.text}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                                <Paperclip className="h-3 w-3" />
+                                                                {isOwner && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <button 
+                                                                            className="hover:text-foreground"
+                                                                            onClick={() => {
+                                                                                setEditingCommentId(comment.id);
+                                                                                setEditingCommentText(comment.text);
+                                                                            }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <span>•</span>
+                                                                        <button 
+                                                                            className="hover:text-destructive"
+                                                                            onClick={() => handleDeleteComment(comment.id)}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+export default ProjectDetailModal;
