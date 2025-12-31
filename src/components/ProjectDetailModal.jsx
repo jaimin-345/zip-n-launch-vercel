@@ -156,21 +156,6 @@ const ProjectDetailModal = ({
                             </div>
                         </div>
 
-                        {/* Description */}
-                        <div className="mb-6">
-                            <div className="flex items-center gap-2 mb-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <p className="font-medium">Description</p>
-                            </div>
-                            <Textarea
-                                placeholder="Add a more detailed description..."
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                onBlur={handleSaveDescription}
-                                className="min-h-[100px] resize-none"
-                            />
-                        </div>
-
                         {/* Link to editor */}
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">Open editor</p>
