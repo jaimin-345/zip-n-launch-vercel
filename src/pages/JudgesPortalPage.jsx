@@ -19,6 +19,7 @@ import {
     ExternalLink, Filter, Clock, Package, StickyNote, Bell, Calendar
 } from 'lucide-react';
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
+import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchAssociations } from '@/lib/associationsData';
@@ -100,6 +101,10 @@ const JudgesPortalPage = () => {
     // Notifications Table State
     const [notificationsTableData, setNotificationsTableData] = useState([]);
     const [isLoadingNotificationsTable, setIsLoadingNotificationsTable] = useState(false);
+    
+    // Project Detail Modal State
+    const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
+    const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
     
     // Fetch assigned projects for non-admin judges
     useEffect(() => {
@@ -680,6 +685,36 @@ const JudgesPortalPage = () => {
         setIsFavoriteDialogOpen(true);
     };
     
+    // Handler for opening project detail modal from notification
+    const handleOpenNotificationProject = async (notification) => {
+        try {
+            // Fetch the full project data
+            const { data: project, error } = await supabase
+                .from('projects')
+                .select('*')
+                .eq('id', notification.project_id)
+                .single();
+            
+            if (error) throw error;
+            
+            // Mark notification as read
+            await supabase
+                .from('judge_notifications')
+                .update({ is_read: true, read_at: new Date().toISOString() })
+                .eq('id', notification.id);
+            
+            setSelectedProjectForModal(project);
+            setIsProjectDetailModalOpen(true);
+        } catch (error) {
+            console.error('Error fetching project:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load project details.',
+                variant: 'destructive',
+            });
+        }
+    };
+    
     const handleEditFavorite = (favorite) => {
         setEditingFavorite(favorite);
         setFavoriteForm({
@@ -1043,7 +1078,7 @@ const JudgesPortalPage = () => {
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                onClick={() => navigate(`/pattern-book-builder/${notification.project_id}?mode=judgeView`)}
+                                                                onClick={() => handleOpenNotificationProject(notification)}
                                                             >
                                                                 <Eye className="mr-2 h-4 w-4" />
                                                                 View
@@ -1685,6 +1720,16 @@ const JudgesPortalPage = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            
+            {/* Project Detail Modal for notifications */}
+            <ProjectDetailModal
+                open={isProjectDetailModalOpen}
+                onClose={() => {
+                    setIsProjectDetailModalOpen(false);
+                    setSelectedProjectForModal(null);
+                }}
+                project={selectedProjectForModal}
+            />
         </>
     );
 };
