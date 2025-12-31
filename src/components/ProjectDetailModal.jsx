@@ -27,7 +27,8 @@ const ProjectDetailModal = ({
     open, 
     onClose, 
     project, 
-    onRefresh 
+    onRefresh,
+    isFromJudgesPortal = false
 }) => {
     const navigate = useNavigate();
     const { user, profile } = useAuth();
@@ -40,9 +41,10 @@ const ProjectDetailModal = ({
     const [isSaving, setIsSaving] = useState(false);
 
     const isPatternBook = project?.project_type === 'pattern_book';
+    // Add judgeView mode param when opening from Judges Portal
     const editPath = isPatternBook
-        ? `/pattern-book-builder/${project?.id}`
-        : `/horse-show-manager/edit/${project?.id}`;
+        ? `/pattern-book-builder/${project?.id}${isFromJudgesPortal ? '?mode=judgeView' : ''}`
+        : `/horse-show-manager/edit/${project?.id}${isFromJudgesPortal ? '?mode=judgeView' : ''}`;
 
     useEffect(() => {
         if (project) {
