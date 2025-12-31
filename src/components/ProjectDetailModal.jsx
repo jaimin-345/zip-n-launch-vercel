@@ -17,7 +17,10 @@ import {
     Send,
     ExternalLink,
     FileText,
+    Clock,
+    Calendar,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 
 const ProjectDetailModal = ({ 
@@ -153,6 +156,38 @@ const ProjectDetailModal = ({
                             <Circle className="h-5 w-5 mt-1 text-muted-foreground" />
                             <div className="flex-1">
                                 <h2 className="text-xl font-semibold">{project.project_name || 'Untitled Project'}</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    {isPatternBook ? 'Pattern Book' : 'Horse Show'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Project Info */}
+                        <div className="space-y-3 mb-6 p-4 rounded-lg border bg-muted/30">
+                            {/* Last Saved */}
+                            {project.updated_at && (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <Clock className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">Last saved:</span>
+                                    <span>{format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}</span>
+                                </div>
+                            )}
+                            
+                            {/* Due Date */}
+                            {project.project_data?.dueDate && (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-muted-foreground">Due:</span>
+                                    <span>{format(new Date(project.project_data.dueDate), "MMM d, yyyy")}</span>
+                                </div>
+                            )}
+                            
+                            {/* Status */}
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-muted-foreground">Status:</span>
+                                <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
+                                    {project.status === 'active' ? 'Active' : 'Draft'}
+                                </Badge>
                             </div>
                         </div>
 
