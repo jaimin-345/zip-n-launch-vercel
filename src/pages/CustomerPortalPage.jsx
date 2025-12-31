@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
+import ProjectDetailModal from '@/components/ProjectDetailModal';
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -503,11 +504,12 @@ const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
     );
 };
 
-const ProjectCard = ({ project, menuType = 'full' }) => {
+const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     const [isHovered, setIsHovered] = useState(false);
@@ -684,7 +686,7 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                         )}
                     </CardContent>
                     <CardFooter>
-                        <Button onClick={() => navigate(editPath)} className="w-full">
+                        <Button onClick={() => setDetailModalOpen(true)} className="w-full">
                             Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardFooter>
@@ -696,6 +698,13 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                     currentColor={coverColor}
                     onSelectColor={handleSelectColor}
                     onRemoveCover={handleRemoveCover}
+                />
+                
+                <ProjectDetailModal
+                    open={detailModalOpen}
+                    onClose={() => setDetailModalOpen(false)}
+                    project={project}
+                    onRefresh={onRefresh}
                 />
             </motion.div>
         );
@@ -759,7 +768,7 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                     )}
                 </CardContent>
                 <CardFooter>
-                    <Button onClick={() => navigate(editPath)} className="w-full">
+                    <Button onClick={() => setDetailModalOpen(true)} className="w-full">
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </CardFooter>
@@ -779,6 +788,13 @@ const ProjectCard = ({ project, menuType = 'full' }) => {
                 currentDate={dueDate}
                 onSaveDate={handleSaveDueDate}
             />
+            
+            <ProjectDetailModal
+                open={detailModalOpen}
+                onClose={() => setDetailModalOpen(false)}
+                project={project}
+                onRefresh={onRefresh}
+            />
         </motion.div>
     );
 };
@@ -789,24 +805,24 @@ const CustomerPortalPage = () => {
     const [projects, setProjects] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    const fetchProjects = async () => {
+        if (!user) return;
+        setIsLoading(true);
+        const { data, error } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false });
+
+        if (error) {
+            console.error('Error fetching projects:', error);
+        } else {
+            setProjects(data);
+        }
+        setIsLoading(false);
+    };
+
     useEffect(() => {
-        const fetchProjects = async () => {
-            if (!user) return;
-            setIsLoading(true);
-            const { data, error } = await supabase
-                .from('projects')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('updated_at', { ascending: false });
-
-            if (error) {
-                console.error('Error fetching projects:', error);
-            } else {
-                setProjects(data);
-            }
-            setIsLoading(false);
-        };
-
         fetchProjects();
     }, [user]);
 
@@ -859,7 +875,7 @@ const CustomerPortalPage = () => {
                         // Grid layout for Pattern Books and Horse Shows
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                             {projectList.map(project => (
-                                <ProjectCard key={project.id} project={project} menuType={menuType} />
+                                <ProjectCard key={project.id} project={project} menuType={menuType} onRefresh={fetchProjects} />
                             ))}
                         </div>
                     )
