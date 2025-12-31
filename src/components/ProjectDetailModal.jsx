@@ -59,9 +59,12 @@ const ProjectDetailModal = ({
         if (!userEmail || !project?.project_data) return null;
         
         // Check in associationJudges (judges data from Step 3/4)
+        // Structure: associationJudges[assocId] = { count: number, judges: [...] }
         const associationJudges = project.project_data.associationJudges || {};
         for (const assocId in associationJudges) {
-            const judgesList = associationJudges[assocId];
+            const assocData = associationJudges[assocId];
+            // Handle nested structure: { judges: [...] }
+            const judgesList = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
             if (Array.isArray(judgesList)) {
                 const matchedJudge = judgesList.find(j => j.email?.toLowerCase() === userEmail);
                 if (matchedJudge?.name) return matchedJudge.name;
