@@ -723,26 +723,32 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Folder Tab - small tab on left like Windows folder */}
-            <div className="flex items-end">
+            {/* Folder Tab - small tab on left with border only */}
+            <div className="flex items-end relative">
                 <div 
-                    className="h-5 w-16 rounded-t-md bg-primary"
-                    style={coverColor ? { backgroundColor: coverColor } : undefined}
+                    className="h-6 w-20 rounded-t-md border-2 border-b-0 bg-transparent"
+                    style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
                 />
-                {/* Diagonal edge */}
+                {/* Diagonal connector */}
                 <div 
-                    className="h-5 w-4"
-                    style={{ 
-                        background: coverColor 
-                            ? `linear-gradient(135deg, ${coverColor} 50%, transparent 50%)`
-                            : `linear-gradient(135deg, hsl(var(--primary)) 50%, transparent 50%)`
-                    }}
-                />
+                    className="h-6 w-5 relative overflow-hidden"
+                >
+                    <div 
+                        className="absolute inset-0 border-t-2 border-r-2 bg-transparent origin-top-left rotate-[30deg] translate-x-1 -translate-y-0.5"
+                        style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
+                    />
+                </div>
             </div>
+            
+            {/* 3D Shadow Layer */}
+            <div 
+                className="absolute top-8 left-1 right-0 bottom-0 rounded-lg rounded-tl-none bg-primary/20 translate-x-1 translate-y-1"
+                style={coverColor ? { backgroundColor: `${coverColor}33` } : undefined}
+            />
             
             {/* Folder Body */}
             <div 
-                className="flex-grow rounded-lg rounded-tl-none shadow-md overflow-hidden relative bg-card border-2 border-primary"
+                className="flex-grow rounded-lg rounded-tl-none shadow-lg overflow-hidden relative bg-card/95 backdrop-blur-sm border-2 border-primary z-10"
                 style={coverColor ? { borderColor: coverColor } : undefined}
             >
                 {/* Edit Menu Button - Only visible on hover */}
