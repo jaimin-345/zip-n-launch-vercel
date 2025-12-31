@@ -153,11 +153,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
 
       // Check if the response contains an error from the edge function
       if (data?.error) {
-        const errorMsg = data.error;
-        if (errorMsg.includes('testing') || errorMsg.includes('verify a domain')) {
-          throw new Error('Email service is in testing mode. Please use the account owner\'s email or verify a custom domain at resend.com/domains');
-        }
-        throw new Error(errorMsg);
+        throw new Error(data.error);
       }
 
       // Track email sent event
