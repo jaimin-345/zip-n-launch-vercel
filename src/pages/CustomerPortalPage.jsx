@@ -723,33 +723,48 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Folder Tab - small tab on left with border only */}
-            <div className="flex items-end relative">
+            {/* Back paper layers - 3D effect */}
+            <div className="absolute top-3 left-2 right-0 bottom-0 z-0">
+                {/* Third layer (furthest back) */}
                 <div 
-                    className="h-6 w-20 rounded-t-md border-2 border-b-0 bg-transparent"
+                    className="absolute inset-0 rounded-lg border-2 bg-card/30 translate-x-2 translate-y-2"
                     style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
                 />
-                {/* Diagonal connector */}
+                {/* Second layer */}
                 <div 
-                    className="h-6 w-5 relative overflow-hidden"
+                    className="absolute inset-0 rounded-lg border-2 bg-card/50 translate-x-1 translate-y-1"
+                    style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
+                />
+            </div>
+
+            {/* Folder Tab - small tab on left */}
+            <div className="flex items-end relative z-20">
+                <div 
+                    className="h-5 w-16 rounded-t-md border-2 border-b-0 bg-card/80"
+                    style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
+                />
+                {/* Slanted edge connector */}
+                <svg 
+                    className="h-5 w-4 -ml-px"
+                    viewBox="0 0 16 20" 
+                    fill="none"
                 >
-                    <div 
-                        className="absolute inset-0 border-t-2 border-r-2 bg-transparent origin-top-left rotate-[30deg] translate-x-1 -translate-y-0.5"
-                        style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
+                    <path 
+                        d="M0 0 L16 20 L0 20 Z" 
+                        className="fill-card/80"
                     />
-                </div>
+                    <path 
+                        d="M0 0 L16 20" 
+                        stroke={coverColor || 'hsl(var(--primary))'} 
+                        strokeWidth="2"
+                    />
+                </svg>
             </div>
             
-            {/* 3D Shadow Layer */}
+            {/* Folder Body - main front panel */}
             <div 
-                className="absolute top-8 left-1 right-0 bottom-0 rounded-lg rounded-tl-none bg-primary/20 translate-x-1 translate-y-1"
-                style={coverColor ? { backgroundColor: `${coverColor}33` } : undefined}
-            />
-            
-            {/* Folder Body */}
-            <div 
-                className="flex-grow rounded-lg rounded-tl-none shadow-lg overflow-hidden relative bg-card/95 backdrop-blur-sm border-2 border-primary z-10"
-                style={coverColor ? { borderColor: coverColor } : undefined}
+                className="flex-grow rounded-lg rounded-tl-none shadow-xl overflow-hidden relative bg-card/90 backdrop-blur-sm border-2 z-20"
+                style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
             >
                 {/* Edit Menu Button - Only visible on hover */}
                 <DropdownMenu>
