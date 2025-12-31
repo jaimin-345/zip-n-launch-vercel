@@ -710,8 +710,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
         );
     }
 
-    // Folder color - use coverColor or default based on project type
-    const folderColor = coverColor || (isPatternBook ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))');
+    // Folder colors - darker tab, lighter body (like Windows folder)
+    const tabColor = coverColor || '#E5A533';
+    const bodyColor = coverColor ? `${coverColor}40` : '#F5D78E';
 
     return (
         <motion.div
@@ -723,83 +724,81 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Folder Tab with Project Name */}
+            {/* Folder Tab - small tab on left like Windows folder */}
             <div className="flex items-end">
                 <div 
-                    className="relative px-4 py-2 rounded-t-lg flex items-center gap-2 max-w-[80%]"
-                    style={{ backgroundColor: folderColor }}
-                >
-                    {isPatternBook ? (
-                        <BookCopy className="h-4 w-4 text-white shrink-0" />
-                    ) : (
-                        <CalendarDays className="h-4 w-4 text-white shrink-0" />
-                    )}
-                    <span className="text-sm font-semibold text-white truncate">
-                        {project.project_name || 'Untitled Project'}
-                    </span>
-                    {/* Folder tab edge */}
-                    <div 
-                        className="absolute -right-3 bottom-0 w-3 h-full"
-                        style={{ 
-                            background: `linear-gradient(135deg, ${folderColor} 50%, transparent 50%)`
-                        }}
-                    />
-                </div>
+                    className="h-5 w-16 rounded-t-md"
+                    style={{ backgroundColor: tabColor }}
+                />
+                {/* Diagonal edge */}
+                <div 
+                    className="h-5 w-4"
+                    style={{ 
+                        background: `linear-gradient(135deg, ${tabColor} 50%, transparent 50%)`
+                    }}
+                />
             </div>
             
             {/* Folder Body */}
             <div 
-                className="flex-grow rounded-lg rounded-tl-none border-2 bg-card shadow-md overflow-hidden"
-                style={{ borderColor: folderColor }}
+                className="flex-grow rounded-lg rounded-tl-none shadow-md overflow-hidden relative"
+                style={{ backgroundColor: bodyColor, border: `1px solid ${tabColor}` }}
             >
-                {/* Folder Top Edge */}
-                <div 
-                    className="h-1.5 w-full"
-                    style={{ backgroundColor: folderColor }}
-                />
-                
                 {/* Edit Menu Button - Only visible on hover */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className={`absolute top-12 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                            className={`absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
                         >
                             <Pencil className="h-4 w-4" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuContent align="end" className="w-44 bg-popover">
                         {renderMenuItems()}
                     </DropdownMenuContent>
                 </DropdownMenu>
 
                 <div className="p-4">
+                    {/* Project Name */}
+                    <div className="flex items-center gap-2 mb-3">
+                        {isPatternBook ? (
+                            <BookCopy className="h-5 w-5 text-amber-800 shrink-0" />
+                        ) : (
+                            <CalendarDays className="h-5 w-5 text-amber-800 shrink-0" />
+                        )}
+                        <h3 className="font-semibold text-amber-900 truncate">
+                            {project.project_name || 'Untitled Project'}
+                        </h3>
+                    </div>
+                    
                     {/* Project Type Badge */}
                     <div className="mb-3">
                         <span 
                             className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                            style={{ backgroundColor: folderColor }}
+                            style={{ backgroundColor: tabColor }}
                         >
                             {isPatternBook ? 'Pattern Book' : 'Horse Show'}
                         </span>
                     </div>
                     
                     {/* Project Details */}
-                    <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
-                        <p>
-                            Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}
-                        </p>
-                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                    <div className="space-y-1 text-sm text-amber-800/80 mb-4">
+                        <p>Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}</p>
+                        <p>Status: <span className="capitalize font-medium text-amber-900">{project.status || 'Draft'}</span></p>
                         {dueDate && (
-                            <p>
-                                Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
-                            </p>
+                            <p>Due: <span className="font-medium text-amber-900">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
                         )}
                     </div>
                     
                     {/* Action Button */}
-                    <Button onClick={() => setDetailModalOpen(true)} className="w-full" size="sm">
+                    <Button 
+                        onClick={() => setDetailModalOpen(true)} 
+                        className="w-full text-white" 
+                        size="sm"
+                        style={{ backgroundColor: tabColor }}
+                    >
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </div>
