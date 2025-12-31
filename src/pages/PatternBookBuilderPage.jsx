@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, LayoutTemplate, Eye, FileSignature, ShieldCheck, BookCopy, Save, Loader2, Download, Settings2, Share2, RotateCcw } from 'lucide-react';
+import { ArrowRight, ArrowLeft, GitMerge, ListPlus, Calendar, UploadCloud, LayoutTemplate, Eye, FileSignature, ShieldCheck, BookCopy, Save, Loader2, Download, Settings2, Share2, RotateCcw, Lock } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
@@ -83,9 +84,10 @@ const PatternBookBuilderPage = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { user } = useAuth();
     const isPreviewMode = searchParams.get('mode') === 'preview';
     const isJudgeViewMode = searchParams.get('mode') === 'judgeView';
-    const isReadOnly = isPreviewMode || isJudgeViewMode;
+    
     const {
         step: currentStep,
         setCurrentStep,
@@ -103,6 +105,75 @@ const PatternBookBuilderPage = () => {
         handleShowTypeChange,
         resetCurrentStep,
     } = usePatternBookBuilder(projectId);
+
+    // Determine user's access phase based on their delegation settings
+    const userAccessInfo = useMemo(() => {
+        if (!user?.email || !formData) return { canEdit: true, accessPhase: null, isStaffMember: false };
+        
+        const userEmail = user.email.toLowerCase();
+        const delegations = formData.delegations || {};
+        
+        // Find the user in officials or judges
+        let staffId = null;
+        let staffRole = null;
+        
+        // Check officials
+        const officials = formData.officials || [];
+        const matchedOfficial = officials.find(o => o.email?.toLowerCase() === userEmail);
+        if (matchedOfficial) {
+            staffId = matchedOfficial.id;
+            staffRole = matchedOfficial.role;
+        }
+        
+        // Check association judges
+        if (!staffId) {
+            const associationJudges = formData.associationJudges || {};
+            for (const assocId in associationJudges) {
+                const assocData = associationJudges[assocId];
+                const judgesList = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
+                if (Array.isArray(judgesList)) {
+                    const matchedJudge = judgesList.find(j => j.email?.toLowerCase() === userEmail);
+                    if (matchedJudge) {
+                        staffId = matchedJudge.id;
+                        staffRole = 'Judge';
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // If user is not a staff member, they have full access (project owner)
+        if (!staffId) return { canEdit: true, accessPhase: null, isStaffMember: false };
+        
+        // Get delegation for this staff member
+        const delegation = delegations[staffId];
+        const accessPhase = delegation?.accessPhase || [];
+        
+        // Determine if user can edit based on access phase
+        // 'draft' = "Draft, Build, Review" -> Can edit
+        // 'approval' = "Approval and Locked" -> Read only
+        // 'publication' = "Publication" -> Read only
+        const hasDraftAccess = accessPhase.includes('draft');
+        const hasApprovalOrPublication = accessPhase.includes('approval') || accessPhase.includes('publication');
+        
+        // If no access phases set, default to view-only for staff members
+        if (accessPhase.length === 0) {
+            return { canEdit: false, accessPhase: [], isStaffMember: true, staffRole };
+        }
+        
+        // If has draft access, can edit; otherwise read-only
+        const canEdit = hasDraftAccess && !hasApprovalOrPublication;
+        
+        return { canEdit, accessPhase, isStaffMember: true, staffRole };
+    }, [user?.email, formData]);
+
+    // Combine all read-only conditions
+    const isReadOnly = isPreviewMode || isJudgeViewMode || (userAccessInfo.isStaffMember && !userAccessInfo.canEdit);
+    const readOnlyReason = isPreviewMode ? 'Preview Mode' : 
+                          isJudgeViewMode ? 'Judge View' :
+                          (userAccessInfo.isStaffMember && !userAccessInfo.canEdit) ? 
+                            (userAccessInfo.accessPhase?.includes('approval') ? 'Approval & Locked' : 
+                             userAccessInfo.accessPhase?.includes('publication') ? 'Published' : 'No Edit Access') : null;
 
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -311,7 +382,11 @@ const PatternBookBuilderPage = () => {
                                         <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="px-3 py-1">
-                                                <Eye className="mr-2 h-4 w-4" /> {isJudgeViewMode ? 'Judge View (Read Only)' : 'Preview Mode (Read Only)'}
+                                                {userAccessInfo.isStaffMember && !userAccessInfo.canEdit ? (
+                                                    <><Lock className="mr-2 h-4 w-4" /> {readOnlyReason} (Read Only)</>
+                                                ) : (
+                                                    <><Eye className="mr-2 h-4 w-4" /> {isJudgeViewMode ? 'Judge View' : 'Preview Mode'} (Read Only)</>
+                                                )}
                                             </Badge>
                                             {currentStep < steps.length && (
                                                 <Button onClick={handleNext}>
