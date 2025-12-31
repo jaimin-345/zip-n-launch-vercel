@@ -1729,6 +1729,7 @@ const JudgesPortalPage = () => {
                     setSelectedProjectForModal(null);
                 }}
                 project={selectedProjectForModal}
+                isFromJudgesPortal={true}
             />
         </>
     );
