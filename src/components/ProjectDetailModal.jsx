@@ -10,28 +10,15 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
-import { 
-    Circle, 
-    Plus, 
-    Tag, 
-    CalendarDays, 
-    CheckSquare, 
-    Users, 
-    Paperclip, 
-    Link2, 
-    Send,
-    MoreHorizontal,
-    Edit2,
-    Trash2,
-    ExternalLink,
-    FileText
-} from 'lucide-react';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+    Circle,
+    Paperclip,
+    Link2,
+    Send,
+    ExternalLink,
+    FileText,
+} from 'lucide-react';
+
 
 const ProjectDetailModal = ({ 
     open, 
@@ -74,7 +61,6 @@ const ProjectDetailModal = ({
                 .update({ project_data: updatedData })
                 .eq('id', project.id);
             toast({ title: "Description saved" });
-            if (onRefresh) onRefresh();
         } catch (error) {
             toast({ title: "Error saving description", variant: "destructive" });
         } finally {
@@ -123,7 +109,6 @@ const ProjectDetailModal = ({
                 .from('projects')
                 .update({ project_data: updatedData })
                 .eq('id', project.id);
-            if (onRefresh) onRefresh();
         } catch (error) {
             toast({ title: "Error updating comment", variant: "destructive" });
         }
@@ -140,7 +125,6 @@ const ProjectDetailModal = ({
                 .update({ project_data: updatedData })
                 .eq('id', project.id);
             toast({ title: "Comment deleted" });
-            if (onRefresh) onRefresh();
         } catch (error) {
             toast({ title: "Error deleting comment", variant: "destructive" });
         }
@@ -154,7 +138,12 @@ const ProjectDetailModal = ({
     if (!project) return null;
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                if (!nextOpen) onClose();
+            }}
+        >
             <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
                 <div className="flex flex-col lg:flex-row h-[calc(90vh-40px)]">
                     {/* Left Side - Project Details */}
@@ -164,33 +153,6 @@ const ProjectDetailModal = ({
                             <Circle className="h-5 w-5 mt-1 text-muted-foreground" />
                             <div className="flex-1">
                                 <h2 className="text-xl font-semibold">{project.project_name || 'Untitled Project'}</h2>
-                            </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <Plus className="h-3.5 w-3.5" /> Add
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <Tag className="h-3.5 w-3.5" /> Labels
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <CalendarDays className="h-3.5 w-3.5" /> Dates
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <CheckSquare className="h-3.5 w-3.5" /> Checklist
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-1.5">
-                                <Users className="h-3.5 w-3.5" /> Members
-                            </Button>
-                        </div>
-
-                        {/* Last Updated */}
-                        <div className="mb-6">
-                            <p className="text-sm text-muted-foreground mb-1">Last updated</p>
-                            <div className="inline-block px-3 py-1.5 bg-muted rounded-md text-sm">
-                                {format(new Date(project.updated_at), "MMM d, yyyy, h:mm a")}
                             </div>
                         </div>
 
@@ -209,35 +171,24 @@ const ProjectDetailModal = ({
                             />
                         </div>
 
-                        {/* Attachments */}
-                        <div className="mb-6">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                    <p className="font-medium">Attachments</p>
-                                </div>
-                                <Button variant="outline" size="sm">Add</Button>
-                            </div>
-                            
-                            {/* Links Section */}
-                            <div className="space-y-2">
-                                <p className="text-sm text-muted-foreground">Links</p>
-                                <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-primary/10 rounded">
-                                            <Link2 className="h-4 w-4 text-primary" />
-                                        </div>
-                                        <button
-                                            onClick={handleOpenProject}
-                                            className="text-sm text-primary hover:underline font-medium"
-                                        >
-                                            Open {isPatternBook ? 'Pattern Book' : 'Show'} Editor
-                                        </button>
+                        {/* Link to editor */}
+                        <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground">Open editor</p>
+                            <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded">
+                                        <Link2 className="h-4 w-4 text-primary" />
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenProject}>
-                                        <ExternalLink className="h-4 w-4" />
-                                    </Button>
+                                    <button
+                                        onClick={handleOpenProject}
+                                        className="text-sm text-primary hover:underline font-medium"
+                                    >
+                                        Open {isPatternBook ? 'Pattern Book' : 'Show'} Editor
+                                    </button>
                                 </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenProject}>
+                                    <ExternalLink className="h-4 w-4" />
+                                </Button>
                             </div>
                         </div>
                     </div>
