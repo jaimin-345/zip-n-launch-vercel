@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Menu, X, ShoppingCart, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
+import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -204,6 +205,7 @@ const Navigation = () => {
                                         <span className="text-sm font-medium hidden lg:inline">{user.user_metadata?.full_name || user.email}</span>
                                         <UserMenu />
                                     </div>
+                                    <JudgeNotificationPanel userEmail={user?.email} />
                                 </>
                             ) : (
                                <Button onClick={() => openAuthModal('login')}>
@@ -240,6 +242,7 @@ const Navigation = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        <JudgeNotificationPanel userEmail={user?.email} />
                                         <Button variant="ghost" size="icon" className="relative" asChild>
                                             <Link to="/store" onClick={() => setIsMenuOpen(false)}>
                                                 <ShoppingCart className="h-5 w-5" />
