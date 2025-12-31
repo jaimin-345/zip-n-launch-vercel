@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,18 +19,15 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    // Try RESEND_API_KEY_NEW first, fallback to RESEND_API_KEY
-    const apiKey = Deno.env.get("RESEND_API_KEY_NEW") || Deno.env.get("RESEND_API_KEY");
+    const apiKey = Deno.env.get("POSTMARK_API_TOKEN");
     
     if (!apiKey) {
-      throw new Error("Resend API key not configured");
+      throw new Error("Postmark API token not configured");
     }
-    
-    const resend = new Resend(apiKey);
     
     const { email, pdfDataUri, bookName }: SendPatternBookRequest = await req.json();
 
-    console.log(`Sending pattern book "${bookName}" to ${email}`);
+    console.log(`Sending pattern book "${bookName}" to ${email} via Postmark`);
 
     // Extract base64 data from data URI
     const base64Data = pdfDataUri.split(',')[1];
@@ -40,47 +36,54 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const fileName = `${bookName.replace(/\s+/g, '_')}.pdf`;
-
-    // Get custom from email if configured, otherwise use default
-    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Pattern Book Builder <onboarding@resend.dev>";
+    const fromEmail = "test@dev-build.in";
     
     console.log(`Attempting to send email from: ${fromEmail} to: ${email}`);
 
-    const emailResponse = await resend.emails.send({
-      from: fromEmail,
-      to: [email],
-      subject: `Your Pattern Book: ${bookName}`,
-      html: `
-        <h1>Your Pattern Book is Ready!</h1>
-        <p>Hello,</p>
-        <p>Please find attached your pattern book: <strong>${bookName}</strong></p>
-        <p>Thank you for using Pattern Book Builder!</p>
-        <br>
-        <p>Best regards,<br>The EquiPattern Team</p>
-      `,
-      attachments: [
-        {
-          filename: fileName,
-          content: base64Data,
-        },
-      ],
+    // Send via Postmark API
+    const postmarkResponse = await fetch("https://api.postmarkapp.com/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Postmark-Server-Token": apiKey,
+      },
+      body: JSON.stringify({
+        From: fromEmail,
+        To: email,
+        Subject: `Your Pattern Book: ${bookName}`,
+        HtmlBody: `
+          <h1>Your Pattern Book is Ready!</h1>
+          <p>Hello,</p>
+          <p>Please find attached your pattern book: <strong>${bookName}</strong></p>
+          <p>Thank you for using Pattern Book Builder!</p>
+          <br>
+          <p>Best regards,<br>The EquiPattern Team</p>
+        `,
+        TextBody: `Your Pattern Book is Ready!\n\nHello,\n\nPlease find attached your pattern book: ${bookName}\n\nThank you for using Pattern Book Builder!\n\nBest regards,\nThe EquiPattern Team`,
+        MessageStream: "broadcast",
+        Attachments: [
+          {
+            Name: fileName,
+            Content: base64Data,
+            ContentType: "application/pdf",
+          },
+        ],
+      }),
     });
 
-    console.log("Resend API response:", JSON.stringify(emailResponse));
+    const postmarkResult = await postmarkResponse.json();
+    
+    console.log("Postmark API response:", JSON.stringify(postmarkResult));
 
-    // Check if there's an error in the response
-    if (emailResponse.error) {
-      // Provide more helpful error messages for common issues
-      const errorMessage = emailResponse.error.message;
-      if (errorMessage.includes("only send testing emails")) {
-        throw new Error(`Email delivery restricted: Resend is in testing mode. Please verify a domain at resend.com/domains or send to the account owner's email only.`);
-      }
-      throw new Error(`Email sending failed: ${errorMessage}`);
+    // Check for Postmark errors
+    if (postmarkResult.ErrorCode) {
+      throw new Error(`Postmark error: ${postmarkResult.Message}`);
     }
 
     console.log("Email sent successfully to:", email);
 
-    return new Response(JSON.stringify({ success: true, data: emailResponse }), {
+    return new Response(JSON.stringify({ success: true, data: postmarkResult }), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
