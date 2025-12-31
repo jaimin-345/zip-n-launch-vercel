@@ -710,69 +710,100 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
         );
     }
 
+    // Folder color - use coverColor or default based on project type
+    const folderColor = coverColor || (isPatternBook ? 'hsl(var(--primary))' : 'hsl(var(--chart-2))');
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            whileHover={{ y: -5, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' }}
+            whileHover={{ y: -5 }}
             className="flex flex-col h-full relative group"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            {/* Cover Color Bar */}
-            {coverColor && (
+            {/* Folder Tab with Project Name */}
+            <div className="flex items-end">
                 <div 
-                    className="h-8 w-full rounded-t-lg" 
-                    style={{ backgroundColor: coverColor }}
-                />
-            )}
-            
-            {/* Edit Menu Button - Only visible on hover */}
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className={`absolute top-2 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                    >
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-44">
-                    {renderMenuItems()}
-                </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Card className={`flex flex-col flex-grow glass-effect ${coverColor ? 'rounded-t-none' : ''}`}>
-                <CardHeader>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-primary/10 rounded-lg">
-                            {isPatternBook ? <BookCopy className="h-6 w-6 text-primary" /> : <CalendarDays className="h-6 w-6 text-primary" />}
-                        </div>
-                        <div>
-                            <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
-                            <CardDescription>{isPatternBook ? 'Pattern Book' : 'Horse Show'}</CardDescription>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                    <p className="text-sm text-muted-foreground">
-                        Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
-                    {dueDate && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
-                        </p>
+                    className="relative px-4 py-2 rounded-t-lg flex items-center gap-2 max-w-[80%]"
+                    style={{ backgroundColor: folderColor }}
+                >
+                    {isPatternBook ? (
+                        <BookCopy className="h-4 w-4 text-white shrink-0" />
+                    ) : (
+                        <CalendarDays className="h-4 w-4 text-white shrink-0" />
                     )}
-                </CardContent>
-                <CardFooter>
-                    <Button onClick={() => setDetailModalOpen(true)} className="w-full">
+                    <span className="text-sm font-semibold text-white truncate">
+                        {project.project_name || 'Untitled Project'}
+                    </span>
+                    {/* Folder tab edge */}
+                    <div 
+                        className="absolute -right-3 bottom-0 w-3 h-full"
+                        style={{ 
+                            background: `linear-gradient(135deg, ${folderColor} 50%, transparent 50%)`
+                        }}
+                    />
+                </div>
+            </div>
+            
+            {/* Folder Body */}
+            <div 
+                className="flex-grow rounded-lg rounded-tl-none border-2 bg-card shadow-md overflow-hidden"
+                style={{ borderColor: folderColor }}
+            >
+                {/* Folder Top Edge */}
+                <div 
+                    className="h-1.5 w-full"
+                    style={{ backgroundColor: folderColor }}
+                />
+                
+                {/* Edit Menu Button - Only visible on hover */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`absolute top-12 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                        {renderMenuItems()}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="p-4">
+                    {/* Project Type Badge */}
+                    <div className="mb-3">
+                        <span 
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                            style={{ backgroundColor: folderColor }}
+                        >
+                            {isPatternBook ? 'Pattern Book' : 'Horse Show'}
+                        </span>
+                    </div>
+                    
+                    {/* Project Details */}
+                    <div className="space-y-1.5 text-sm text-muted-foreground mb-4">
+                        <p>
+                            Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}
+                        </p>
+                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                        {dueDate && (
+                            <p>
+                                Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* Action Button */}
+                    <Button onClick={() => setDetailModalOpen(true)} className="w-full" size="sm">
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                </CardFooter>
-            </Card>
+                </div>
+            </div>
 
             <CoverColorDialog
                 open={coverDialogOpen}
