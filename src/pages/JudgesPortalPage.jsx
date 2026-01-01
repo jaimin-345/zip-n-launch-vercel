@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchAssociations } from '@/lib/associationsData';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 
@@ -192,8 +193,8 @@ const JudgesPortalPage = () => {
                     const project = projectMap[n.project_id] || {};
                     const projectData = project.project_data || {};
                     
-                    // Extract pattern names and disciplines from patternSelections
-                    const patternNames = [];
+                    // Extract pattern names, IDs, and disciplines from patternSelections
+                    const patternItems = [];
                     const disciplineNames = [];
                     if (projectData.patternSelections) {
                         Object.entries(projectData.patternSelections).forEach(([discipline, disciplinePatterns]) => {
@@ -204,7 +205,11 @@ const JudgesPortalPage = () => {
                             if (typeof disciplinePatterns === 'object') {
                                 Object.values(disciplinePatterns).forEach(patternData => {
                                     if (patternData?.patternName) {
-                                        patternNames.push(patternData.patternName);
+                                        patternItems.push({
+                                            name: patternData.patternName,
+                                            id: patternData.patternId || null,
+                                            previewImageUrl: patternData.previewImageUrl || null
+                                        });
                                     }
                                 });
                             }
@@ -215,7 +220,7 @@ const JudgesPortalPage = () => {
                         id: n.id,
                         project_id: n.project_id,
                         project_name: n.project_name || project.project_name || 'Unknown Show',
-                        pattern_names: patternNames,
+                        pattern_items: patternItems,
                         discipline_names: disciplineNames,
                         start_date: projectData.startDate || null,
                         end_date: projectData.endDate || null,
@@ -964,16 +969,37 @@ const JudgesPortalPage = () => {
                                                             )}
                                                         </TableCell>
                                                         <TableCell>
-                                                            {notification.pattern_names.length > 0 ? (
+                                                            {notification.pattern_items?.length > 0 ? (
                                                                 <div className="flex flex-wrap gap-1 max-w-xs">
-                                                                    {notification.pattern_names.slice(0, 3).map((name, idx) => (
-                                                                        <Badge key={idx} variant="secondary" className="text-xs truncate max-w-[120px]">
-                                                                            {name}
-                                                                        </Badge>
+                                                                    {notification.pattern_items.slice(0, 3).map((pattern, idx) => (
+                                                                        <div key={idx} className="flex items-center gap-1">
+                                                                            <Badge variant="secondary" className="text-xs truncate max-w-[120px]">
+                                                                                {pattern.name}
+                                                                            </Badge>
+                                                                            {pattern.previewImageUrl && (
+                                                                                <HoverCard openDelay={200} closeDelay={100}>
+                                                                                    <HoverCardTrigger asChild>
+                                                                                        <button className="p-0.5 hover:bg-muted rounded transition-colors">
+                                                                                            <Eye className="h-3.5 w-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                                                                                        </button>
+                                                                                    </HoverCardTrigger>
+                                                                                    <HoverCardContent side="top" className="w-80 p-2">
+                                                                                        <div className="space-y-2">
+                                                                                            <p className="text-xs font-medium text-center">{pattern.name}</p>
+                                                                                            <img 
+                                                                                                src={pattern.previewImageUrl} 
+                                                                                                alt={pattern.name}
+                                                                                                className="w-full h-auto rounded border"
+                                                                                            />
+                                                                                        </div>
+                                                                                    </HoverCardContent>
+                                                                                </HoverCard>
+                                                                            )}
+                                                                        </div>
                                                                     ))}
-                                                                    {notification.pattern_names.length > 3 && (
+                                                                    {notification.pattern_items.length > 3 && (
                                                                         <Badge variant="outline" className="text-xs">
-                                                                            +{notification.pattern_names.length - 3} more
+                                                                            +{notification.pattern_items.length - 3} more
                                                                         </Badge>
                                                                     )}
                                                                 </div>
