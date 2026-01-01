@@ -166,11 +166,20 @@ const ManualPatternEntryPage = () => {
         return unique.sort((a, b) => a.localeCompare(b));
     }, [patterns, filterAssociation]);
 
-    // Get unique associations from patterns for the filter dropdown
+    // Get unique associations from patterns for the filter dropdown (with full names)
     const uniqueAssociationsInPatterns = useMemo(() => {
-        const unique = [...new Set(patterns.map(p => p.association_name).filter(Boolean))];
-        return unique.sort((a, b) => a.localeCompare(b));
-    }, [patterns]);
+        const uniqueAbbrevs = [...new Set(patterns.map(p => p.association_name).filter(Boolean))];
+        // Map to objects with abbreviation and full name for display
+        return uniqueAbbrevs
+            .map(abbrev => {
+                const assoc = associations.find(a => a.abbreviation === abbrev || a.name === abbrev);
+                return {
+                    value: abbrev,
+                    displayName: assoc?.name || abbrev
+                };
+            })
+            .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }, [patterns, associations]);
 
     useEffect(() => {
         fetchPatterns();
@@ -396,12 +405,16 @@ const ManualPatternEntryPage = () => {
                                             }}
                                         >
                                             <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="All Associations" />
+                                                <SelectValue placeholder="All Associations">
+                                                    {filterAssociation 
+                                                        ? (uniqueAssociationsInPatterns.find(a => a.value === filterAssociation)?.displayName || filterAssociation)
+                                                        : "All Associations"}
+                                                </SelectValue>
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Associations</SelectItem>
                                                 {uniqueAssociationsInPatterns.map(a => (
-                                                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                                                    <SelectItem key={a.value} value={a.value}>{a.displayName}</SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
