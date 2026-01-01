@@ -247,17 +247,17 @@ export const generatePatternBookPdf = async (pbbData) => {
         if (pbbData.coverPageOption === 'upload' && coverImageBase64) {
              await addImageToPage(coverImageBase64, 0, 0, pageWidth, pageHeight);
         } else {
-            // Dark blue background
-            doc.setFillColor(52, 73, 94);
+            // White background
+            doc.setFillColor(255, 255, 255);
             doc.rect(0, 0, pageWidth, pageHeight, 'F');
             
-            // Decorative border
-            doc.setDrawColor(255, 255, 255);
+            // Decorative border (black for white background)
+            doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(3);
             doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2), 'S');
             
             // Title
-            doc.setTextColor(255, 255, 255);
+            doc.setTextColor(0, 0, 0);
             doc.setFontSize(42);
             doc.setFont('helvetica', 'bold');
             const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();

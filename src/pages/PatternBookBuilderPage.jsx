@@ -239,6 +239,105 @@ const PatternBookBuilderPage = () => {
         }
     }, [currentStep, formData, isLoading, completedSteps]);
 
+    // Validation function to check Show Manager and Judge - returns first error found
+    const validateStaffAndDelegation = () => {
+        // Get all staff members (officials and judges)
+        const staff = new Map();
+        
+        // Add officials (including Show Manager)
+        (formData.officials || []).forEach(official => {
+            if (official && official.name) {
+                staff.set(official.id, {
+                    id: official.id,
+                    name: official.name,
+                    email: official.email,
+                    phone: official.phone,
+                    role: official.role,
+                    delegation: formData.delegations?.[official.id] || { accessPhase: [], roles: [] }
+                });
+            }
+        });
+        
+        // Add judges from associationJudges
+        Object.entries(formData.associationJudges || {}).forEach(([assocId, assocData]) => {
+            (assocData.judges || []).forEach((judge, index) => {
+                if (judge && judge.name) {
+                    const judgeId = `judge-${assocId}-${index}`;
+                    staff.set(judgeId, {
+                        id: judgeId,
+                        name: judge.name,
+                        email: judge.email,
+                        phone: judge.phone,
+                        role: 'Judge',
+                        delegation: formData.delegations?.[judgeId] || { accessPhase: [], roles: [] }
+                    });
+                }
+            });
+        });
+        
+        const staffList = Array.from(staff.values());
+        
+        // Find Show Manager (case-insensitive, handles variations)
+        const showManager = staffList.find(s => {
+            if (!s.role) return false;
+            const roleLower = s.role.toLowerCase();
+            return roleLower.includes('show manager') || roleLower.includes('showmanager');
+        });
+        
+        // Find all Judges (case-insensitive, exact match for "judge" role)
+        const judges = staffList.filter(s => {
+            if (!s.role) return false;
+            const roleLower = s.role.toLowerCase().trim();
+            return roleLower === 'judge';
+        });
+        
+        // Check Show Manager - return first error found
+        if (!showManager) {
+            return 'Show Manager is missing. Add in Step 4: Show Details.';
+        }
+        if (!showManager.name || !showManager.name.trim()) {
+            return 'Show Manager name is missing. Add in Step 4: Show Details.';
+        }
+        if (!showManager.email || !showManager.email.trim()) {
+            return 'Show Manager email is missing. Add in Step 4: Show Details.';
+        }
+        if (!showManager.phone || !showManager.phone.trim()) {
+            return 'Show Manager phone is missing. Add in Step 4: Show Details.';
+        }
+        
+        // Check at least one Judge - return first error found
+        if (judges.length === 0) {
+            return 'Judge is missing. Add in Step 4: Show Details.';
+        }
+        
+        // Check if at least one judge has complete info
+        const validJudge = judges.find(judge => {
+            const hasCompleteInfo = judge.name && judge.name.trim() && 
+                                   judge.email && judge.email.trim() && 
+                                   judge.phone && judge.phone.trim();
+            return hasCompleteInfo;
+        });
+        
+        if (!validJudge) {
+            return 'Judge info incomplete. Add name, email, and phone in Step 4: Show Details.';
+        }
+        
+        return null; // All validations passed
+    };
+    
+    const handlePayAndPublish = () => {
+        const error = validateStaffAndDelegation();
+        if (error) {
+            toast({
+                variant: "destructive",
+                title: "Validation Error",
+                description: error,
+            });
+            return;
+        }
+        setIsGenerateDialogOpen(true);
+    };
+
     const renderStepContent = () => {
         if (isLoading) {
             return (
@@ -336,7 +435,7 @@ const PatternBookBuilderPage = () => {
                                                 Save Project
                                             </Button>
                                             {currentStep === steps.length ? (
-                                                <Button onClick={() => setIsGenerateDialogOpen(true)} disabled={isNextDisabled}>
+                                                <Button onClick={handlePayAndPublish} disabled={isNextDisabled}>
                                                     <Download className="mr-2 h-4 w-4" /> Pay & Publish Pattern Book Folder
                                                 </Button>
                                             ) : (

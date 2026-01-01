@@ -1,10 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Card as UICard, CardContent as UICardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { Button } from '@/components/ui/button';
+import { ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatternDetail, onPatternSelect, primaryAffiliates = new Set() }) => {
+    const [imageZoom, setImageZoom] = useState(1);
+    const [hoveredPatternImage, setHoveredPatternImage] = useState(null);
+    const [hoveredPatternId, setHoveredPatternId] = useState(null);
+    const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
     
     useEffect(() => {
         if (patterns.length > 0 && !selectedPatternId) {
@@ -63,16 +71,148 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                         <Carousel 
                             opts={{ align: "center" }} 
                             className="w-full"
+                            style={{ overflow: 'visible' }}
                         >
-                            <CarouselContent className="flex items-center justify-center">
+                            <CarouselContent className="flex items-center justify-center" style={{ overflow: 'visible' }}>
                                 {selectedPatternDetail.media.map((mediaItem, idx) => (
                                     <CarouselItem key={idx} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
                                         <div className="p-1">
-                                            <UICard className="overflow-hidden bg-slate-900 border-slate-700">
-                                                <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
-                                                    <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden group/media">
+                                            <UICard className="bg-slate-900 border-slate-700" style={{ overflow: 'visible' }}>
+                                                <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col" style={{ overflow: 'visible' }}>
+                                                    <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2" style={{ overflow: 'visible' }}>
                                                         {mediaItem && (
-                                                            <img src={mediaItem.image_url || mediaItem.media_url} alt="Pattern Media" className="w-full h-full object-contain" />
+                                                            <>
+                                                                <div 
+                                                                    className="w-full h-full cursor-pointer hover:opacity-90 transition-opacity"
+                                                                    onMouseEnter={(e) => {
+                                                                        const rect = e.currentTarget.getBoundingClientRect();
+                                                                        setHoveredPatternImage(mediaItem.image_url || mediaItem.media_url);
+                                                                        setHoveredPatternId(`${idx}-${mediaItem.id || idx}`);
+                                                                        setImageZoom(1);
+                                                                        // Position to the right of the image
+                                                                        setHoverPosition({ 
+                                                                            x: rect.right + 20, 
+                                                                            y: rect.top + (rect.height / 2) 
+                                                                        });
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        // Don't hide immediately - let the preview handle its own mouse leave
+                                                                        const relatedTarget = e.relatedTarget;
+                                                                        if (relatedTarget && relatedTarget.closest('.pattern-hover-preview')) {
+                                                                            return; // Moving to preview, don't hide
+                                                                        }
+                                                                        setTimeout(() => {
+                                                                            setHoveredPatternId(null);
+                                                                        }, 100);
+                                                                    }}
+                                                                >
+                                                                    <img 
+                                                                        src={mediaItem.image_url || mediaItem.media_url} 
+                                                                        alt="Pattern Media" 
+                                                                        className="w-full h-full object-contain border-2 border-slate-600 rounded" 
+                                                                    />
+                                                                </div>
+                                                                {/* Hover Preview - Rendered via portal at body level */}
+                                                                {hoveredPatternId === `${idx}-${mediaItem.id || idx}` && typeof document !== 'undefined' && createPortal(
+                                                                    <div
+                                                                        className="pattern-hover-preview fixed z-[9999] bg-background border-2 border-dashed border-slate-700 rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
+                                                                        style={{
+                                                                            left: `${hoverPosition.x}px`,
+                                                                            top: `${hoverPosition.y}px`,
+                                                                            transform: 'translateY(-50%)',
+                                                                            maxHeight: '75vh'
+                                                                        }}
+                                                                        onMouseEnter={() => {
+                                                                            // Keep preview visible when hovering over it
+                                                                            if (hoveredPatternId === `${idx}-${mediaItem.id || idx}`) {
+                                                                                setHoveredPatternId(`${idx}-${mediaItem.id || idx}`);
+                                                                            }
+                                                                        }}
+                                                                        onMouseLeave={() => {
+                                                                            setHoveredPatternId(null);
+                                                                        }}
+                                                                    >
+                                                                        <div className="space-y-2">
+                                                                            <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
+                                                                            <div className="rounded-md border-2 border-dashed border-slate-700 bg-slate-900/50 p-4 relative" style={{ 
+                                                                                overflow: 'auto',
+                                                                                maxHeight: '65vh',
+                                                                                display: 'flex',
+                                                                                justifyContent: 'center',
+                                                                                alignItems: 'flex-start'
+                                                                            }}>
+                                                                                {hoveredPatternImage ? (
+                                                                                    <>
+                                                                                        <img 
+                                                                                            src={hoveredPatternImage} 
+                                                                                            alt="Pattern Diagram - Zoomed" 
+                                                                                            className="transition-transform duration-200 w-full h-auto object-contain"
+                                                                                            loading="lazy"
+                                                                                            style={{ 
+                                                                                                transform: `scale(${imageZoom})`,
+                                                                                                transformOrigin: 'center',
+                                                                                                maxWidth: '100%',
+                                                                                                maxHeight: '60vh',
+                                                                                                display: 'block'
+                                                                                            }}
+                                                                                        />
+                                                                                        {/* Zoom Controls */}
+                                                                                        <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-md p-1 border shadow-lg z-10">
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className="h-8 w-8"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setImageZoom(prev => Math.min(prev + 0.25, 3));
+                                                                                                }}
+                                                                                                title="Zoom In"
+                                                                                            >
+                                                                                                <ZoomIn className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className="h-8 w-8"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setImageZoom(prev => Math.max(prev - 0.25, 0.5));
+                                                                                                }}
+                                                                                                title="Zoom Out"
+                                                                                            >
+                                                                                                <ZoomOut className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="icon"
+                                                                                                className="h-8 w-8"
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setImageZoom(1);
+                                                                                                }}
+                                                                                                title="Reset Zoom"
+                                                                                            >
+                                                                                                <RotateCcw className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                        {/* Zoom Level Indicator */}
+                                                                                        {imageZoom !== 1 && (
+                                                                                            <div className="absolute bottom-2 left-2 bg-background/95 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-medium border shadow-lg z-10">
+                                                                                                {Math.round(imageZoom * 100)}%
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <div className="text-sm text-muted-foreground py-4">
+                                                                                        No image available.
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>,
+                                                                    document.body
+                                                                )}
+                                                            </>
                                                         )}
 
                                                         {/* Maneuvers Overlay */}

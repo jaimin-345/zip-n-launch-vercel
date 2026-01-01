@@ -288,13 +288,100 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
 
         const addStaffMember = (member, role, id) => {
             if (member && member.name && !staff.has(id)) {
+                // Get existing delegation or create new one
+                let delegation = formData.delegations?.[id] || { accessPhase: [], roles: [] };
+                
+                // Sync Step 5 judge assignments to delegations for judges
+                if (role === 'Judge' && formData.groupJudges) {
+                    // Find all disciplines this judge is assigned to in Step 5
+                    const assignedDisciplineIds = new Set();
+                    const assignedDisciplineDates = new Map();
+                    
+                    // Check groupJudges structure: { disciplineIndex: { groupIndex: judgeName } }
+                    Object.entries(formData.groupJudges).forEach(([disciplineIndex, groups]) => {
+                        const discipline = (formData.disciplines || [])[parseInt(disciplineIndex)];
+                        if (discipline && discipline.id) {
+                            // Check if this judge is assigned to any group in this discipline
+                            const isAssigned = Object.values(groups || {}).some(judgeName => 
+                                judgeName === member.name
+                            );
+                            
+                            if (isAssigned) {
+                                assignedDisciplineIds.add(discipline.id);
+                                
+                                // Get due date if available
+                                const dueDate = formData.groupDueDates?.[disciplineIndex]?.[Object.keys(groups || {})[0]] 
+                                    || formData.disciplineDueDates?.[disciplineIndex];
+                                if (dueDate) {
+                                    assignedDisciplineDates.set(discipline.id, dueDate);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Also check judgeSelections (discipline-level assignments)
+                    if (formData.judgeSelections) {
+                        Object.entries(formData.judgeSelections).forEach(([disciplineIndex, judgeName]) => {
+                            if (judgeName === member.name) {
+                                const discipline = (formData.disciplines || [])[parseInt(disciplineIndex)];
+                                if (discipline && discipline.id) {
+                                    assignedDisciplineIds.add(discipline.id);
+                                    
+                                    // Get due date if available
+                                    const dueDate = formData.dueDateSelections?.[disciplineIndex] 
+                                        || formData.disciplineDueDates?.[disciplineIndex];
+                                    if (dueDate) {
+                                        assignedDisciplineDates.set(discipline.id, dueDate);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    
+                    // If judge has Step 5 assignments, sync them to delegations
+                    if (assignedDisciplineIds.size > 0) {
+                        // Check if there's already a role with disciplines, or create one
+                        let roles = delegation.roles || [];
+                        let commentRole = roles.find(r => r.id === 'comment');
+                        
+                        if (!commentRole) {
+                            // Create a comment role with the assigned disciplines
+                            commentRole = {
+                                id: 'comment',
+                                disciplines: Array.from(assignedDisciplineIds),
+                                deadline: assignedDisciplineDates.size > 0 
+                                    ? Array.from(assignedDisciplineDates.values())[0] 
+                                    : null
+                            };
+                            roles = [...roles, commentRole];
+                        } else {
+                            // Merge disciplines (avoid duplicates)
+                            const existingDisciplines = new Set(commentRole.disciplines || []);
+                            assignedDisciplineIds.forEach(dId => existingDisciplines.add(dId));
+                            commentRole = {
+                                ...commentRole,
+                                disciplines: Array.from(existingDisciplines),
+                                deadline: commentRole.deadline || (assignedDisciplineDates.size > 0 
+                                    ? Array.from(assignedDisciplineDates.values())[0] 
+                                    : null)
+                            };
+                            roles = roles.map(r => r.id === 'comment' ? commentRole : r);
+                        }
+                        
+                        delegation = {
+                            ...delegation,
+                            roles: roles
+                        };
+                    }
+                }
+                
                 staff.set(id, {
                     id: id,
                     name: member.name,
                     email: member.email,
                     phone: member.phone,
                     role: role,
-                    delegation: formData.delegations?.[id] || { accessPhase: [], roles: [] }
+                    delegation: delegation
                 });
             }
         };
@@ -308,7 +395,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
         });
 
         return Array.from(staff.values());
-    }, [formData.officials, formData.associationJudges, formData.delegations]);
+    }, [formData.officials, formData.associationJudges, formData.delegations, formData.groupJudges, formData.judgeSelections, formData.groupDueDates, formData.disciplineDueDates, formData.dueDateSelections, formData.disciplines]);
 
     const handleUpdateStaffDelegation = (staffId, updates) => {
         if (isReadOnly) return;
