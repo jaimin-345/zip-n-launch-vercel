@@ -27,12 +27,12 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
                 <UICard className="overflow-hidden transition-all duration-300 bg-slate-900 border-slate-700">
                     <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
                         {/* Scoresheet Preview Area */}
-                        <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2">
+                        <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden">
                             {scoresheetImage && scoresheetImage.image_url ? (
                                 <img 
                                     src={scoresheetImage.image_url} 
                                     alt="Scoresheet" 
-                                    className="w-full h-full object-contain border-2 border-slate-600 rounded"
+                                    className="w-full h-full object-contain border-2 border-slate-600 rounded transition-transform duration-300 hover:scale-110 cursor-zoom-in"
                                 />
                             ) : (
                                 <span className="text-muted-foreground text-sm">No Scoresheet Available</span>

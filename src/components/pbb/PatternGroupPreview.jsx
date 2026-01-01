@@ -70,10 +70,10 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                                         <div className="p-1">
                                             <UICard className="overflow-hidden bg-slate-900 border-slate-700">
                                                 <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
-                                                    <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden group/media">
-                                                        {mediaItem && (
-                                                            <img src={mediaItem.image_url || mediaItem.media_url} alt="Pattern Media" className="w-full h-full object-contain" />
-                                                        )}
+                                                        <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden group/media">
+                                                            {mediaItem && (
+                                                                <img src={mediaItem.image_url || mediaItem.media_url} alt="Pattern Media" className="w-full h-full object-contain transition-transform duration-300 hover:scale-110 cursor-zoom-in" />
+                                                            )}
 
                                                         {/* Maneuvers Overlay */}
                                                         {selectedPatternDetail.maneuvers && selectedPatternDetail.maneuvers.length > 0 && (
