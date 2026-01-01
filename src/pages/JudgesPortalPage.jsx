@@ -188,6 +188,38 @@ const JudgesPortalPage = () => {
                     projectMap[p.id] = p;
                 });
                 
+                // Collect all pattern IDs from all projects
+                const allPatternIds = new Set();
+                (projects || []).forEach(p => {
+                    const projectData = p.project_data || {};
+                    if (projectData.patternSelections) {
+                        Object.values(projectData.patternSelections).forEach(disciplinePatterns => {
+                            if (typeof disciplinePatterns === 'object') {
+                                Object.values(disciplinePatterns).forEach(patternData => {
+                                    if (patternData?.patternId) {
+                                        allPatternIds.add(patternData.patternId);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+                
+                // Fetch pattern preview images from database
+                let patternImageMap = {};
+                if (allPatternIds.size > 0) {
+                    const { data: patternsData, error: patError } = await supabase
+                        .from('tbl_patterns')
+                        .select('id, preview_image_url')
+                        .in('id', Array.from(allPatternIds));
+                    
+                    if (!patError && patternsData) {
+                        patternsData.forEach(p => {
+                            patternImageMap[p.id] = p.preview_image_url;
+                        });
+                    }
+                }
+                
                 // Combine notifications with project data and extract pattern names
                 const tableData = notifications.map(n => {
                     const project = projectMap[n.project_id] || {};
@@ -208,7 +240,7 @@ const JudgesPortalPage = () => {
                                         patternItems.push({
                                             name: patternData.patternName,
                                             id: patternData.patternId || null,
-                                            previewImageUrl: patternData.previewImageUrl || null
+                                            previewImageUrl: patternData.patternId ? patternImageMap[patternData.patternId] : null
                                         });
                                     }
                                 });
