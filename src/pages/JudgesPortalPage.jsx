@@ -372,12 +372,17 @@ const JudgesPortalPage = () => {
         }
         
         const filtered = baseList.filter(s => {
-            // Normalize association - use full name from pattern if available
-            const assoc = s.pattern?.association_name || s.association_abbrev;
+            // Normalize association - get abbreviation for matching
+            const rawAssoc = s.pattern?.association_name || s.association_abbrev;
+            // Find matching abbreviation from associations data
+            const matchedAssoc = associationsData.find(a => 
+                a.abbreviation === rawAssoc || a.name === rawAssoc || a.id === rawAssoc
+            );
+            const assocAbbrev = matchedAssoc?.abbreviation || rawAssoc;
             const disc = s.discipline || s.pattern?.discipline;
             const hasPattern = !!s.pattern_id;
             
-            const matchAssoc = scoresheetFilters.association === 'all' || assoc === scoresheetFilters.association;
+            const matchAssoc = scoresheetFilters.association === 'all' || assocAbbrev === scoresheetFilters.association;
             const matchDisc = scoresheetFilters.discipline === 'all' || disc === scoresheetFilters.discipline;
             
             let matchType = true;
@@ -389,7 +394,7 @@ const JudgesPortalPage = () => {
         });
         
         setFilteredScoresheets(filtered);
-    }, [scoresheets, scoresheetFilters, isAdminUser, assignedProjectData, assignedProjects, isLoadingAssignments]);
+    }, [scoresheets, scoresheetFilters, isAdminUser, assignedProjectData, assignedProjects, isLoadingAssignments, associationsData]);
     
     // Fetch patterns
     useEffect(() => {
@@ -535,16 +540,26 @@ const JudgesPortalPage = () => {
         }
     }, [activeTab, user]);
     
-    // Get unique associations from scoresheets - prefer full name from pattern
+    // Get unique associations from scoresheets - map abbreviations to full names
     const scoresheetAssociations = useMemo(() => {
-        const assocs = new Set();
+        const assocMap = new Map(); // value -> displayName
         scoresheets.forEach(s => {
             // Prefer full name from pattern, fallback to association_abbrev
-            const assoc = s.pattern?.association_name || s.association_abbrev;
-            if (assoc) assocs.add(assoc);
+            const rawAssoc = s.pattern?.association_name || s.association_abbrev;
+            if (rawAssoc) {
+                // Try to find matching association to get full name
+                const matchedAssoc = associationsData.find(a => 
+                    a.abbreviation === rawAssoc || a.name === rawAssoc || a.id === rawAssoc
+                );
+                const displayName = matchedAssoc?.name || rawAssoc;
+                const value = matchedAssoc?.abbreviation || rawAssoc;
+                assocMap.set(value, displayName);
+            }
         });
-        return Array.from(assocs).sort();
-    }, [scoresheets]);
+        return Array.from(assocMap.entries())
+            .map(([value, displayName]) => ({ value, displayName }))
+            .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    }, [scoresheets, associationsData]);
     
     // Get unique disciplines from scoresheets
     const scoresheetDisciplines = useMemo(() => {
@@ -1151,12 +1166,16 @@ const JudgesPortalPage = () => {
                                                     onValueChange={(value) => setScoresheetFilters(prev => ({ ...prev, association: value }))}
                                                 >
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="All Associations" />
+                                                        <SelectValue placeholder="All Associations">
+                                                            {scoresheetFilters.association === 'all' 
+                                                                ? 'All Associations' 
+                                                                : scoresheetAssociations.find(a => a.value === scoresheetFilters.association)?.displayName || scoresheetFilters.association}
+                                                        </SelectValue>
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="all">All Associations</SelectItem>
                                                         {scoresheetAssociations.map(assoc => (
-                                                            <SelectItem key={assoc} value={assoc}>{assoc}</SelectItem>
+                                                            <SelectItem key={assoc.value} value={assoc.value}>{assoc.displayName}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
