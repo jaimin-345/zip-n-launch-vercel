@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera, AlertTriangle } from 'lucide-react';
+import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera, AlertTriangle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,7 @@ const AuthModal = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(authModalInitialTab);
     const [view, setView] = useState('tabs'); // 'tabs' or 'forgot_password'
-    const [signUpStep, setSignUpStep] = useState(1); // 1: Basic, 2: Profile, 3: Horses
+    const [signUpStep, setSignUpStep] = useState(1); // 1: Basic, 2: Profile, 3: Horses, 4: Judge Profile
     
     // Form States - Sign In
     const [signInEmail, setSignInEmail] = useState('');
@@ -115,6 +115,11 @@ const AuthModal = () => {
     const [electronicConsent, setElectronicConsent] = useState(false);
     const [riskAck, setRiskAck] = useState(false);
 
+    // Form States - Sign Up Step 4 (Judge Profile)
+    const [isCardedJudge, setIsCardedJudge] = useState(false);
+    const [cardedAssociations, setCardedAssociations] = useState([]);
+    const [publiclyDisplayCards, setPubliclyDisplayCards] = useState(false);
+
     const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -139,8 +144,8 @@ const AuthModal = () => {
 
     const handleSignUp = async (e) => {
         e.preventDefault();
-        // Only allow signup on step 3 AND when explicitly submitting
-        if (signUpStep !== 3 || !isSubmitting) {
+        // Only allow signup on step 4 AND when explicitly submitting
+        if (signUpStep !== 4 || !isSubmitting) {
             setIsSubmitting(false);
             return;
         }
@@ -160,7 +165,11 @@ const AuthModal = () => {
             primaryDisciplines,
             levelDesignations,
             associationMemberships,
-            horses: horses.filter(h => h.name) // Only include horses with names
+            horses: horses.filter(h => h.name), // Only include horses with names
+            // Judge profile data
+            isCardedJudge,
+            cardedAssociations: isCardedJudge ? cardedAssociations : [],
+            publiclyDisplayCards: isCardedJudge ? publiclyDisplayCards : false
         };
         
         const { error } = await signUp(signUpEmail, signUpPassword, metadata);
@@ -206,7 +215,17 @@ const AuthModal = () => {
             setElectronicConsent(false);
             setRiskAck(false);
             setIsSubmitting(false);
+            // Reset judge profile fields
+            setIsCardedJudge(false);
+            setCardedAssociations([]);
+            setPubliclyDisplayCards(false);
         }
+    };
+
+    const toggleCardedAssociation = (assocId) => {
+        setCardedAssociations(prev => 
+            prev.includes(assocId) ? prev.filter(a => a !== assocId) : [...prev, assocId]
+        );
     };
 
     const toggleDiscipline = (disc) => {
@@ -272,7 +291,7 @@ const AuthModal = () => {
                 return;
             }
         }
-        setSignUpStep(prev => Math.min(prev + 1, 3));
+        setSignUpStep(prev => Math.min(prev + 1, 4));
     };
 
     const prevStep = () => {
@@ -651,7 +670,109 @@ const AuthModal = () => {
         </ScrollArea>
     );
 
-    return (
+    // Judge associations list for Step 4
+    const JUDGE_ASSOCIATIONS = [
+        { id: "ABRA", name: "ABRA - American Buckskin Registry Association" },
+        { id: "IBHA", name: "IBHA - International Buckskin Horse Association" },
+        { id: "NSBA", name: "NSBA - National Snaffle Bit Association" },
+        { id: "APHA", name: "APHA - American Paint Horse Association" },
+        { id: "PtHA", name: "PtHA - Pinto Horse Association of America" },
+        { id: "NRCHA", name: "NRCHA - National Reined Cow Horse Association" },
+        { id: "4-H", name: "4-H" },
+        { id: "VRH", name: "VRH Ranch Horse" },
+        { id: "PHBA", name: "PHBA - Palomino Horse Breeders of America" },
+        { id: "POAC", name: "POAC - Pony of the Americas Club" },
+        { id: "AQHA", name: "AQHA - American Quarter Horse Association" },
+        { id: "ApHC", name: "ApHC - Appaloosa Horse Club" },
+        { id: "NRHA", name: "NRHA - National Reining Horse Association" },
+        { id: "AHA", name: "AHA - Arabian Horse Association" },
+        { id: "Open", name: "Open Shows" },
+        { id: "SHOT", name: "Shot - Stock Horses Texas" }
+    ];
+
+    const renderSignUpStep4 = () => (
+        <ScrollArea className="h-[400px] pr-3">
+            <div className="space-y-4">
+                {/* Section Header */}
+                <div className="space-y-1">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        Judge Profile Setup & Verification
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Verify your judge status and carded associations</p>
+                </div>
+
+                {/* I am a carded judge checkbox */}
+                <div className="flex items-center space-x-2 p-3 rounded-md bg-muted/50 border">
+                    <Checkbox 
+                        id="carded-judge" 
+                        checked={isCardedJudge} 
+                        onCheckedChange={setIsCardedJudge} 
+                    />
+                    <Label htmlFor="carded-judge" className="text-sm font-medium cursor-pointer">
+                        I am a carded judge
+                    </Label>
+                </div>
+
+                {/* Association Selection - Only show if carded judge is checked */}
+                {isCardedJudge && (
+                    <>
+                        <div className="space-y-2">
+                            <Label className="text-xs">Association(s)</Label>
+                            <p className="text-[10px] text-muted-foreground">Select the associations you are carded with</p>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                {JUDGE_ASSOCIATIONS.map(assoc => (
+                                    <div key={assoc.id} className="flex items-start space-x-2">
+                                        <Checkbox 
+                                            id={`judge-assoc-${assoc.id}`}
+                                            checked={cardedAssociations.includes(assoc.id)} 
+                                            onCheckedChange={() => toggleCardedAssociation(assoc.id)}
+                                            className="mt-0.5"
+                                        />
+                                        <Label 
+                                            htmlFor={`judge-assoc-${assoc.id}`} 
+                                            className="text-xs font-normal cursor-pointer leading-tight"
+                                        >
+                                            {assoc.name}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Publicly display checkbox */}
+                        <div className="p-3 rounded-md bg-primary/10 border border-primary/20 space-y-1">
+                            <div className="flex items-start space-x-2">
+                                <Checkbox 
+                                    id="publicly-display" 
+                                    checked={publiclyDisplayCards} 
+                                    onCheckedChange={setPubliclyDisplayCards}
+                                    className="mt-0.5"
+                                />
+                                <div>
+                                    <Label htmlFor="publicly-display" className="text-xs font-medium cursor-pointer">
+                                        Publicly display my carded associations
+                                    </Label>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        When enabled, your carded associations will be visible to show managers
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* Skip note for non-judges */}
+                {!isCardedJudge && (
+                    <div className="p-3 rounded-md bg-muted/30 border border-dashed">
+                        <p className="text-xs text-muted-foreground text-center">
+                            Not a judge? No problem! You can skip this step and continue to create your account.
+                        </p>
+                    </div>
+                )}
+            </div>
+        </ScrollArea>
+    );
         <Dialog open={isAuthModalOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
                 <AnimatePresence initial={false} mode="wait">
@@ -700,20 +821,20 @@ const AuthModal = () => {
                                         <form data-signup-form onSubmit={(e) => {
                                             e.preventDefault();
                                             // Only proceed if isSubmitting was set by button click
-                                            if (signUpStep === 3 && isSubmitting) {
+                                            if (signUpStep === 4 && isSubmitting) {
                                                 handleSignUp(e);
                                             }
                                         }}>
                                             {/* Step Indicators */}
-                                            <div className="flex items-center justify-center gap-2 mb-4">
-                                                {[1, 2, 3].map(step => (
+                                            <div className="flex items-center justify-center gap-1.5 mb-4">
+                                                {[1, 2, 3, 4].map(step => (
                                                     <div key={step} className="flex items-center">
-                                                        <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                                                        <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
                                                             signUpStep >= step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                                                         }`}>
                                                             {step}
                                                         </div>
-                                                        {step < 3 && <div className={`w-8 h-0.5 mx-1 ${signUpStep > step ? 'bg-primary' : 'bg-muted'}`} />}
+                                                        {step < 4 && <div className={`w-6 h-0.5 mx-0.5 ${signUpStep > step ? 'bg-primary' : 'bg-muted'}`} />}
                                                     </div>
                                                 ))}
                                             </div>
@@ -722,12 +843,14 @@ const AuthModal = () => {
                                                     {signUpStep === 1 && "Step 1: Basic Information"}
                                                     {signUpStep === 2 && "Step 2: Exhibitor Profile"}
                                                     {signUpStep === 3 && "Step 3: Horse Information"}
+                                                    {signUpStep === 4 && "Step 4: Judge Profile (Optional)"}
                                                 </span>
                                             </div>
 
                                             {signUpStep === 1 && renderSignUpStep1()}
                                             {signUpStep === 2 && renderSignUpStep2()}
                                             {signUpStep === 3 && renderSignUpStep3()}
+                                            {signUpStep === 4 && renderSignUpStep4()}
 
                                             {/* Navigation Buttons */}
                                             <div className="flex gap-2 mt-4">
@@ -736,7 +859,7 @@ const AuthModal = () => {
                                                         <ChevronLeft className="h-4 w-4 mr-1" /> Back
                                                     </Button>
                                                 )}
-                                                {signUpStep < 3 ? (
+                                                {signUpStep < 4 ? (
                                                     <Button type="button" onClick={nextStep} className="flex-1">
                                                         Next <ChevronRight className="h-4 w-4 ml-1" />
                                                     </Button>
