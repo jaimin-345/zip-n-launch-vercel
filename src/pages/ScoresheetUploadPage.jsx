@@ -176,15 +176,25 @@ const ScoresheetUploadPage = () => {
         return unique.sort((a, b) => a.name.localeCompare(b.name));
     }, [disciplines, formData.association_abbrev, selectionMode, associations]);
 
-    // Get unique associations from existing scoresheets for filter
+    // Get unique associations from existing scoresheets for filter (normalized to abbreviations)
     const uniqueAssociationsInScoresheets = useMemo(() => {
-        const abbrevs = new Set();
+        const abbrevSet = new Set();
         scoresheets.forEach(s => {
-            const assoc = s.association_abbrev || s.pattern?.association_name;
-            if (assoc) abbrevs.add(assoc);
+            let assocValue = s.association_abbrev || s.pattern?.association_name;
+            if (assocValue) {
+                // Normalize: if it contains " - ", extract the abbreviation part
+                if (assocValue.includes(' - ')) {
+                    assocValue = assocValue.split(' - ')[0].trim();
+                }
+                // Try to find matching association to get canonical abbreviation
+                const matchedAssoc = associations.find(a => 
+                    a.abbreviation === assocValue || a.name === assocValue
+                );
+                abbrevSet.add(matchedAssoc?.abbreviation || assocValue);
+            }
         });
-        return Array.from(abbrevs).sort();
-    }, [scoresheets]);
+        return Array.from(abbrevSet).sort();
+    }, [scoresheets, associations]);
 
     // Get unique disciplines from existing scoresheets for filter
     const uniqueDisciplinesInScoresheets = useMemo(() => {
@@ -199,13 +209,22 @@ const ScoresheetUploadPage = () => {
     // Filtered scoresheets based on selected filters
     const filteredScoresheets = useMemo(() => {
         return scoresheets.filter(s => {
-            const assoc = s.association_abbrev || s.pattern?.association_name;
+            let assocValue = s.association_abbrev || s.pattern?.association_name;
+            // Normalize the assoc value to abbreviation for consistent filtering
+            if (assocValue && assocValue.includes(' - ')) {
+                assocValue = assocValue.split(' - ')[0].trim();
+            }
+            const matchedAssoc = associations.find(a => 
+                a.abbreviation === assocValue || a.name === assocValue
+            );
+            const normalizedAbbrev = matchedAssoc?.abbreviation || assocValue;
+            
             const disc = s.discipline || s.pattern?.discipline;
-            const matchAssoc = filterAssociation === 'all' || assoc === filterAssociation;
+            const matchAssoc = filterAssociation === 'all' || normalizedAbbrev === filterAssociation;
             const matchDisc = filterDiscipline === 'all' || disc === filterDiscipline;
             return matchAssoc && matchDisc;
         });
-    }, [scoresheets, filterAssociation, filterDiscipline]);
+    }, [scoresheets, filterAssociation, filterDiscipline, associations]);
 
     // Reset to page 1 when filters change
     useEffect(() => {
@@ -446,9 +465,14 @@ const ScoresheetUploadPage = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Associations</SelectItem>
-                                                {uniqueAssociationsInScoresheets.map(abbrev => (
-                                                    <SelectItem key={abbrev} value={abbrev}>{abbrev}</SelectItem>
-                                                ))}
+                                                {uniqueAssociationsInScoresheets.map(abbrev => {
+                                                    const assoc = associations.find(a => a.abbreviation === abbrev);
+                                                    return (
+                                                        <SelectItem key={abbrev} value={abbrev}>
+                                                            {assoc?.name || abbrev}
+                                                        </SelectItem>
+                                                    );
+                                                })}
                                             </SelectContent>
                                         </Select>
                                     </div>
