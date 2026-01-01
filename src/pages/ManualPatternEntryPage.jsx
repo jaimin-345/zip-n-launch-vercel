@@ -456,9 +456,13 @@ const ManualPatternEntryPage = () => {
                                             <TableBody>
                                                 {filteredPatterns
                                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                                    .map(p => (
+                                                    .map(p => {
+                                                        // Look up full name from abbreviation
+                                                        const assoc = associations.find(a => a.abbreviation === p.association_name || a.name === p.association_name);
+                                                        const displayName = assoc?.name || p.association_name;
+                                                        return (
                                                     <TableRow key={p.id}>
-                                                        <TableCell>{p.association_name}</TableCell>
+                                                        <TableCell>{displayName}</TableCell>
                                                         <TableCell>{p.discipline}</TableCell>
                                                         <TableCell>{p.pdf_file_name || 'N/A'}</TableCell>
                                                         <TableCell>{p.pattern_date ? format(parseISO(p.pattern_date), 'PPP') : 'N/A'}</TableCell>
@@ -468,7 +472,8 @@ const ManualPatternEntryPage = () => {
                                                             <Button variant="destructive" size="sm" onClick={() => { setPatternToDelete(p); setIsDeleteDialogOpen(true); }}><Trash2 className="h-4 w-4" /></Button>
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                    );
+                                                })}
                                             </TableBody>
                                         </Table>
                                         
