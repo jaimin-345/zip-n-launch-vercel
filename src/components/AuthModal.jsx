@@ -773,6 +773,8 @@ const AuthModal = () => {
             </div>
         </ScrollArea>
     );
+
+    return (
         <Dialog open={isAuthModalOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
                 <AnimatePresence initial={false} mode="wait">
