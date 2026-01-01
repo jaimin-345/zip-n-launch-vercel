@@ -205,17 +205,20 @@ const JudgesPortalPage = () => {
                     }
                 });
                 
-                // Fetch pattern preview images from database
+                // Fetch pattern preview images from tbl_pattern_media
                 let patternImageMap = {};
                 if (allPatternIds.size > 0) {
-                    const { data: patternsData, error: patError } = await supabase
-                        .from('tbl_patterns')
-                        .select('id, preview_image_url')
-                        .in('id', Array.from(allPatternIds));
+                    const { data: patternMediaData, error: patError } = await supabase
+                        .from('tbl_pattern_media')
+                        .select('pattern_id, image_url')
+                        .in('pattern_id', Array.from(allPatternIds));
                     
-                    if (!patError && patternsData) {
-                        patternsData.forEach(p => {
-                            patternImageMap[p.id] = p.preview_image_url;
+                    if (!patError && patternMediaData) {
+                        // Use first image found for each pattern_id
+                        patternMediaData.forEach(pm => {
+                            if (!patternImageMap[pm.pattern_id]) {
+                                patternImageMap[pm.pattern_id] = pm.image_url;
+                            }
                         });
                     }
                 }
