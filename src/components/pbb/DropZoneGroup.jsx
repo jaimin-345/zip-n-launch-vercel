@@ -328,13 +328,19 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         };
     }, []);
 
-    // Get association name from group divisions - if all divisions in group are from ONE association, use that
-    const associationName = useMemo(() => {
+    // Get association info (both name and abbreviation) from group divisions - if all divisions in group are from ONE association, use that
+    const associationInfo = useMemo(() => {
         if (!group.divisions || group.divisions.length === 0) {
             // No divisions in group, fall back to discipline's association
             if (pbbDiscipline?.association_id) {
                 const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
-                if (assoc) return assoc.name || assoc.abbreviation;
+                if (assoc) {
+                    return {
+                        name: assoc.name,
+                        abbreviation: assoc.abbreviation,
+                        id: assoc.id
+                    };
+                }
             }
             return null;
         }
@@ -345,17 +351,32 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         // If all divisions are from ONE association, use that association for pattern filtering
         if (uniqueAssocIds.length === 1) {
             const assoc = associationsData?.find(a => a.id === uniqueAssocIds[0]);
-            if (assoc) return assoc.name || assoc.abbreviation;
+            if (assoc) {
+                return {
+                    name: assoc.name,
+                    abbreviation: assoc.abbreviation,
+                    id: assoc.id
+                };
+            }
         }
         
         // If multiple associations in group, fall back to discipline's association
         if (pbbDiscipline?.association_id) {
             const assoc = associationsData?.find(a => a.id === pbbDiscipline.association_id);
-            if (assoc) return assoc.name || assoc.abbreviation;
+            if (assoc) {
+                return {
+                    name: assoc.name,
+                    abbreviation: assoc.abbreviation,
+                    id: assoc.id
+                };
+            }
         }
         
         return null;
     }, [group.divisions, pbbDiscipline?.association_id, associationsData]);
+    
+    // Keep associationName for backward compatibility and display
+    const associationName = associationInfo?.name || associationInfo?.abbreviation || null;
     
     // Check if this discipline is from open-show association
     const isOpenShowDiscipline = pbbDiscipline?.selectedAssociations?.['open-show'] || 
@@ -380,15 +401,87 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     // For example, "Reining" should not match "Ranch Reining"
                     query = query.ilike('discipline', pbbDiscipline.name);
                     
-                    if (associationName) {
-                        // For other associations, filter by association name
+                    if (associationInfo) {
+                        // Match by both full name and abbreviation to handle cases where database has either
+                        const name = associationInfo.name;
+                        const abbreviation = associationInfo.abbreviation;
+                        
+                        // Build OR condition to match either full name or abbreviation
+                        // Format: "field.ilike.%value1%,field.ilike.%value2%"
+                        if (name && abbreviation && name !== abbreviation) {
+                            // Both exist and are different - use OR to match either
+                            query = query.or(`association_name.ilike.%${name}%,association_name.ilike.%${abbreviation}%`);
+                        } else if (name) {
+                            // Use full name (or if abbreviation is same as name, just use name)
+                            query = query.ilike('association_name', `%${name}%`);
+                        } else if (abbreviation) {
+                            // Only abbreviation available
+                            query = query.ilike('association_name', `%${abbreviation}%`);
+                        }
+                    } else if (associationName) {
+                        // Fallback to old behavior if associationInfo is not available
                         query = query.ilike('association_name', `%${associationName}%`);
                     }
                 }
                 
-                const { data, error } = await query;
+                let { data, error } = await query;
                 
-                if (error) throw error;
+                // If OR query fails or returns no results, try individual queries as fallback
+                if (error || (data && data.length === 0 && associationInfo)) {
+                    const name = associationInfo.name;
+                    const abbreviation = associationInfo.abbreviation;
+                    
+                    // Try fetching with individual queries and combine results
+                    if (name && abbreviation && name !== abbreviation) {
+                        try {
+                            let query1 = supabase
+                                .from('tbl_patterns')
+                                .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
+                                .ilike('discipline', pbbDiscipline.name)
+                                .ilike('association_name', `%${name}%`);
+                            
+                            let query2 = supabase
+                                .from('tbl_patterns')
+                                .select('id, pdf_file_name, maneuvers_range, pattern_version, discipline, association_name')
+                                .ilike('discipline', pbbDiscipline.name)
+                                .ilike('association_name', `%${abbreviation}%`);
+                            
+                            const [result1, result2] = await Promise.all([
+                                query1,
+                                query2
+                            ]);
+                            
+                            // Combine results and remove duplicates
+                            const combinedData = [];
+                            const seenIds = new Set();
+                            
+                            [result1.data, result2.data].forEach(resultSet => {
+                                if (resultSet) {
+                                    resultSet.forEach(pattern => {
+                                        if (!seenIds.has(pattern.id)) {
+                                            seenIds.add(pattern.id);
+                                            combinedData.push(pattern);
+                                        }
+                                    });
+                                }
+                            });
+                            
+                            if (combinedData.length > 0) {
+                                data = combinedData;
+                                error = null;
+                            }
+                        } catch (fallbackError) {
+                            console.error('Fallback query error:', fallbackError);
+                        }
+                    }
+                }
+                
+                if (error) {
+                    console.error('Error fetching patterns:', error);
+                    console.error('Association info:', associationInfo);
+                    throw error;
+                }
+                
                 setDbPatterns(data || []);
             } catch (err) {
                 console.error('Error fetching patterns:', err);
@@ -398,7 +491,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name, associationName, isOpenShowDiscipline]);
+    }, [pbbDiscipline?.name, associationInfo, associationName, isOpenShowDiscipline]);
 
     // Get unique associations and disciplines from patterns for filters
     const patternAssociations = useMemo(() => {
