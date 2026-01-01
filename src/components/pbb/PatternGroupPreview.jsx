@@ -84,7 +84,7 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                                                                             className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity" 
                                                                         />
                                                                     </HoverCardTrigger>
-                                                                    <HoverCardContent className="w-[700px] max-w-[95vw]" align="center" side="right" sideOffset={10}>
+                                                                    <HoverCardContent className="w-[500px] max-w-[90vw] z-[100]" align="center" side="top" sideOffset={10} collisionPadding={20}>
                                                                         <div className="space-y-2">
                                                                             <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
                                                                             <div className="rounded-md border bg-muted/20 relative">
