@@ -192,10 +192,15 @@ const JudgesPortalPage = () => {
                     const project = projectMap[n.project_id] || {};
                     const projectData = project.project_data || {};
                     
-                    // Extract pattern names from patternSelections
+                    // Extract pattern names and disciplines from patternSelections
                     const patternNames = [];
+                    const disciplineNames = [];
                     if (projectData.patternSelections) {
-                        Object.values(projectData.patternSelections).forEach(disciplinePatterns => {
+                        Object.entries(projectData.patternSelections).forEach(([discipline, disciplinePatterns]) => {
+                            // Add discipline name
+                            if (discipline && !disciplineNames.includes(discipline)) {
+                                disciplineNames.push(discipline);
+                            }
                             if (typeof disciplinePatterns === 'object') {
                                 Object.values(disciplinePatterns).forEach(patternData => {
                                     if (patternData?.patternName) {
@@ -211,6 +216,7 @@ const JudgesPortalPage = () => {
                         project_id: n.project_id,
                         project_name: n.project_name || project.project_name || 'Unknown Show',
                         pattern_names: patternNames,
+                        discipline_names: disciplineNames,
                         start_date: projectData.startDate || null,
                         end_date: projectData.endDate || null,
                         created_at: n.created_at,
@@ -921,6 +927,7 @@ const JudgesPortalPage = () => {
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead>Show Name</TableHead>
+                                                    <TableHead>Discipline(s)</TableHead>
                                                     <TableHead>Pattern(s)</TableHead>
                                                     <TableHead>Start Date</TableHead>
                                                     <TableHead>End Date</TableHead>
@@ -937,6 +944,24 @@ const JudgesPortalPage = () => {
                                                                 )}
                                                                 {notification.project_name}
                                                             </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {notification.discipline_names?.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                    {notification.discipline_names.slice(0, 3).map((name, idx) => (
+                                                                        <Badge key={idx} variant="outline" className="text-xs truncate max-w-[140px]">
+                                                                            {name}
+                                                                        </Badge>
+                                                                    ))}
+                                                                    {notification.discipline_names.length > 3 && (
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            +{notification.discipline_names.length - 3} more
+                                                                        </Badge>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-sm">—</span>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell>
                                                             {notification.pattern_names.length > 0 ? (
