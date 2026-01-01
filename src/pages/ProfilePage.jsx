@@ -8,9 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Gavel, Save } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/components/ui/use-toast';
+import { fetchAssociations } from '@/lib/associationsData';
 
 // US States list
 const US_STATES = [
@@ -74,6 +77,7 @@ const AGE_DIVISIONS = [
 const ProfilePage = () => {
     const { user, loading, updateUserProfile, openAuthModal } = useAuth();
     const navigate = useNavigate();
+    const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Basic Info
@@ -96,6 +100,22 @@ const ProfilePage = () => {
         ageDivision: '',
         disciplines: []
     }]);
+    
+    // Judge Profile State
+    const [isCardedJudge, setIsCardedJudge] = useState(false);
+    const [cardedAssociations, setCardedAssociations] = useState([]);
+    const [displayCardedAssociationsPublicly, setDisplayCardedAssociationsPublicly] = useState(false);
+    const [associationsData, setAssociationsData] = useState([]);
+    const [isSavingJudgeProfile, setIsSavingJudgeProfile] = useState(false);
+
+    // Fetch associations for judge profile
+    useEffect(() => {
+        const loadAssociations = async () => {
+            const data = await fetchAssociations();
+            setAssociationsData(data || []);
+        };
+        loadAssociations();
+    }, []);
 
     useEffect(() => {
         if (!loading && !user) {
@@ -119,6 +139,11 @@ const ProfilePage = () => {
             } else {
                 setHorses([{ id: Date.now(), name: '', breed: '', ageDivision: '', disciplines: [] }]);
             }
+            
+            // Judge Profile
+            setIsCardedJudge(meta.isCardedJudge || false);
+            setCardedAssociations(meta.cardedAssociations || []);
+            setDisplayCardedAssociationsPublicly(meta.displayCardedAssociationsPublicly || false);
         }
     }, [user, loading, navigate]);
 
@@ -184,6 +209,41 @@ const ProfilePage = () => {
             }
             return h;
         }));
+    };
+    
+    // Judge Profile helpers
+    const toggleCardedAssociation = (assocId) => {
+        setCardedAssociations(prev => 
+            prev.includes(assocId) ? prev.filter(a => a !== assocId) : [...prev, assocId]
+        );
+    };
+    
+    const handleSaveJudgeProfile = async () => {
+        if (!user) return;
+        
+        setIsSavingJudgeProfile(true);
+        try {
+            const metadata = {
+                ...user.user_metadata,
+                isCardedJudge,
+                cardedAssociations,
+                displayCardedAssociationsPublicly
+            };
+            
+            await updateUserProfile(metadata);
+            toast({
+                title: 'Profile Updated',
+                description: 'Your judge profile has been saved successfully.',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to save judge profile. Please try again.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSavingJudgeProfile(false);
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -461,7 +521,109 @@ const ProfilePage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Section 3: Horse Information */}
+                                    {/* Section 3: Judge Profile Setup & Verification */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+                                            <Gavel className="h-5 w-5" />
+                                            Judge Profile Setup & Verification
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Verify your judge status and carded associations
+                                        </p>
+                                        
+                                        <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/30">
+                                            <Checkbox
+                                                id="is-carded-judge"
+                                                checked={isCardedJudge}
+                                                onCheckedChange={(checked) => setIsCardedJudge(checked)}
+                                            />
+                                            <Label htmlFor="is-carded-judge" className="text-base font-medium cursor-pointer">
+                                                I am a carded judge
+                                            </Label>
+                                        </div>
+
+                                        {isCardedJudge && (
+                                            <div className="space-y-4 pl-4 border-l-2 border-primary/20">
+                                                <div className="space-y-2">
+                                                    <Label className="text-sm font-medium">Association(s)</Label>
+                                                    <p className="text-xs text-muted-foreground mb-2">
+                                                        Select the associations you are carded with
+                                                    </p>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        {associationsData.map(assoc => (
+                                                            <div key={assoc.id} className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`carded-assoc-${assoc.id}`}
+                                                                    checked={cardedAssociations.includes(assoc.id)}
+                                                                    onCheckedChange={() => toggleCardedAssociation(assoc.id)}
+                                                                />
+                                                                <Label 
+                                                                    htmlFor={`carded-assoc-${assoc.id}`} 
+                                                                    className="text-sm cursor-pointer"
+                                                                >
+                                                                    {assoc.name || assoc.id}
+                                                                </Label>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    {cardedAssociations.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                                            {cardedAssociations.map(assocId => {
+                                                                const assoc = associationsData.find(a => a.id === assocId);
+                                                                return (
+                                                                    <Badge 
+                                                                        key={assocId}
+                                                                        variant="secondary"
+                                                                        className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                                                                        onClick={(e) => { e.preventDefault(); toggleCardedAssociation(assocId); }}
+                                                                    >
+                                                                        {assoc?.name || assocId} ×
+                                                                    </Badge>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center space-x-2 p-4 border rounded-lg bg-muted/20">
+                                                    <Checkbox
+                                                        id="display-carded-publicly"
+                                                        checked={displayCardedAssociationsPublicly}
+                                                        onCheckedChange={(checked) => setDisplayCardedAssociationsPublicly(checked)}
+                                                    />
+                                                    <div className="flex-1">
+                                                        <Label htmlFor="display-carded-publicly" className="text-sm font-medium cursor-pointer">
+                                                            Publicly display my carded associations
+                                                        </Label>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            When enabled, your carded associations will be visible to show managers
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <Button 
+                                                    type="button"
+                                                    onClick={handleSaveJudgeProfile} 
+                                                    disabled={isSavingJudgeProfile}
+                                                    className="w-full sm:w-auto"
+                                                >
+                                                    {isSavingJudgeProfile ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Saving...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Save className="mr-2 h-4 w-4" />
+                                                            Save Judge Profile
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Section 4: Horse Information */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between border-b pb-2">
                                             <h3 className="text-lg font-semibold">Horse Information</h3>
