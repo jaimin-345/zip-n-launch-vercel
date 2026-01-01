@@ -1,9 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card as UICard, CardContent as UICardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId, onScoresheetSelect, primaryAffiliates = new Set(), scoresheetImage }) => {
+    const [imageZoom, setImageZoom] = useState(1);
     
     useEffect(() => {
         if (scoresheets.length > 0 && !selectedScoresheetId) {
@@ -29,11 +32,86 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
                         {/* Scoresheet Preview Area */}
                         <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden">
                             {scoresheetImage && scoresheetImage.image_url ? (
-                                <img 
-                                    src={scoresheetImage.image_url} 
-                                    alt="Scoresheet" 
-                                    className="w-full h-full object-contain border-2 border-slate-600 rounded transition-transform duration-300 hover:scale-110 cursor-zoom-in"
-                                />
+                                <HoverCard openDelay={200} closeDelay={100}>
+                                    <HoverCardTrigger asChild>
+                                        <img 
+                                            src={scoresheetImage.image_url} 
+                                            alt="Scoresheet" 
+                                            className="w-full h-full object-contain border-2 border-slate-600 rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                        />
+                                    </HoverCardTrigger>
+                                    <HoverCardContent className="w-[700px] max-w-[95vw]" align="center" side="right" sideOffset={10}>
+                                        <div className="space-y-2">
+                                            <h4 className="font-medium text-sm mb-2">Scoresheet Image</h4>
+                                            <div className="rounded-md border bg-muted/20 relative">
+                                                <div className="overflow-auto max-h-[600px] min-h-[400px]">
+                                                    <div 
+                                                        className="flex items-center justify-center p-4"
+                                                        style={{ minHeight: '400px' }}
+                                                    >
+                                                        <img 
+                                                            src={scoresheetImage.image_url} 
+                                                            alt="Scoresheet - Zoomed" 
+                                                            className="object-contain transition-transform duration-200"
+                                                            loading="lazy"
+                                                            style={{ 
+                                                                transform: `scale(${imageZoom})`,
+                                                                transformOrigin: 'center',
+                                                                maxWidth: '100%',
+                                                                height: 'auto'
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {/* Zoom Controls */}
+                                                <div className="absolute top-2 right-2 flex items-center gap-1 bg-background/95 backdrop-blur-sm rounded-md p-1 border shadow-lg z-10">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setImageZoom(prev => Math.min(prev + 0.25, 3));
+                                                        }}
+                                                        title="Zoom In"
+                                                    >
+                                                        <ZoomIn className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setImageZoom(prev => Math.max(prev - 0.25, 0.5));
+                                                        }}
+                                                        title="Zoom Out"
+                                                    >
+                                                        <ZoomOut className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setImageZoom(1);
+                                                        }}
+                                                        title="Reset Zoom"
+                                                    >
+                                                        <RotateCcw className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                {/* Zoom Level Indicator */}
+                                                {imageZoom !== 1 && (
+                                                    <div className="absolute bottom-2 left-2 bg-background/95 backdrop-blur-sm rounded-md px-2 py-1 text-xs font-medium border shadow-lg z-10">
+                                                        {Math.round(imageZoom * 100)}%
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </HoverCardContent>
+                                </HoverCard>
                             ) : (
                                 <span className="text-muted-foreground text-sm">No Scoresheet Available</span>
                             )}
