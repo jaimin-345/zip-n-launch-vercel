@@ -74,7 +74,7 @@ const ManualPatternEntryPage = () => {
     const [images, setImages] = useState([]);
 
     const fetchDropdownData = useCallback(async () => {
-        const { data: assocData, error: assocError } = await supabase.from('associations').select('id, name').order('name');
+        const { data: assocData, error: assocError } = await supabase.from('associations').select('id, name, abbreviation').order('name');
         if (assocError) toast({ title: 'Error fetching associations', description: assocError.message, variant: 'destructive' });
         else setAssociations(assocData);
 
@@ -124,8 +124,8 @@ const ManualPatternEntryPage = () => {
         // Filter disciplines based on selected association
         let filtered = disciplines;
         if (formData.association_name) {
-            // Find the selected association's ID
-            const selectedAssociation = associations.find(a => a.name === formData.association_name);
+            // Find the selected association's ID (association_name now stores abbreviation)
+            const selectedAssociation = associations.find(a => a.abbreviation === formData.association_name || a.name === formData.association_name);
             if (selectedAssociation) {
                 filtered = disciplines.filter(d => 
                     d.association_ids && d.association_ids.includes(selectedAssociation.id)
@@ -519,12 +519,18 @@ const ManualPatternEntryPage = () => {
                         <Card>
                             <CardHeader><CardTitle>Pattern Info</CardTitle></CardHeader>
                             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Select name="association_name" onValueChange={value => {
-                                    setFormData(p => ({...p, association_name: value, discipline: ''}));
-                                }} value={formData.association_name}>
-                                    <SelectTrigger><SelectValue placeholder="Select Association*" /></SelectTrigger>
-                                    <SelectContent>{associations.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent>
-                                </Select>
+                                                <Select name="association_name" onValueChange={value => {
+                                                    // Store abbreviation but use full name for discipline filtering
+                                                    const selectedAssoc = associations.find(a => a.abbreviation === value);
+                                                    setFormData(p => ({...p, association_name: value, discipline: ''}));
+                                                }} value={formData.association_name}>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select Association*">
+                                                            {formData.association_name && associations.find(a => a.abbreviation === formData.association_name)?.name}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>{associations.map(a => <SelectItem key={a.id} value={a.abbreviation || a.name}>{a.name}</SelectItem>)}</SelectContent>
+                                                </Select>
                                 <Select name="discipline" onValueChange={value => setFormData(p => ({...p, discipline: value}))} value={formData.discipline} disabled={!formData.association_name}>
                                     <SelectTrigger><SelectValue placeholder={formData.association_name ? "Select Discipline*" : "Select Association first"} /></SelectTrigger>
                                     <SelectContent>{sortedDisciplineTypes.map(d => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}</SelectContent>
