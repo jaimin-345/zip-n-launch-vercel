@@ -965,7 +965,7 @@ const JudgesPortalPage = () => {
                                                 <TableRow>
                                                     <TableHead>Show Name</TableHead>
                                                     <TableHead>Discipline(s)</TableHead>
-                                                    <TableHead>Pattern(s)</TableHead>
+                                                    <TableHead className="min-w-[280px]">Pattern(s)</TableHead>
                                                     <TableHead>Start Date</TableHead>
                                                     <TableHead>End Date</TableHead>
                                                     <TableHead className="text-right">Action</TableHead>
@@ -1000,33 +1000,37 @@ const JudgesPortalPage = () => {
                                                                 <span className="text-muted-foreground text-sm">—</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="min-w-[280px]">
                                                             {notification.pattern_items?.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                <div className="flex flex-wrap gap-2">
                                                                     {notification.pattern_items.slice(0, 3).map((pattern, idx) => (
                                                                         <div key={idx} className="flex items-center gap-1">
-                                                                            <Badge variant="secondary" className="text-xs truncate max-w-[120px]">
+                                                                            <Badge variant="secondary" className="text-xs truncate max-w-[140px]">
                                                                                 {pattern.name}
                                                                             </Badge>
-                                                                            {pattern.previewImageUrl && (
-                                                                                <HoverCard openDelay={200} closeDelay={100}>
-                                                                                    <HoverCardTrigger asChild>
-                                                                                        <button className="p-0.5 hover:bg-muted rounded transition-colors">
-                                                                                            <Eye className="h-3.5 w-3.5 text-muted-foreground hover:text-primary transition-colors" />
-                                                                                        </button>
-                                                                                    </HoverCardTrigger>
-                                                                                    <HoverCardContent side="top" className="w-80 p-2">
-                                                                                        <div className="space-y-2">
-                                                                                            <p className="text-xs font-medium text-center">{pattern.name}</p>
+                                                                            <HoverCard openDelay={200} closeDelay={100}>
+                                                                                <HoverCardTrigger asChild>
+                                                                                    <button className="p-0.5 hover:bg-muted rounded transition-colors">
+                                                                                        <Eye className="h-3.5 w-3.5 text-muted-foreground hover:text-primary transition-colors" />
+                                                                                    </button>
+                                                                                </HoverCardTrigger>
+                                                                                <HoverCardContent side="top" className="w-80 p-2">
+                                                                                    <div className="space-y-2">
+                                                                                        <p className="text-xs font-medium text-center">{pattern.name}</p>
+                                                                                        {pattern.previewImageUrl ? (
                                                                                             <img 
                                                                                                 src={pattern.previewImageUrl} 
                                                                                                 alt={pattern.name}
                                                                                                 className="w-full h-auto rounded border"
                                                                                             />
-                                                                                        </div>
-                                                                                    </HoverCardContent>
-                                                                                </HoverCard>
-                                                                            )}
+                                                                                        ) : (
+                                                                                            <div className="w-full h-40 rounded border bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                                                                                                No preview available
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </HoverCardContent>
+                                                                            </HoverCard>
                                                                         </div>
                                                                     ))}
                                                                     {notification.pattern_items.length > 3 && (
