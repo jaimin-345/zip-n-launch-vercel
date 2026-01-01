@@ -618,10 +618,15 @@ const ScoresheetUploadPage = () => {
                                     name="pattern_id"
                                     onValueChange={value => {
                                         const selectedPattern = patterns.find(p => p.id.toString() === value);
+                                        // Look up the abbreviation from associations table using the pattern's association_name
+                                        const matchedAssoc = associations.find(a => 
+                                            a.name === selectedPattern?.association_name || 
+                                            a.abbreviation === selectedPattern?.association_name
+                                        );
                                         setFormData(prev => ({
                                             ...prev,
                                             pattern_id: value,
-                                            association_abbrev: selectedPattern?.association_name || '',
+                                            association_abbrev: matchedAssoc?.abbreviation || '',
                                             discipline: selectedPattern?.discipline || '',
                                         }));
                                     }}
