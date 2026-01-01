@@ -197,8 +197,8 @@ const JudgesPortalPage = () => {
                     const disciplineNames = [];
                     if (projectData.patternSelections) {
                         Object.entries(projectData.patternSelections).forEach(([discipline, disciplinePatterns]) => {
-                            // Add discipline name
-                            if (discipline && !disciplineNames.includes(discipline)) {
+                            // Add discipline name (filter out numeric keys and empty values)
+                            if (discipline && !disciplineNames.includes(discipline) && isNaN(Number(discipline)) && discipline.trim() !== '') {
                                 disciplineNames.push(discipline);
                             }
                             if (typeof disciplinePatterns === 'object') {
