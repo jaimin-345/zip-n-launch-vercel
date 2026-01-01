@@ -649,9 +649,9 @@ const ScoresheetUploadPage = () => {
                                             <SelectValue placeholder="Select Association" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {associations.map(a => (
-                                                <SelectItem key={a.id} value={a.abbreviation || a.name}>
-                                                    {a.name} {a.abbreviation ? `(${a.abbreviation})` : ''}
+                                            {associations.filter(a => a.abbreviation).map(a => (
+                                                <SelectItem key={a.id} value={a.abbreviation}>
+                                                    {a.name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
