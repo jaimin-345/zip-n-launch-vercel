@@ -482,9 +482,36 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
             toast({ title: "Disciplines for Versatility Ranch Horse shows are fixed.", variant: "default" });
             return;
         }
+        
+        const disciplineKey = getDisciplineKey(disc);
+        
+        // Check if this is VRH-RHC Ranch CowWork for AQHA - auto-select default scoresheet
+        const isVrhRanchCowWork = (disc.name === 'VRH-RHC Ranch CowWork' || disc.name === 'Ranch Cow Work') && 
+            disc.association_id === 'AQHA';
+        
+        if (isChecked && isVrhRanchCowWork) {
+            // Auto-select 'open' (VRH-RHC Ranch CowWork) as default
+            setFormData(prev => ({
+                ...prev,
+                vrhRanchCowWorkSelections: {
+                    ...prev.vrhRanchCowWorkSelections,
+                    [disciplineKey]: 'open'
+                }
+            }));
+        } else if (!isChecked && isVrhRanchCowWork) {
+            // Clear the selection when unchecking
+            setFormData(prev => {
+                const newSelections = { ...prev.vrhRanchCowWorkSelections };
+                delete newSelections[disciplineKey];
+                return {
+                    ...prev,
+                    vrhRanchCowWorkSelections: newSelections
+                };
+            });
+        }
+        
         setFormData(prev => {
             let newDisciplines = [...(prev.disciplines || [])];
-            const disciplineKey = getDisciplineKey(disc);
             const disciplineExistsIndex = newDisciplines.findIndex(c => 
                 getDisciplineKey(c) === disciplineKey
             );
