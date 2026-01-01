@@ -494,7 +494,14 @@ const ScoresheetUploadPage = () => {
                                                     .map(s => (
                                                     <TableRow key={s.id}>
                                                         <TableCell>{s.pattern?.pdf_file_name || 'N/A'}</TableCell>
-                                                        <TableCell>{s.association_abbrev || s.pattern?.association_name || 'N/A'}</TableCell>
+                                                        <TableCell>
+                                                            {(() => {
+                                                                const abbrev = s.association_abbrev || s.pattern?.association_name;
+                                                                if (!abbrev) return 'N/A';
+                                                                const assoc = associations.find(a => a.abbreviation === abbrev);
+                                                                return assoc?.name || abbrev;
+                                                            })()}
+                                                        </TableCell>
                                                         <TableCell>{s.discipline || s.pattern?.discipline || 'N/A'}</TableCell>
                                                         <TableCell className="space-x-2">
                                                             <Button
