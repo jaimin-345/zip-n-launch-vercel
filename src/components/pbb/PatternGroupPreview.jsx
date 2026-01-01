@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Card as UICard, CardContent as UICardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
 
 const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatternDetail, onPatternSelect, primaryAffiliates = new Set() }) => {
@@ -71,33 +70,10 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                                         <div className="p-1">
                                             <UICard className="overflow-hidden bg-slate-900 border-slate-700">
                                                 <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
-                                                        <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden group/media">
-                                                            {mediaItem && (
-                                                                <HoverCard openDelay={100} closeDelay={100}>
-                                                                    <HoverCardTrigger asChild>
-                                                                        <img 
-                                                                            src={mediaItem.image_url || mediaItem.media_url} 
-                                                                            alt="Pattern Media" 
-                                                                            className="w-full h-full object-contain cursor-zoom-in hover:opacity-80 transition-opacity" 
-                                                                            title="Hover to enlarge"
-                                                                        />
-                                                                    </HoverCardTrigger>
-                                                                    <HoverCardContent 
-                                                                        side="top" 
-                                                                        align="center"
-                                                                        sideOffset={10}
-                                                                        className="w-[500px] h-[600px] p-2 bg-background border shadow-2xl z-[9999]"
-                                                                    >
-                                                                        <div className="w-full h-full flex items-center justify-center bg-muted/20 rounded overflow-hidden">
-                                                                            <img 
-                                                                                src={mediaItem.image_url || mediaItem.media_url} 
-                                                                                alt="Pattern - Enlarged" 
-                                                                                className="max-w-full max-h-full object-contain"
-                                                                            />
-                                                                        </div>
-                                                                    </HoverCardContent>
-                                                                </HoverCard>
-                                                            )}
+                                                    <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden group/media">
+                                                        {mediaItem && (
+                                                            <img src={mediaItem.image_url || mediaItem.media_url} alt="Pattern Media" className="w-full h-full object-contain" />
+                                                        )}
 
                                                         {/* Maneuvers Overlay */}
                                                         {selectedPatternDetail.maneuvers && selectedPatternDetail.maneuvers.length > 0 && (

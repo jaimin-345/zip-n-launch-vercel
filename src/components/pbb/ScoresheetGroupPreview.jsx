@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Card as UICard, CardContent as UICardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
+import { FileText } from 'lucide-react';
 
 const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId, onScoresheetSelect, primaryAffiliates = new Set(), scoresheetImage }) => {
     
@@ -11,6 +11,7 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
         }
     }, [scoresheets, selectedScoresheetId, onScoresheetSelect]);
 
+    // Always show the scoresheet if available, even without scoresheet data in the group
     return (
         <div className="border border-slate-700 rounded-lg p-4 bg-slate-900/30">
             <div className="mb-2">
@@ -26,33 +27,13 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
                 <UICard className="overflow-hidden transition-all duration-300 bg-slate-900 border-slate-700">
                     <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
                         {/* Scoresheet Preview Area */}
-                        <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2 overflow-hidden">
+                        <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2">
                             {scoresheetImage && scoresheetImage.image_url ? (
-                                <HoverCard openDelay={100} closeDelay={100}>
-                                    <HoverCardTrigger asChild>
-                                        <img 
-                                            src={scoresheetImage.image_url} 
-                                            alt="Scoresheet" 
-                                            className="w-full h-full object-contain border-2 border-slate-600 rounded cursor-zoom-in hover:opacity-80 transition-opacity"
-                                            title="Hover to enlarge"
-                                        />
-                                    </HoverCardTrigger>
-                                    <HoverCardContent 
-                                        side="top" 
-                                        align="center"
-                                        sideOffset={10}
-                                        className="w-[500px] h-[600px] p-2 bg-background border shadow-2xl z-[9999]"
-                                        style={{ position: 'fixed' }}
-                                    >
-                                        <div className="w-full h-full flex items-center justify-center bg-muted/20 rounded overflow-hidden">
-                                            <img 
-                                                src={scoresheetImage.image_url} 
-                                                alt="Scoresheet - Enlarged" 
-                                                className="max-w-full max-h-full object-contain"
-                                            />
-                                        </div>
-                                    </HoverCardContent>
-                                </HoverCard>
+                                <img 
+                                    src={scoresheetImage.image_url} 
+                                    alt="Scoresheet" 
+                                    className="w-full h-full object-contain border-2 border-slate-600 rounded"
+                                />
                             ) : (
                                 <span className="text-muted-foreground text-sm">No Scoresheet Available</span>
                             )}
