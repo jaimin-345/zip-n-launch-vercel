@@ -36,7 +36,7 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const fileName = `${bookName.replace(/\s+/g, '_')}.pdf`;
-    const fromEmail = "jaimindeveloper345@gmail.com";
+    const fromEmail = "robert@dehnrealestate.com";
     
     console.log(`Attempting to send email from: ${fromEmail} to: ${email}`);
 
