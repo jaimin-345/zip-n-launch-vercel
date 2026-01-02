@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
+import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -513,6 +514,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     const [isHovered, setIsHovered] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
     
     const isPatternBook = project.project_type === 'pattern_book';
     const isPatternFolder = project.project_type === 'pattern_folder';
@@ -521,6 +523,39 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
         : isPatternFolder
         ? `/pattern-folder/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
+
+    const handleDownloadFolder = async () => {
+        if (isDownloading) return;
+        
+        setIsDownloading(true);
+        toast({ 
+            title: "Download started", 
+            description: "Preparing your folder for download. This may take a moment..." 
+        });
+
+        try {
+            const projectData = project.project_data || {};
+            const projectName = project.name || projectData.showName || 'Pattern_Book';
+            
+            await downloadPatternBookFolder(projectData, projectName, (progress) => {
+                console.log(`Download progress: ${progress}%`);
+            });
+            
+            toast({ 
+                title: "Download complete", 
+                description: "Your pattern book folder has been downloaded successfully." 
+            });
+        } catch (error) {
+            console.error('Download error:', error);
+            toast({ 
+                title: "Download failed", 
+                description: "There was an error preparing your download. Please try again.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     const handleMenuAction = async (action) => {
         switch (action) {
@@ -544,7 +579,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                 navigate(`${editPath}?preview=true`);
                 break;
             case 'download':
-                toast({ title: "Download started", description: "Your folder is being prepared for download" });
+                handleDownloadFolder();
                 break;
             default:
                 console.log('Action:', action, project.id);
@@ -611,8 +646,13 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
                         <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleMenuAction('download')}>
-                        <Download className="mr-2 h-4 w-4" /> Download Folder
+                    <DropdownMenuItem onClick={() => handleMenuAction('download')} disabled={isDownloading}>
+                        {isDownloading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {isDownloading ? 'Downloading...' : 'Download Folder'}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
                         <Archive className="mr-2 h-4 w-4" /> Archive
