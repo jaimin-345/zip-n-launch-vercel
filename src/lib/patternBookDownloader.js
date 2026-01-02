@@ -18,19 +18,6 @@ const fetchImageAsBlob = async (url) => {
 };
 
 /**
- * Converts base64 data URI to blob
- */
-const base64ToBlob = (base64, mimeType = 'application/pdf') => {
-    const byteString = atob(base64.split(',')[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
-    return new Blob([ab], { type: mimeType });
-};
-
-/**
  * Creates a PDF from an image (pattern or scoresheet)
  */
 const createPdfFromImage = async (imageUrl, title) => {
@@ -61,8 +48,8 @@ const createPdfFromImage = async (imageUrl, title) => {
             img.onerror = resolve;
         });
 
-        let imgWidth = img.width;
-        let imgHeight = img.height;
+        let imgWidth = img.width || 500;
+        let imgHeight = img.height || 700;
 
         // Scale image to fit
         const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
@@ -109,37 +96,32 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
 
     const disciplines = projectData.disciplines || [];
     const patternSelections = projectData.patternSelections || {};
-    const scoresheetSelections = projectData.scoresheetSelections || {};
+    const disciplineScoresheetSelections = projectData.disciplineScoresheetSelections || {};
 
-    // Collect all pattern and scoresheet IDs for batch fetching
+    // Collect all pattern IDs for batch fetching
     const patternIds = new Set();
-    const scoresheetIds = new Set();
 
-    disciplines.forEach((discipline, discIndex) => {
-        const groups = discipline.patternGroups || [];
-        groups.forEach((group, groupIndex) => {
-            const patternSelection = patternSelections[discIndex]?.[groupIndex];
-            const scoresheetSelection = scoresheetSelections[discIndex]?.[groupIndex];
-
-            if (patternSelection) {
-                const patternId = typeof patternSelection === 'object' 
-                    ? (patternSelection.patternId || patternSelection.id) 
-                    : patternSelection;
-                if (patternId) patternIds.add(patternId);
-            }
-
-            if (scoresheetSelection) {
-                const scoresheetId = typeof scoresheetSelection === 'object'
-                    ? (scoresheetSelection.scoresheetId || scoresheetSelection.id)
-                    : scoresheetSelection;
-                if (scoresheetId) scoresheetIds.add(scoresheetId);
-            }
-        });
+    // Pattern selections use discipline ID and group ID as keys
+    disciplines.forEach((discipline) => {
+        const disciplineSelections = patternSelections[discipline.id];
+        if (disciplineSelections && typeof disciplineSelections === 'object') {
+            Object.values(disciplineSelections).forEach(selection => {
+                if (selection) {
+                    const patternId = typeof selection === 'object' 
+                        ? (selection.patternId || selection.id) 
+                        : selection;
+                    if (patternId && !isNaN(parseInt(patternId))) {
+                        patternIds.add(parseInt(patternId));
+                    }
+                }
+            });
+        }
     });
+
+    console.log('Collected pattern IDs for download:', Array.from(patternIds));
 
     // Fetch pattern data from database
     const patternDataMap = new Map();
-    const scoresheetDataMap = new Map();
 
     if (patternIds.size > 0) {
         try {
@@ -172,78 +154,58 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
         }
     }
 
-    // Fetch scoresheet data
-    if (scoresheetIds.size > 0) {
-        try {
-            const { data: scoresheetData } = await supabase
-                .from('tbl_scoresheet')
-                .select('id, pattern_id, file_url, file_name')
-                .in('id', Array.from(scoresheetIds));
-
-            if (scoresheetData) {
-                scoresheetData.forEach(s => scoresheetDataMap.set(s.id, { url: s.file_url, name: s.file_name }));
-            }
-
-            // Fallback to association_assets if not found
-            const missingScoresheet = Array.from(scoresheetIds).filter(id => !scoresheetDataMap.has(id));
-            if (missingScoresheet.length > 0) {
-                const { data: assetsData } = await supabase
-                    .from('association_assets')
-                    .select('id, file_url, file_name')
-                    .in('id', missingScoresheet);
-
-                if (assetsData) {
-                    assetsData.forEach(a => scoresheetDataMap.set(a.id, { url: a.file_url, name: a.file_name }));
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching scoresheet data:', error);
-        }
-    }
+    console.log(`Fetched ${patternDataMap.size} pattern images`);
 
     // Process disciplines and create folder structure
     let processedCount = 0;
-    const totalItems = disciplines.reduce((sum, d) => sum + (d.patternGroups?.length || 0), 0);
+    const totalItems = disciplines.reduce((sum, d) => sum + (d.patternGroups?.length || 1), 0);
 
-    for (const [discIndex, discipline] of disciplines.entries()) {
-        const disciplineName = sanitizeFilename(discipline.name || `Discipline_${discIndex + 1}`);
+    for (const discipline of disciplines) {
+        // Skip disciplines without pattern groups
+        const groups = discipline.patternGroups || [];
+        if (groups.length === 0) continue;
+
+        const disciplineName = sanitizeFilename(discipline.name || 'Discipline');
         const disciplineFolder = rootFolder.folder(disciplineName);
 
-        const groups = discipline.patternGroups || [];
+        // Get discipline-level scoresheet selection (from Step 2)
+        const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
+        const disciplineScoresheet = disciplineScoresheetSelections[disciplineKey];
 
-        for (const [groupIndex, group] of groups.entries()) {
+        for (const group of groups) {
             // Create group folder name from divisions
             const divisions = group.divisions || [];
-            const groupName = divisions.length > 0
-                ? sanitizeFilename(divisions.map(d => d.division || d.name || d).join('_'))
-                : `Group_${groupIndex + 1}`;
+            let groupName = 'Group';
+            
+            if (divisions.length > 0) {
+                const divisionNames = divisions.map(d => {
+                    if (typeof d === 'string') return d;
+                    return d.division || d.name || d.id || 'Division';
+                });
+                groupName = sanitizeFilename(divisionNames.join('_'));
+            } else {
+                groupName = sanitizeFilename(group.name || `Group_${group.id || 'default'}`);
+            }
             
             const groupFolder = disciplineFolder.folder(groupName);
 
-            // Get pattern selection
-            const patternSelection = patternSelections[discIndex]?.[groupIndex];
+            // Get pattern selection for this group
+            const patternSelection = patternSelections[discipline.id]?.[group.id];
             const patternId = patternSelection
                 ? (typeof patternSelection === 'object' 
                     ? (patternSelection.patternId || patternSelection.id) 
                     : patternSelection)
                 : null;
 
-            // Get scoresheet selection
-            const scoresheetSelection = scoresheetSelections[discIndex]?.[groupIndex];
-            const scoresheetId = scoresheetSelection
-                ? (typeof scoresheetSelection === 'object'
-                    ? (scoresheetSelection.scoresheetId || scoresheetSelection.id)
-                    : scoresheetSelection)
-                : null;
-
             // Add pattern PDF
-            if (patternId && patternDataMap.has(patternId)) {
-                const patternUrl = patternDataMap.get(patternId);
+            if (patternId && patternDataMap.has(parseInt(patternId))) {
+                const patternUrl = patternDataMap.get(parseInt(patternId));
                 if (patternUrl) {
                     const patternName = typeof patternSelection === 'object' && patternSelection.patternName
                         ? patternSelection.patternName
                         : `Pattern_${patternId}`;
                     
+                    console.log(`Creating PDF for pattern: ${patternName}`);
                     const pdfBlob = await createPdfFromImage(patternUrl, patternName);
                     if (pdfBlob) {
                         groupFolder.file(`${sanitizeFilename(patternName)}.pdf`, pdfBlob);
@@ -251,31 +213,22 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                 }
             }
 
-            // Add scoresheet PDF
-            if (scoresheetId && scoresheetDataMap.has(scoresheetId)) {
-                const scoresheetInfo = scoresheetDataMap.get(scoresheetId);
-                if (scoresheetInfo?.url) {
-                    const scoresheetName = scoresheetInfo.name || `Scoresheet_${scoresheetId}`;
-                    
-                    // Check if it's already a PDF
-                    if (scoresheetInfo.url.toLowerCase().endsWith('.pdf')) {
-                        const blob = await fetchImageAsBlob(scoresheetInfo.url);
-                        if (blob) {
-                            groupFolder.file(`${sanitizeFilename(scoresheetName)}.pdf`, blob);
-                        }
-                    } else {
-                        // Convert image to PDF
-                        const pdfBlob = await createPdfFromImage(scoresheetInfo.url, scoresheetName);
-                        if (pdfBlob) {
-                            groupFolder.file(`${sanitizeFilename(scoresheetName)}.pdf`, pdfBlob);
-                        }
-                    }
+            // Add scoresheet PDF (from discipline-level selection)
+            if (disciplineScoresheet && disciplineScoresheet.image_url) {
+                const scoresheetName = disciplineScoresheet.file_name || 
+                                       disciplineScoresheet.display_name || 
+                                       `Scoresheet_${discipline.name}`;
+                
+                console.log(`Creating PDF for scoresheet: ${scoresheetName}`);
+                const pdfBlob = await createPdfFromImage(disciplineScoresheet.image_url, scoresheetName);
+                if (pdfBlob) {
+                    groupFolder.file(`${sanitizeFilename(scoresheetName)}.pdf`, pdfBlob);
                 }
             }
 
             processedCount++;
             if (onProgress) {
-                onProgress(Math.round((processedCount / totalItems) * 100));
+                onProgress(Math.round((processedCount / totalItems) * 50)); // First 50% for processing
             }
         }
     }
@@ -287,7 +240,7 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
         compressionOptions: { level: 6 }
     }, (metadata) => {
         if (onProgress) {
-            onProgress(Math.round(metadata.percent));
+            onProgress(50 + Math.round(metadata.percent / 2)); // Last 50% for zip generation
         }
     });
 
