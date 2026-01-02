@@ -166,16 +166,23 @@ export const usePatternBookBuilder = (projectId) => {
       return null;
     }
 
+    // Add current step to completedSteps before saving
+    const updatedCompletedSteps = new Set(completedSteps);
+    updatedCompletedSteps.add(step);
+    
+    // Update the state so it's reflected immediately
+    setCompletedSteps(updatedCompletedSteps);
+
     // Check if completedSteps contains all steps 1-8
-    const completedStepsArray = Array.from(completedSteps);
+    const completedStepsArray = Array.from(updatedCompletedSteps);
     const allSteps = [1, 2, 3, 4, 5, 6, 7, 8];
     const allStepsComplete = allSteps.every(step => completedStepsArray.includes(step));
-    const projectStatus = allStepsComplete ? 'complete' : 'in-progress';
+    const projectStatus = allStepsComplete ? 'Lock & Approve Mode' : 'Draft';
 
     const projectToSave = {
       ...formData,
       currentStep: step,
-      completedSteps: Array.from(completedSteps),
+      completedSteps: Array.from(updatedCompletedSteps),
     };
 
     const projectPayload = {
@@ -219,7 +226,7 @@ export const usePatternBookBuilder = (projectId) => {
       toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
       return newProjectId;
     }
-  }, [formData, step, completedSteps, sanitizedProjectId, toast, navigate, user]);
+  }, [formData, step, completedSteps, setCompletedSteps, sanitizedProjectId, toast, navigate, user]);
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 10));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));

@@ -21,6 +21,7 @@ import {
     Calendar,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 
 const ProjectDetailModal = ({ 
@@ -162,7 +163,18 @@ const ProjectDetailModal = ({
         }
     };
 
+    // Check if project is locked (status is "Lock & Approve Mode")
+    const isLocked = project?.status === 'Lock & Approve Mode';
+    
     const handleOpenProject = () => {
+        if (isLocked) {
+            toast({
+                variant: "destructive",
+                title: "Pattern Book Locked",
+                description: "Your pattern is Lock & Approve Mode. You cannot edit it.",
+            });
+            return;
+        }
         navigate(editPath);
         onClose();
     };
@@ -214,8 +226,8 @@ const ProjectDetailModal = ({
                             {/* Status */}
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-muted-foreground">Status:</span>
-                                <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                                    {project.status === 'active' ? 'Active' : 'Draft'}
+                                <Badge variant={project.status === 'Lock & Approve Mode' ? 'default' : 'secondary'}>
+                                    {project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status === 'Draft' ? 'In Progress' : project.status || 'In Progress'}
                                 </Badge>
                             </div>
                         </div>
@@ -223,19 +235,32 @@ const ProjectDetailModal = ({
                         {/* Link to editor */}
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">Open editor</p>
-                            <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className={cn(
+                                "flex items-center justify-between p-3 border rounded-lg transition-colors",
+                                isLocked ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50"
+                            )}>
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-primary/10 rounded">
                                         <Link2 className="h-4 w-4 text-primary" />
                                     </div>
                                     <button
                                         onClick={handleOpenProject}
-                                        className="text-sm text-primary hover:underline font-medium"
+                                        disabled={isLocked}
+                                        className={cn(
+                                            "text-sm font-medium",
+                                            isLocked ? "text-muted-foreground cursor-not-allowed" : "text-primary hover:underline"
+                                        )}
                                     >
                                         Open {isPatternBook ? 'Pattern Book' : 'Show'} Editor
                                     </button>
                                 </div>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleOpenProject}>
+                                <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8" 
+                                    onClick={handleOpenProject}
+                                    disabled={isLocked}
+                                >
                                     <ExternalLink className="h-4 w-4" />
                                 </Button>
                             </div>

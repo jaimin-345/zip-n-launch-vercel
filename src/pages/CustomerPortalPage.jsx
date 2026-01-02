@@ -523,6 +523,22 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
         : isPatternFolder
         ? `/pattern-folder/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
+    
+    // Check if project is locked (status is "Lock & Approve Mode")
+    const isLocked = project.status === 'Lock & Approve Mode';
+    
+    // Handle continue editing button click
+    const handleContinueEditing = () => {
+        if (isLocked) {
+            toast({
+                variant: "destructive",
+                title: "Pattern Book Locked",
+                description: "Your pattern is Lock & Approve Mode. You cannot edit it.",
+            });
+            return;
+        }
+        setDetailModalOpen(true);
+    };
 
     const handleDownloadFolder = async () => {
         if (isDownloading) return;
@@ -724,7 +740,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                         <p className="text-sm text-muted-foreground">
                             Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                        <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'In Progress' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'In Progress'}</span></p>
                         {dueDate && (
                             <p className="text-sm text-muted-foreground mt-1">
                                 Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
@@ -732,7 +748,11 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                         )}
                     </CardContent>
                     <CardFooter>
-                        <Button onClick={() => setDetailModalOpen(true)} className="w-full">
+                        <Button 
+                            onClick={handleContinueEditing} 
+                            className="w-full"
+                            disabled={isLocked}
+                        >
                             Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     </CardFooter>
@@ -851,7 +871,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     {/* Project Details */}
                     <div className="space-y-1 text-sm text-muted-foreground mb-4">
                         <p>Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}</p>
-                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status || 'Draft'}</span></p>
+                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'In Progress' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'In Progress'}</span></p>
                         {dueDate && (
                             <p>Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
                         )}
@@ -859,9 +879,10 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     
                     {/* Action Button */}
                     <Button 
-                        onClick={() => setDetailModalOpen(true)} 
+                        onClick={handleContinueEditing} 
                         className="w-full" 
                         size="sm"
+                        disabled={isLocked}
                     >
                         Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
