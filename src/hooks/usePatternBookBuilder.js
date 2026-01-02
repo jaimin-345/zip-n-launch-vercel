@@ -166,6 +166,12 @@ export const usePatternBookBuilder = (projectId) => {
       return null;
     }
 
+    // Check if completedSteps contains all steps 1-8
+    const completedStepsArray = Array.from(completedSteps);
+    const allSteps = [1, 2, 3, 4, 5, 6, 7, 8];
+    const allStepsComplete = allSteps.every(step => completedStepsArray.includes(step));
+    const projectStatus = allStepsComplete ? 'complete' : 'in-progress';
+
     const projectToSave = {
       ...formData,
       currentStep: step,
@@ -176,7 +182,7 @@ export const usePatternBookBuilder = (projectId) => {
       project_name: formData.showName || 'Untitled Pattern Book',
       project_type: 'pattern_book',
       project_data: projectToSave,
-      status: 'draft',
+      status: projectStatus,
       user_id: user.id,
     };
 

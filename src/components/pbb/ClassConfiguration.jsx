@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { ClassTabs } from '@/components/pbb/ClassTabs';
 import { supabase } from '@/lib/supabaseClient';
+import { cn } from '@/lib/utils';
 
 // Pattern Badge with Hover Functionality Component
 const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
@@ -248,7 +249,7 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
 };
 
 
-const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMode, formData, associationsData, divisionsData, setFormData }) => {
+const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMode, formData, associationsData, divisionsData, setFormData, isOpen }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: pbbDiscipline.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -435,8 +436,22 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     
     const dualApprovedInfo = getDualApprovedInfo();
 
+    // Check if this accordion is open
+    const isAccordionOpen = isOpen === pbbDiscipline.id;
+    
     return (
-        <div ref={setNodeRef} style={style} className="bg-card rounded-lg border">
+        <div 
+            ref={setNodeRef} 
+            style={style} 
+            className={cn(
+                "bg-card rounded-lg border transition-all duration-300 relative overflow-hidden",
+                !isComplete && !isAccordionOpen && "border-red-500/70 shadow-lg shadow-red-500/30"
+            )}
+        >
+            {/* Left-to-right shimmer effect for incomplete items when closed */}
+            {!isComplete && !isAccordionOpen && (
+                <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-red-500/30 to-transparent pointer-events-none z-0" />
+            )}
             <AccordionItem value={pbbDiscipline.id} className="border-b-0">
                 <AccordionTrigger className="w-full px-3 py-2 hover:no-underline">
                     <div className="flex items-center w-full gap-3">
@@ -582,6 +597,7 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
                                 associationsData={associationsData}
                                 divisionsData={divisionsData}
                                 setFormData={setFormData}
+                                isOpen={openAccordion}
                             />
                         );
                     })}

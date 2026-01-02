@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
     import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
     import { Checkbox } from '@/components/ui/checkbox';
     import { Label } from '@/components/ui/label';
@@ -6,9 +6,10 @@ import React, { useMemo } from 'react';
     import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
     import { Input } from '@/components/ui/input';
     import { Button } from '@/components/ui/button';
-    import { PlusCircle, Trash2 } from 'lucide-react';
+    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle } from 'lucide-react';
     import { PatternGrouping } from '@/components/pbb/PatternGrouping';
     import { ScheduleOrganizer } from '@/components/pbb/ScheduleOrganizer';
+    import { cn } from '@/lib/utils';
     
     const CustomDivisionManager = ({ pbbDiscipline, setFormData }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
@@ -108,6 +109,12 @@ import React, { useMemo } from 'react';
         const [activeAssocTab, setActiveAssocTab] = React.useState(null);
         const [activeTab, setActiveTab] = React.useState('divisions');
         const prevDisciplineIdRef = React.useRef(null);
+        const [nextStepHighlight, setNextStepHighlight] = useState(null);
+        const [hasJustCompleted, setHasJustCompleted] = useState(false);
+        const scheduleTabRef = useRef(null);
+        const groupingTabRef = useRef(null);
+        const prevHasSelectedDivisions = useRef(false);
+        const prevHasScheduled = useRef(false);
 
         // Use mergedDisciplines if provided, otherwise just the single discipline
         const allDisciplines = mergedDisciplines && mergedDisciplines.length > 0 ? mergedDisciplines : [pbbDiscipline];
@@ -352,7 +359,14 @@ import React, { useMemo } from 'react';
         const isCustomOpenShowDiscipline = pbbDiscipline.isCustom && isOpenShowMode;
     
         // Check hasScheduled across all merged disciplines
-        const hasScheduled = allDisciplines.some(disc => disc.divisionOrder && disc.divisionOrder.length > 0);
+        // Step 2 is complete when divisions have dates assigned, not just when they're in divisionOrder
+        const hasScheduled = allDisciplines.some(disc => {
+            if (!disc.divisionOrder || disc.divisionOrder.length === 0) return false;
+            // Check if at least one division has a date assigned
+            return disc.divisionOrder.some(divId => 
+                disc.divisionDates && disc.divisionDates[divId]
+            );
+        });
 
         // Check if this is a scoresheet-only discipline
         const isScoresheetOnly = allDisciplines.some(disc => 
@@ -380,22 +394,82 @@ import React, { useMemo } from 'react';
             return allDisciplines.find(d => d.selectedAssociations?.[assocId]) || pbbDiscipline;
         };
 
+        // Determine step completion status
+        const step1Complete = hasSelectedDivisions;
+        const step2Complete = hasScheduled;
+        const step3Complete = !isScoresheetOnly && pbbDiscipline.pattern && hasScheduled && 
+            (() => {
+                // Check if all selected divisions are grouped
+                const allSelectedDivisions = new Set();
+                const allGroupedDivisions = new Set();
+                allDisciplines.forEach(disc => {
+                    if (disc.divisionOrder) {
+                        disc.divisionOrder.forEach(divId => allSelectedDivisions.add(divId));
+                    }
+                    const groups = disc.patternGroups || [];
+                    groups.forEach(g => {
+                        (g.divisions || []).forEach(d => allGroupedDivisions.add(d.id));
+                    });
+                });
+                return allSelectedDivisions.size > 0 && 
+                       allSelectedDivisions.size === allGroupedDivisions.size && 
+                       [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
+            })();
+
+        // Determine which step should be active/next based on current tab
+        const getCurrentStep = () => {
+            // Base current step on which tab is active, not just completion status
+            if (activeTab === 'divisions') {
+                return 1;
+            } else if (activeTab === 'schedule') {
+                return 2;
+            } else if (activeTab === 'grouping') {
+                return 3;
+            }
+            // Fallback: determine by completion status
+            if (!step1Complete) return 1;
+            if (!step2Complete) return 2;
+            if (!step3Complete && !isScoresheetOnly && pbbDiscipline.pattern) return 3;
+            return null; // All complete
+        };
+
+        const currentStep = getCurrentStep();
+        const nextStep = currentStep ? currentStep + 1 : null;
+
+        // Auto-switch to next step when current completes (only for Step 2 -> Step 3)
+        useEffect(() => {
+            const scheduleJustCompleted = !prevHasScheduled.current && hasScheduled;
+
+            // Only auto-redirect from Step 2 to Step 3, not from Step 1 to Step 2
+            if (scheduleJustCompleted && activeTab === 'schedule' && !isScoresheetOnly && pbbDiscipline.pattern) {
+                setHasJustCompleted(true);
+                setNextStepHighlight('grouping');
+                // Auto-switch to grouping tab after a brief delay
+                setTimeout(() => {
+                    setActiveTab('grouping');
+                    setHasJustCompleted(false);
+                    // Scroll to grouping tab
+                    setTimeout(() => {
+                        groupingTabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                }, 800);
+            }
+
+            prevHasSelectedDivisions.current = hasSelectedDivisions;
+            prevHasScheduled.current = hasScheduled;
+        }, [hasSelectedDivisions, hasScheduled, activeTab, isScoresheetOnly, pbbDiscipline.pattern]);
+
         // Auto-open appropriate tab when component mounts or discipline changes
-        // For scoresheet-only: open tab 1 (divisions)
-        // For non-scoresheet-only: open tab 3 (grouping) if enabled, otherwise appropriate tab
-        // Only run when discipline ID changes (not when divisions are selected)
         React.useEffect(() => {
-            // Only auto-open tab when discipline changes or on initial mount
             const disciplineChanged = prevDisciplineIdRef.current !== pbbDiscipline.id;
             if (disciplineChanged || prevDisciplineIdRef.current === null) {
                 prevDisciplineIdRef.current = pbbDiscipline.id;
+                prevHasSelectedDivisions.current = hasSelectedDivisions;
+                prevHasScheduled.current = hasScheduled;
                 
                 if (isScoresheetOnly) {
-                    // Scoresheet-only: always open tab 1 (divisions)
                     setActiveTab('divisions');
                 } else {
-                    // Non-scoresheet-only: try to open tab 3 (grouping) if enabled
-                    // Read current values at the time discipline changes
                     if (pbbDiscipline.pattern && hasScheduled) {
                         setActiveTab('grouping');
                     } else if (hasSelectedDivisions) {
@@ -406,20 +480,162 @@ import React, { useMemo } from 'react';
                 }
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [pbbDiscipline.id, isScoresheetOnly]); // Only depend on discipline ID and scoresheet-only status
+        }, [pbbDiscipline.id, isScoresheetOnly]);
+
+        // Clear highlight when user interacts with highlighted tab
+        useEffect(() => {
+            if (nextStepHighlight && activeTab === nextStepHighlight) {
+                const timer = setTimeout(() => setNextStepHighlight(null), 2000);
+                return () => clearTimeout(timer);
+            }
+        }, [activeTab, nextStepHighlight]);
+
+        // Step indicator component
+        const StepIndicator = ({ step, label, stepNumber, isComplete, isActive, isNext, onClick, disabled }) => {
+            const isHighlighted = isNext && nextStepHighlight === step;
+            return (
+                <div 
+                    className={cn(
+                        "flex items-center gap-2 cursor-pointer transition-all duration-300",
+                        disabled && "opacity-50 cursor-not-allowed",
+                        isHighlighted && "animate-pulse"
+                    )}
+                    onClick={!disabled ? onClick : undefined}
+                >
+                    <div className={cn(
+                        "flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300",
+                        isComplete && "bg-green-500 border-green-500 text-white",
+                        !isComplete && isActive && "bg-primary border-primary text-white",
+                        !isComplete && !isActive && !isNext && "bg-muted border-muted-foreground text-muted-foreground",
+                        isNext && !isComplete && "bg-blue-500/20 border-blue-500 text-blue-600 dark:bg-blue-500/30 dark:border-blue-400 dark:text-blue-400",
+                        isHighlighted && "ring-4 ring-blue-400/50 shadow-lg shadow-blue-500/50"
+                    )}>
+                        {isComplete ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                            <span className="text-sm font-semibold">{stepNumber}</span>
+                        )}
+                    </div>
+                    <div className="flex flex-col">
+                        <span className={cn(
+                            "text-sm font-medium transition-colors",
+                            isActive && "text-primary",
+                            isNext && !isComplete && "text-blue-600 dark:text-blue-400",
+                            !isActive && !isNext && "text-muted-foreground"
+                        )}>
+                            {label}
+                        </span>
+                        {isNext && !isComplete && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                                <ArrowRight className="w-3 h-3" />
+                                Next step
+                            </span>
+                        )}
+                    </div>
+                    {stepNumber < 3 && (
+                        <div className={cn(
+                            "flex-1 h-0.5 mx-2 transition-colors",
+                            isComplete ? "bg-green-500" : "bg-muted"
+                        )} />
+                    )}
+                </div>
+            );
+        };
 
         return (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 {!isCustomOpenShowDiscipline && pbbDiscipline.category?.startsWith('pattern') && (
-                    <div className="flex gap-4 mb-2">
+                    <div className="flex gap-4 mb-4">
                         <div className="flex items-center space-x-2"><Checkbox id={`pat-${pbbDiscipline.id}`} checked={pbbDiscipline.pattern} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'pattern', c)}/><Label htmlFor={`pat-${pbbDiscipline.id}`} className="font-normal">Pattern</Label></div>
                         <div className="flex items-center space-x-2"><Checkbox id={`sco-${pbbDiscipline.id}`} checked={pbbDiscipline.scoresheet} onCheckedChange={(c) => handleDisciplineConfigChange(pbbDiscipline.id, 'scoresheet', c)}/><Label htmlFor={`sco-${pbbDiscipline.id}`} className="font-normal">Scoresheet</Label></div>
                     </div>
                 )}
+                
+                {/* Step-by-Step Flow Indicator */}
+                <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-semibold text-foreground">Configuration Steps</h3>
+                        {currentStep && (
+                            <Badge variant={currentStep === null ? "default" : "secondary"} className="text-xs">
+                                Step {currentStep} of 3
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <StepIndicator
+                            step="divisions"
+                            stepNumber={1}
+                            label="Select Divisions"
+                            isComplete={step1Complete}
+                            isActive={activeTab === 'divisions'}
+                            isNext={false}
+                            onClick={() => setActiveTab('divisions')}
+                            disabled={false}
+                        />
+                        <StepIndicator
+                            step="schedule"
+                            stepNumber={2}
+                            label="Add Dates & Arrange Classes"
+                            isComplete={step2Complete}
+                            isActive={activeTab === 'schedule'}
+                            isNext={currentStep === 1 && step1Complete && !step2Complete}
+                            onClick={() => setActiveTab('schedule')}
+                            disabled={!hasSelectedDivisions}
+                        />
+                        {!isScoresheetOnly && pbbDiscipline.pattern && (
+                            <StepIndicator
+                                step="grouping"
+                                stepNumber={3}
+                                label="Sort Classes by Pattern Level"
+                                isComplete={step3Complete}
+                                isActive={activeTab === 'grouping'}
+                                isNext={currentStep === 2 && step2Complete && !step3Complete}
+                                onClick={() => setActiveTab('grouping')}
+                                disabled={!hasScheduled}
+                            />
+                        )}
+                    </div>
+                </div>
+
                 <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="divisions">1. Select Divisions</TabsTrigger>
-                    <TabsTrigger value="schedule" disabled={!hasSelectedDivisions}>2. Add Dates &amp; Arrange Classes</TabsTrigger>
-                    <TabsTrigger value="grouping" disabled={isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled}>3. Sort Classes by Pattern Level</TabsTrigger>
+                    <TabsTrigger 
+                        value="divisions"
+                        className={cn(
+                            activeTab === 'divisions' && "bg-primary text-primary-foreground",
+                            !step1Complete && activeTab !== 'divisions' && "opacity-60"
+                        )}
+                    >
+                        1. Select Divisions
+                        {step1Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        ref={scheduleTabRef}
+                        value="schedule" 
+                        disabled={!hasSelectedDivisions}
+                        className={cn(
+                            nextStepHighlight === 'schedule' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
+                            activeTab === 'schedule' && "bg-primary text-primary-foreground",
+                            !hasSelectedDivisions && "opacity-50"
+                        )}
+                    >
+                        2. Add Dates &amp; Arrange Classes
+                        {step2Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
+                        {!hasSelectedDivisions && <AlertCircle className="ml-2 w-4 h-4" />}
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        ref={groupingTabRef}
+                        value="grouping" 
+                        disabled={isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled}
+                        className={cn(
+                            nextStepHighlight === 'grouping' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
+                            activeTab === 'grouping' && "bg-primary text-primary-foreground",
+                            (isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled) && "opacity-50"
+                        )}
+                    >
+                        3. Sort Classes by Pattern Level
+                        {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
+                        {(isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled) && <AlertCircle className="ml-2 w-4 h-4" />}
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
                     {isCustomOpenShowDiscipline ? (
@@ -845,7 +1061,13 @@ import React, { useMemo } from 'react';
                         </div>
                     )}
                 </TabsContent>
-                <TabsContent value="schedule" className="mt-2">
+                <TabsContent 
+                    value="schedule" 
+                    className={cn(
+                        "mt-2 transition-all duration-300",
+                        nextStepHighlight === 'schedule' && "ring-2 ring-blue-500/50 rounded-lg p-2 bg-blue-500/5"
+                    )}
+                >
                     <ScheduleOrganizer
                         pbbDiscipline={pbbDiscipline}
                         setFormData={setFormData}
@@ -853,7 +1075,13 @@ import React, { useMemo } from 'react';
                         associationsData={associationsData}
                     />
                 </TabsContent>
-                <TabsContent value="grouping" className="mt-2">
+                <TabsContent 
+                    value="grouping" 
+                    className={cn(
+                        "mt-2 transition-all duration-300",
+                        nextStepHighlight === 'grouping' && "ring-2 ring-blue-500/50 rounded-lg p-2 bg-blue-500/5"
+                    )}
+                >
                     <PatternGrouping
                         pbbDiscipline={pbbDiscipline}
                         setFormData={setFormData}
