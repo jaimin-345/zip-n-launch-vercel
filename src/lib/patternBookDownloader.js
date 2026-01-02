@@ -4,20 +4,6 @@ import { supabase } from '@/lib/supabaseClient';
 import { fetchImageAsBase64 } from './pdfHelpers';
 
 /**
- * Fetches an image and returns it as a blob
- */
-const fetchImageAsBlob = async (url) => {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.blob();
-    } catch (error) {
-        console.error("Error fetching image:", error);
-        return null;
-    }
-};
-
-/**
  * Creates a PDF from an image (pattern or scoresheet)
  */
 const createPdfFromImage = async (imageUrl, title) => {
@@ -81,6 +67,78 @@ const sanitizeFilename = (name) => {
 };
 
 /**
+ * Get scoresheet for a discipline and group following the same priority as Step6_Preview
+ */
+const getScoresheetForGroup = async (discipline, group, projectData, associationsData) => {
+    const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
+    
+    // Priority 1: Check if scoresheet was selected in Step 3 (per group via patternSelections)
+    const patternSelection = projectData.patternSelections?.[discipline.id]?.[group.id];
+    if (patternSelection && typeof patternSelection === 'object' && patternSelection.scoresheetData) {
+        return patternSelection.scoresheetData;
+    }
+    
+    // Priority 2: Check VRH-RHC Ranch CowWork selections from Step 2
+    const vrhSelection = projectData.vrhRanchCowWorkSelections?.[disciplineKey];
+    if (vrhSelection) {
+        let queryDisciplineName = 'VRH-RHC Ranch CowWork';
+        if (vrhSelection === 'rookie') {
+            queryDisciplineName = 'VRH-RHC Ranch CowWork Rookie';
+        } else if (vrhSelection === 'limited') {
+            queryDisciplineName = 'VRH-RHC Ranch CowWork Limited';
+        }
+        
+        const association = associationsData?.find(a => a.id === discipline.association_id);
+        if (association?.abbreviation) {
+            const { data } = await supabase
+                .from('tbl_scoresheet')
+                .select('id, pattern_id, image_url, storage_path, discipline')
+                .eq('association_abbrev', association.abbreviation)
+                .eq('discipline', queryDisciplineName)
+                .maybeSingle();
+            
+            if (data) return data;
+        }
+    }
+    
+    // Priority 3: Check disciplineScoresheetSelections from Step 2 (user-selected)
+    const userSelectedScoresheet = projectData.disciplineScoresheetSelections?.[disciplineKey];
+    if (userSelectedScoresheet && userSelectedScoresheet.image_url) {
+        return userSelectedScoresheet;
+    }
+    
+    // Priority 4: Try to get scoresheet by pattern_id if pattern is selected
+    const selectedPatternId = patternSelection
+        ? (typeof patternSelection === 'object' ? (patternSelection.patternId || patternSelection.id) : patternSelection)
+        : null;
+    
+    if (selectedPatternId) {
+        const { data } = await supabase
+            .from('tbl_scoresheet')
+            .select('id, pattern_id, image_url, storage_path, discipline')
+            .eq('pattern_id', parseInt(selectedPatternId))
+            .maybeSingle();
+        
+        if (data) return data;
+    }
+    
+    // Priority 5: Fallback - try to find scoresheet by association and discipline name
+    const association = associationsData?.find(a => a.id === discipline.association_id);
+    if (association?.abbreviation && discipline.name) {
+        const { data } = await supabase
+            .from('tbl_scoresheet')
+            .select('id, pattern_id, image_url, storage_path, discipline')
+            .eq('association_abbrev', association.abbreviation)
+            .ilike('discipline', `%${discipline.name}%`)
+            .maybeSingle();
+        
+        if (data) return data;
+    }
+    
+    return null;
+};
+
+/**
  * Downloads the pattern book folder as a ZIP file
  * Structure:
  * - PatternBookName/
@@ -96,7 +154,15 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
 
     const disciplines = projectData.disciplines || [];
     const patternSelections = projectData.patternSelections || {};
-    const disciplineScoresheetSelections = projectData.disciplineScoresheetSelections || {};
+
+    // Fetch associations data for scoresheet lookups
+    let associationsData = [];
+    try {
+        const { data } = await supabase.from('associations').select('id, abbreviation, name');
+        associationsData = data || [];
+    } catch (err) {
+        console.error('Error fetching associations:', err);
+    }
 
     // Collect all pattern IDs for batch fetching
     const patternIds = new Set();
@@ -168,10 +234,6 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
         const disciplineName = sanitizeFilename(discipline.name || 'Discipline');
         const disciplineFolder = rootFolder.folder(disciplineName);
 
-        // Get discipline-level scoresheet selection (from Step 2)
-        const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
-        const disciplineScoresheet = disciplineScoresheetSelections[disciplineKey];
-
         for (const group of groups) {
             // Create group folder name from divisions
             const divisions = group.divisions || [];
@@ -213,16 +275,19 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                 }
             }
 
-            // Add scoresheet PDF (from discipline-level selection)
-            if (disciplineScoresheet && disciplineScoresheet.image_url) {
-                const scoresheetName = disciplineScoresheet.file_name || 
-                                       disciplineScoresheet.display_name || 
+            // Get scoresheet using the same priority logic as Step6_Preview
+            const scoresheetData = await getScoresheetForGroup(discipline, group, projectData, associationsData);
+            
+            if (scoresheetData && scoresheetData.image_url) {
+                const scoresheetName = scoresheetData.file_name || 
+                                       scoresheetData.display_name ||
+                                       scoresheetData.discipline ||
                                        `Scoresheet_${discipline.name}`;
                 
                 console.log(`Creating PDF for scoresheet: ${scoresheetName}`);
-                const pdfBlob = await createPdfFromImage(disciplineScoresheet.image_url, scoresheetName);
+                const pdfBlob = await createPdfFromImage(scoresheetData.image_url, scoresheetName);
                 if (pdfBlob) {
-                    groupFolder.file(`${sanitizeFilename(scoresheetName)}.pdf`, pdfBlob);
+                    groupFolder.file(`${sanitizeFilename(scoresheetName)}_scoresheet.pdf`, pdfBlob);
                 }
             }
 
