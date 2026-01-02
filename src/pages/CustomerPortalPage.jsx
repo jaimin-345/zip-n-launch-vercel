@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -543,6 +543,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
             case 'preview':
                 navigate(`${editPath}?preview=true`);
                 break;
+            case 'download':
+                toast({ title: "Download started", description: "Your folder is being prepared for download" });
+                break;
             default:
                 console.log('Action:', action, project.id);
         }
@@ -596,7 +599,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                 </>
             );
         } else {
-            // Pattern Books and Horse Shows: open card, change cover, edit dates, archive
+            // Pattern Books and Horse Shows: open card, change cover, edit dates, download folder, archive
             return (
                 <>
                     <DropdownMenuItem onClick={() => handleMenuAction('open')}>
@@ -607,6 +610,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('dates')}>
                         <CalendarIcon className="mr-2 h-4 w-4" /> Edit dates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('download')}>
+                        <Download className="mr-2 h-4 w-4" /> Download Folder
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
                         <Archive className="mr-2 h-4 w-4" /> Archive
