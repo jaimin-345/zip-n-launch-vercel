@@ -108,10 +108,23 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
     const selectedAccessPhaseDetails = accessPhases.filter(p => accessPhase.includes(p.id));
     const selectedDelegatedRoleDetails = delegatedRolesForStaff.map(r => {
         const roleInfo = delegatedRoles.find(dr => dr.id === r.id);
-        const disciplineNames = r.disciplines.map(dId => disciplines.find(d => d.id === dId)?.name).filter(Boolean);
+        // Use disciplineInfo if available (from Step 5 sync), otherwise fall back to mapping
+        const disciplineNames = r.disciplineInfo 
+            ? r.disciplineInfo.map(d => d?.name).filter(Boolean)
+            : (r.disciplines || []).map(dId => (disciplines || []).find(d => d?.id === dId)?.name).filter(Boolean);
+        // Get discipline info with dates if available
+        const disciplineInfo = r.disciplineInfo || (r.disciplines || []).map(dId => {
+            const discipline = (disciplines || []).find(d => d?.id === dId);
+            return {
+                id: dId,
+                name: discipline?.name || dId,
+                dueDate: null
+            };
+        });
         return {
-            ...roleInfo,
-            disciplineNames,
+            ...(roleInfo || { id: r.id, name: 'Unknown Role' }),
+            disciplineNames: disciplineNames || [],
+            disciplineInfo: disciplineInfo || [],
             deadline: r.deadline,
         };
     });
@@ -137,26 +150,98 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                             </div>
                         )}
                         {/* Delegated Roles & Disciplines Tags */}
-                        {selectedDelegatedRoleDetails.map(role => (
-                             <div key={role.id} className="flex flex-col items-start gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.role)}>
-                                        {role.name}
-                                    </Badge>
-                                    {role.deadline && (
-                                        <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
-                                            Due: {format(new Date(role.deadline), "PPP")}
-                                        </Badge>
-                                    )}
-                                </div>
-                                {role.disciplineNames.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 pl-4">
+                        {selectedDelegatedRoleDetails.filter(role => role && role.id && role.id !== 'comment').map(role => (
+                             <div key={role.id} className="flex flex-wrap items-center gap-2">
+                                {/* Show due date badge if available */}
+                                {role.deadline && (() => {
+                                    try {
+                                        return (
+                                            <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
+                                                Due: {format(new Date(role.deadline), "PPP")}
+                                            </Badge>
+                                        );
+                                    } catch (e) {
+                                        console.error('Error formatting deadline:', e, role.deadline);
+                                        return (
+                                            <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
+                                                Due: {role.deadline}
+                                            </Badge>
+                                        );
+                                    }
+                                })()}
+                                {/* Show discipline names as badges (without dates) */}
+                                {role.disciplineInfo && Array.isArray(role.disciplineInfo) && role.disciplineInfo.length > 0 && (
+                                    <>
+                                        {role.disciplineInfo.map(discipline => {
+                                            if (!discipline || !discipline.id) return null;
+                                            return (
+                                                <Badge 
+                                                    key={`${role.id}-${discipline.id}`} 
+                                                    className={cn('hover:bg-opacity-80', TAG_COLORS.discipline)}
+                                                >
+                                                    {discipline.name || discipline.id}
+                                                </Badge>
+                                            );
+                                        })}
+                                    </>
+                                )}
+                                {(!role.disciplineInfo || !Array.isArray(role.disciplineInfo) || role.disciplineInfo.length === 0) && 
+                                 role.disciplineNames && Array.isArray(role.disciplineNames) && role.disciplineNames.length > 0 && (
+                                    <>
                                         {role.disciplineNames.map(disciplineName => (
                                             <Badge key={`${role.id}-${disciplineName}`} className={cn('hover:bg-opacity-80', TAG_COLORS.discipline)}>
                                                 {disciplineName}
                                             </Badge>
                                         ))}
-                                    </div>
+                                    </>
+                                )}
+                             </div>
+                        ))}
+                        {/* Show Comment role disciplines without the Comment badge */}
+                        {selectedDelegatedRoleDetails.filter(role => role && role.id === 'comment').map(role => (
+                             <div key={role.id} className="flex flex-wrap items-center gap-2">
+                                {/* Show due date badge if available */}
+                                {role.deadline && (() => {
+                                    try {
+                                        return (
+                                            <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
+                                                Due: {format(new Date(role.deadline), "PPP")}
+                                            </Badge>
+                                        );
+                                    } catch (e) {
+                                        console.error('Error formatting deadline:', e, role.deadline);
+                                        return (
+                                            <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
+                                                Due: {role.deadline}
+                                            </Badge>
+                                        );
+                                    }
+                                })()}
+                                {/* Show discipline names as badges (without dates) */}
+                                {role.disciplineInfo && Array.isArray(role.disciplineInfo) && role.disciplineInfo.length > 0 && (
+                                    <>
+                                        {role.disciplineInfo.map(discipline => {
+                                            if (!discipline || !discipline.id) return null;
+                                            return (
+                                                <Badge 
+                                                    key={`${role.id}-${discipline.id}`} 
+                                                    className={cn('hover:bg-opacity-80', TAG_COLORS.discipline)}
+                                                >
+                                                    {discipline.name || discipline.id}
+                                                </Badge>
+                                            );
+                                        })}
+                                    </>
+                                )}
+                                {(!role.disciplineInfo || !Array.isArray(role.disciplineInfo) || role.disciplineInfo.length === 0) && 
+                                 role.disciplineNames && Array.isArray(role.disciplineNames) && role.disciplineNames.length > 0 && (
+                                    <>
+                                        {role.disciplineNames.map(disciplineName => (
+                                            <Badge key={`${role.id}-${disciplineName}`} className={cn('hover:bg-opacity-80', TAG_COLORS.discipline)}>
+                                                {disciplineName}
+                                            </Badge>
+                                        ))}
+                                    </>
                                 )}
                              </div>
                         ))}
@@ -298,13 +383,18 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     const assignedDisciplineDates = new Map();
                     
                     // Check groupJudges structure: { disciplineIndex: { groupIndex: judgeName } }
+                    // Use case-insensitive matching to handle "Mr.Jemin" vs "Mr.jemin"
+                    const memberNameNormalized = member.name ? member.name.toLowerCase().trim() : '';
                     Object.entries(formData.groupJudges).forEach(([disciplineIndex, groups]) => {
                         const discipline = (formData.disciplines || [])[parseInt(disciplineIndex)];
                         if (discipline && discipline.id) {
                             // Check if this judge is assigned to any group in this discipline
-                            const isAssigned = Object.values(groups || {}).some(judgeName => 
-                                judgeName === member.name
-                            );
+                            // Use case-insensitive matching
+                            const isAssigned = Object.values(groups || {}).some(judgeName => {
+                                if (!judgeName) return false;
+                                const judgeNameNormalized = judgeName.toLowerCase().trim();
+                                return judgeNameNormalized === memberNameNormalized || judgeName === member.name;
+                            });
                             
                             if (isAssigned) {
                                 assignedDisciplineIds.add(discipline.id);
@@ -322,7 +412,9 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     // Also check judgeSelections (discipline-level assignments)
                     if (formData.judgeSelections) {
                         Object.entries(formData.judgeSelections).forEach(([disciplineIndex, judgeName]) => {
-                            if (judgeName === member.name) {
+                            // Use case-insensitive matching
+                            const judgeNameNormalized = judgeName ? judgeName.toLowerCase().trim() : '';
+                            if (judgeNameNormalized === memberNameNormalized || judgeName === member.name) {
                                 const discipline = (formData.disciplines || [])[parseInt(disciplineIndex)];
                                 if (discipline && discipline.id) {
                                     assignedDisciplineIds.add(discipline.id);
@@ -344,26 +436,52 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         let roles = delegation.roles || [];
                         let commentRole = roles.find(r => r.id === 'comment');
                         
+                        // Get all discipline names and dates for display
+                        const disciplineInfo = Array.from(assignedDisciplineIds).map(dId => {
+                            const discipline = (formData.disciplines || []).find(d => d.id === dId);
+                            const dueDate = assignedDisciplineDates.get(dId);
+                            return {
+                                id: dId,
+                                name: discipline?.name || dId,
+                                dueDate: dueDate
+                            };
+                        });
+                        
+                        // Use the earliest due date if multiple disciplines have dates
+                        const earliestDueDate = disciplineInfo
+                            .map(d => d.dueDate)
+                            .filter(Boolean)
+                            .sort()[0] || null;
+                        
                         if (!commentRole) {
                             // Create a comment role with the assigned disciplines
                             commentRole = {
                                 id: 'comment',
                                 disciplines: Array.from(assignedDisciplineIds),
-                                deadline: assignedDisciplineDates.size > 0 
-                                    ? Array.from(assignedDisciplineDates.values())[0] 
-                                    : null
+                                deadline: earliestDueDate,
+                                // Store discipline info for better display
+                                disciplineInfo: disciplineInfo
                             };
                             roles = [...roles, commentRole];
                         } else {
                             // Merge disciplines (avoid duplicates)
                             const existingDisciplines = new Set(commentRole.disciplines || []);
                             assignedDisciplineIds.forEach(dId => existingDisciplines.add(dId));
+                            
+                            // Merge discipline info
+                            const existingDisciplineInfo = commentRole.disciplineInfo || [];
+                            const mergedDisciplineInfo = [...existingDisciplineInfo];
+                            disciplineInfo.forEach(newInfo => {
+                                if (!mergedDisciplineInfo.find(d => d.id === newInfo.id)) {
+                                    mergedDisciplineInfo.push(newInfo);
+                                }
+                            });
+                            
                             commentRole = {
                                 ...commentRole,
                                 disciplines: Array.from(existingDisciplines),
-                                deadline: commentRole.deadline || (assignedDisciplineDates.size > 0 
-                                    ? Array.from(assignedDisciplineDates.values())[0] 
-                                    : null)
+                                deadline: commentRole.deadline || earliestDueDate,
+                                disciplineInfo: mergedDisciplineInfo
                             };
                             roles = roles.map(r => r.id === 'comment' ? commentRole : r);
                         }

@@ -75,9 +75,9 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
         <HoverCard openDelay={100} closeDelay={100}>
             <HoverCardTrigger asChild>
                 <span className="inline-flex items-center cursor-pointer">
-                    <Badge className="bg-green-100 text-green-800 border-green-200 text-xs whitespace-nowrap hover:bg-green-200 hover:text-green-900 transition-colors flex items-center gap-1">
-                        {displayText}
-                        <Eye className="h-3 w-3" />
+                    <Badge className="bg-green-100 text-green-800 border-green-200 text-xs hover:bg-green-200 hover:text-green-900 transition-colors flex items-center gap-1">
+                        <span className="whitespace-normal break-words">{displayText}</span>
+                        <Eye className="h-3 w-3 flex-shrink-0" />
                     </Badge>
                 </span>
             </HoverCardTrigger>
@@ -621,9 +621,52 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     setCurrentDiscipline({ ...discipline, disciplineIndex, associationJudges });
 
     // Prefill from any existing discipline-level selections first
-    const existingJudge = formData.judgeSelections?.[disciplineIndex]
-      || formData.groupJudges?.[disciplineIndex]?.[0]
-      || '';
+    // Convert judge ID to name if needed
+    let existingJudge = formData.judgeSelections?.[disciplineIndex] || '';
+    
+    // If not found in judgeSelections, check groupJudges (from Step 5 or Step 6)
+    // Check all groups to find any assigned judge
+    if (!existingJudge && formData.groupJudges?.[disciplineIndex]) {
+      // Get the first non-empty judge value from any group
+      const groupJudges = formData.groupJudges[disciplineIndex];
+      const judgeValues = Object.values(groupJudges).filter(Boolean);
+      if (judgeValues.length > 0) {
+        // Use the first judge found (they should all be the same if assigned via dialog)
+        existingJudge = judgeValues[0];
+      }
+    }
+    
+    // If existingJudge is an ID (like "judge-0" or "judge-1"), convert it to judge name
+    if (existingJudge && (existingJudge.startsWith('judge-') || /^judge-\d+$/.test(existingJudge))) {
+      // Try to find judge by matching ID pattern in all association judges
+      const allJudges = [];
+      if (formData.associationJudges) {
+        Object.values(formData.associationJudges).forEach(assocData => {
+          const judges = assocData?.judges || [];
+          judges.forEach((judge, idx) => {
+            if (judge.name) {
+              // Check if this judge matches the ID pattern
+              const judgeId = judge.id || `judge-${idx}`;
+              if (judgeId === existingJudge || `judge-${idx}` === existingJudge) {
+                allJudges.push({ ...judge, matchedId: judgeId, matchedIdx: idx });
+              }
+            }
+          });
+        });
+      }
+      
+      // Also check in associationJudges passed to dialog
+      if (allJudges.length === 0 && associationJudges.length > 0) {
+        const judgeIndex = parseInt(existingJudge.replace('judge-', ''), 10);
+        if (!isNaN(judgeIndex) && associationJudges[judgeIndex]) {
+          existingJudge = associationJudges[judgeIndex].name;
+        }
+      } else if (allJudges.length > 0) {
+        // Use the first matching judge's name
+        existingJudge = allJudges[0].name;
+      }
+    }
+    
     const existingStaff = formData.staffSelections?.[disciplineIndex]
       || formData.groupStaff?.[disciplineIndex]?.[0]
       || '';
@@ -631,7 +674,29 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       || formData.disciplineDueDates?.[disciplineIndex]
       || '';
 
-    setDialogJudge(existingJudge);
+    // Find the exact judge name from available judges to ensure Select component matches
+    // This handles case sensitivity and whitespace differences
+    let matchedJudgeName = existingJudge;
+    if (existingJudge && existingJudge.trim() && !existingJudge.startsWith('judge-')) {
+      // Try to find exact match first
+      const exactMatch = associationJudges.find(j => j.name === existingJudge);
+      if (exactMatch) {
+        matchedJudgeName = exactMatch.name;
+      } else {
+        // Try case-insensitive match
+        const caseInsensitiveMatch = associationJudges.find(j => 
+          j.name && j.name.toLowerCase().trim() === existingJudge.toLowerCase().trim()
+        );
+        if (caseInsensitiveMatch) {
+          matchedJudgeName = caseInsensitiveMatch.name;
+        } else {
+          // If no match found, keep the original value (might be from a different association)
+          matchedJudgeName = existingJudge.trim();
+        }
+      }
+    }
+
+    setDialogJudge(matchedJudgeName);
     setDialogStaff(existingStaff);
     setDialogDueDate(existingDueDate);
     setAssignDialogOpen(true);
@@ -663,27 +728,121 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
 
       // Apply judge and staff to all groups (don't overwrite existing pattern selections)
-      groups.forEach((group, groupIndex) => {
-        // Only set pattern if no existing selection for this group
-        if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
-          const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '', group);
-          const difficultyOption = difficultyOptions[0]; // First available option for this group type
-          newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || selectedPattern;
+      // Ensure we're saving judge name, not ID - ALWAYS save the name
+      let judgeNameToSave = dialogJudge;
+      if (dialogJudge && dialogJudge.trim()) {
+        // If dialogJudge is an ID (like "judge-0" or "judge-1"), convert it to judge name
+        if (dialogJudge.startsWith('judge-') || /^judge-\d+$/.test(dialogJudge)) {
+          // First try to find in currentDiscipline.associationJudges
+          const judgeIndex = parseInt(dialogJudge.replace('judge-', ''), 10);
+          if (!isNaN(judgeIndex) && currentDiscipline.associationJudges && currentDiscipline.associationJudges[judgeIndex]) {
+            judgeNameToSave = currentDiscipline.associationJudges[judgeIndex].name;
+          } else {
+            // Try to find judge by ID in all association judges
+            const allJudges = [];
+            if (formData.associationJudges) {
+              Object.values(formData.associationJudges).forEach(assocData => {
+                const judges = assocData?.judges || [];
+                judges.forEach((judge, idx) => {
+                  if (judge.name) {
+                    const judgeId = judge.id || `judge-${idx}`;
+                    // Check if this judge matches the ID
+                    if (judgeId === dialogJudge || `judge-${idx}` === dialogJudge) {
+                      allJudges.push(judge);
+                    }
+                  }
+                });
+              });
+            }
+            if (allJudges.length > 0) {
+              judgeNameToSave = allJudges[0].name;
+            } else {
+              // If we can't find the judge, don't save anything
+              judgeNameToSave = null;
+            }
+          }
         }
-        if (dialogJudge) newJudges[disciplineIndex][groupIndex] = dialogJudge;
-      });
+        // If dialogJudge is already a name (not an ID), use it directly
+        // This ensures we always save the name, never an ID
+      } else {
+        judgeNameToSave = null;
+      }
+      
+      // Store judge name - optimize to avoid duplicates when same judge for all groups
+      // If judge is assigned via dialog, it applies to all groups in the discipline
+      if (judgeNameToSave && judgeNameToSave.trim()) {
+        const judgeName = judgeNameToSave.trim();
+        
+        // Optimization: When assigning via dialog (same judge for all groups),
+        // only store for the first group to avoid duplicates
+        // Step 5 will read from groupJudges[disciplineIndex][0] or fall back to judgeSelections
+        if (groups.length > 0) {
+          // Store only for first group (index 0) to avoid duplicates
+          newJudges[disciplineIndex][0] = judgeName;
+          
+          // Clear any existing judge assignments for other groups since we're assigning to all
+          for (let i = 1; i < groups.length; i++) {
+            if (newJudges[disciplineIndex][i]) {
+              delete newJudges[disciplineIndex][i];
+            }
+          }
+        }
+        
+        // Handle patterns for all groups
+        groups.forEach((group, groupIndex) => {
+          // Only set pattern if no existing selection for this group
+          if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
+            const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '', group);
+            const difficultyOption = difficultyOptions[0]; // First available option for this group type
+            newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || selectedPattern;
+          }
+        });
+      } else {
+        // No judge assigned - clear judge data for all groups in this discipline
+        if (newJudges[disciplineIndex]) {
+          // Clear all judge assignments for this discipline's groups
+          groups.forEach((group, groupIndex) => {
+            if (newJudges[disciplineIndex][groupIndex]) {
+              delete newJudges[disciplineIndex][groupIndex];
+            }
+          });
+          // If no groups have judges, remove the discipline entry entirely
+          if (Object.keys(newJudges[disciplineIndex]).length === 0) {
+            delete newJudges[disciplineIndex];
+          }
+        }
+        // Handle patterns
+        groups.forEach((group, groupIndex) => {
+          if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
+            const difficultyOptions = getGroupDifficultyOptions(selectedPattern, currentDiscipline.name || '', group);
+            const difficultyOption = difficultyOptions[0];
+            newSelections[disciplineIndex][groupIndex] = difficultyOption?.id || selectedPattern;
+          }
+        });
+      }
 
       // Set due date at discipline level
-      if (dialogDueDate) {
-        newDueDates[disciplineIndex] = dialogDueDate;
+      if (dialogDueDate && dialogDueDate.trim()) {
+        newDueDates[disciplineIndex] = dialogDueDate.trim();
+      } else {
+        // Clear due date if removed
+        delete newDueDates[disciplineIndex];
       }
 
       // Store discipline-level selections for display on the row (only if selected)
-      if (dialogJudge) {
-        judgeSelections[disciplineIndex] = dialogJudge;
+      // Save judge name, not ID - ALWAYS save the name
+      if (judgeNameToSave && judgeNameToSave.trim()) {
+        judgeSelections[disciplineIndex] = judgeNameToSave.trim();
+      } else {
+        // Clear if no valid judge name
+        judgeSelections[disciplineIndex] = null;
       }
-      if (dialogDueDate) {
-        dueDateSelections[disciplineIndex] = dialogDueDate;
+      // Store due date selection
+      if (dialogDueDate && dialogDueDate.trim()) {
+        dueDateSelections[disciplineIndex] = dialogDueDate.trim();
+      } else {
+        // Clear due date selection if removed
+        dueDateSelections[disciplineIndex] = null;
       }
 
       return {
@@ -1197,8 +1356,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           >
                             Judge:{' '}
                             {(() => {
-                              const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === formData.judgeSelections[disciplineIndex]);
-                              return judge?.name || formData.judgeSelections[disciplineIndex];
+                              // judgeSelections now stores judge names directly
+                              const judgeValue = formData.judgeSelections[disciplineIndex];
+                              // If it's still an ID (legacy data), try to convert it
+                              if (judgeValue && judgeValue.startsWith('judge-')) {
+                                const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === judgeValue);
+                                return judge?.name || judgeValue;
+                              }
+                              // Otherwise, it's already a name, just return it
+                              return judgeValue;
                             })()}
                           </Badge>
                         )}
@@ -1229,7 +1395,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   className="p-4 border rounded-lg bg-background/50 space-y-4"
                                 >
                                   <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <Label className="font-semibold text-base">{group.name}</Label>
                                       {/* Show pattern badge if selected (only for pattern disciplines) */}
                                       {!isScoresheetOnly && currentSelection?.patternName && (() => {
@@ -1277,7 +1443,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
                                             }}
                                         >
-                                            <SelectTrigger className="flex-1 bg-background">
+                                            <SelectTrigger className="flex-1 bg-background min-w-[200px] [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words">
                                                 <SelectValue placeholder="Select Pattern" />
                                             </SelectTrigger>
                                             <SelectContent 
@@ -1418,9 +1584,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     return filtered.map((p) => {
                                                         const patternNumber = extractPatternNumber(p.pdf_file_name);
                                                         const version = p.pattern_version || 'ALL';
-                                                        const displayLabel = patternNumber !== null 
+                                                        const fileName = p.pdf_file_name?.trim() || '';
+                                                        const cleanPatternName = fileName.replace(/\.(pdf|PDF)$/, '');
+                                                        // Use full pattern name for display, fallback to pattern number
+                                                        const displayLabel = cleanPatternName || (patternNumber !== null 
                                                             ? `Pattern ${patternNumber}`
-                                                            : `Pattern ${p.id}`;
+                                                            : `Pattern ${p.id}`);
+                                                        const fullDisplayLabel = version && version !== 'ALL' 
+                                                            ? `${displayLabel} (${version})` 
+                                                            : displayLabel;
                                                         
                                                         return (
                                                             <SelectItem 
@@ -1453,9 +1625,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                                 }}
                                                             >
                                                                 <div className="flex items-center gap-2 w-full">
-                                                                    <span>{displayLabel}</span>
-                                                                    {version && (
-                                                                        <Badge variant="outline" className="text-xs">{version}</Badge>
+                                                                    <span className="whitespace-normal break-words">{fullDisplayLabel}</span>
+                                                                    {version && version !== 'ALL' && (
+                                                                        <Badge variant="outline" className="text-xs flex-shrink-0">{version}</Badge>
                                                                     )}
                                                                 </div>
                                                             </SelectItem>
@@ -1536,18 +1708,43 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="dialog-judge" className="text-sm mb-2 block">Assign Judge</Label>
-                <Select value={dialogJudge} onValueChange={setDialogJudge}>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="dialog-judge" className="text-sm">Assign Judge</Label>
+                  {dialogJudge && dialogJudge.trim() && !dialogJudge.startsWith('judge-') && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setDialogJudge('')}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Remove Judge
+                    </Button>
+                  )}
+                </div>
+                <Select 
+                  value={dialogJudge && !dialogJudge.startsWith('judge-') ? dialogJudge : ''} 
+                  onValueChange={(value) => {
+                    // Ensure we always set the judge name, never an ID
+                    // The SelectItem value is already judge.name, so value will be the name
+                    setDialogJudge(value);
+                  }}
+                >
                   <SelectTrigger id="dialog-judge" className="bg-background">
                     <SelectValue placeholder="Select a judge..." />
                   </SelectTrigger>
                   <SelectContent className="bg-background z-50">
                     {(currentDiscipline?.associationJudges || []).length > 0 ? (
-                      (currentDiscipline?.associationJudges || []).map((judge, idx) => (
-                        <SelectItem key={idx} value={judge.id || `judge-${idx}`}>
-                          {judge.name || 'Unnamed Judge'}
-                        </SelectItem>
-                      ))
+                      (currentDiscipline?.associationJudges || []).map((judge, idx) => {
+                        // Always use judge.name as the value - never use ID
+                        const judgeName = judge.name || 'Unnamed Judge';
+                        return (
+                          <SelectItem key={idx} value={judgeName}>
+                            {judgeName}
+                          </SelectItem>
+                        );
+                      })
                     ) : (
                       <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
                     )}
@@ -1556,34 +1753,46 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               </div>
 
 
-              {dialogJudge?.trim() && (
-                <div>
-                  <Label htmlFor="dialog-due-date" className="text-sm mb-2 block">Due Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !dialogDueDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dialogDueDate ? format(new Date(dialogDueDate), "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dialogDueDate ? new Date(dialogDueDate) : undefined}
-                        onSelect={(date) => setDialogDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="dialog-due-date" className="text-sm">Due Date</Label>
+                  {dialogDueDate && dialogDueDate.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setDialogDueDate('')}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Remove Date
+                    </Button>
+                  )}
                 </div>
-              )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !dialogDueDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dialogDueDate ? format(new Date(dialogDueDate), "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dialogDueDate ? new Date(dialogDueDate) : undefined}
+                      onSelect={(date) => setDialogDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             <DialogFooter className="gap-2 mt-4">

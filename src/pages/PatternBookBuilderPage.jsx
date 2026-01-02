@@ -277,13 +277,6 @@ const PatternBookBuilderPage = () => {
         
         const staffList = Array.from(staff.values());
         
-        // Find Show Manager (case-insensitive, handles variations)
-        const showManager = staffList.find(s => {
-            if (!s.role) return false;
-            const roleLower = s.role.toLowerCase();
-            return roleLower.includes('show manager') || roleLower.includes('showmanager');
-        });
-        
         // Find all Judges (case-insensitive, exact match for "judge" role)
         const judges = staffList.filter(s => {
             if (!s.role) return false;
@@ -291,35 +284,36 @@ const PatternBookBuilderPage = () => {
             return roleLower === 'judge';
         });
         
-        // Check Show Manager - return first error found
-        if (!showManager) {
-            return 'Show Manager is missing. Add in Step 4: Show Details.';
-        }
-        if (!showManager.name || !showManager.name.trim()) {
-            return 'Show Manager name is missing. Add in Step 4: Show Details.';
-        }
-        if (!showManager.email || !showManager.email.trim()) {
-            return 'Show Manager email is missing. Add in Step 4: Show Details.';
-        }
-        if (!showManager.phone || !showManager.phone.trim()) {
-            return 'Show Manager phone is missing. Add in Step 4: Show Details.';
-        }
-        
         // Check at least one Judge - return first error found
         if (judges.length === 0) {
             return 'Judge is missing. Add in Step 4: Show Details.';
         }
         
-        // Check if at least one judge has complete info
-        const validJudge = judges.find(judge => {
+        // Check ALL judges have complete info (name, email, phone)
+        const incompleteJudges = judges.filter(judge => {
             const hasCompleteInfo = judge.name && judge.name.trim() && 
                                    judge.email && judge.email.trim() && 
                                    judge.phone && judge.phone.trim();
-            return hasCompleteInfo;
+            return !hasCompleteInfo;
         });
         
-        if (!validJudge) {
-            return 'Judge info incomplete. Add name, email, and phone in Step 4: Show Details.';
+        if (incompleteJudges.length > 0) {
+            // Show toast error for each incomplete judge
+            incompleteJudges.forEach(judge => {
+                const missingFields = [];
+                if (!judge.name || !judge.name.trim()) missingFields.push('name');
+                if (!judge.email || !judge.email.trim()) missingFields.push('email');
+                if (!judge.phone || !judge.phone.trim()) missingFields.push('phone');
+                
+                toast({
+                    variant: "destructive",
+                    title: "Judge Information Incomplete",
+                    description: `Judge "${judge.name || 'Unnamed Judge'}" is missing: ${missingFields.join(', ')}. Please add in Step 4: Show Details.`,
+                });
+            });
+            
+            // Return error flag to prevent dialog from opening, but skip generic toast since specific toasts were shown
+            return 'JUDGE_INCOMPLETE_FLAG'; // Special flag to indicate errors exist but toasts were shown
         }
         
         return null; // All validations passed
@@ -328,13 +322,18 @@ const PatternBookBuilderPage = () => {
     const handlePayAndPublish = () => {
         const error = validateStaffAndDelegation();
         if (error) {
-            toast({
-                variant: "destructive",
-                title: "Validation Error",
-                description: error,
-            });
+            // Only show generic toast if error is not the special flag (flag means specific toasts were already shown)
+            if (error !== 'JUDGE_INCOMPLETE_FLAG') {
+                toast({
+                    variant: "destructive",
+                    title: "Validation Error",
+                    description: error,
+                });
+            }
+            // Don't open dialog when there are errors
             return;
         }
+        // Only open dialog when validation passes (no errors)
         setIsGenerateDialogOpen(true);
     };
 

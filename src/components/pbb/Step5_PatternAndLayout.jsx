@@ -784,7 +784,15 @@ const detectGroupType = (divisions) => {
                               <div>
                                 <Label htmlFor={`judge-${originalDisciplineIndex}-${groupIndex}`} className="text-sm">Assign Judge</Label>
                                 <Select 
-                                  value={formData.groupJudges?.[originalDisciplineIndex]?.[groupIndex] || ''}
+                                  value={
+                                    // Check this group's judge first
+                                    formData.groupJudges?.[originalDisciplineIndex]?.[groupIndex] ||
+                                    // Fallback to first group's judge (when assigned via Step 6 dialog)
+                                    formData.groupJudges?.[originalDisciplineIndex]?.[0] ||
+                                    // Fallback to discipline-level judge
+                                    formData.judgeSelections?.[originalDisciplineIndex] ||
+                                    ''
+                                  }
                                   onValueChange={(value) => handleJudgeSelection(originalDisciplineIndex, groupIndex, value)}
                                 >
                                   <SelectTrigger id={`judge-${originalDisciplineIndex}-${groupIndex}`} className="mt-1">

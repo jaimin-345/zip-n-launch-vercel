@@ -547,9 +547,61 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     newDisciplines.push(newDiscipline);
                 }
             } else {
+                // Find the discipline being removed to get its ID
+                const disciplineToRemove = newDisciplines.find(c => getDisciplineKey(c) === disciplineKey);
+                const disciplineIdToRemove = disciplineToRemove?.id;
+                
+                // Remove the discipline
                 newDisciplines = newDisciplines.filter(c => 
                     getDisciplineKey(c) !== disciplineKey
                 );
+                
+                // Clean up judge data for the removed discipline
+                if (disciplineIdToRemove) {
+                    // Find the discipline index before removal to clean up judge data
+                    const oldDisciplines = prev.disciplines || [];
+                    const disciplineIndex = oldDisciplines.findIndex(d => d.id === disciplineIdToRemove);
+                    
+                    if (disciplineIndex !== -1) {
+                        // Clean up judgeSelections, groupJudges, and related data
+                        const newJudgeSelections = [...(prev.judgeSelections || [])];
+                        const newGroupJudges = { ...(prev.groupJudges || {}) };
+                        const newDueDateSelections = [...(prev.dueDateSelections || [])];
+                        const newDisciplineDueDates = { ...(prev.disciplineDueDates || {}) };
+                        const newPatternSelections = { ...(prev.patternSelections || {}) };
+                        const newGroupDueDates = { ...(prev.groupDueDates || {}) };
+                        const newGroupStaff = { ...(prev.groupStaff || {}) };
+                        
+                        // Remove data at the discipline index
+                        newJudgeSelections[disciplineIndex] = null;
+                        delete newGroupJudges[disciplineIndex];
+                        // Clear dueDateSelections for this discipline
+                        newDueDateSelections[disciplineIndex] = null;
+                        delete newDisciplineDueDates[disciplineIndex];
+                        delete newPatternSelections[disciplineIndex];
+                        delete newGroupDueDates[disciplineIndex];
+                        delete newGroupStaff[disciplineIndex];
+                        
+                        // Also clean up by discipline ID (new format)
+                        delete newPatternSelections[disciplineIdToRemove];
+                        delete newGroupJudges[disciplineIdToRemove];
+                        delete newDisciplineDueDates[disciplineIdToRemove];
+                        delete newGroupDueDates[disciplineIdToRemove];
+                        delete newGroupStaff[disciplineIdToRemove];
+                        
+                        return {
+                            ...prev,
+                            disciplines: newDisciplines,
+                            judgeSelections: newJudgeSelections,
+                            groupJudges: newGroupJudges,
+                            dueDateSelections: newDueDateSelections, // Ensure dueDateSelections is included in cleanup
+                            disciplineDueDates: newDisciplineDueDates,
+                            patternSelections: newPatternSelections,
+                            groupDueDates: newGroupDueDates,
+                            groupStaff: newGroupStaff
+                        };
+                    }
+                }
             }
             
             newDisciplines.sort((a, b) => {
@@ -557,6 +609,21 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                 const bSort = disciplineLibrary.find(d => d.name === b.name)?.sort_order ?? 999;
                 return aSort - bSort;
             });
+
+            // If all disciplines are removed, clean up all judge and related data
+            if (newDisciplines.length === 0) {
+                return {
+                    ...prev,
+                    disciplines: newDisciplines,
+                    judgeSelections: [],
+                    groupJudges: {},
+                    dueDateSelections: [],
+                    disciplineDueDates: {},
+                    patternSelections: {},
+                    groupDueDates: {},
+                    groupStaff: {}
+                };
+            }
 
             return { ...prev, disciplines: newDisciplines };
         });
