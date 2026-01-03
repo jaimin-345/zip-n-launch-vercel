@@ -51,6 +51,26 @@ export const usePatternBookBuilder = (projectId) => {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Fetch disciplines function (reusable for refreshing)
+  const fetchDisciplines = useCallback(async () => {
+    const { data, error } = await supabase.from('disciplines').select('*').order('sort_order');
+    if (error) {
+      console.error('Error fetching disciplines:', error);
+      return [];
+    }
+    const disciplinesWithAssociationId = data.map(d => ({
+      ...d,
+      associations: d.association_id ? [{ association_id: d.association_id, sub_association_type: d.sub_association_type }] : []
+    }));
+    return disciplinesWithAssociationId;
+  }, []);
+
+  // Refresh discipline library (call after adding new disciplines)
+  const refreshDisciplineLibrary = useCallback(async () => {
+    const disciplines = await fetchDisciplines();
+    setDisciplineLibrary(disciplines);
+  }, [fetchDisciplines]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       setIsLoading(true);
@@ -329,5 +349,6 @@ export const usePatternBookBuilder = (projectId) => {
     handleShowTypeChange,
     resetDisciplines,
     resetCurrentStep,
+    refreshDisciplineLibrary,
   };
 };
