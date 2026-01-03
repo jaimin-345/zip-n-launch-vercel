@@ -51,6 +51,7 @@ import StallingServiceManagerPage from '@/pages/StallingServiceManagerPage';
 import EmployeeArenaSchedulingManagerPage from '@/pages/EmployeeArenaSchedulingManagerPage';
 import AwardsPresenterManagerPage from '@/pages/AwardsPresenterManagerPage';
 import EmployeeManagementPage from '@/pages/EmployeeManagementPage';
+import ContractManagementPage from '@/pages/ContractManagementPage';
 import UpdatePasswordPage from '@/pages/UpdatePasswordPage';
 import ProfilePage from '@/pages/ProfilePage';
 import JudgesPortalPage from '@/pages/JudgesPortalPage';
@@ -173,6 +174,7 @@ function App() {
                   <Route path="/horse-show-manager/stalling-service-manager" element={<RoleBasedRoute requiredPermission="shows:manage:own"><StallingServiceManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-scheduling" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeArenaSchedulingManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-management" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeManagementPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/employee-management/contracts" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ContractManagementPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/awards-presenters" element={<RoleBasedRoute requiredPermission="shows:manage:own"><AwardsPresenterManagerPage /></RoleBasedRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
