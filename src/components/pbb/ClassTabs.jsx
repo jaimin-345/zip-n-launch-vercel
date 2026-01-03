@@ -6,10 +6,12 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
     import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
     import { Input } from '@/components/ui/input';
     import { Button } from '@/components/ui/button';
-    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle } from 'lucide-react';
+    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
     import { PatternGrouping } from '@/components/pbb/PatternGrouping';
     import { ScheduleOrganizer } from '@/components/pbb/ScheduleOrganizer';
     import { cn } from '@/lib/utils';
+    import { supabase } from '@/lib/supabaseClient';
+    import { useToast } from '@/components/ui/use-toast';
     
     const CustomDivisionManager = ({ pbbDiscipline, setFormData }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
@@ -115,6 +117,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
         const groupingTabRef = useRef(null);
         const prevHasSelectedDivisions = useRef(false);
         const prevHasScheduled = useRef(false);
+        const [isSavingCustomDivision, setIsSavingCustomDivision] = useState(false);
+        const { toast } = useToast();
 
         // Use mergedDisciplines if provided, otherwise just the single discipline
         const allDisciplines = mergedDisciplines && mergedDisciplines.length > 0 ? mergedDisciplines : [pbbDiscipline];
@@ -156,25 +160,74 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
             setFormData(prev => ({ ...prev, disciplines: prev.disciplines.map(c => c.id === disciplineId ? { ...c, [configKey]: value } : c) }));
         };
     
-        const handleAddCustomDivision = () => {
+        const handleAddCustomDivision = async () => {
             if (!customDivisionName.trim() || !customDivisionAssocId) return;
-            setFormData(prev => ({
-                ...prev,
-                disciplines: prev.disciplines.map(disc => {
-                    if (disc.id === pbbDiscipline.id) {
-                        const newCustomDivisions = Array.isArray(disc.customDivisions) ? [...disc.customDivisions] : [];
-                        const newDivision = { name: customDivisionName, assocId: customDivisionAssocId };
-                        if (!newCustomDivisions.some(d => d.name === newDivision.name && d.assocId === newDivision.assocId)) {
-                            newCustomDivisions.push(newDivision);
+            
+            setIsSavingCustomDivision(true);
+            
+            try {
+                // Save to database
+                const { data: maxSortOrder } = await supabase
+                    .from('divisions')
+                    .select('sort_order')
+                    .eq('association_id', customDivisionAssocId)
+                    .order('sort_order', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                const newSortOrder = (maxSortOrder?.sort_order || 0) + 1;
+                
+                const { error: insertError } = await supabase
+                    .from('divisions')
+                    .insert({
+                        name: customDivisionName.trim(),
+                        association_id: customDivisionAssocId,
+                        sort_order: newSortOrder
+                    });
+                
+                if (insertError) {
+                    console.error('Error saving custom division to DB:', insertError);
+                    toast({
+                        title: "Database Save Failed",
+                        description: "Division was added locally but could not be saved to database.",
+                        variant: "destructive",
+                    });
+                } else {
+                    toast({
+                        title: "Custom Division Added",
+                        description: `"${customDivisionName.trim()}" has been saved to the database.`,
+                    });
+                }
+                
+                // Always update local state
+                setFormData(prev => ({
+                    ...prev,
+                    disciplines: prev.disciplines.map(disc => {
+                        if (disc.id === pbbDiscipline.id) {
+                            const newCustomDivisions = Array.isArray(disc.customDivisions) ? [...disc.customDivisions] : [];
+                            const newDivision = { name: customDivisionName.trim(), assocId: customDivisionAssocId };
+                            if (!newCustomDivisions.some(d => d.name === newDivision.name && d.assocId === newDivision.assocId)) {
+                                newCustomDivisions.push(newDivision);
+                            }
+                            return { ...disc, customDivisions: newCustomDivisions };
                         }
-                        return { ...disc, customDivisions: newCustomDivisions };
-                    }
-                    return disc;
-                })
-            }));
-            setCustomDivisionName('');
-            setIsCustomDivisionModalOpen(false);
-            setCustomDivisionAssocId(null);
+                        return disc;
+                    })
+                }));
+                
+                setCustomDivisionName('');
+                setIsCustomDivisionModalOpen(false);
+                setCustomDivisionAssocId(null);
+            } catch (error) {
+                console.error('Error in handleAddCustomDivision:', error);
+                toast({
+                    title: "Error",
+                    description: "Failed to add custom division.",
+                    variant: "destructive",
+                });
+            } finally {
+                setIsSavingCustomDivision(false);
+            }
         };
     
         const handleRemoveCustomDivision = (disciplineId, divisionName, assocId) => {
@@ -1046,15 +1099,29 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                     </div>
                                 );
                             })}
-                             <Dialog open={isCustomDivisionModalOpen} onOpenChange={setIsCustomDivisionModalOpen}>
+                             <Dialog open={isCustomDivisionModalOpen} onOpenChange={(open) => { if (!isSavingCustomDivision) setIsCustomDivisionModalOpen(open); }}>
                                 <DialogContent>
                                     <DialogHeader>
                                         <DialogTitle>Add Custom Division</DialogTitle>
-                                        <DialogDescription>Enter a name for a new division for {associationsData.find(a => a.id === customDivisionAssocId)?.name || customDivisionAssocId}.</DialogDescription>
+                                        <DialogDescription>Enter a name for a new division for {associationsData.find(a => a.id === customDivisionAssocId)?.name || customDivisionAssocId}. This will be saved to the database.</DialogDescription>
                                     </DialogHeader>
-                                    <Input value={customDivisionName} onChange={(e) => setCustomDivisionName(e.target.value)} placeholder="E.g., Leadline 8 & Under" />
+                                    <Input 
+                                        value={customDivisionName} 
+                                        onChange={(e) => setCustomDivisionName(e.target.value)} 
+                                        placeholder="E.g., Leadline 8 & Under"
+                                        disabled={isSavingCustomDivision}
+                                    />
                                     <DialogFooter>
-                                        <Button onClick={handleAddCustomDivision}>Add Division</Button>
+                                        <Button onClick={handleAddCustomDivision} disabled={isSavingCustomDivision || !customDivisionName.trim()}>
+                                            {isSavingCustomDivision ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                'Add Division'
+                                            )}
+                                        </Button>
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
