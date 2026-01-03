@@ -1,34 +1,44 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Award, UserCheck, Mail, Phone } from 'lucide-react';
+import { staffRoles } from '@/lib/staffingData';
 
 export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
-  const { officials = [], associationJudges = {} } = formData;
+  // Get officials from showDetails.officials (nested structure: { assocId: { roleId: [members] } })
+  const officialsData = formData.showDetails?.officials || {};
 
-  // Collect all judges from all associations
-  const allJudges = Object.entries(associationJudges).flatMap(([assocId, data]) => {
-    return (data.judges || []).map((judge, index) => ({
-      ...judge,
-      id: `judge_${assocId}_${index}`,
-      role: 'Judge',
-      association: assocId,
-      type: 'judge',
-    }));
-  });
-
-  // Combine officials and judges
-  const allPersonnel = [
-    ...allJudges,
-    ...officials.map((official, index) => ({
-      ...official,
-      id: official.id || `official_${index}`,
-      type: 'official',
-    })),
-  ];
+  // Flatten all personnel from the nested structure
+  const allPersonnel = useMemo(() => {
+    const personnel = [];
+    
+    Object.entries(officialsData).forEach(([assocId, roles]) => {
+      if (roles && typeof roles === 'object') {
+        Object.entries(roles).forEach(([roleId, members]) => {
+          if (Array.isArray(members)) {
+            members.forEach((member) => {
+              const roleInfo = staffRoles[roleId] || {};
+              const isJudge = roleId.toLowerCase().includes('judge') || 
+                              roleInfo.label?.toLowerCase().includes('judge');
+              
+              personnel.push({
+                ...member,
+                id: member.id || `${assocId}_${roleId}_${Math.random()}`,
+                role: member.custom_role_name || roleInfo.label || roleId,
+                association: assocId,
+                type: isJudge ? 'judge' : 'official',
+              });
+            });
+          }
+        });
+      }
+    });
+    
+    return personnel;
+  }, [officialsData]);
 
   const selectedPersonnel = formData.selectedPersonnel || [];
 
@@ -103,7 +113,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
           <div className="text-center py-8 text-muted-foreground">
             <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No officials or staff found for this show.</p>
-            <p className="text-sm">Add personnel in the Show Builder first.</p>
+            <p className="text-sm">Add personnel in the Show Information first.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,7 +147,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
                       </Badge>
                     </div>
                     {person.association && (
-                      <p className="text-xs text-muted-foreground">Association: {person.association}</p>
+                      <p className="text-xs text-muted-foreground">Association: {person.association.toUpperCase()}</p>
                     )}
                     <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                       {person.email && (
