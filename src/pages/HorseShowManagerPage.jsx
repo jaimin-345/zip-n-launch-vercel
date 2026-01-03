@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Info, Calendar, DollarSign, Building2, List, BarChart2, Users } from 'lucide-react';
+import { PlusCircle, Info, Calendar, DollarSign, Building2, List, BarChart2, Users, Briefcase, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
@@ -130,6 +130,43 @@ const HorseShowManagerPage = () => {
               </motion.div>
             ))}
           </div>
+
+          {/* Employee Management Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+            className="mt-12"
+          >
+            <Card className="p-6">
+              <CardHeader className="p-0 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <Briefcase className="h-8 w-8 text-primary" />
+                  </div>
+                  <CardTitle className="text-2xl font-semibold">Employee Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="bg-secondary/50 p-2 rounded-full">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-semibold text-lg">Contract Management</h3>
+                    </div>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Manage employee contracts, agreements, and documentation.
+                    </p>
+                    <Button variant="outline" size="sm" className="w-full">
+                      View Contracts
+                    </Button>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </main>
       </div>
     </>
