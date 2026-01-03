@@ -1,33 +1,79 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, Calendar, MapPin, Users, Award, CheckCircle2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Building2 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { cn } from '@/lib/utils';
+
+// Default associations list
+const defaultAssociations = [
+  { id: 'nsba', name: 'NSBA - National Snaffle Bit Association' },
+  { id: 'aqha', name: 'AQHA - American Quarter Horse Association' },
+  { id: 'apha', name: 'APHA - American Paint Horse Association' },
+  { id: 'aphc', name: 'ApHC - Appaloosa Horse Club' },
+  { id: 'ptha', name: 'PtHA - Pinto Horse Association of America' },
+  { id: 'abra', name: 'ABRA - American Buckskin Registry Association' },
+  { id: 'phba', name: 'PHBA - Palomino Horse Breeders of America' },
+  { id: 'ibha', name: 'IBHA - International Buckskin Horse Association' },
+  { id: 'poac', name: 'POAC - Pony of the Americas Club' },
+  { id: 'aha', name: 'AHA - Arabian Horse Association' },
+  { id: '4h', name: '4-H' },
+  { id: 'open_shows', name: 'Open Shows' },
+  { id: 'vrh', name: 'VRH Ranch Horse' },
+  { id: 'shot', name: 'Shot - Stock Horses Texas' },
+  { id: 'nrha', name: 'NRHA - National Reining Horse Association' },
+  { id: 'nrcha', name: 'NRCHA - National Reined Cow Horse Association' },
+];
 
 export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading }) => {
+  const [associations, setAssociations] = useState(defaultAssociations);
+
+  useEffect(() => {
+    const fetchAssociations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('associations')
+          .select('id, name, abbreviation')
+          .order('sort_order', { ascending: true });
+        
+        if (!error && data && data.length > 0) {
+          setAssociations(data.map(a => ({
+            id: a.id,
+            name: a.abbreviation ? `${a.abbreviation} - ${a.name}` : a.name
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching associations:', err);
+      }
+    };
+    fetchAssociations();
+  }, []);
+
   const handleShowSelect = (showId) => {
     const selectedShow = shows.find(s => s.id === showId);
     if (selectedShow) {
       const projectData = selectedShow.project_data || {};
       
       // Get associations data
-      const associations = projectData.associations || {};
-      const selectedAssociations = Object.keys(associations).filter(key => associations[key]?.selected);
+      const assocData = projectData.associations || {};
+      const selectedAssociations = Object.keys(assocData).filter(key => assocData[key]?.selected || assocData[key] === true);
       
       setFormData(prev => ({
         ...prev,
         selectedShow: selectedShow,
+        showName: selectedShow.project_name || projectData.showName || '',
+        selectedAssociations: selectedAssociations,
         showDetails: {
           name: selectedShow.project_name || projectData.showName || 'Untitled Show',
           startDate: projectData.startDate,
           endDate: projectData.endDate,
           venue: projectData.venueName || '',
           venueAddress: projectData.venueAddress || '',
-          associations: associations,
-          selectedAssociations: selectedAssociations,
+          associations: assocData,
           showType: projectData.showType || 'multi-day',
           city: projectData.city || '',
           state: projectData.state || '',
@@ -39,26 +85,34 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
     }
   };
 
-  const showDetails = formData.showDetails;
-
-  // Get selected associations for display
-  const getSelectedAssociationNames = () => {
-    if (!showDetails?.associations) return [];
-    return Object.entries(showDetails.associations)
-      .filter(([_, data]) => data?.selected)
-      .map(([id, data]) => data.name || id);
+  const handleShowNameChange = (value) => {
+    setFormData(prev => ({
+      ...prev,
+      showName: value
+    }));
   };
 
-  // Count officials and judges
-  const getPersonnelCount = () => {
-    const judgesCount = Object.values(formData.associationJudges || {})
-      .reduce((acc, data) => acc + (data.judges?.length || 0), 0);
-    const officialsCount = (formData.officials || []).length;
-    return { judgesCount, officialsCount, total: judgesCount + officialsCount };
+  const handleAssociationToggle = (assocId, checked) => {
+    setFormData(prev => {
+      const currentSelected = prev.selectedAssociations || [];
+      const newSelected = checked
+        ? [...currentSelected, assocId]
+        : currentSelected.filter(id => id !== assocId);
+      
+      return {
+        ...prev,
+        selectedAssociations: newSelected
+      };
+    });
   };
 
-  const personnelCount = getPersonnelCount();
-  const selectedAssociations = getSelectedAssociationNames();
+  const selectedAssociations = formData.selectedAssociations || [];
+  const showName = formData.showName || '';
+
+  // Split associations into two columns
+  const midPoint = Math.ceil(associations.length / 2);
+  const leftColumn = associations.slice(0, midPoint);
+  const rightColumn = associations.slice(midPoint);
 
   return (
     <motion.div
@@ -70,22 +124,23 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
       <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5 text-primary" />
-          Step 1: Show Structure
+          Select Association / Affiliation
         </CardTitle>
         <CardDescription>
-          Select a show to generate contracts for its officials and staff.
+          Select all associations that are part of this show. This will help populate the class list.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
+        {/* Show Selector - Optional, to load existing show data */}
         <div className="space-y-2">
-          <Label>Select Show</Label>
+          <Label>Load from existing show (optional)</Label>
           <Select
             value={formData.selectedShow?.id || ''}
             onValueChange={handleShowSelect}
             disabled={isLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder={isLoading ? "Loading shows..." : "Select a show..."} />
+              <SelectValue placeholder={isLoading ? "Loading shows..." : "Select a show to load data..."} />
             </SelectTrigger>
             <SelectContent>
               {shows.map(show => (
@@ -97,116 +152,79 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
           </Select>
         </div>
 
-        {showDetails && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
-            {/* Show Overview Banner */}
-            <div className="p-4 border rounded-lg bg-gradient-to-r from-primary/10 to-primary/5">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-primary" />
-                <div>
-                  <h3 className="font-semibold text-lg">{showDetails.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {showDetails.startDate && showDetails.endDate
-                      ? `${format(new Date(showDetails.startDate), 'MMM d')} - ${format(new Date(showDetails.endDate), 'MMM d, yyyy')}`
-                      : 'Dates not set'}
-                  </p>
+        {/* Horse Show Name */}
+        <div className="space-y-2">
+          <Label htmlFor="horse-show-name">Horse Show Name</Label>
+          <Input
+            id="horse-show-name"
+            value={showName}
+            onChange={(e) => handleShowNameChange(e.target.value)}
+            placeholder="E.g., Summer Sizzler"
+            className="bg-background"
+          />
+        </div>
+
+        {/* Associations Grid */}
+        <div className="space-y-2">
+          <Label>Select all hosted associations:</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Left Column */}
+            <div className="space-y-2">
+              {leftColumn.map(assoc => (
+                <div
+                  key={assoc.id}
+                  className={cn(
+                    "flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-all",
+                    selectedAssociations.includes(assoc.id)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                  onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
+                >
+                  <Checkbox
+                    id={`assoc-${assoc.id}`}
+                    checked={selectedAssociations.includes(assoc.id)}
+                    onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
+                  />
+                  <Label
+                    htmlFor={`assoc-${assoc.id}`}
+                    className="font-normal cursor-pointer flex-grow"
+                  >
+                    {assoc.name}
+                  </Label>
                 </div>
-              </div>
+              ))}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Show Details Card */}
-              <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  Show Details
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-muted-foreground">Name:</span> {showDetails.name}</p>
-                  <p><span className="text-muted-foreground">Type:</span> <Badge variant="secondary" className="capitalize">{showDetails.showType}</Badge></p>
-                </div>
-              </div>
-
-              {/* Dates Card */}
-              <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Dates
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-muted-foreground">Start:</span>{' '}
-                    {showDetails.startDate ? format(new Date(showDetails.startDate), 'PPP') : 'Not set'}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">End:</span>{' '}
-                    {showDetails.endDate ? format(new Date(showDetails.endDate), 'PPP') : 'Not set'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Venue Card */}
-              <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" />
-                  Venue
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <p><span className="text-muted-foreground">Name:</span> {showDetails.venue || 'Not specified'}</p>
-                  <p><span className="text-muted-foreground">Address:</span> {showDetails.venueAddress || 'Not specified'}</p>
-                  {(showDetails.city || showDetails.state) && (
-                    <p><span className="text-muted-foreground">Location:</span> {[showDetails.city, showDetails.state].filter(Boolean).join(', ')}</p>
+            {/* Right Column */}
+            <div className="space-y-2">
+              {rightColumn.map(assoc => (
+                <div
+                  key={assoc.id}
+                  className={cn(
+                    "flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-all",
+                    selectedAssociations.includes(assoc.id)
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
                   )}
+                  onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
+                >
+                  <Checkbox
+                    id={`assoc-${assoc.id}`}
+                    checked={selectedAssociations.includes(assoc.id)}
+                    onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
+                  />
+                  <Label
+                    htmlFor={`assoc-${assoc.id}`}
+                    className="font-normal cursor-pointer flex-grow"
+                  >
+                    {assoc.name}
+                  </Label>
                 </div>
-              </div>
-
-              {/* Associations Card */}
-              <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Award className="h-4 w-4 text-primary" />
-                  Associations
-                </h4>
-                <div className="space-y-2 text-sm">
-                  {selectedAssociations.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedAssociations.map((assoc, idx) => (
-                        <Badge key={idx} variant="outline">{assoc}</Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No associations selected</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Personnel Summary Card */}
-              <div className="p-4 border rounded-lg bg-muted/30 space-y-3 md:col-span-2">
-                <h4 className="font-semibold flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  Personnel Summary
-                </h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center p-2 bg-background rounded-md">
-                    <p className="text-2xl font-bold text-primary">{personnelCount.judgesCount}</p>
-                    <p className="text-muted-foreground">Judges</p>
-                  </div>
-                  <div className="text-center p-2 bg-background rounded-md">
-                    <p className="text-2xl font-bold text-blue-500">{personnelCount.officialsCount}</p>
-                    <p className="text-muted-foreground">Staff</p>
-                  </div>
-                  <div className="text-center p-2 bg-background rounded-md">
-                    <p className="text-2xl font-bold text-green-500">{personnelCount.total}</p>
-                    <p className="text-muted-foreground">Total</p>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
-          </motion.div>
-        )}
+          </div>
+        </div>
       </CardContent>
     </motion.div>
   );

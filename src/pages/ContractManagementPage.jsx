@@ -18,7 +18,7 @@ import { Step4_Preview } from '@/components/contract-management/Step4_Preview';
 import { Step5_CloseOut } from '@/components/contract-management/Step5_CloseOut';
 
 const steps = [
-  { id: 1, name: 'Show Structure', icon: Building2 },
+  { id: 1, name: 'Select Association / Affiliation', icon: Building2 },
   { id: 2, name: 'Officials & Staff', icon: Users },
   { id: 3, name: 'Generate Contracts', icon: FileText },
   { id: 4, name: 'Preview', icon: Eye },
