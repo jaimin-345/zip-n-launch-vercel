@@ -238,10 +238,11 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         pbbDiscipline?.association_id === 'open-show';
     
     // Filter states for pattern selection
-    // For open-show disciplines, auto-set the discipline filter to the current discipline name
+    // Auto-set the discipline filter to the current discipline name by default
     const [filterAssociation, setFilterAssociation] = useState('all');
     const [filterDiscipline, setFilterDiscipline] = useState(() => {
-        if (isOpenShowDisciplineEarly && pbbDiscipline?.name) {
+        // Always default to the current discipline name if available
+        if (pbbDiscipline?.name) {
             return pbbDiscipline.name;
         }
         return 'all';
@@ -506,13 +507,17 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const patternDisciplines = useMemo(() => {
         const discs = new Set();
+        // Always include the current discipline name
+        if (pbbDiscipline?.name) {
+            discs.add(pbbDiscipline.name);
+        }
         dbPatterns.forEach(p => {
             if (p.discipline) {
                 discs.add(p.discipline);
             }
         });
         return Array.from(discs).sort();
-    }, [dbPatterns]);
+    }, [dbPatterns, pbbDiscipline?.name]);
 
     // Filter patterns based on difficulty, association, and discipline
     useEffect(() => {
