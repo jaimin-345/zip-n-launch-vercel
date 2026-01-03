@@ -60,52 +60,8 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
     return assocRoles.includes(roleId);
   };
 
-  if (!formData.selectedShow) {
-    return (
-      <motion.div
-        key="step2"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -50 }}
-      >
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Step 2: Officials & Staff
-          </CardTitle>
-          <CardDescription>Please select a show first in Step 1.</CardDescription>
-        </CardHeader>
-      </motion.div>
-    );
-  }
-
-  if (selectedAssociations.length === 0) {
-    return (
-      <motion.div
-        key="step2"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -50 }}
-      >
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Step 2: Officials & Staff
-          </CardTitle>
-          <CardDescription>
-            Assign key personnel and manage their details. Roles are suggested based on your selected associations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-0">
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No associations selected.</p>
-            <p className="text-sm">Please select associations in Step 1 first.</p>
-          </div>
-        </CardContent>
-      </motion.div>
-    );
-  }
+  // Use 'default' association if none selected
+  const effectiveAssociations = selectedAssociations.length > 0 ? selectedAssociations : ['default'];
 
   return (
     <motion.div
@@ -124,7 +80,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
-        {selectedAssociations.map((assocId) => (
+        {effectiveAssociations.map((assocId) => (
           <Accordion key={assocId} type="single" collapsible defaultValue={assocId} className="w-full border rounded-lg bg-card">
             <AccordionItem value={assocId} className="border-none">
               <AccordionTrigger className="px-4 py-3 hover:no-underline">
