@@ -3,33 +3,33 @@ import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Building2 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { cn } from '@/lib/utils';
 
-// Default associations list
+// Default associations list matching the image layout
 const defaultAssociations = [
-  { id: 'nsba', name: 'NSBA - National Snaffle Bit Association' },
-  { id: 'aqha', name: 'AQHA - American Quarter Horse Association' },
-  { id: 'apha', name: 'APHA - American Paint Horse Association' },
-  { id: 'aphc', name: 'ApHC - Appaloosa Horse Club' },
-  { id: 'ptha', name: 'PtHA - Pinto Horse Association of America' },
-  { id: 'abra', name: 'ABRA - American Buckskin Registry Association' },
-  { id: 'phba', name: 'PHBA - Palomino Horse Breeders of America' },
-  { id: 'ibha', name: 'IBHA - International Buckskin Horse Association' },
-  { id: 'poac', name: 'POAC - Pony of the Americas Club' },
-  { id: 'aha', name: 'AHA - Arabian Horse Association' },
-  { id: '4h', name: '4-H' },
-  { id: 'open_shows', name: 'Open Shows' },
-  { id: 'vrh', name: 'VRH Ranch Horse' },
-  { id: 'shot', name: 'Shot - Stock Horses Texas' },
-  { id: 'nrha', name: 'NRHA - National Reining Horse Association' },
-  { id: 'nrcha', name: 'NRCHA - National Reined Cow Horse Association' },
+  // Left column
+  { id: 'NSBA', name: 'NSBA - National Snaffle Bit Association', column: 'left' },
+  { id: 'AQHA', name: 'AQHA - American Quarter Horse Association', column: 'left' },
+  { id: 'APHA', name: 'APHA - American Paint Horse Association', column: 'left' },
+  { id: 'ApHC', name: 'ApHC - Appaloosa Horse Club', column: 'left' },
+  { id: 'PtHA', name: 'PtHA - Pinto Horse Association of America', column: 'left' },
+  { id: 'ABRA', name: 'ABRA - American Buckskin Registry Association', column: 'left' },
+  { id: 'PHBA', name: 'PHBA - Palomino Horse Breeders of America', column: 'left' },
+  { id: 'IBHA', name: 'IBHA - International Buckskin Horse Association', column: 'left' },
+  { id: 'POAC', name: 'POAC - Pony of the Americas Club', column: 'left' },
+  // Right column
+  { id: 'AHA', name: 'AHA - Arabian Horse Association', column: 'right' },
+  { id: '4-H', name: '4-H', column: 'right' },
+  { id: 'Open', name: 'Open Shows', column: 'right' },
+  { id: 'VRH', name: 'VRH Ranch Horse', column: 'right' },
+  { id: 'SHOT', name: 'Shot - Stock Horses Texas', column: 'right' },
+  { id: 'NRHA', name: 'NRHA - National Reining Horse Association', column: 'right' },
+  { id: 'NRCHA', name: 'NRCHA - National Reined Cow Horse Association', column: 'right' },
 ];
 
-export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading }) => {
+export const Step1_ShowStructure = ({ formData, setFormData }) => {
   const [associations, setAssociations] = useState(defaultAssociations);
 
   useEffect(() => {
@@ -41,10 +41,13 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
           .order('sort_order', { ascending: true });
         
         if (!error && data && data.length > 0) {
-          setAssociations(data.map(a => ({
+          // Keep default layout if database fetch fails or is empty
+          const dbAssociations = data.map((a, idx) => ({
             id: a.id,
-            name: a.abbreviation ? `${a.abbreviation} - ${a.name}` : a.name
-          })));
+            name: a.abbreviation ? `${a.abbreviation} - ${a.name}` : a.name,
+            column: idx < Math.ceil(data.length / 2) ? 'left' : 'right'
+          }));
+          setAssociations(dbAssociations);
         }
       } catch (err) {
         console.error('Error fetching associations:', err);
@@ -52,40 +55,6 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
     };
     fetchAssociations();
   }, []);
-
-  const handleShowSelect = (showId) => {
-    const selectedShow = shows.find(s => s.id === showId);
-    if (selectedShow) {
-      const projectData = selectedShow.project_data || {};
-      
-      // Get associations data
-      const assocData = projectData.associations || {};
-      const selectedAssociations = Object.keys(assocData).filter(key => assocData[key]?.selected || assocData[key] === true);
-      
-      // Get officials from showDetails (nested: { assocId: { roleId: [members] } })
-      const showDetailsData = projectData.showDetails || {};
-      const officialsData = showDetailsData.officials || projectData.officials || {};
-      
-      setFormData(prev => ({
-        ...prev,
-        selectedShow: selectedShow,
-        showName: selectedShow.project_name || projectData.showName || '',
-        selectedAssociations: selectedAssociations,
-        showDetails: {
-          name: selectedShow.project_name || projectData.showName || 'Untitled Show',
-          startDate: projectData.startDate,
-          endDate: projectData.endDate,
-          venue: projectData.venueName || '',
-          venueAddress: projectData.venueAddress || '',
-          associations: assocData,
-          showType: projectData.showType || 'multi-day',
-          city: projectData.city || '',
-          state: projectData.state || '',
-          officials: officialsData,
-        },
-      }));
-    }
-  };
 
   const handleShowNameChange = (value) => {
     setFormData(prev => ({
@@ -111,10 +80,9 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
   const selectedAssociations = formData.selectedAssociations || [];
   const showName = formData.showName || '';
 
-  // Split associations into two columns
-  const midPoint = Math.ceil(associations.length / 2);
-  const leftColumn = associations.slice(0, midPoint);
-  const rightColumn = associations.slice(midPoint);
+  // Split associations into columns
+  const leftColumn = associations.filter(a => a.column === 'left');
+  const rightColumn = associations.filter(a => a.column === 'right');
 
   return (
     <motion.div
@@ -124,39 +92,15 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
       exit={{ opacity: 0, x: -50 }}
     >
       <CardHeader className="px-0 pt-0">
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5 text-primary" />
-          Select Association / Affiliation
-        </CardTitle>
+        <CardTitle>Select Association / Affiliation</CardTitle>
         <CardDescription>
           Select all associations that are part of this show. This will help populate the class list.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
-        {/* Show Selector - Optional, to load existing show data */}
-        <div className="space-y-2">
-          <Label>Load from existing show (optional)</Label>
-          <Select
-            value={formData.selectedShow?.id || ''}
-            onValueChange={handleShowSelect}
-            disabled={isLoading}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={isLoading ? "Loading shows..." : "Select a show to load data..."} />
-            </SelectTrigger>
-            <SelectContent>
-              {shows.map(show => (
-                <SelectItem key={show.id} value={show.id}>
-                  {show.project_name || show.project_data?.showName || 'Untitled Show'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         {/* Horse Show Name */}
         <div className="space-y-2">
-          <Label htmlFor="horse-show-name">Horse Show Name</Label>
+          <Label htmlFor="horse-show-name" className="font-semibold">Horse Show Name</Label>
           <Input
             id="horse-show-name"
             value={showName}
@@ -168,10 +112,10 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
 
         {/* Associations Grid */}
         <div className="space-y-2">
-          <Label>Select all hosted associations:</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Label className="font-semibold">Select all hosted associations:</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
             {/* Left Column */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               {leftColumn.map(assoc => (
                 <div
                   key={assoc.id}
@@ -190,7 +134,7 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
                   />
                   <Label
                     htmlFor={`assoc-${assoc.id}`}
-                    className="font-normal cursor-pointer flex-grow"
+                    className="font-normal cursor-pointer flex-grow text-sm"
                   >
                     {assoc.name}
                   </Label>
@@ -199,7 +143,7 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
             </div>
 
             {/* Right Column */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               {rightColumn.map(assoc => (
                 <div
                   key={assoc.id}
@@ -218,7 +162,7 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
                   />
                   <Label
                     htmlFor={`assoc-${assoc.id}`}
-                    className="font-normal cursor-pointer flex-grow"
+                    className="font-normal cursor-pointer flex-grow text-sm"
                   >
                     {assoc.name}
                   </Label>
