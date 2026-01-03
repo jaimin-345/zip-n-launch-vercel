@@ -24,7 +24,8 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
     };
 
     // Parse division name to extract tag and clean name
-    const originalDivisionName = division.division.startsWith('custom') ? division.division.substring(7) : division.division;
+    // Custom divisions have format "custom-DivisionName", strip the prefix
+    const originalDivisionName = division.division.startsWith('custom-') ? division.division.substring(7) : division.division;
     const dashIndex = originalDivisionName.indexOf(' - ');
     const divisionTag = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
     const cleanedName = dashIndex > -1 ? originalDivisionName.substring(dashIndex + 3).trim() : originalDivisionName;
