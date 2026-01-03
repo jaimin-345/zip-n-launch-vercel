@@ -62,6 +62,10 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
       const assocData = projectData.associations || {};
       const selectedAssociations = Object.keys(assocData).filter(key => assocData[key]?.selected || assocData[key] === true);
       
+      // Get officials from showDetails (nested: { assocId: { roleId: [members] } })
+      const showDetailsData = projectData.showDetails || {};
+      const officialsData = showDetailsData.officials || projectData.officials || {};
+      
       setFormData(prev => ({
         ...prev,
         selectedShow: selectedShow,
@@ -77,10 +81,8 @@ export const Step1_ShowStructure = ({ formData, setFormData, shows, isLoading })
           showType: projectData.showType || 'multi-day',
           city: projectData.city || '',
           state: projectData.state || '',
+          officials: officialsData,
         },
-        officials: projectData.officials || [],
-        staff: projectData.staff || [],
-        associationJudges: projectData.associationJudges || {},
       }));
     }
   };
