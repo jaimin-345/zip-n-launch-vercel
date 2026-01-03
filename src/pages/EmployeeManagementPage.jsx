@@ -6,18 +6,8 @@ import { Button } from '@/components/ui/button';
 import { FileText, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
-import { useToast } from '@/components/ui/use-toast';
 
 const EmployeeManagementPage = () => {
-  const { toast } = useToast();
-
-  const handleContractClick = () => {
-    toast({
-      title: 'Coming Soon!',
-      description: "🚧 This feature isn't implemented yet—but don't worry! You can request it in your next prompt! 🚀",
-    });
-  };
-
   return (
     <>
       <Helmet>
@@ -64,8 +54,10 @@ const EmployeeManagementPage = () => {
                 <CardContent className="p-0 mt-2 mb-4 flex-grow">
                   <p className="text-muted-foreground">Manage employee contracts, agreements, and documentation.</p>
                 </CardContent>
-                <Button onClick={handleContractClick}>
-                  Get Started
+                <Button asChild>
+                  <Link to="/horse-show-manager/employee-management/contracts">
+                    Get Started
+                  </Link>
                 </Button>
               </Card>
             </motion.div>
