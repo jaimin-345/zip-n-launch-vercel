@@ -313,14 +313,26 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             if (!disc) return;
             
             // Use divisionOrder as the definitive list of selected divisions
-            if (disc.divisionOrder && disc.divisionOrder.length > 0) {
-                disc.divisionOrder.forEach(divId => allSelectedDivisions.add(divId));
+            if (disc.divisionOrder && Array.isArray(disc.divisionOrder)) {
+                disc.divisionOrder.forEach(divId => {
+                    if (divId) {
+                        allSelectedDivisions.add(divId);
+                    }
+                });
             }
             
             // Get grouped divisions for this discipline
             const groups = disc.patternGroups || [];
             groups.forEach(g => {
-                (g.divisions || []).forEach(d => allGroupedDivisions.add(d.id));
+                if (g && g.divisions && Array.isArray(g.divisions)) {
+                    g.divisions.forEach(d => {
+                        // Handle both object format {id: ...} and string format
+                        const divId = typeof d === 'string' ? d : (d?.id || d);
+                        if (divId) {
+                            allGroupedDivisions.add(divId);
+                        }
+                    });
+                }
             });
         });
         

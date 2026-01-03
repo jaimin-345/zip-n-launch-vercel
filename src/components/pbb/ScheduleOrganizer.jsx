@@ -11,7 +11,6 @@ import React, { useState, useMemo } from 'react';
     import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
     import { Calendar } from '@/components/ui/calendar';
     import { format } from 'date-fns';
-    import { ScrollArea } from '@/components/ui/scroll-area';
     import { parseLocalDate } from '@/lib/utils';
 
     const SortableDivisionItem = ({ 
@@ -311,10 +310,10 @@ import React, { useState, useMemo } from 'react';
                         )}
                     </div>
 
-                    <ScrollArea className="h-60">
+                    <div>
                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                             <SortableContext items={divisionsWithData.map(d => d.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-2 pr-3">
+                                <div className="space-y-2">
                                      {Object.entries(groupedDivisions).map(([dateKey, divisions]) => (
                                         <div key={dateKey}>
                                             <h4 className="font-semibold text-xs mb-1.5 pb-1 border-b">
@@ -342,7 +341,7 @@ import React, { useState, useMemo } from 'react';
                                 </div>
                             </SortableContext>
                         </DndContext>
-                    </ScrollArea>
+                    </div>
                 </div>
             </div>
         );

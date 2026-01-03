@@ -6,7 +6,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
     import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
     import { Input } from '@/components/ui/input';
     import { Button } from '@/components/ui/button';
-    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+    import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle, Loader2, Copy } from 'lucide-react';
     import { PatternGrouping } from '@/components/pbb/PatternGrouping';
     import { ScheduleOrganizer } from '@/components/pbb/ScheduleOrganizer';
     import { cn } from '@/lib/utils';
@@ -118,6 +119,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
         const prevHasSelectedDivisions = useRef(false);
         const prevHasScheduled = useRef(false);
         const [isSavingCustomDivision, setIsSavingCustomDivision] = useState(false);
+        const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+        const [selectedSourceDisciplineId, setSelectedSourceDisciplineId] = useState(null);
         const { toast } = useToast();
 
         // Use mergedDisciplines if provided, otherwise just the single discipline
@@ -447,26 +450,182 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
             return allDisciplines.find(d => d.selectedAssociations?.[assocId]) || pbbDiscipline;
         };
 
+        // Get disciplines that have configured divisions with matching division labels (excluding current discipline)
+        const getDisciplinesWithDivisions = useMemo(() => {
+            const allDisciplinesInForm = formData.disciplines || [];
+            
+            // Get current discipline's available associations
+            const currentAssocIds = Object.keys(pbbDiscipline.selectedAssociations || {}).filter(
+                id => pbbDiscipline.selectedAssociations[id]
+            );
+            
+            // Get available division groups for current discipline from divisionsData
+            const currentDivisionGroups = new Set();
+            currentAssocIds.forEach(assocId => {
+                if (divisionsData && divisionsData[assocId]) {
+                    divisionsData[assocId].forEach(group => {
+                        if (group.group) {
+                            currentDivisionGroups.add(`${assocId}-${group.group}`);
+                        }
+                    });
+                }
+            });
+            
+            return allDisciplinesInForm.filter(disc => {
+                // Exclude current discipline
+                if (disc.id === pbbDiscipline.id) return false;
+                
+                // Check if discipline has any configured divisions
+                if (!disc.divisions) return false;
+                
+                // Check for regular divisions
+                const hasRegularDivisions = Object.values(disc.divisions).some(divs => {
+                    if (!divs) return false;
+                    if (isOpenShowMode && disc.isCustom) {
+                        // For open-show custom disciplines, check if arrays have items
+                        return Object.values(divs).some(levels => Array.isArray(levels) && levels.length > 0);
+                    }
+                    // For regular divisions, check if object has keys
+                    return Object.keys(divs).length > 0;
+                });
+                
+                if (!hasRegularDivisions) return false;
+                
+                // Check if source discipline has matching associations
+                const sourceAssocIds = Object.keys(disc.selectedAssociations || {}).filter(
+                    id => disc.selectedAssociations[id]
+                );
+                
+                // Check if there's at least one matching association
+                const hasMatchingAssociations = currentAssocIds.some(assocId => 
+                    sourceAssocIds.includes(assocId)
+                );
+                
+                if (!hasMatchingAssociations) return false;
+                
+                // For disciplines with matching associations, check if they have compatible division structure
+                // This ensures the division labels (groups) are compatible
+                const sourceDivisionKeys = new Set();
+                Object.entries(disc.divisions || {}).forEach(([assocId, divs]) => {
+                    if (divs && typeof divs === 'object') {
+                        Object.keys(divs).forEach(divKey => {
+                            // Extract group name from division key (e.g., "Open - Level 1" -> "Open")
+                            // or "custom-DivisionName" -> "custom-DivisionName"
+                            if (divKey.startsWith('custom-')) {
+                                sourceDivisionKeys.add(`${assocId}-custom`);
+                            } else {
+                                const groupMatch = divKey.match(/^([^-]+)/);
+                                if (groupMatch) {
+                                    sourceDivisionKeys.add(`${assocId}-${groupMatch[1].trim()}`);
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                // Check if there's at least one matching division group between current and source
+                const hasMatchingDivisionGroups = Array.from(currentDivisionGroups).some(groupKey => 
+                    sourceDivisionKeys.has(groupKey)
+                );
+                
+                return hasMatchingDivisionGroups;
+            });
+        }, [formData.disciplines, pbbDiscipline.id, pbbDiscipline.selectedAssociations, isOpenShowMode, divisionsData]);
+
+        // Handle duplication from another discipline
+        const handleDuplicateFrom = (sourceDisciplineId) => {
+            const sourceDiscipline = formData.disciplines?.find(d => d.id === sourceDisciplineId);
+            if (!sourceDiscipline) {
+                toast({
+                    title: "Error",
+                    description: "Source discipline not found.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            setFormData(prev => {
+                return {
+                    ...prev,
+                    disciplines: prev.disciplines.map(disc => {
+                        if (disc.id === pbbDiscipline.id) {
+                            // Deep copy divisions
+                            const newDivisions = JSON.parse(JSON.stringify(sourceDiscipline.divisions || {}));
+                            
+                            // Copy divisionOrder
+                            const newDivisionOrder = sourceDiscipline.divisionOrder ? [...sourceDiscipline.divisionOrder] : [];
+                            
+                            // Copy customDivisions
+                            const newCustomDivisions = sourceDiscipline.customDivisions ? [...sourceDiscipline.customDivisions] : [];
+                            
+                            return {
+                                ...disc,
+                                divisions: newDivisions,
+                                divisionOrder: newDivisionOrder,
+                                customDivisions: newCustomDivisions
+                            };
+                        }
+                        return disc;
+                    })
+                };
+            });
+
+            toast({
+                title: "Divisions Duplicated",
+                description: `Divisions copied from "${sourceDiscipline.name}".`,
+            });
+
+            setIsDuplicateModalOpen(false);
+            setSelectedSourceDisciplineId(null);
+        };
+
         // Determine step completion status
         const step1Complete = hasSelectedDivisions;
         const step2Complete = hasScheduled;
         const step3Complete = !isScoresheetOnly && pbbDiscipline.pattern && hasScheduled && 
             (() => {
                 // Check if all selected divisions are grouped
+                // Aggregate across all merged disciplines to get complete picture
                 const allSelectedDivisions = new Set();
                 const allGroupedDivisions = new Set();
+                
                 allDisciplines.forEach(disc => {
-                    if (disc.divisionOrder) {
-                        disc.divisionOrder.forEach(divId => allSelectedDivisions.add(divId));
+                    if (!disc) return;
+                    
+                    // Collect all divisions from divisionOrder (selected divisions)
+                    if (disc.divisionOrder && Array.isArray(disc.divisionOrder)) {
+                        disc.divisionOrder.forEach(divId => {
+                            if (divId) {
+                                allSelectedDivisions.add(divId);
+                            }
+                        });
                     }
+                    
+                    // Collect all divisions from patternGroups (grouped divisions)
                     const groups = disc.patternGroups || [];
                     groups.forEach(g => {
-                        (g.divisions || []).forEach(d => allGroupedDivisions.add(d.id));
+                        if (g && g.divisions && Array.isArray(g.divisions)) {
+                            g.divisions.forEach(d => {
+                                // Handle both object format {id: ...} and string format
+                                const divId = typeof d === 'string' ? d : (d?.id || d);
+                                if (divId) {
+                                    allGroupedDivisions.add(divId);
+                                }
+                            });
+                        }
                     });
                 });
-                return allSelectedDivisions.size > 0 && 
-                       allSelectedDivisions.size === allGroupedDivisions.size && 
+                
+                // If no divisions selected, not complete
+                if (allSelectedDivisions.size === 0) {
+                    return false;
+                }
+                
+                // All selected divisions must be grouped
+                const allGrouped = allSelectedDivisions.size === allGroupedDivisions.size && 
                        [...allSelectedDivisions].every(d => allGroupedDivisions.has(d));
+                
+                return allGrouped;
             })();
 
         // Determine which step should be active/next based on current tab
@@ -695,6 +854,80 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         <CustomDivisionManager pbbDiscipline={pbbDiscipline} setFormData={setFormData} />
                     ) : (
                         <div className="space-y-3">
+                            {/* Duplicate From Button */}
+                            {getDisciplinesWithDivisions.length > 0 && (
+                                <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-md border">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsDuplicateModalOpen(true)}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Copy className="h-4 w-4" />
+                                        Duplicate From
+                                    </Button>
+                                    <span className="text-xs text-muted-foreground">
+                                        Copy divisions from another discipline
+                                    </span>
+                                </div>
+                            )}
+                            
+                            {/* Duplicate From Dialog */}
+                            <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Duplicate Divisions From</DialogTitle>
+                                        <DialogDescription>
+                                            Select a discipline to copy all its divisions, levels, and custom divisions to "{pbbDiscipline.name}".
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="source-discipline">Source Discipline</Label>
+                                            <Select
+                                                value={selectedSourceDisciplineId || ''}
+                                                onValueChange={setSelectedSourceDisciplineId}
+                                            >
+                                                <SelectTrigger id="source-discipline">
+                                                    <SelectValue placeholder="Select a discipline..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {getDisciplinesWithDivisions.map(disc => (
+                                                        <SelectItem key={disc.id} value={disc.id}>
+                                                            {disc.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        {selectedSourceDisciplineId && (
+                                            <div className="p-3 bg-muted rounded-lg">
+                                                <p className="text-sm text-muted-foreground">
+                                                    This will copy all selected divisions, levels, and custom divisions. 
+                                                    The copied divisions will be independent and can be modified separately.
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => {
+                                                setIsDuplicateModalOpen(false);
+                                                setSelectedSourceDisciplineId(null);
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button
+                                            onClick={() => handleDuplicateFrom(selectedSourceDisciplineId)}
+                                            disabled={!selectedSourceDisciplineId}
+                                        >
+                                            Duplicate
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
                             {Object.entries(getDivisionsForDiscipline).map(([assocId, divisionGroups]) => {
                                 const assoc = associationsData.find(a => a.id === assocId);
                                 const discForAssoc = getDisciplineForAssoc(assocId);
