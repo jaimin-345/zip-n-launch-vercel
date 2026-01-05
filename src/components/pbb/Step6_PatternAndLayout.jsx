@@ -540,19 +540,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       }
     }
 
-    // Fallback: use first association if no Primary found
+    // Fallback: use ALL associations if multiple and no Primary found
     if (uniqueAssocIds.length > 0) {
-      const assocId = uniqueAssocIds[0];
-      const assoc = associationsData?.find(a => a.id === assocId);
-      if (assoc) {
-        return {
-          names: assoc.name ? [assoc.name] : [],
-          abbreviations: assoc.abbreviation ? [assoc.abbreviation] : [],
-          ids: [assocId]
-        };
-      }
-      // Fallback: if association not found in associationsData, use the ID itself
-      return { names: [], abbreviations: [], ids: [assocId] };
+      const names = [];
+      const abbreviations = [];
+      uniqueAssocIds.forEach(assocId => {
+        const assoc = associationsData?.find(a => a.id === assocId);
+        if (assoc) {
+          if (assoc.name) names.push(assoc.name);
+          if (assoc.abbreviation) abbreviations.push(assoc.abbreviation);
+        }
+      });
+      return { names, abbreviations, ids: uniqueAssocIds };
     }
 
     return { names: [], abbreviations: [], ids: [] };
@@ -1154,143 +1153,179 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         {/* Pattern selection UI - only show for non-scoresheet-only disciplines */}
                         {!isScoresheetOnly && (
                           <>
-                            {/* Pattern Set (Maneuvers) dropdown - database driven */}
-                            {/* Pattern Set (Maneuvers) dropdown - Multi-select */}
-                            {/* Reference Style Selection: Difficulty -> Pattern */}
-                            <div 
-                              className="flex items-center gap-2"
-                              onClick={(e) => e.stopPropagation()}
+                        {/* Pattern Dropdown - Apply to all groups */}
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Select
+                            value=""
+                            onValueChange={(patternId) => {
+                              // Apply selected pattern to all groups in this discipline
+                              const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === patternId);
+                              if (selectedPattern) {
+                                const patternManeuversRange = selectedPattern?.maneuvers_range || '';
+                                groups.forEach((group) => {
+                                  handleGroupPatternSelect(discipline.id, group.id, patternId, patternManeuversRange);
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[200px] text-xs bg-background">
+                              <SelectValue placeholder="Select Pattern for All Groups" />
+                            </SelectTrigger>
+                            <SelectContent 
+                              className="max-h-[300px]"
+                              onMouseLeave={() => {
+                                setHoveredPatternId(null);
+                              }}
                             >
-                                {/* Select Difficulty (Multi-Select) */}
-                                <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button 
-                                      variant="outline" 
-                                      className="w-[180px] justify-between bg-background"
-                                      onClick={(e) => e.stopPropagation()}
+                              {(() => {
+                                let allPatterns = getFilteredPatterns(discipline.id);
+                                
+                                // Check if this is an open-show discipline
+                                const isOpenShowDiscipline = discipline?.selectedAssociations?.['open-show'] || 
+                                                             discipline?.association_id === 'open-show';
+                                
+                                // For open-show disciplines, show all patterns without association filtering
+                                if (!isOpenShowDiscipline) {
+                                  // Get all unique associations from all groups in this discipline
+                                  // This works for ANY associations (AQHA, APHA, VRH, RHC, etc.)
+                                  const uniqueAssocIds = new Set();
+                                  groups.forEach(group => {
+                                    if (group.divisions) {
+                                      group.divisions.forEach(div => {
+                                        if (div.assocId) {
+                                          uniqueAssocIds.add(div.assocId);
+                                        }
+                                      });
+                                    }
+                                  });
+                                  
+                                  const assocIdsArray = Array.from(uniqueAssocIds);
+                                  
+                                  // If discipline has 2+ associations: show patterns from all of them
+                                  // If discipline has 1 association: show only patterns from that association
+                                  if (assocIdsArray.length > 0) {
+                                    // Get association names and abbreviations for all associations found
+                                    const associationNames = [];
+                                    assocIdsArray.forEach(assocId => {
+                                      const assoc = associationsData?.find(a => a.id === assocId);
+                                      if (assoc) {
+                                        if (assoc.name) associationNames.push(assoc.name);
+                                        if (assoc.abbreviation) associationNames.push(assoc.abbreviation);
+                                      }
+                                    });
+                                    
+                                    // Filter patterns to only show those matching ANY of the discipline's associations
+                                    if (associationNames.length > 0) {
+                                      allPatterns = allPatterns.filter(pattern => {
+                                        const patternAssocName = (pattern.association_name || '').trim();
+                                        if (!patternAssocName) return false;
+                                        
+                                        const patternAssocLower = patternAssocName.toLowerCase();
+                                        
+                                        // Check if pattern matches ANY of the associations in this discipline
+                                        return associationNames.some(assocName => {
+                                          const assocNameLower = (assocName || '').trim().toLowerCase();
+                                          if (!assocNameLower) return false;
+                                          
+                                          // 1. Exact match (case-insensitive)
+                                          if (patternAssocLower === assocNameLower) return true;
+                                          
+                                          // 2. Pattern starts with association abbreviation
+                                          if (patternAssocLower.startsWith(assocNameLower + ' ') || 
+                                              patternAssocLower.startsWith(assocNameLower + '-')) {
+                                            return true;
+                                          }
+                                          
+                                          // 3. Association abbreviation matches pattern's first word before dash/space
+                                          const patternFirstPart = patternAssocLower.split(/[\s-]+/)[0];
+                                          if (patternFirstPart === assocNameLower) return true;
+                                          
+                                          // 4. Pattern contains full association name
+                                          if (assocNameLower.length > 3 && patternAssocLower.includes(assocNameLower)) {
+                                            return true;
+                                          }
+                                          
+                                          return false;
+                                        });
+                                      });
+                                    }
+                                  }
+                                }
+                                
+                                if (allPatterns.length === 0) {
+                                  return <SelectItem value="none" disabled>No patterns available</SelectItem>;
+                                }
+                                
+                                // Extract pattern number helper
+                                const extractPatternNumber = (fileName) => {
+                                  if (!fileName) return null;
+                                  const match = fileName.match(/(\d+)(?:\..*)?$/);
+                                  if (match) {
+                                    return parseInt(match[1], 10);
+                                  }
+                                  return null;
+                                };
+                                
+                                // Sort patterns
+                                const sortedPatterns = [...allPatterns].sort((a, b) => {
+                                  const numA = extractPatternNumber(a.pdf_file_name) || 0;
+                                  const numB = extractPatternNumber(b.pdf_file_name) || 0;
+                                  return numA - numB;
+                                });
+                                
+                                return sortedPatterns.map((pattern) => {
+                                  const patternNumber = extractPatternNumber(pattern.pdf_file_name);
+                                  const version = pattern.pattern_version || 'ALL';
+                                  
+                                  // Display label as "Pattern 1", "Pattern 2", etc.
+                                  const displayLabel = patternNumber !== null 
+                                    ? `Pattern ${patternNumber}`
+                                    : `Pattern ${pattern.id}`;
+                                  
+                                  return (
+                                    <SelectItem 
+                                      key={pattern.id} 
+                                      value={pattern.id.toString()}
+                                      onMouseEnter={(e) => {
+                                        setHoveredPatternId(pattern.id);
+                                        // Center the preview in the middle of the screen
+                                        const screenWidth = window.innerWidth;
+                                        const screenHeight = window.innerHeight;
+                                        setHoverPosition({ 
+                                          x: screenWidth / 2, 
+                                          y: screenHeight / 2 
+                                        });
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        // Don't hide immediately - let the preview handle its own mouse leave
+                                        // Only hide if we're not moving to the preview
+                                        const relatedTarget = e.relatedTarget;
+                                        if (relatedTarget && relatedTarget.closest('.fixed.z-\\[9999\\]')) {
+                                          return; // Moving to preview, don't hide
+                                        }
+                                        // Small delay to allow mouse to move to preview
+                                        setTimeout(() => {
+                                          setHoveredPatternId(prev => {
+                                            // Only clear if still the same pattern (to avoid race conditions)
+                                            return prev === pattern.id ? null : prev;
+                                          });
+                                        }, 100);
+                                      }}
                                     >
-                                        <div className="flex items-center gap-2 truncate">
-                                            {(() => {
-                                                const selectedIds = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
-                                                
-                                                if (selectedIds.includes('ALL')) {
-                                                    const ver = PATTERN_VERSIONS.find(v => v.id === 'ALL') || PATTERN_VERSIONS[0];
-                                                    return (
-                                                        <>
-                                                            <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
-                                                            <span>{ver.label}</span>
-                                                        </>
-                                                    );
-                                                }
-                                                if (selectedIds.length === 0) return "Select Difficulty";
-                                                
-                                                if (selectedIds.length === 1) {
-                                                    const ver = PATTERN_VERSIONS.find(v => v.id === selectedIds[0]);
-                                                    if (ver) {
-                                                        return (
-                                                            <>
-                                                                <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
-                                                                <span>{ver.label}</span>
-                                                            </>
-                                                        );
-                                                    }
-                                                    return selectedIds[0];
-                                                }
-                                                
-                                                // Show all selected difficulties when multiple are selected
-                                                return (
-                                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                                        {selectedIds.map((id, idx) => {
-                                                            const ver = PATTERN_VERSIONS.find(v => v.id === id);
-                                                            if (!ver) return null;
-                                                            return (
-                                                                <div key={id} className="flex items-center gap-1">
-                                                                    <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
-                                                                    <span className="text-xs">{ver.label}</span>
-                                                                    {idx < selectedIds.length - 1 && <span className="text-muted-foreground">,</span>}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                        <ChevronDown className="h-4 w-4 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[180px] p-0" align="start">
-                                    <Command>
-                                        <CommandInput placeholder="Search difficulty..." />
-                                        <CommandList>
-                                            <CommandEmpty>No results found.</CommandEmpty>
-                                            <CommandGroup>
-                                                {PATTERN_VERSIONS.map(ver => {
-                                                    // Only show versions that exist in the DB for this discipline? 
-                                                    // The user list seems fixed constant. "i want this type of data" implies use this list explicitly.
-                                                    // But showing options that have NO patterns might be annoying.
-                                                    // However, typical pattern builder shows all. I'll stick to the user list.
-                                                    // Actually, I should probably filter unavailable ones or just show all. Showing all is safer for "Reference".
-                                                    
-                                                    const current = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
-                                                    const isSelected = current.includes(ver.id);
-
-                                                    return (
-                                                        <CommandItem
-                                                            key={ver.id}
-                                                            value={ver.label}
-                                                            onSelect={() => {
-                                                                setDisciplineSelections(prev => {
-                                                                    const old = prev[discipline.id]?.difficulty || ['ALL'];
-                                                                    let newSel;
-                                                                    
-                                                                    if (ver.id === 'ALL') {
-                                                                        // If selecting ALL, clear others? Or just toggle? 
-                                                                        // Typically ALL overrides everything else.
-                                                                        newSel = ['ALL'];
-                                                                    } else {
-                                                                        // If selecting specific
-                                                                         let temp = old.filter(x => x !== 'ALL'); // remove ALL if selecting specific
-                                                                         if (isSelected) {
-                                                                             temp = temp.filter(x => x !== ver.id);
-                                                                             if (temp.length === 0) temp = ['ALL']; // fallback to ALL if empty
-                                                                         } else {
-                                                                             temp = [...temp, ver.id];
-                                                                         }
-                                                                         newSel = temp;
-                                                                    }
-
-                                                                    return {
-                                                                        ...prev,
-                                                                        [discipline.id]: {
-                                                                            ...(prev[discipline.id] || {}),
-                                                                            difficulty: newSel
-                                                                        }
-                                                                    };
-                                                                });
-                                                            }}
-                                                        >
-                                                            <div className={cn(
-                                                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                                isSelected
-                                                                    ? "bg-primary text-primary-foreground"
-                                                                    : "opacity-50 [&_svg]:invisible"
-                                                            )}>
-                                                                <Check className={cn("h-4 w-4")} />
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={cn("h-2 w-2 rounded-full", ver.dotColor)} />
-                                                                <span>{ver.label}</span>
-                                                            </div>
-                                                        </CommandItem>
-                                                    );
-                                                })}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
+                                      <div className="flex items-center gap-2 w-full">
+                                        <span className="whitespace-normal break-words">{displayLabel}</span>
+                                        {version && version !== 'ALL' && (
+                                          <Badge variant="outline" className="text-xs flex-shrink-0">{version}</Badge>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                });
+                              })()}
+                            </SelectContent>
+                          </Select>
                         </div>
-
+                        
                         {/* Assign Judge & Date Button */}
                         <Button
                           variant="outline"
@@ -1395,23 +1430,42 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   className="p-4 border rounded-lg bg-background/50 space-y-4"
                                 >
                                   <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <Label className="font-semibold text-base">{group.name}</Label>
-                                      {/* Show pattern badge if selected (only for pattern disciplines) */}
-                                      {!isScoresheetOnly && currentSelection?.patternName && (() => {
-                                        const patternName = currentSelection.patternName || '';
-                                        // Remove .pdf extension if present
-                                        const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                                        const version = currentSelection.version || '';
-                                        // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
-                                        const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                                        return (
-                                          <PatternBadgeWithHover 
-                                            patternId={currentSelection.patternId} 
-                                            displayText={displayText}
-                                            formData={formData}
-                                          />
-                                        );
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Label className="font-semibold text-base">{group.name}</Label>
+                                        {/* Show pattern badge if selected (only for pattern disciplines) */}
+                                        {!isScoresheetOnly && currentSelection?.patternName && (() => {
+                                          const patternName = currentSelection.patternName || '';
+                                          // Remove .pdf extension if present
+                                          const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                                          const version = currentSelection.version || '';
+                                          // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
+                                          const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                                          return (
+                                            <PatternBadgeWithHover 
+                                              patternId={currentSelection.patternId} 
+                                              displayText={displayText}
+                                              formData={formData}
+                                            />
+                                          );
+                                        })()}
+                                      </div>
+                                      {/* Show association badge on right side - get from pattern data */}
+                                      {!isScoresheetOnly && currentSelection?.patternId && (() => {
+                                        // Get the pattern from database patterns to extract association name
+                                        const pattern = (dbPatterns[discipline.id] || []).find(p => p.id === currentSelection.patternId);
+                                        const associationName = pattern?.association_name || currentSelection?.filterAssociation;
+                                        
+                                        if (associationName) {
+                                          // Extract just the association abbreviation/name (before dash if present)
+                                          const assocDisplay = associationName.split(/[\s-]+/)[0].trim();
+                                          return (
+                                            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-xs">
+                                              {assocDisplay}
+                                            </Badge>
+                                          );
+                                        }
+                                        return null;
                                       })()}
                                     </div>
                                     <div className="flex flex-wrap gap-1 mt-2">
@@ -1430,22 +1484,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 {/* Pattern Selection - Only show for non-scoresheet-only disciplines */}
                                 {!isScoresheetOnly && (
                                   <div className="space-y-2">
-                                      <Label className="text-sm text-muted-foreground">Select Pattern</Label>
-                                      <div className="flex gap-2">
+                                      <Label className="text-sm text-muted-foreground">Pattern Selection</Label>
+                                      <div className="grid grid-cols-2 gap-3">
                                           {/* Pattern Selector */}
-                                          <Select
-                                            value={currentSelection?.patternId?.toString() || ''}
-                                            onValueChange={(value) => {
-                                                // Hide preview when pattern is selected
-                                                setHoveredPatternId(null);
-                                                const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
-                                                const patternManeuversRange = selectedPattern?.maneuvers_range || '';
-                                                handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
-                                            }}
-                                        >
-                                            <SelectTrigger className="flex-1 bg-background min-w-[200px] [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words">
-                                                <SelectValue placeholder="Select Pattern" />
-                                            </SelectTrigger>
+                                          <div>
+                                              <Label className="text-xs text-muted-foreground mb-1 block">Select Pattern</Label>
+                                              <Select
+                                                value={currentSelection?.patternId?.toString() || ''}
+                                                onValueChange={(value) => {
+                                                    // Hide preview when pattern is selected
+                                                    setHoveredPatternId(null);
+                                                    const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
+                                                    const patternManeuversRange = selectedPattern?.maneuvers_range || '';
+                                                    handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
+                                                }}
+                                            >
+                                                <SelectTrigger className="bg-background [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words">
+                                                    <SelectValue placeholder="Select Pattern" />
+                                                </SelectTrigger>
                                             <SelectContent 
                                                 className="max-h-[300px]"
                                                 onMouseLeave={() => {
@@ -1453,8 +1509,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 }}
                                             >
                                                 {(() => {
-                                                    // Use Discipline Level Difficulty (Multi-Select)
-                                                    const difficulty = disciplineSelections[discipline.id]?.difficulty || ['ALL'];
                                                     let filtered = getFilteredPatterns(discipline.id);
 
                                                     // Check if this is an open-show discipline
@@ -1464,11 +1518,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     // For open-show disciplines, show all patterns without association filtering
                                                     // For other disciplines, filter by group associations
                                                     if (!isOpenShowDiscipline) {
-                                                        // Filter by group associations based on Primary logic
-                                                        const groupAssociations = getGroupAssociationNames(group);
-                                                        const allGroupAssocNames = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
+                                                        // If filterAssociation is set from Step 3, use only that association
+                                                        // Otherwise, use all associations in the group
+                                                        let associationNamesToFilter = [];
                                                         
-                                                        if (allGroupAssocNames.length > 0) {
+                                                        if (currentSelection?.filterAssociation) {
+                                                            // Use the saved filterAssociation value from Step 3
+                                                            associationNamesToFilter = [currentSelection.filterAssociation];
+                                                        } else {
+                                                            // Fallback to group associations based on Primary logic
+                                                            const groupAssociations = getGroupAssociationNames(group);
+                                                            associationNamesToFilter = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
+                                                        }
+                                                        
+                                                        if (associationNamesToFilter.length > 0) {
                                                             const filteredByAssoc = filtered.filter(pattern => {
                                                                 const patternAssocName = (pattern.association_name || '').trim();
                                                                 if (!patternAssocName) {
@@ -1478,7 +1541,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                                 
                                                                 const patternAssocLower = patternAssocName.toLowerCase();
                                                                 
-                                                                return allGroupAssocNames.some(assocName => {
+                                                                return associationNamesToFilter.some(assocName => {
                                                                     const assocNameLower = (assocName || '').trim().toLowerCase();
                                                                     if (!assocNameLower) return false;
                                                                     
@@ -1528,8 +1591,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     }
                                                     // For open-show disciplines, keep all filtered patterns (no association filtering)
 
-                                                    if (!difficulty.includes('ALL')) {
-                                                        filtered = filtered.filter(p => difficulty.includes(p.pattern_version));
+                                                    // Filter by group-level difficulty if set
+                                                    const groupDifficulty = currentSelection?.version;
+                                                    if (groupDifficulty && groupDifficulty !== 'ALL') {
+                                                        filtered = filtered.filter(p => p.pattern_version === groupDifficulty);
                                                     }
                                                     
                                                     // Final deduplication by pattern ID (in case same pattern appears multiple times)
@@ -1584,15 +1649,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     return filtered.map((p) => {
                                                         const patternNumber = extractPatternNumber(p.pdf_file_name);
                                                         const version = p.pattern_version || 'ALL';
-                                                        const fileName = p.pdf_file_name?.trim() || '';
-                                                        const cleanPatternName = fileName.replace(/\.(pdf|PDF)$/, '');
-                                                        // Use full pattern name for display, fallback to pattern number
-                                                        const displayLabel = cleanPatternName || (patternNumber !== null 
+                                                        
+                                                        // Display label as "Pattern 1", "Pattern 2", etc.
+                                                        const displayLabel = patternNumber !== null 
                                                             ? `Pattern ${patternNumber}`
-                                                            : `Pattern ${p.id}`);
-                                                        const fullDisplayLabel = version && version !== 'ALL' 
-                                                            ? `${displayLabel} (${version})` 
-                                                            : displayLabel;
+                                                            : `Pattern ${p.id}`;
                                                         
                                                         return (
                                                             <SelectItem 
@@ -1625,7 +1686,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                                 }}
                                                             >
                                                                 <div className="flex items-center gap-2 w-full">
-                                                                    <span className="whitespace-normal break-words">{fullDisplayLabel}</span>
+                                                                    <span className="whitespace-normal break-words">{displayLabel}</span>
                                                                     {version && version !== 'ALL' && (
                                                                         <Badge variant="outline" className="text-xs flex-shrink-0">{version}</Badge>
                                                                     )}
@@ -1636,8 +1697,55 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 })()}
                                             </SelectContent>
                                         </Select>
-                                        {/* Hover Preview - Rendered via portal at body level, centered */}
-                                        {hoveredPatternId && typeof document !== 'undefined' && createPortal(
+                                        </div>
+                                        
+                                        {/* Difficulty Dropdown */}
+                                        <div>
+                                            <Label className="text-xs text-muted-foreground mb-1 block">Select Difficulty</Label>
+                                            <Select 
+                                                value={currentSelection?.version || 'ALL'}
+                                                onValueChange={(value) => {
+                                                    // Update the version in formData
+                                                    setFormData(prev => {
+                                                        const newSelections = { ...(prev.patternSelections || {}) };
+                                                        if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
+                                                        if (newSelections[discipline.id][group.id]) {
+                                                            newSelections[discipline.id][group.id] = {
+                                                                ...newSelections[discipline.id][group.id],
+                                                                version: value
+                                                            };
+                                                        } else {
+                                                            // If no pattern selected yet, just set the version
+                                                            newSelections[discipline.id][group.id] = {
+                                                                maneuversRange: '',
+                                                                patternId: null,
+                                                                patternName: null,
+                                                                version: value
+                                                            };
+                                                        }
+                                                        return { ...prev, patternSelections: newSelections };
+                                                    });
+                                                }}
+                                            >
+                                                <SelectTrigger className="bg-background">
+                                                    <SelectValue placeholder="Select difficulty..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {PATTERN_VERSIONS.map(version => (
+                                                        <SelectItem key={version.id} value={version.id}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("h-2 w-2 rounded-full", version.dotColor)} />
+                                                                <span>{version.label}</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Hover Preview - Rendered via portal at body level, centered */}
+                                    {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                             <div
                                                 className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
                                                 style={{
@@ -1679,7 +1787,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                             </div>,
                                             document.body
                                         )}
-                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -1779,13 +1886,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dialogDueDate ? format(new Date(dialogDueDate), "PPP") : <span>Pick a date</span>}
+                      {dialogDueDate ? format(parseLocalDate(dialogDueDate), 'EEE, MMM d') : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={dialogDueDate ? new Date(dialogDueDate) : undefined}
+                      selected={dialogDueDate ? parseLocalDate(dialogDueDate) : undefined}
                       onSelect={(date) => setDialogDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
                       initialFocus
                       className={cn("p-3 pointer-events-auto")}

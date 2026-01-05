@@ -98,7 +98,7 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                             disabled={isReadOnly}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
+                                            {formData.startDate ? format(parseLocalDate(formData.startDate), "MMMM do, yyyy") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     {!isReadOnly && (
@@ -126,7 +126,7 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                                             disabled={isReadOnly}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
+                                            {formData.endDate ? format(parseLocalDate(formData.endDate), "MMMM do, yyyy") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     {!isReadOnly && (

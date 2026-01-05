@@ -8,7 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users, UserCog, Crown, Mail, Phone } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -157,7 +157,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                                     try {
                                         return (
                                             <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
-                                                Due: {format(new Date(role.deadline), "PPP")}
+                                                Due: {format(parseLocalDate(role.deadline), "MMMM do, yyyy")}
                                             </Badge>
                                         );
                                     } catch (e) {
@@ -205,7 +205,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                                     try {
                                         return (
                                             <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
-                                                Due: {format(new Date(role.deadline), "PPP")}
+                                                Due: {format(parseLocalDate(role.deadline), "MMMM do, yyyy")}
                                             </Badge>
                                         );
                                     } catch (e) {
@@ -553,12 +553,15 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     // Default admin and owner values from logged-in user
     const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || 'John Doe';
     const loggedInUserEmail = user?.email || 'johndoe@mailinator.com';
+    const loggedInUserPhone = user?.user_metadata?.phone || user?.user_metadata?.mobile || profile?.phone || profile?.mobile || '';
     
     const defaultAdminOwner = {
         adminName: loggedInUserName,
         adminEmail: loggedInUserEmail,
+        adminPhone: loggedInUserPhone,
         ownerName: loggedInUserName,
         ownerEmail: loggedInUserEmail,
+        ownerPhone: loggedInUserPhone,
     };
     const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
 
@@ -709,13 +712,13 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                                 disabled={isReadOnly}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {formData.publicationDate ? format(new Date(formData.publicationDate), "PPP") : <span>Select publication date</span>}
+                                {formData.publicationDate ? format(parseLocalDate(formData.publicationDate), "MMMM do, yyyy") : <span>Select publication date</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                             <Calendar
                                 mode="single"
-                                selected={formData.publicationDate ? new Date(formData.publicationDate) : null}
+                                selected={formData.publicationDate ? parseLocalDate(formData.publicationDate) : null}
                                 onSelect={handlePublicationDateChange}
                                 initialFocus
                             />
@@ -762,7 +765,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         </ReviewItem>
 
                         <ReviewItem icon={<CalendarIcon className="w-5 h-5" />} title="Dates & Location">
-                            <p><strong>Dates:</strong> {formData.startDate ? `${format(new Date(formData.startDate), 'PPP')} to ${formData.endDate ? format(new Date(formData.endDate), 'PPP') : 'N/A'}` : 'N/A'}</p>
+                            <p><strong>Dates:</strong> {formData.startDate ? `${format(parseLocalDate(formData.startDate), 'MMMM do, yyyy')} to ${formData.endDate ? format(parseLocalDate(formData.endDate), 'MMMM do, yyyy') : 'N/A'}` : 'N/A'}</p>
                             <p><strong>Venue:</strong> {formData.venueName || 'N/A'}</p>
                             <p><strong>Address:</strong> {formData.venueAddress || 'N/A'}</p>
                         </ReviewItem>

@@ -239,7 +239,10 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
     
     // Filter states for pattern selection
     // Auto-set the discipline filter to the current discipline name by default
-    const [filterAssociation, setFilterAssociation] = useState('all');
+    // Initialize filterAssociation from saved pattern selection if available
+    const [filterAssociation, setFilterAssociation] = useState(() => {
+        return currentPatternSelection?.filterAssociation || 'all';
+    });
     const [filterDiscipline, setFilterDiscipline] = useState(() => {
         // Always default to the current discipline name if available
         if (pbbDiscipline?.name) {
@@ -402,8 +405,32 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     // For example, "Reining" should not match "Ranch Reining"
                     query = query.ilike('discipline', pbbDiscipline.name);
                     
-                    if (associationInfo) {
-                        // Match by both full name and abbreviation to handle cases where database has either
+                    // Check if group has 2+ associations - if so, fetch patterns from all associations in group
+                    const groupAssocIds = group.divisions ? [...new Set(group.divisions.map(d => d.assocId).filter(Boolean))] : [];
+                    const hasMultipleAssociations = groupAssocIds.length >= 2;
+                    
+                    if (hasMultipleAssociations) {
+                        // Fetch patterns from all associations in the group
+                        const associationNames = [];
+                        groupAssocIds.forEach(assocId => {
+                            const assoc = associationsData?.find(a => a.id === assocId);
+                            if (assoc) {
+                                if (assoc.name && assoc.name !== assoc.abbreviation) {
+                                    associationNames.push(assoc.name);
+                                }
+                                if (assoc.abbreviation) {
+                                    associationNames.push(assoc.abbreviation);
+                                }
+                            }
+                        });
+                        
+                        // Build OR condition for all associations
+                        if (associationNames.length > 0) {
+                            const orConditions = associationNames.map(name => `association_name.ilike.%${name}%`).join(',');
+                            query = query.or(orConditions);
+                        }
+                    } else if (associationInfo) {
+                        // Single association - use existing logic
                         const name = associationInfo.name;
                         const abbreviation = associationInfo.abbreviation;
                         
@@ -492,7 +519,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
         };
         fetchPatterns();
-    }, [pbbDiscipline?.name, associationInfo, associationName, isOpenShowDiscipline]);
+    }, [pbbDiscipline?.name, associationInfo, associationName, isOpenShowDiscipline, associationsData, group.divisions]);
 
     // Get unique associations and disciplines from patterns for filters
     const patternAssociations = useMemo(() => {
@@ -519,14 +546,38 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         return Array.from(discs).sort();
     }, [dbPatterns, pbbDiscipline?.name]);
 
+    // Get unique associations from group divisions to determine if filters should be shown
+    const uniqueAssociationsInGroup = useMemo(() => {
+        if (!group.divisions || group.divisions.length === 0) return [];
+        return [...new Set(group.divisions.map(d => d.assocId).filter(Boolean))];
+    }, [group.divisions]);
+
+    // Show filters for open-show when multiple pattern associations/disciplines exist
+    // OR for other associations when 2+ associations in the group
+    const shouldShowFilters = useMemo(() => {
+        // For open-show: show when multiple pattern associations/disciplines exist (original behavior)
+        if (isOpenShowDiscipline) {
+            return patternAssociations.length > 1 || patternDisciplines.length > 1;
+        }
+        // For other associations: show when 2+ associations in group (regardless of pattern associations)
+        return uniqueAssociationsInGroup.length >= 2;
+    }, [isOpenShowDiscipline, patternAssociations, patternDisciplines, uniqueAssociationsInGroup]);
+
+    // Keep discipline filter locked to current discipline for non-open-show
+    useEffect(() => {
+        if (!isOpenShowDiscipline && shouldShowFilters && pbbDiscipline?.name) {
+            setFilterDiscipline(pbbDiscipline.name);
+        }
+    }, [isOpenShowDiscipline, shouldShowFilters, pbbDiscipline?.name]);
+
     // Filter patterns based on difficulty, association, and discipline
     useEffect(() => {
         if (dbPatterns.length > 0) {
             let filtered = dbPatterns;
             
-            // Only apply association and discipline filters for open-show disciplines
+            // Apply association and discipline filters
             if (isOpenShowDiscipline) {
-                // Apply association filter
+                // For open-show: apply both association and discipline filters
                 if (filterAssociation && filterAssociation !== 'all') {
                     filtered = filtered.filter(p => 
                         p.association_name && 
@@ -535,7 +586,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     );
                 }
                 
-                // Apply discipline filter
                 if (filterDiscipline && filterDiscipline !== 'all') {
                     filtered = filtered.filter(p => 
                         p.discipline && 
@@ -545,8 +595,18 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 
                 // For open-show disciplines, show all patterns when no filters are set (don't filter by open-show)
                 // This allows users to see patterns from all associations and disciplines
+            } else if (uniqueAssociationsInGroup.length >= 2) {
+                // For non-open-show with 2+ associations: apply association filter only
+                // Discipline is locked to current discipline (already filtered in query)
+                if (filterAssociation && filterAssociation !== 'all') {
+                    filtered = filtered.filter(p => 
+                        p.association_name && 
+                        (p.association_name.toLowerCase().includes(filterAssociation.toLowerCase()) ||
+                         filterAssociation.toLowerCase().includes(p.association_name.toLowerCase()))
+                    );
+                }
             }
-            // For non-open-show disciplines, no additional filtering needed (already filtered in query)
+            // For non-open-show with single association, no additional filtering needed (already filtered in query)
             
             // Apply difficulty filter (for all associations)
             if (selectedDifficulty && selectedDifficulty !== 'ALL') {
@@ -590,7 +650,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         } else {
             setFilteredPatterns([]);
         }
-    }, [selectedDifficulty, dbPatterns, filterAssociation, filterDiscipline, isOpenShowDiscipline]);
+    }, [selectedDifficulty, dbPatterns, filterAssociation, filterDiscipline, isOpenShowDiscipline, uniqueAssociationsInGroup]);
 
   // Fetch maneuvers and image when pattern is selected
   useEffect(() => {
@@ -678,7 +738,8 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 maneuversRange: selectedPattern?.maneuvers_range || '', // Use range from the pattern itself
                 patternId: parseInt(patternId),
                 patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-                version: selectedPattern?.pattern_version || 'ALL'
+                version: selectedPattern?.pattern_version || 'ALL',
+                filterAssociation: filterAssociation !== 'all' ? filterAssociation : null // Save the filter association value
             };
             return { ...prev, patternSelections: newSelections };
         });
@@ -739,14 +800,32 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-dashed">
                     <Label className="text-sm font-medium mb-2 block">Pattern Selection</Label>
 
-                    {/* Filter Section - Only show for open-show disciplines */}
-                    {isOpenShowDiscipline && (patternAssociations.length > 1 || patternDisciplines.length > 1) && (
+                    {/* Filter Section - Show for open-show when multiple patterns exist, or for other associations when 2+ associations in group */}
+                    {shouldShowFilters && (
                         <div className="grid grid-cols-2 gap-3 mb-3">
                             <div>
                                 <Label className="text-xs text-muted-foreground">Filter by Association</Label>
                                 <Select 
                                     value={filterAssociation}
-                                    onValueChange={setFilterAssociation}
+                                    onValueChange={(value) => {
+                                        setFilterAssociation(value);
+                                        // Clear existing pattern selection and difficulty when filter changes
+                                        if (disciplineId && setFormData) {
+                                            setFormData(prev => {
+                                                const newSelections = { ...(prev.patternSelections || {}) };
+                                                if (newSelections[disciplineId] && newSelections[disciplineId][group.id]) {
+                                                    // Clear the pattern selection
+                                                    newSelections[disciplineId][group.id] = null;
+                                                }
+                                                return { ...prev, patternSelections: newSelections };
+                                            });
+                                        }
+                                        // Reset local states
+                                        setSelectedDifficulty('ALL');
+                                        setFilteredPatterns([]);
+                                        setPatternManeuvers([]);
+                                        setPatternImage(null);
+                                    }}
                                 >
                                     <SelectTrigger className="mt-1 h-9">
                                         <SelectValue placeholder="All Associations" />
@@ -764,8 +843,9 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                 <Select 
                                     value={filterDiscipline}
                                     onValueChange={setFilterDiscipline}
+                                    disabled={!isOpenShowDiscipline}
                                 >
-                                    <SelectTrigger className="mt-1 h-9">
+                                    <SelectTrigger className="mt-1 h-9" disabled={!isOpenShowDiscipline}>
                                         <SelectValue placeholder="All Disciplines" />
                                     </SelectTrigger>
                                     <SelectContent>
