@@ -274,7 +274,7 @@ export const usePatternBookBuilder = (projectId) => {
             pthaHorseType: 'stock',
           };
         case 2:
-          return { ...prev, disciplines: [] };
+          return { ...prev, disciplines: [], selected4HCity: '' };
         case 3:
           return {
             ...prev,
