@@ -339,15 +339,22 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 // Find the discipline that has this association
                 const discForAssoc = allDisciplines.find(d => d.selectedAssociations?.[assocId]);
                 const assocData = associationsData.find(a => a.id === assocId);
-                if (assocData && divisionsData[assocId]) {
+            if (assocData && divisionsData[assocId]) {
                     let divisions = divisionsData[assocId];
         
                     // Support multiple sub-association types
                     const selectedSubTypes = formData.subAssociationSelections?.[assocId]?.types || [];
                     
+                    // For 4-H, filter divisions by selected city
+                    if (assocId === '4-H' && formData.selected4HCity) {
+                        divisions = divisions.filter(d => 
+                            d.sub_association_type === formData.selected4HCity || 
+                            !d.sub_association_type
+                        );
+                    }
                     // Filter divisions based on the discipline's sub_association_type
                     // If the discipline has a sub_association_type, only show divisions for that type
-                    if (discForAssoc?.sub_association_type) {
+                    else if (discForAssoc?.sub_association_type) {
                         divisions = divisions.filter(d => 
                             d.sub_association_type === discForAssoc.sub_association_type || 
                             !d.sub_association_type
@@ -400,7 +407,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 }
             });
             return divisionMap;
-        }, [allDisciplines, pbbDiscipline, associationsData, divisionsData, formData.nsbaApprovalType, formData.subAssociationSelections]);
+        }, [allDisciplines, pbbDiscipline, associationsData, divisionsData, formData.nsbaApprovalType, formData.subAssociationSelections, formData.selected4HCity]);
     
         // Check hasSelectedDivisions across all merged disciplines
         const hasSelectedDivisions = allDisciplines.some(disc => 
