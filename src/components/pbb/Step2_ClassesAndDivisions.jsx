@@ -229,7 +229,55 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, isOpenShowMode, onAddCustomDiscipline }) => {
+// 4-H City Selector Component
+const FourHCitySelector = ({ availableCities, selectedCity, onCityChange, association }) => {
+    const logoUrl = getAssociationLogo(association);
+    const Icon = getDefaultAssociationIcon(association);
+    
+    return (
+        <AccordionItem value="4-H" className="border rounded-lg overflow-hidden">
+            <AccordionTrigger className="text-base font-semibold hover:no-underline px-3 py-2 bg-muted/50">
+                <div className="flex items-center gap-3">
+                    {logoUrl ? (
+                        <img src={logoUrl} alt={`${association.name} logo`} className="h-8 object-contain" />
+                    ) : (
+                        <Icon className="h-8 w-8 text-muted-foreground" />
+                    )}
+                    <div className="flex flex-col items-start">
+                        <span className="block">{association.name}</span>
+                        {selectedCity && (
+                            <span className="text-sm font-normal text-muted-foreground bg-primary/10 px-2 py-0.5 rounded">
+                                {selectedCity}
+                            </span>
+                        )}
+                    </div>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 space-y-4">
+                <div className="space-y-2">
+                    <Label className="text-sm font-medium">Select City/State</Label>
+                    <p className="text-xs text-muted-foreground">
+                        4-H disciplines vary by location. Please select your city/state to view available disciplines.
+                    </p>
+                    <Select value={selectedCity || ''} onValueChange={onCityChange}>
+                        <SelectTrigger className="w-full max-w-xs">
+                            <SelectValue placeholder="Select a city/state..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableCities.map(city => (
+                                <SelectItem key={city} value={city}>
+                                    {city}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </AccordionContent>
+        </AccordionItem>
+    );
+};
+
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, isOpenShowMode, onAddCustomDiscipline, selected4HCity }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -271,6 +319,11 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                                 {subAssociationType.name}
                             </span>
                         )}
+                        {association.id === '4-H' && selected4HCity && (
+                            <span className="text-sm font-normal text-muted-foreground bg-primary/10 px-2 py-0.5 rounded">
+                                {selected4HCity}
+                            </span>
+                        )}
                     </div>
                 </div>
             </AccordionTrigger>
@@ -295,6 +348,33 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const [selectedAssociationForCustom, setSelectedAssociationForCustom] = useState('');
     const [isSavingCustomDiscipline, setIsSavingCustomDiscipline] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // 4-H City selection state - stored in formData for persistence
+    const selected4HCity = formData.selected4HCity || '';
+    
+    // Check if 4-H is selected
+    const is4HSelected = formData.associations?.['4-H'] === true;
+    
+    // Get available cities for 4-H from discipline library
+    const available4HCities = useMemo(() => {
+        if (!disciplineLibrary || !is4HSelected) return [];
+        const cities = new Set(
+            disciplineLibrary
+                .filter(d => d.association_id === '4-H' && d.city)
+                .map(d => d.city)
+        );
+        return Array.from(cities).sort();
+    }, [disciplineLibrary, is4HSelected]);
+    
+    // Handle 4-H city selection
+    const handle4HCityChange = (city) => {
+        setFormData(prev => ({
+            ...prev,
+            selected4HCity: city,
+            // Clear previously selected 4-H disciplines when city changes
+            disciplines: (prev.disciplines || []).filter(d => d.association_id !== '4-H')
+        }));
+    };
     
     // VRH-RHC Ranch CowWork options
     const vrhRanchCowWorkOptions = [
@@ -490,6 +570,40 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     }
                 });
             } else {
+                // Special handling for 4-H - filter by selected city
+                if (assocId === '4-H') {
+                    // Only show 4-H disciplines if a city is selected
+                    if (!selected4HCity) {
+                        // Don't add group if no city selected - will show city selector instead
+                        groups.push({ 
+                            association, 
+                            disciplines: [], 
+                            subAssociationType: null,
+                            groupKey: assocId,
+                            requires4HCity: true
+                        });
+                        return;
+                    }
+                    
+                    let disciplines = disciplineLibrary.filter(d => {
+                        const matchesAssoc = d.association_id === '4-H';
+                        const matchesCity = d.city === selected4HCity;
+                        const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
+                        return matchesAssoc && matchesCity && matchesSearch;
+                    });
+
+                    disciplines.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999) || a.name.localeCompare(b.name));
+
+                    groups.push({ 
+                        association, 
+                        disciplines, 
+                        subAssociationType: null,
+                        groupKey: assocId,
+                        selected4HCity: selected4HCity
+                    });
+                    return;
+                }
+                
                 // No sub-types or none selected - show all disciplines for this association
                 let disciplines = disciplineLibrary.filter(d => {
                     // For 'open-show', filter by association_id = 'open-show'
@@ -515,7 +629,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
 
         return groups;
 
-    }, [formData.associations, formData.subAssociationSelections, isVrhMode, isOpenShowMode, disciplineLibrary, associationsData, searchTerm]);
+    }, [formData.associations, formData.subAssociationSelections, isVrhMode, isOpenShowMode, disciplineLibrary, associationsData, searchTerm, selected4HCity]);
 
     const handleDisciplineToggle = (disc, isChecked) => {
         if (isVrhMode) {
@@ -803,6 +917,19 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     
                     <Accordion type="multiple" defaultValue={groupedDisciplines.map(g => g.groupKey)} className="w-full space-y-4">
                         {groupedDisciplines.map(group => {
+                            // Handle 4-H with city selection
+                            if (group.association.id === '4-H' && group.requires4HCity) {
+                                return (
+                                    <FourHCitySelector
+                                        key={group.groupKey}
+                                        availableCities={available4HCities}
+                                        selectedCity={selected4HCity}
+                                        onCityChange={handle4HCityChange}
+                                        association={group.association}
+                                    />
+                                );
+                            }
+                            
                             // Only show dual-approved checkbox if current association is in the dualApprovedWith list
                             const showDualApproved = dualApprovedWithAssociations.includes(group.association.id);
                             
@@ -824,6 +951,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     onVrhRanchCowWorkSelect={handleVrhRanchCowWorkSelect}
                                     isOpenShowMode={isOpenShowMode}
                                     onAddCustomDiscipline={handleOpenAddCustomModal}
+                                    selected4HCity={group.selected4HCity}
                                 />
                             );
                         })}
