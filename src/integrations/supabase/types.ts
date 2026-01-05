@@ -581,6 +581,7 @@ export type Database = {
         Row: {
           association_id: string | null
           category: string | null
+          city: string | null
           id: string
           name: string
           open_divisions: boolean | null
@@ -591,6 +592,7 @@ export type Database = {
         Insert: {
           association_id?: string | null
           category?: string | null
+          city?: string | null
           id?: string
           name: string
           open_divisions?: boolean | null
@@ -601,6 +603,7 @@ export type Database = {
         Update: {
           association_id?: string | null
           category?: string | null
+          city?: string | null
           id?: string
           name?: string
           open_divisions?: boolean | null
@@ -2869,6 +2872,7 @@ export type Database = {
         Returns: {
           association_id: string | null
           category: string | null
+          city: string | null
           id: string
           name: string
           open_divisions: boolean | null
