@@ -7,10 +7,10 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
+import { cn, parseLocalDate } from '@/lib/utils';
 import { format } from 'date-fns';
 import {
     DropdownMenu,
@@ -213,61 +213,75 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, projectName, cur
 };
 
 // Collapsible Folder for Pattern Folder section
-const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
+const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternPortal = false }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [isExpanded, setIsExpanded] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
+    const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState(() => {
+        const currentStatus = project.status || 'Draft';
+        // Map database status to display status
+        if (currentStatus === 'Lock & Approve Mode') return 'Approval and Locked';
+        if (currentStatus === 'Publication') return 'Publication';
+        return 'Draft';
+    });
+    const [isSavingStatus, setIsSavingStatus] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
+    const [scoreSheetsDialogOpen, setScoreSheetsDialogOpen] = useState(false);
+    const [scoreSheets, setScoreSheets] = useState([]);
+    const [isLoadingScoreSheets, setIsLoadingScoreSheets] = useState(false);
+    const [patternsDialogOpen, setPatternsDialogOpen] = useState(false);
+    const [patterns, setPatterns] = useState([]);
+    const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
+    const [judgeCardsDialogOpen, setJudgeCardsDialogOpen] = useState(false);
+    const [judgeCards, setJudgeCards] = useState([]);
+    const [isLoadingJudgeCards, setIsLoadingJudgeCards] = useState(false);
     
-    // Get staff list from project_data (Step 8 Staff Access & Delegation)
-    const getStaffList = () => {
+    // Get judges list from project_data (Step 8 Staff Access & Delegation)
+    const getJudgesList = () => {
         const formData = project.project_data || {};
         const delegations = formData.delegations || {};
-        const staffList = [];
-        
-        // Get officials
-        (formData.officials || []).forEach(official => {
-            if (official && official.name) {
-                staffList.push({
-                    id: official.id,
-                    name: official.name,
-                    email: official.email || delegations[official.id]?.email,
-                    role: official.role,
-                    delegation: delegations[official.id] || { accessPhase: [], roles: [] },
-                    updatedAt: project.updated_at
-                });
-            }
-        });
+        const judgesList = [];
         
         // Get judges from associationJudges
         Object.entries(formData.associationJudges || {}).forEach(([assocId, assocData]) => {
             (assocData.judges || []).forEach((judge, index) => {
                 if (judge && judge.name) {
                     const judgeId = `judge-${assocId}-${index}`;
-                    staffList.push({
+                    const judgeDelegation = delegations[judgeId] || {};
+                    const accessPhase = judgeDelegation.accessPhase || [];
+                    
+                    // Determine status from accessPhase
+                    let status = 'Pending';
+                    if (accessPhase.includes('publication')) status = 'Published';
+                    else if (accessPhase.includes('approval') || accessPhase.includes('locked')) status = 'Approval and Locked';
+                    else if (accessPhase.includes('draft')) status = 'Review';
+                    
+                    judgesList.push({
                         id: judgeId,
                         name: judge.name,
                         email: judge.email || delegations[judgeId]?.email,
                         role: 'Judge',
-                        delegation: delegations[judgeId] || { accessPhase: [], roles: [] },
+                        delegation: judgeDelegation,
+                        status: status,
                         updatedAt: project.updated_at
                     });
                 }
             });
         });
         
-        return staffList;
+        return judgesList;
     };
     
-    const staffList = getStaffList();
+    const judgesList = getJudgesList();
 
-    // Check if all staff have locked or published status (hide Open card if true)
-    const allStaffLockedOrPublished = staffList.length > 0 && staffList.every(staff => {
-        const accessPhase = staff.delegation?.accessPhase || [];
+    // Check if all judges have locked or published status (hide Open card if true)
+    const allJudgesLockedOrPublished = judgesList.length > 0 && judgesList.every(judge => {
+        const accessPhase = judge.delegation?.accessPhase || [];
         return accessPhase.includes('approval') || accessPhase.includes('locked') || accessPhase.includes('publication');
     });
 
@@ -317,6 +331,557 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
         toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
     };
 
+    const handleSaveStatus = async () => {
+        setIsSavingStatus(true);
+        try {
+            // Map selected status to database status values
+            let dbStatus = selectedStatus;
+            if (selectedStatus === 'Approval and Locked') {
+                dbStatus = 'Lock & Approve Mode';
+            } else if (selectedStatus === 'Publication') {
+                dbStatus = 'Publication';
+            } else {
+                dbStatus = 'Draft';
+            }
+
+            await supabase
+                .from('projects')
+                .update({ status: dbStatus })
+                .eq('id', project.id);
+            
+            toast({ 
+                title: "Status updated", 
+                description: `Pattern status changed to ${selectedStatus}` 
+            });
+            setStatusDialogOpen(false);
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            console.error('Error updating status:', error);
+            toast({ 
+                title: "Error", 
+                description: "Failed to update status.", 
+                variant: "destructive" 
+            });
+        } finally {
+            setIsSavingStatus(false);
+        }
+    };
+
+    const fetchScoreSheets = async () => {
+        setIsLoadingScoreSheets(true);
+        try {
+            const projectData = project.project_data || {};
+            const patternSelections = projectData.patternSelections || {};
+            const disciplines = projectData.disciplines || [];
+            const associations = projectData.associations || {};
+            
+            // Fetch associations data
+            const { data: associationsData } = await supabase
+                .from('associations')
+                .select('id, abbreviation, name');
+            
+            const associationsMap = {};
+            (associationsData || []).forEach(a => {
+                associationsMap[a.id] = a;
+            });
+            
+            const scoreSheetsList = [];
+            const processedScoresheets = new Set(); // To avoid duplicates
+            
+            // Iterate through disciplines and groups to get score sheets
+            for (const discipline of disciplines) {
+                const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name];
+                if (!disciplineSelections) continue;
+                
+                const groups = discipline.patternGroups || [];
+                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                    const group = groups[groupIndex];
+                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
+                    if (!patternSelection) continue;
+                    
+                    // Get pattern ID
+                    const patternId = typeof patternSelection === 'object' 
+                        ? (patternSelection.patternId || patternSelection.id) 
+                        : patternSelection;
+                    
+                    if (!patternId) continue;
+                    
+                    // Extract divisions for this group
+                    const divisions = Array.isArray(group.divisions) ? group.divisions : [];
+                    const extractedDivisions = divisions.map(div => {
+                        if (typeof div === 'string') {
+                            return { name: div, association: '' };
+                        } else if (div && typeof div === 'object') {
+                            let assocName = div.association || div.assocName || '';
+                            if (!assocName && div.association_id) {
+                                const assoc = associationsMap[div.association_id];
+                                assocName = assoc?.abbreviation || assoc?.name || div.association_id;
+                            }
+                            return {
+                                name: div.name || div.divisionName || div.division || div.title || '',
+                                association: assocName
+                            };
+                        } else {
+                            return { name: String(div || ''), association: '' };
+                        }
+                    }).filter(div => div.name && div.name.trim() !== '');
+                    
+                    // Priority 1: Check if scoresheet was selected in patternSelection
+                    if (typeof patternSelection === 'object' && patternSelection.scoresheetData) {
+                        const scoresheetId = `${patternSelection.scoresheetData.id || patternSelection.scoresheetData.pattern_id}`;
+                        if (!processedScoresheets.has(scoresheetId)) {
+                            scoreSheetsList.push({
+                                ...patternSelection.scoresheetData,
+                                disciplineName: discipline.name,
+                                groupName: group.name,
+                                divisions: extractedDivisions
+                            });
+                            processedScoresheets.add(scoresheetId);
+                        }
+                        continue;
+                    }
+                    
+                    // Priority 2: Fetch by pattern_id
+                    if (patternId && !isNaN(parseInt(patternId))) {
+                        const { data: scoresheet } = await supabase
+                            .from('tbl_scoresheet')
+                            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+                            .eq('pattern_id', parseInt(patternId))
+                            .maybeSingle();
+                        
+                        if (scoresheet && scoresheet.image_url) {
+                            const scoresheetId = `${scoresheet.id}`;
+                            if (!processedScoresheets.has(scoresheetId)) {
+                                scoreSheetsList.push({
+                                    ...scoresheet,
+                                    disciplineName: discipline.name,
+                                    groupName: group.name,
+                                    divisions: extractedDivisions
+                                });
+                                processedScoresheets.add(scoresheetId);
+                            }
+                        }
+                    }
+                    
+                    // Priority 3: Try by association and discipline
+                    const association = associationsMap[discipline.association_id];
+                    if (association?.abbreviation && discipline.name) {
+                        const { data: scoresheet } = await supabase
+                            .from('tbl_scoresheet')
+                            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+                            .eq('association_abbrev', association.abbreviation)
+                            .ilike('discipline', `%${discipline.name}%`)
+                            .maybeSingle();
+                        
+                        if (scoresheet && scoresheet.image_url) {
+                            const scoresheetId = `${scoresheet.id}`;
+                            if (!processedScoresheets.has(scoresheetId)) {
+                                scoreSheetsList.push({
+                                    ...scoresheet,
+                                    disciplineName: discipline.name,
+                                    groupName: group.name,
+                                    divisions: extractedDivisions
+                                });
+                                processedScoresheets.add(scoresheetId);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            setScoreSheets(scoreSheetsList);
+        } catch (error) {
+            console.error('Error fetching score sheets:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load score sheets.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsLoadingScoreSheets(false);
+        }
+    };
+
+    const handleOpenScoreSheets = () => {
+        setScoreSheetsDialogOpen(true);
+        fetchScoreSheets();
+    };
+
+    const fetchPatterns = async () => {
+        setIsLoadingPatterns(true);
+        try {
+            const projectData = project.project_data || {};
+            const disciplines = projectData.disciplines || [];
+            const patternSelections = projectData.patternSelections || {};
+            const patternsList = [];
+            const processedPatterns = new Set(); // To prevent duplicates
+            
+            // Collect all pattern IDs
+            const patternIds = new Set();
+            for (const discipline of disciplines) {
+                const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name] || patternSelections[discipline.index];
+                if (!disciplineSelections) continue;
+                
+                const groups = discipline.patternGroups || [];
+                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                    const group = groups[groupIndex];
+                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
+                    if (!patternSelection) continue;
+                    
+                    // Get pattern ID
+                    const patternId = typeof patternSelection === 'object' 
+                        ? (patternSelection.patternId || patternSelection.id) 
+                        : patternSelection;
+                    
+                    if (patternId && !isNaN(parseInt(patternId))) {
+                        patternIds.add(parseInt(patternId));
+                    }
+                }
+            }
+            
+            // Fetch pattern images from tbl_pattern_media
+            let patternImageMap = {};
+            if (patternIds.size > 0) {
+                const { data: patternMediaData, error: patError } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('pattern_id, image_url')
+                    .in('pattern_id', Array.from(patternIds));
+                
+                if (!patError && patternMediaData) {
+                    patternMediaData.forEach(pm => {
+                        if (!patternImageMap[pm.pattern_id]) {
+                            patternImageMap[pm.pattern_id] = pm.image_url;
+                        }
+                    });
+                }
+            }
+            
+            // Fetch pattern details from tbl_patterns
+            let patternDetailsMap = {};
+            if (patternIds.size > 0) {
+                const { data: patternData, error: patDetailError } = await supabase
+                    .from('tbl_patterns')
+                    .select('id, pdf_file_name, pattern_version, discipline, association_id')
+                    .in('id', Array.from(patternIds));
+                
+                if (!patDetailError && patternData) {
+                    patternData.forEach(p => {
+                        patternDetailsMap[p.id] = p;
+                    });
+                }
+            }
+            
+            // Build patterns list with discipline and group info
+            for (const discipline of disciplines) {
+                const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name] || patternSelections[discipline.index];
+                if (!disciplineSelections) continue;
+                
+                const groups = discipline.patternGroups || [];
+                for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                    const group = groups[groupIndex];
+                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
+                    if (!patternSelection) continue;
+                    
+                    // Get pattern ID
+                    const patternId = typeof patternSelection === 'object' 
+                        ? (patternSelection.patternId || patternSelection.id) 
+                        : patternSelection;
+                    
+                    if (!patternId || isNaN(parseInt(patternId))) continue;
+                    
+                    const patternIdNum = parseInt(patternId);
+                    const patternKey = `${patternIdNum}-${discipline.id}-${group.id || groupIndex}`;
+                    
+                    if (!processedPatterns.has(patternKey)) {
+                        const patternDetail = patternDetailsMap[patternIdNum];
+                        const imageUrl = patternImageMap[patternIdNum];
+                        
+                        // Extract divisions for this group
+                        const divisions = Array.isArray(group.divisions) ? group.divisions : [];
+                        const extractedDivisions = divisions.map(div => {
+                            if (typeof div === 'string') {
+                                return { name: div, association: '' };
+                            } else if (div && typeof div === 'object') {
+                                return {
+                                    name: div.name || div.divisionName || div.division || div.title || '',
+                                    association: div.association || div.assocName || (div.association_id ? div.association_id : '')
+                                };
+                            } else {
+                                return { name: String(div || ''), association: '' };
+                            }
+                        }).filter(div => div.name && div.name.trim() !== '');
+                        
+                        patternsList.push({
+                            patternId: patternIdNum,
+                            imageUrl: imageUrl,
+                            patternName: patternDetail?.pdf_file_name || `Pattern ${patternIdNum}`,
+                            version: patternDetail?.pattern_version || patternSelection.version || 'ALL',
+                            disciplineName: discipline.name,
+                            groupName: group.name,
+                            discipline: patternDetail?.discipline || discipline.name,
+                            divisions: extractedDivisions
+                        });
+                        processedPatterns.add(patternKey);
+                    }
+                }
+            }
+            
+            setPatterns(patternsList);
+        } catch (error) {
+            console.error('Error fetching patterns:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load patterns.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsLoadingPatterns(false);
+        }
+    };
+
+    const handleOpenPatterns = () => {
+        setPatternsDialogOpen(true);
+        fetchPatterns();
+    };
+
+    const fetchJudgeCards = async () => {
+        setIsLoadingJudgeCards(true);
+        try {
+            const projectData = project.project_data || {};
+            const disciplines = projectData.disciplines || [];
+            const groupJudges = projectData.groupJudges || {};
+            const judgeSelections = projectData.judgeSelections || {};
+            const patternSelections = projectData.patternSelections || {};
+            const associationJudges = projectData.associationJudges || {};
+            const officials = projectData.officials || [];
+            
+            // Fetch associations data for division association names
+            const { data: associationsData } = await supabase
+                .from('associations')
+                .select('id, abbreviation, name');
+            
+            const associationsMap = {};
+            (associationsData || []).forEach(a => {
+                associationsMap[a.id] = a;
+            });
+            
+            // Collect ALL judges from associationJudges and officials
+            const allJudgesSet = new Set();
+            
+            // Collect from associationJudges
+            Object.values(associationJudges).forEach(assocData => {
+                const judgesList = assocData?.judges || [];
+                judgesList.forEach(judge => {
+                    if (judge && judge.name && typeof judge.name === 'string') {
+                        allJudgesSet.add(judge.name.trim());
+                    }
+                });
+            });
+            
+            // Collect from officials
+            officials.forEach(official => {
+                if (official && official.name && typeof official.name === 'string') {
+                    allJudgesSet.add(official.name.trim());
+                }
+            });
+            
+            // Collect assigned judges to mark them
+            const assignedJudgesSet = new Set();
+            
+            // Collect from discipline-level assignments
+            Object.values(judgeSelections).forEach(judgeName => {
+                if (judgeName && typeof judgeName === 'string') {
+                    assignedJudgesSet.add(judgeName.trim());
+                }
+            });
+            
+            // Collect from group-level assignments
+            Object.values(groupJudges).forEach(disciplineGroups => {
+                if (disciplineGroups && typeof disciplineGroups === 'object' && !Array.isArray(disciplineGroups)) {
+                    Object.values(disciplineGroups).forEach(judgeName => {
+                        if (judgeName && typeof judgeName === 'string') {
+                            assignedJudgesSet.add(judgeName.trim());
+                        }
+                    });
+                } else if (Array.isArray(disciplineGroups)) {
+                    disciplineGroups.forEach(judgeName => {
+                        if (judgeName && typeof judgeName === 'string') {
+                            assignedJudgesSet.add(judgeName.trim());
+                        }
+                    });
+                }
+            });
+            
+            // Build judge cards data for ALL judges
+            const judgeCardsList = [];
+            
+            for (const judgeName of allJudgesSet) {
+                const isAssigned = assignedJudgesSet.has(judgeName);
+                const judgeAssignments = [];
+                
+                // Iterate through disciplines to find assignments
+                disciplines.forEach((discipline, disciplineIndex) => {
+                    const disciplineId = discipline.id || discipline.name || disciplineIndex;
+                    const groups = discipline.patternGroups || [];
+                    const assignedGroups = [];
+                    
+                    // Check discipline-level assignment
+                    const isDisciplineAssigned = judgeSelections[disciplineIndex]?.toLowerCase().trim() === judgeName.toLowerCase().trim();
+                    
+                    // Check group-level assignments
+                    groups.forEach((group, groupIndex) => {
+                        if (!group) return;
+                        
+                        const groupJudge = groupJudges[disciplineIndex]?.[groupIndex] || 
+                                         groupJudges[disciplineIndex]?.[group.id] ||
+                                         groupJudges[disciplineIndex]?.[String(groupIndex)];
+                        const isGroupAssigned = groupJudge && typeof groupJudge === 'string' && 
+                                              groupJudge.toLowerCase().trim() === judgeName.toLowerCase().trim();
+                        
+                        if (isDisciplineAssigned || isGroupAssigned) {
+                            // Get divisions for this group
+                            const divisions = Array.isArray(group.divisions) ? group.divisions : [];
+                            
+                            // Get pattern selection for this group
+                            const disciplinePatternSelections = patternSelections[disciplineId] || 
+                                                               patternSelections[discipline.name] || 
+                                                               patternSelections[disciplineIndex] ||
+                                                               patternSelections[String(disciplineIndex)];
+                            const patternSelection = disciplinePatternSelections?.[group.id] || 
+                                                    disciplinePatternSelections?.[groupIndex] ||
+                                                    disciplinePatternSelections?.[String(groupIndex)];
+                            const patternId = typeof patternSelection === 'object' && patternSelection !== null
+                                ? (patternSelection.patternId || patternSelection.id) 
+                                : patternSelection;
+                            
+                            // Extract divisions with proper name handling
+                            const extractedDivisions = divisions.map(div => {
+                                // Handle different division formats
+                                if (typeof div === 'string') {
+                                    return {
+                                        name: div,
+                                        association: ''
+                                    };
+                                } else if (div && typeof div === 'object') {
+                                    // Try multiple possible name fields
+                                    const divName = div.name || div.divisionName || div.division || div.title || '';
+                                    // Get association name from association_id if needed
+                                    let assocName = div.association || div.assocName || '';
+                                    if (!assocName && div.association_id) {
+                                        // Try to get association name from associations map
+                                        const assoc = associationsMap[div.association_id];
+                                        assocName = assoc?.abbreviation || assoc?.name || div.association_id;
+                                    }
+                                    return {
+                                        name: divName,
+                                        association: assocName || div.assocId || ''
+                                    };
+                                } else {
+                                    return {
+                                        name: String(div || ''),
+                                        association: ''
+                                    };
+                                }
+                            }).filter(div => div.name && div.name.trim() !== ''); // Filter out empty divisions
+                            
+                            assignedGroups.push({
+                                groupName: group.name || `Group ${groupIndex + 1}`,
+                                divisions: extractedDivisions,
+                                patternId: patternId && !isNaN(parseInt(patternId)) ? parseInt(patternId) : null
+                            });
+                        }
+                    });
+                    
+                    if (assignedGroups.length > 0) {
+                        judgeAssignments.push({
+                            disciplineName: discipline.name,
+                            groups: assignedGroups
+                        });
+                    }
+                });
+                
+                // Add judge card whether assigned or not
+                judgeCardsList.push({
+                    judgeName,
+                    isAssigned,
+                    assignments: judgeAssignments.length > 0 ? judgeAssignments : []
+                });
+            }
+            
+            // Fetch pattern details for all pattern IDs
+            const allPatternIds = new Set();
+            judgeCardsList.forEach(judgeCard => {
+                judgeCard.assignments.forEach(assignment => {
+                    assignment.groups.forEach(group => {
+                        if (group.patternId) {
+                            allPatternIds.add(group.patternId);
+                        }
+                    });
+                });
+            });
+            
+            let patternDetailsMap = {};
+            let patternImageMap = {};
+            
+            if (allPatternIds.size > 0) {
+                // Fetch pattern details
+                const { data: patternData, error: patDetailError } = await supabase
+                    .from('tbl_patterns')
+                    .select('id, pdf_file_name, pattern_version, discipline')
+                    .in('id', Array.from(allPatternIds));
+                
+                if (!patDetailError && patternData) {
+                    patternData.forEach(p => {
+                        patternDetailsMap[p.id] = p;
+                    });
+                }
+                
+                // Fetch pattern images
+                const { data: patternMediaData, error: patMediaError } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('pattern_id, image_url')
+                    .in('pattern_id', Array.from(allPatternIds));
+                
+                if (!patMediaError && patternMediaData) {
+                    patternMediaData.forEach(pm => {
+                        if (!patternImageMap[pm.pattern_id]) {
+                            patternImageMap[pm.pattern_id] = pm.image_url;
+                        }
+                    });
+                }
+            }
+            
+            // Add pattern names and images to judge cards
+            judgeCardsList.forEach(judgeCard => {
+                judgeCard.assignments.forEach(assignment => {
+                    assignment.groups.forEach(group => {
+                        if (group.patternId && patternDetailsMap[group.patternId]) {
+                            group.patternName = patternDetailsMap[group.patternId].pdf_file_name;
+                            group.patternVersion = patternDetailsMap[group.patternId].pattern_version;
+                            group.patternImageUrl = patternImageMap[group.patternId] || null;
+                        }
+                    });
+                });
+            });
+            
+            setJudgeCards(judgeCardsList);
+        } catch (error) {
+            console.error('Error fetching judge cards:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to load judge cards.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsLoadingJudgeCards(false);
+        }
+    };
+
+    const handleOpenJudgeCards = () => {
+        setJudgeCardsDialogOpen(true);
+        fetchJudgeCards();
+    };
+
     return (
         <>
             <div 
@@ -353,7 +918,7 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            {!allStaffLockedOrPublished && (
+                            {!allJudgesLockedOrPublished && !isPastPatternPortal && (
                                 <DropdownMenuItem onClick={() => handleMenuAction('open')}>
                                     <Pencil className="mr-2 h-4 w-4" /> Open card
                                 </DropdownMenuItem>
@@ -368,26 +933,115 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
                     </DropdownMenu>
                 </div>
                 
-                {/* Expanded Content - Staff Cards */}
+                {/* Expanded Content - Navigation Sections and Judge Cards */}
                 {isExpanded && (
                     <div className="px-4 pb-4 pt-3 space-y-3 bg-background">
-                        {staffList.length > 0 ? (
-                            staffList.map((staff, index) => (
-                                <StaffAccessCard 
-                                    key={staff.id || index} 
-                                    staffMember={staff} 
-                                    projectId={project.id}
-                                    projectData={project.project_data || {}}
-                                    projectName={project.project_name || 'Pattern Book'}
-                                    currentUserName={currentUserName}
-                                    onRefresh={onRefresh}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-center py-6 text-muted-foreground">
-                                No staff delegations configured. Configure in Step 8: Close Out & Review.
+                        {/* Status Changer - Visible Button */}
+                        <div className="mb-4 p-3 rounded-lg border border-border bg-muted/20">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground">Status:</span>
+                                    <Badge 
+                                        variant="outline"
+                                        className={cn(
+                                            "font-medium",
+                                            selectedStatus === 'Draft' 
+                                                ? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                                                : selectedStatus === 'Approval and Locked'
+                                                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+                                                : "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
+                                        )}
+                                    >
+                                        {selectedStatus === 'Approval and Locked' ? 'Lock & Approve Mode' : selectedStatus}
+                                    </Badge>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStatusDialogOpen(true);
+                                    }}
+                                    className="h-8"
+                                >
+                                    <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                                    Change Status
+                                </Button>
                             </div>
-                        )}
+                        </div>
+                        
+                        {/* Navigation Sections */}
+                        <div className="space-y-2 mb-4">
+                            <div className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStatusDialogOpen(true);
+                                    }}
+                                    className="h-8 w-8 hover:bg-primary hover:text-primary-foreground shrink-0"
+                                    title="Change Status"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </Button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenScoreSheets();
+                                    }}
+                                    className="flex-1 text-left"
+                                >
+                                    <span className="text-foreground font-medium">Score Sheets</span>
+                                </button>
+                            </div>
+                            <div className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStatusDialogOpen(true);
+                                    }}
+                                    className="h-8 w-8 hover:bg-primary hover:text-primary-foreground shrink-0"
+                                    title="Change Status"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </Button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenPatterns();
+                                    }}
+                                    className="flex-1 text-left"
+                                >
+                                    <span className="text-foreground font-medium">Patterns</span>
+                                </button>
+                            </div>
+                            <div className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setStatusDialogOpen(true);
+                                    }}
+                                    className="h-8 w-8 hover:bg-primary hover:text-primary-foreground shrink-0"
+                                    title="Change Status"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </Button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenJudgeCards();
+                                    }}
+                                    className="flex-1 text-left"
+                                >
+                                    <span className="text-foreground font-medium">Judge Cards</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
@@ -405,6 +1059,431 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName }) => {
                 currentDate={dueDate}
                 onSaveDate={handleSaveDueDate}
             />
+            
+            {/* Score Sheets Dialog */}
+            <Dialog open={scoreSheetsDialogOpen} onOpenChange={setScoreSheetsDialogOpen}>
+                <DialogContent className="sm:max-w-6xl max-h-[95vh] p-0 flex flex-col bg-white">
+                    {/* Header Section */}
+                    <div className="text-center border-b border-gray-300 px-6 py-4 bg-white">
+                        <h2 className="text-2xl font-bold text-black mb-1">
+                            {project.project_name || 'Pattern Book'}
+                        </h2>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                            Score Sheet Details
+                        </h3>
+                        {project.project_data?.startDate && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                Show Date: {format(parseLocalDate(project.project_data.startDate), 'MM-dd-yyyy')}
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 bg-white">
+                        {isLoadingScoreSheets ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <span className="ml-3 text-muted-foreground">Loading score sheets...</span>
+                            </div>
+                        ) : scoreSheets.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-4 items-start">
+                                {scoreSheets.map((scoresheet, index) => (
+                                    <div 
+                                        key={scoresheet.id || index} 
+                                        className="border border-gray-300 bg-white overflow-hidden flex flex-col h-full"
+                                    >
+                                        {/* Pattern Title */}
+                                        <div className="bg-gray-50 border-b border-gray-300 px-3 py-3 text-center min-h-[80px] flex flex-col justify-center">
+                                            <p className="font-semibold text-sm text-black">
+                                                {scoresheet.disciplineName || scoresheet.discipline || 'Score Sheet'}
+                                            </p>
+                                            {scoresheet.groupName && (
+                                                <p className="text-xs text-gray-600 mt-0.5 font-medium">
+                                                    {scoresheet.groupName}
+                                                </p>
+                                            )}
+                                            {/* Divisions per Group */}
+                                            {scoresheet.divisions && scoresheet.divisions.length > 0 ? (
+                                                <div className="mt-2 flex flex-wrap justify-center gap-1">
+                                                    {scoresheet.divisions.map((division, divIndex) => {
+                                                        const divName = division?.name || '';
+                                                        const divAssoc = division?.association || '';
+                                                        if (!divName || divName.trim() === '') return null;
+                                                        return (
+                                                            <span 
+                                                                key={`div-${divIndex}`}
+                                                                className="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
+                                                            >
+                                                                {divName}
+                                                                {divAssoc && ` (${divAssoc})`}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="mt-2 h-5"></div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Pattern Image */}
+                                        <div className="relative bg-white p-4 min-h-[400px] flex items-center justify-center flex-1">
+                                            {scoresheet.image_url ? (
+                                                <img
+                                                    src={scoresheet.image_url}
+                                                    alt={scoresheet.file_name || scoresheet.discipline || 'Score Sheet'}
+                                                    className="max-w-full max-h-[500px] object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                                    onClick={() => window.open(scoresheet.image_url, '_blank')}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-64 bg-gray-100 flex items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-300">
+                                                    No image available
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Footer Info */}
+                                        <div className="bg-gray-50 border-t border-gray-300 px-3 py-2 text-center">
+                                            <p className="text-xs text-gray-600">
+                                                {scoresheet.file_name || scoresheet.discipline || 'Score Sheet'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-gray-500">
+                                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                <p>No score sheets found for this pattern book.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Patterns Dialog */}
+            <Dialog open={patternsDialogOpen} onOpenChange={setPatternsDialogOpen}>
+                <DialogContent className="sm:max-w-6xl max-h-[95vh] p-0 flex flex-col bg-white">
+                    {/* Header Section */}
+                    <div className="text-center border-b border-gray-300 px-6 py-4 bg-white">
+                        <h2 className="text-2xl font-bold text-black mb-1">
+                            {project.project_name || 'Pattern Book'}
+                        </h2>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                            Pattern Details
+                        </h3>
+                        {project.project_data?.startDate && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                Show Date: {format(parseLocalDate(project.project_data.startDate), 'MM-dd-yyyy')}
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 bg-white">
+                        {isLoadingPatterns ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <span className="ml-3 text-muted-foreground">Loading patterns...</span>
+                            </div>
+                        ) : patterns.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-4">
+                                {patterns.map((pattern, index) => (
+                                    <div 
+                                        key={`${pattern.patternId}-${index}`} 
+                                        className="border border-gray-300 bg-white overflow-hidden"
+                                    >
+                                        {/* Pattern Title */}
+                                        <div className="bg-gray-50 border-b border-gray-300 px-3 py-2 text-center">
+                                            <p className="font-semibold text-sm text-black">
+                                                {pattern.disciplineName || pattern.discipline || 'Pattern'}
+                                            </p>
+                                            {pattern.groupName && (
+                                                <p className="text-xs text-gray-600 mt-0.5 font-medium">
+                                                    {pattern.groupName}
+                                                </p>
+                                            )}
+                                            {/* Divisions per Group */}
+                                            {pattern.divisions && pattern.divisions.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap justify-center gap-1">
+                                                    {pattern.divisions.map((division, divIndex) => {
+                                                        const divName = division?.name || '';
+                                                        const divAssoc = division?.association || '';
+                                                        if (!divName || divName.trim() === '') return null;
+                                                        return (
+                                                            <span 
+                                                                key={`div-${divIndex}`}
+                                                                className="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
+                                                            >
+                                                                {divName}
+                                                                {divAssoc && ` (${divAssoc})`}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Pattern Image */}
+                                        <div className="relative bg-white p-4 min-h-[400px] flex items-center justify-center">
+                                            {pattern.imageUrl ? (
+                                                <img
+                                                    src={pattern.imageUrl}
+                                                    alt={pattern.patternName || 'Pattern'}
+                                                    className="max-w-full max-h-[500px] object-contain cursor-pointer hover:opacity-95 transition-opacity"
+                                                    onClick={() => window.open(pattern.imageUrl, '_blank')}
+                                                />
+                                            ) : (
+                                                <div className="w-full h-64 bg-gray-100 flex items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-300">
+                                                    No image available
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Footer Info */}
+                                        <div className="bg-gray-50 border-t border-gray-300 px-3 py-2 text-center">
+                                            <p className="text-xs text-gray-600">
+                                                {pattern.patternName || `Pattern ${pattern.patternId}`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-gray-500">
+                                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                <p>No patterns found for this pattern book.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Judge Cards Dialog */}
+            <Dialog open={judgeCardsDialogOpen} onOpenChange={setJudgeCardsDialogOpen}>
+                <DialogContent className="sm:max-w-6xl max-h-[95vh] p-0 flex flex-col bg-white">
+                    {/* Header Section */}
+                    <div className="text-center border-b border-gray-300 px-6 py-4 bg-white">
+                        <h2 className="text-2xl font-bold text-black mb-1">
+                            {project.project_name || 'Pattern Book'}
+                        </h2>
+                        <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                            Judges Details
+                        </h3>
+                        {project.project_data?.startDate && (
+                            <p className="text-xs text-gray-500 mt-1">
+                                Show Date: {format(parseLocalDate(project.project_data.startDate), 'MM-dd-yyyy')}
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto px-6 py-6 bg-white">
+                        {isLoadingJudgeCards ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <span className="ml-3 text-muted-foreground">Loading judge cards...</span>
+                            </div>
+                        ) : judgeCards.length > 0 ? (
+                            <div className="space-y-8">
+                                {judgeCards.map((judgeCard, judgeIndex) => (
+                                    <div 
+                                        key={`judge-${judgeIndex}`} 
+                                        className="border border-gray-300 bg-white rounded-lg overflow-hidden"
+                                    >
+                                        {/* Judge Name Header - Prominent */}
+                                        <div className="bg-white border-b-2 border-gray-300 px-6 py-4 flex items-center justify-between">
+                                            <h3 className="text-2xl font-bold text-black">
+                                                {judgeCard.judgeName}
+                                            </h3>
+                                            {judgeCard.isAssigned ? (
+                                                <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                                    Assigned
+                                                </span>
+                                            ) : (
+                                                <span className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                                                    Not Assigned
+                                                </span>
+                                            )}
+                                        </div>
+                                        
+                                        {/* Judge Assignments */}
+                                        <div className="p-6 space-y-6">
+                                            {judgeCard.assignments.length > 0 ? (
+                                                judgeCard.assignments.map((assignment, assignmentIndex) => (
+                                                <div 
+                                                    key={`assignment-${assignmentIndex}`}
+                                                    className="space-y-4"
+                                                >
+                                                    {/* Discipline Name */}
+                                                    <h4 className="text-xl font-semibold text-black">
+                                                        {assignment.disciplineName}
+                                                    </h4>
+                                                    
+                                                    {/* Groups - Horizontal Layout */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                        {assignment.groups.map((group, groupIndex) => (
+                                                            <div 
+                                                                key={`group-${groupIndex}`}
+                                                                className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col"
+                                                            >
+                                                                {/* Group Name */}
+                                                                <div className="mb-3">
+                                                                    <p className="font-semibold text-base text-gray-900">
+                                                                        {group.groupName}
+                                                                    </p>
+                                                                </div>
+                                                                
+                                                                {/* Divisions - Per Group */}
+                                                                <div className="mb-3">
+                                                                    <p className="text-xs font-medium text-gray-600 mb-2">Divisions:</p>
+                                                                    {group.divisions && group.divisions.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                            {group.divisions.map((division, divIndex) => {
+                                                                                const divName = division?.name || division || '';
+                                                                                const divAssoc = division?.association || '';
+                                                                                if (!divName || divName.trim() === '') return null;
+                                                                                return (
+                                                                                    <span 
+                                                                                        key={`div-${divIndex}`}
+                                                                                        className="inline-block px-2.5 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
+                                                                                    >
+                                                                                        {divName}
+                                                                                        {divAssoc && ` (${divAssoc})`}
+                                                                                    </span>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <p className="text-xs text-gray-400 italic">No divisions assigned</p>
+                                                                    )}
+                                                                </div>
+                                                                
+                                                                {/* Pattern Image and Name */}
+                                                                {group.patternId && (
+                                                                    <div className="mt-auto">
+                                                                        {group.patternImageUrl ? (
+                                                                            <div className="space-y-2">
+                                                                                <img
+                                                                                    src={group.patternImageUrl}
+                                                                                    alt={group.patternName || `Pattern ${group.patternId}`}
+                                                                                    className="w-full h-auto border border-gray-200 rounded cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                    onClick={() => window.open(group.patternImageUrl, '_blank')}
+                                                                                />
+                                                                                <div className="text-center">
+                                                                                    <p className="text-sm text-gray-900 font-semibold">
+                                                                                        {group.patternName || `Pattern ${group.patternId}`}
+                                                                                    </p>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="text-center border border-gray-200 rounded p-4 bg-white">
+                                                                                <p className="text-sm text-gray-900 font-semibold">
+                                                                                    {group.patternName || `Pattern ${group.patternId}`}
+                                                                                </p>
+                                                                                <p className="text-xs text-gray-400 mt-2">No image available</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                                    <p className="text-sm">No assignments for this judge</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-gray-500">
+                                <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                                <p>No judge assignments found for this pattern book.</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Status Change Dialog */}
+            <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle>Change Pattern Status</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <p className="text-sm text-muted-foreground">
+                            Select the status for this pattern book:
+                        </p>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => setSelectedStatus('Draft')}
+                                className={cn(
+                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                    selectedStatus === 'Draft'
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border hover:bg-muted/50"
+                                )}
+                            >
+                                <div className="font-medium text-foreground">Draft</div>
+                                <div className="text-sm text-muted-foreground mt-1">Pattern is in draft mode</div>
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('Approval and Locked')}
+                                className={cn(
+                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                    selectedStatus === 'Approval and Locked'
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border hover:bg-muted/50"
+                                )}
+                            >
+                                <div className="font-medium text-foreground">Approval and Locked</div>
+                                <div className="text-sm text-muted-foreground mt-1">Pattern is locked and ready for approval</div>
+                            </button>
+                            <button
+                                onClick={() => setSelectedStatus('Publication')}
+                                className={cn(
+                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                    selectedStatus === 'Publication'
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border hover:bg-muted/50"
+                                )}
+                            >
+                                <div className="font-medium text-foreground">Publication</div>
+                                <div className="text-sm text-muted-foreground mt-1">Pattern is published and available</div>
+                            </button>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                            <Button 
+                                variant="outline" 
+                                className="flex-1" 
+                                onClick={() => setStatusDialogOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                className="flex-1" 
+                                onClick={handleSaveStatus} 
+                                disabled={isSavingStatus}
+                            >
+                                {isSavingStatus ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save'
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };
@@ -505,7 +1584,7 @@ const DueDateDialog = ({ open, onClose, currentDate, onSaveDate }) => {
     );
 };
 
-const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
+const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPortal = false }) => {
     const navigate = useNavigate();
     const { toast } = useToast();
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
@@ -635,12 +1714,14 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
     // Render menu items based on menuType
     const renderMenuItems = () => {
         if (menuType === 'folder') {
-            // Pattern Folder: open card, change cover, preview only
+            // Pattern Folder: open card, change cover, preview only (hide open card for Past Pattern Portal)
             return (
                 <>
-                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                    </DropdownMenuItem>
+                    {!isPastPatternPortal && (
+                        <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                            <Pencil className="mr-2 h-4 w-4" /> Open card
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                         <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                     </DropdownMenuItem>
@@ -650,12 +1731,14 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                 </>
             );
         } else {
-            // Pattern Books and Horse Shows: open card, change cover, edit dates, download folder, archive
+            // Pattern Books and Horse Shows: open card, change cover, edit dates, download folder, archive (hide open card for Past Pattern Portal)
             return (
                 <>
-                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
-                        <Pencil className="mr-2 h-4 w-4" /> Open card
-                    </DropdownMenuItem>
+                    {!isPastPatternPortal && (
+                        <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                            <Pencil className="mr-2 h-4 w-4" /> Open card
+                        </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => handleMenuAction('cover')}>
                         <ImageIcon className="mr-2 h-4 w-4" /> Change cover
                     </DropdownMenuItem>
@@ -740,7 +1823,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                         <p className="text-sm text-muted-foreground">
                             Last saved: {format(new Date(project.updated_at), "MMMM d, yyyy 'at' h:mm a")}
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'In Progress' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'In Progress'}</span></p>
+                        <p className="text-sm text-muted-foreground mt-1">Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'Draft' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'Draft'}</span></p>
                         {dueDate && (
                             <p className="text-sm text-muted-foreground mt-1">
                                 Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span>
@@ -748,13 +1831,15 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                         )}
                     </CardContent>
                     <CardFooter>
-                        <Button 
-                            onClick={handleContinueEditing} 
-                            className="w-full"
-                            disabled={isLocked}
-                        >
-                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
+                        {!isPastPatternPortal && (
+                            <Button 
+                                onClick={handleContinueEditing} 
+                                className="w-full"
+                                disabled={isLocked}
+                            >
+                                Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        )}
                     </CardFooter>
                 </Card>
 
@@ -871,21 +1956,23 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh }) => {
                     {/* Project Details */}
                     <div className="space-y-1 text-sm text-muted-foreground mb-4">
                         <p>Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}</p>
-                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'In Progress' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'In Progress'}</span></p>
+                        <p>Status: <span className="capitalize font-medium text-foreground">{project.status === 'Draft' ? 'Draft' : project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status || 'Draft'}</span></p>
                         {dueDate && (
                             <p>Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
                         )}
                     </div>
                     
-                    {/* Action Button */}
-                    <Button 
-                        onClick={handleContinueEditing} 
-                        className="w-full" 
-                        size="sm"
-                        disabled={isLocked}
-                    >
-                        Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
+                    {/* Action Button - Hide for Past Pattern Portal */}
+                    {!isPastPatternPortal && (
+                        <Button 
+                            onClick={handleContinueEditing} 
+                            className="w-full" 
+                            size="sm"
+                            disabled={isLocked}
+                        >
+                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -944,9 +2031,37 @@ const CustomerPortalPage = () => {
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
     const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
     
+    // Filter pattern books by status (case-insensitive comparison)
+    // Active Pattern Book: Show all projects with Status === 'Draft'
+    const activePatternBooks = patternBookProjects.filter(p => {
+        const status = (p.status || 'Draft').toString().trim();
+        return status.toLowerCase() === 'draft';
+    });
+    
+    // Pattern Portal: Show all projects with Status !== 'Draft' AND Status !== 'Publication'
+    const pastPatternBooks = patternBookProjects.filter(p => {
+        const status = (p.status || 'Draft').toString().trim();
+        const statusLower = status.toLowerCase();
+        return statusLower !== 'draft' && statusLower !== 'publication';
+    });
+    
+    // Past Pattern Portal: Show only projects with Status === 'Publication'
+    const publishedPatternBooks = patternBookProjects.filter(p => {
+        const status = (p.status || 'Draft').toString().trim();
+        return status.toLowerCase() === 'publication';
+    });
+    
+    // Debug logging
+    console.log('Total projects:', projects.length);
+    console.log('Pattern book projects:', patternBookProjects.length);
+    console.log('Active pattern books (Draft):', activePatternBooks.length, activePatternBooks.map(p => ({ name: p.project_name, status: p.status })));
+    console.log('Past pattern books (Non-Draft):', pastPatternBooks.length);
+    console.log('Published pattern books:', publishedPatternBooks.length);
+    
     const [expandedSections, setExpandedSections] = useState({
         patternFolders: true,
         patternBooks: true,
+        pastPatternPortal: true,
         horseShows: true
     });
     
@@ -983,14 +2098,19 @@ const CustomerPortalPage = () => {
                         // Folder-style layout for Pattern Portal - 3 folders per row
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {projectList.map(project => (
-                                <PatternFolderItem key={project.id} project={project} currentUserName={profile?.full_name || user?.email || 'User'} />
+                                <PatternFolderItem 
+                                    key={project.id} 
+                                    project={project} 
+                                    currentUserName={profile?.full_name || user?.email || 'User'} 
+                                    isPastPatternPortal={sectionKey === 'pastPatternPortal'}
+                                />
                             ))}
                         </div>
                     ) : (
                         // Grid layout for Pattern Books and Horse Shows
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                             {projectList.map(project => (
-                                <ProjectCard key={project.id} project={project} menuType={menuType} onRefresh={fetchProjects} />
+                                <ProjectCard key={project.id} project={project} menuType={menuType} onRefresh={fetchProjects} isPastPatternPortal={sectionKey === 'pastPatternPortal'} />
                             ))}
                         </div>
                     )
@@ -1028,8 +2148,8 @@ const CustomerPortalPage = () => {
                     ) : (
                         <div>
                             {renderProjectList(
-                                patternBookProjects,
-                                "Pattern Books",
+                                activePatternBooks,
+                                "Active Pattern Book",
                                 "Build and manage your horse show pattern books.",
                                 "/pattern-book-builder",
                                 "New Pattern Book",
@@ -1037,13 +2157,23 @@ const CustomerPortalPage = () => {
                                 "default"
                             )}
                             {renderProjectList(
-                                patternBookProjects,
+                                pastPatternBooks,
                                 "Pattern Portal",
                                 "Organize and store your pattern collections.",
                                 "",
                                 "",
                                 "patternFolders",
                                 "folder",
+                                true
+                            )}
+                            {renderProjectList(
+                                publishedPatternBooks,
+                                "Past Pattern Portal",
+                                "View your published pattern books.",
+                                "",
+                                "",
+                                "pastPatternPortal",
+                                "default",
                                 true
                             )}
                             {renderProjectList(

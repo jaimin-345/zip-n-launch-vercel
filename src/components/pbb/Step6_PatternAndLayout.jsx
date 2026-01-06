@@ -545,11 +545,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       const names = [];
       const abbreviations = [];
       uniqueAssocIds.forEach(assocId => {
-        const assoc = associationsData?.find(a => a.id === assocId);
-        if (assoc) {
+      const assoc = associationsData?.find(a => a.id === assocId);
+      if (assoc) {
           if (assoc.name) names.push(assoc.name);
           if (assoc.abbreviation) abbreviations.push(assoc.abbreviation);
-        }
+      }
       });
       return { names, abbreviations, ids: uniqueAssocIds };
     }
@@ -1177,7 +1177,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 setHoveredPatternId(null);
                               }}
                             >
-                              {(() => {
+                                            {(() => {
                                 let allPatterns = getFilteredPatterns(discipline.id);
                                 
                                 // Check if this is an open-show discipline
@@ -1294,8 +1294,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         setHoverPosition({ 
                                           x: screenWidth / 2, 
                                           y: screenHeight / 2 
-                                        });
-                                      }}
+                                                                });
+                                                            }}
                                       onMouseLeave={(e) => {
                                         // Don't hide immediately - let the preview handle its own mouse leave
                                         // Only hide if we're not moving to the preview
@@ -1317,15 +1317,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         {version && version !== 'ALL' && (
                                           <Badge variant="outline" className="text-xs flex-shrink-0">{version}</Badge>
                                         )}
-                                      </div>
+                                                            </div>
                                     </SelectItem>
-                                  );
+                                                    );
                                 });
                               })()}
                             </SelectContent>
                           </Select>
                         </div>
-                        
+
                         {/* Assign Judge & Date Button */}
                         <Button
                           variant="outline"
@@ -1431,23 +1431,23 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                 >
                                   <div>
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <Label className="font-semibold text-base">{group.name}</Label>
-                                        {/* Show pattern badge if selected (only for pattern disciplines) */}
-                                        {!isScoresheetOnly && currentSelection?.patternName && (() => {
-                                          const patternName = currentSelection.patternName || '';
-                                          // Remove .pdf extension if present
-                                          const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                                          const version = currentSelection.version || '';
-                                          // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
-                                          const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                                          return (
-                                            <PatternBadgeWithHover 
-                                              patternId={currentSelection.patternId} 
-                                              displayText={displayText}
-                                              formData={formData}
-                                            />
-                                          );
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <Label className="font-semibold text-base">{group.name}</Label>
+                                      {/* Show pattern badge if selected (only for pattern disciplines) */}
+                                      {!isScoresheetOnly && currentSelection?.patternName && (() => {
+                                        const patternName = currentSelection.patternName || '';
+                                        // Remove .pdf extension if present
+                                        const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                                        const version = currentSelection.version || '';
+                                        // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
+                                        const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                                        return (
+                                          <PatternBadgeWithHover 
+                                            patternId={currentSelection.patternId} 
+                                            displayText={displayText}
+                                            formData={formData}
+                                          />
+                                        );
                                         })()}
                                       </div>
                                       {/* Show association badge on right side - get from pattern data */}
@@ -1489,19 +1489,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                           {/* Pattern Selector */}
                                           <div>
                                               <Label className="text-xs text-muted-foreground mb-1 block">Select Pattern</Label>
-                                              <Select
-                                                value={currentSelection?.patternId?.toString() || ''}
-                                                onValueChange={(value) => {
-                                                    // Hide preview when pattern is selected
-                                                    setHoveredPatternId(null);
-                                                    const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
-                                                    const patternManeuversRange = selectedPattern?.maneuvers_range || '';
-                                                    handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
-                                                }}
-                                            >
+                                          <Select
+                                            value={currentSelection?.patternId?.toString() || ''}
+                                            onValueChange={(value) => {
+                                                // Hide preview when pattern is selected
+                                                setHoveredPatternId(null);
+                                                const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
+                                                const patternManeuversRange = selectedPattern?.maneuvers_range || '';
+                                                handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
+                                            }}
+                                        >
                                                 <SelectTrigger className="bg-background [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words">
-                                                    <SelectValue placeholder="Select Pattern" />
-                                                </SelectTrigger>
+                                                <SelectValue placeholder="Select Pattern" />
+                                            </SelectTrigger>
                                             <SelectContent 
                                                 className="max-h-[300px]"
                                                 onMouseLeave={() => {
@@ -1527,7 +1527,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             associationNamesToFilter = [currentSelection.filterAssociation];
                                                         } else {
                                                             // Fallback to group associations based on Primary logic
-                                                            const groupAssociations = getGroupAssociationNames(group);
+                                                        const groupAssociations = getGroupAssociationNames(group);
                                                             associationNamesToFilter = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
                                                         }
                                                         
@@ -1744,8 +1744,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         </div>
                                     </div>
                                     
-                                    {/* Hover Preview - Rendered via portal at body level, centered */}
-                                    {hoveredPatternId && typeof document !== 'undefined' && createPortal(
+                                        {/* Hover Preview - Rendered via portal at body level, centered */}
+                                        {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                             <div
                                                 className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
                                                 style={{

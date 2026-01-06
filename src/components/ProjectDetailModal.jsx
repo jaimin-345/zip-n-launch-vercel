@@ -227,7 +227,7 @@ const ProjectDetailModal = ({
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-muted-foreground">Status:</span>
                                 <Badge variant={project.status === 'Lock & Approve Mode' ? 'default' : 'secondary'}>
-                                    {project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status === 'Draft' ? 'In Progress' : project.status || 'In Progress'}
+                                    {project.status === 'Lock & Approve Mode' ? 'Lock & Approve Mode' : project.status === 'Draft' ? 'Draft' : project.status || 'In Progress'}
                                 </Badge>
                             </div>
                         </div>
