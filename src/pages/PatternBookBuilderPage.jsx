@@ -6,6 +6,7 @@ import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
@@ -107,6 +108,7 @@ const PatternBookBuilderPage = () => {
 
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+    const [isSaveConfirmationOpen, setIsSaveConfirmationOpen] = useState(false);
     const { toast } = useToast();
     const { trackBehaviorEvent, trackPatternEvent } = useAnalytics();
     const sessionStartRef = React.useRef(Date.now());
@@ -334,8 +336,55 @@ const PatternBookBuilderPage = () => {
             // Don't open dialog when there are errors
             return;
         }
-        // Only open dialog when validation passes (no errors)
-        setIsGenerateDialogOpen(true);
+        // Show save confirmation dialog first
+        setIsSaveConfirmationOpen(true);
+    };
+
+    const handleSaveAndPublish = async () => {
+        setIsSaveConfirmationOpen(false);
+        setIsSaving(true);
+        try {
+            const savedProjectId = await createOrUpdateProject();
+            
+            // Calculate time spent since session start
+            const timeSpent = Math.round((Date.now() - sessionStartRef.current) / 1000);
+            
+            // Track save event with time spent
+            trackPatternEvent('save', {
+                patternId: savedProjectId || projectId,
+                associationId: Object.keys(formData.associations || {}).filter(k => formData.associations[k]).join(', '),
+                discipline: formData.disciplines?.map(d => d.name).join(', '),
+                timeSpent: timeSpent,
+            });
+            
+            trackBehaviorEvent('pbb_project_saved', {
+                projectId: savedProjectId || projectId,
+                step: currentStep,
+                showName: formData.showName,
+            });
+            
+            // Only navigate if we're creating a new project (no projectId before)
+            if (savedProjectId && !projectId) {
+                navigate(`/pattern-book-builder/${savedProjectId}`, { replace: true });
+            }
+            
+            toast({
+                title: "Project Saved",
+                description: "Your project has been saved successfully.",
+            });
+            
+            // After saving, open the Generate & Email Pattern Book dialog
+            setIsGenerateDialogOpen(true);
+        } catch (error) {
+            console.error('Error saving project:', error);
+            toast({
+                variant: "destructive",
+                title: "Save Failed",
+                description: "Failed to save project. Please try again.",
+            });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const renderStepContent = () => {
@@ -455,6 +504,43 @@ const PatternBookBuilderPage = () => {
                     onOpenChange={setIsGenerateDialogOpen}
                     pbbData={formData}
                 />
+                
+                {/* Save Confirmation Dialog */}
+                <Dialog open={isSaveConfirmationOpen} onOpenChange={setIsSaveConfirmationOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Save Project First</DialogTitle>
+                            <DialogDescription>
+                                Please save your project before publishing. This ensures all your changes are saved.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setIsSaveConfirmationOpen(false)}
+                                disabled={isSaving}
+                            >
+                                Cancel
+                            </Button>
+                            <Button 
+                                onClick={handleSaveAndPublish} 
+                                disabled={isSaving}
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="mr-2 h-4 w-4" />
+                                        Save & Continue
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     );

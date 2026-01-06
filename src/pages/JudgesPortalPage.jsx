@@ -19,6 +19,7 @@ import {
     ExternalLink, Filter, Clock, Package, StickyNote, Bell, Calendar
 } from 'lucide-react';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
+import JudgePatternEditor from '@/components/JudgePatternEditor';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchAssociations } from '@/lib/associationsData';
@@ -26,9 +27,69 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
+import { cn, parseLocalDate } from '@/lib/utils';
 
 // Admin email that has full access
 const ADMIN_EMAIL = 'johndoe@mailinator.com';
+
+// Component to fetch and display pattern preview image
+const PatternPreviewImage = ({ patternId, patternName }) => {
+    const [imageUrl, setImageUrl] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    useEffect(() => {
+        const fetchPatternImage = async () => {
+            if (!patternId) {
+                setIsLoading(false);
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('tbl_pattern_media')
+                    .select('image_url')
+                    .eq('pattern_id', patternId)
+                    .maybeSingle();
+                
+                if (error) throw error;
+                setImageUrl(data?.image_url || null);
+            } catch (error) {
+                console.error('Error fetching pattern image:', error);
+                setImageUrl(null);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        
+        fetchPatternImage();
+    }, [patternId]);
+    
+    if (isLoading) {
+        return (
+            <div className="w-full h-40 rounded border bg-muted flex items-center justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+    
+    if (imageUrl) {
+        return (
+            <div className="rounded-md overflow-hidden border bg-muted/20">
+                <img 
+                    src={imageUrl} 
+                    alt={patternName}
+                    className="w-full h-auto object-contain max-h-[400px]"
+                />
+            </div>
+        );
+    }
+    
+    return (
+        <div className="w-full h-40 rounded border bg-muted flex items-center justify-center text-muted-foreground text-sm">
+            No preview available
+        </div>
+    );
+};
 
 const JudgesPortalPage = () => {
     const { user, updateUserProfile } = useAuth();
@@ -106,6 +167,10 @@ const JudgesPortalPage = () => {
     const [selectedProjectForModal, setSelectedProjectForModal] = useState(null);
     const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
     
+    // Judge Pattern Editor State
+    const [selectedProjectForEdit, setSelectedProjectForEdit] = useState(null);
+    const [isPatternEditorOpen, setIsPatternEditorOpen] = useState(false);
+    
     // Fetch assigned projects for non-admin judges
     useEffect(() => {
         const fetchAssignedProjects = async () => {
@@ -174,10 +239,10 @@ const JudgesPortalPage = () => {
                 // Get unique project IDs
                 const projectIds = [...new Set(notifications.map(n => n.project_id))];
                 
-                // Fetch project data for dates
+                // Fetch project data for dates and status
                 const { data: projects, error: projError } = await supabase
                     .from('projects')
-                    .select('id, project_name, project_data')
+                    .select('id, project_name, project_data, status')
                     .in('id', projectIds);
                 
                 if (projError) throw projError;
@@ -223,20 +288,121 @@ const JudgesPortalPage = () => {
                     }
                 }
                 
+                // Get judge name from project data (case-insensitive matching)
+                const getJudgeNameForProject = (projectData) => {
+                    const userEmailLower = user.email.toLowerCase();
+                    
+                    // Check associationJudges
+                    const associationJudges = projectData.associationJudges || {};
+                    for (const assocId in associationJudges) {
+                        const assocData = associationJudges[assocId];
+                        const judgesList = assocData?.judges || [];
+                        const matchedJudge = judgesList.find(j => j.email?.toLowerCase() === userEmailLower);
+                        if (matchedJudge?.name) return matchedJudge.name;
+                    }
+                    
+                    // Check officials
+                    const officials = projectData.officials || [];
+                    const matchedOfficial = officials.find(o => o.email?.toLowerCase() === userEmailLower);
+                    if (matchedOfficial?.name) return matchedOfficial.name;
+                    
+                    return null;
+                };
+                
                 // Combine notifications with project data and extract pattern names
                 const tableData = notifications.map(n => {
                     const project = projectMap[n.project_id] || {};
                     const projectData = project.project_data || {};
                     
-                    // Extract pattern names, IDs, and disciplines from patternSelections
+                    // Get judge name for this project
+                    const judgeName = getJudgeNameForProject(projectData);
+                    if (!judgeName) {
+                        // If judge name not found, return empty data
+                        return {
+                            id: n.id,
+                            project_id: n.project_id,
+                            project_name: n.project_name || project.project_name || 'Unknown Show',
+                            pattern_items: [],
+                            discipline_names: [],
+                            start_date: projectData.startDate || null,
+                            end_date: projectData.endDate || null,
+                            status: project.status || 'Draft',
+                            created_at: n.created_at,
+                            is_read: n.is_read
+                        };
+                    }
+                    
+                    // Get disciplines and find which ones are assigned to this judge
+                    const disciplines = projectData.disciplines || [];
+                    const groupJudges = projectData.groupJudges || {};
+                    const judgeSelections = projectData.judgeSelections || {};
+                    const patternSelections = projectData.patternSelections || {};
+                    
+                    // Find assigned discipline IDs
+                    const assignedDisciplineIds = new Set();
+                    const assignedDisciplineIndices = new Set();
+                    
+                    disciplines.forEach((discipline, disciplineIndex) => {
+                        const disciplineId = discipline.id;
+                        let isAssigned = false;
+                        
+                        // Check discipline-level assignment
+                        const disciplineJudge = judgeSelections[disciplineIndex];
+                        if (disciplineJudge && disciplineJudge.toLowerCase().trim() === judgeName.toLowerCase().trim()) {
+                            isAssigned = true;
+                        }
+                        
+                        // Check group-level assignments
+                        if (!isAssigned) {
+                            const groups = discipline.patternGroups || [];
+                            groups.forEach((group, groupIndex) => {
+                                const groupJudge = groupJudges[disciplineIndex]?.[groupIndex];
+                                if (groupJudge && groupJudge.toLowerCase().trim() === judgeName.toLowerCase().trim()) {
+                                    isAssigned = true;
+                                }
+                            });
+                        }
+                        
+                        if (isAssigned) {
+                            assignedDisciplineIds.add(disciplineId);
+                            assignedDisciplineIndices.add(disciplineIndex);
+                        }
+                    });
+                    
+                    // Extract pattern names, IDs, and disciplines from patternSelections (only for assigned disciplines)
                     const patternItems = [];
                     const disciplineNames = [];
-                    if (projectData.patternSelections) {
-                        Object.entries(projectData.patternSelections).forEach(([discipline, disciplinePatterns]) => {
-                            // Add discipline name (filter out numeric keys and empty values)
-                            if (discipline && !disciplineNames.includes(discipline) && isNaN(Number(discipline)) && discipline.trim() !== '') {
-                                disciplineNames.push(discipline);
+                    
+                    if (patternSelections) {
+                        Object.entries(patternSelections).forEach(([disciplineKey, disciplinePatterns]) => {
+                            // Check if this discipline is assigned to the judge
+                            let isAssignedDiscipline = false;
+                            
+                            // Check by discipline ID
+                            if (assignedDisciplineIds.has(disciplineKey)) {
+                                isAssignedDiscipline = true;
+                            } else {
+                                // Check by discipline index (legacy format)
+                                const disciplineIndex = parseInt(disciplineKey);
+                                if (!isNaN(disciplineIndex) && assignedDisciplineIndices.has(disciplineIndex)) {
+                                    isAssignedDiscipline = true;
+                                }
                             }
+                            
+                            if (!isAssignedDiscipline) return;
+                            
+                            // Get discipline name
+                            const discipline = disciplines.find((d, idx) => 
+                                d.id === disciplineKey || idx.toString() === disciplineKey
+                            );
+                            const disciplineName = discipline?.name || disciplineKey;
+                            
+                            // Add discipline name if not already added
+                            if (disciplineName && !disciplineNames.includes(disciplineName)) {
+                                disciplineNames.push(disciplineName);
+                            }
+                            
+                            // Extract patterns for this discipline
                             if (typeof disciplinePatterns === 'object') {
                                 Object.values(disciplinePatterns).forEach(patternData => {
                                     if (patternData?.patternName) {
@@ -259,6 +425,7 @@ const JudgesPortalPage = () => {
                         discipline_names: disciplineNames,
                         start_date: projectData.startDate || null,
                         end_date: projectData.endDate || null,
+                        status: project.status || 'Draft',
                         created_at: n.created_at,
                         is_read: n.is_read
                     };
@@ -748,28 +915,29 @@ const JudgesPortalPage = () => {
     // Handler for opening project detail modal from notification
     const handleOpenNotificationProject = async (notification) => {
         try {
-            // Fetch the full project data
-            const { data: project, error } = await supabase
-                .from('projects')
-                .select('*')
-                .eq('id', notification.project_id)
-                .single();
-            
-            if (error) throw error;
-            
             // Mark notification as read
             await supabase
                 .from('judge_notifications')
                 .update({ is_read: true, read_at: new Date().toISOString() })
                 .eq('id', notification.id);
             
-            setSelectedProjectForModal(project);
-            setIsProjectDetailModalOpen(true);
+            // Navigate to Pattern Book Builder in view mode
+            navigate(`/pattern-book-builder/${notification.project_id}?mode=judgeView`);
+            
+            // Refresh notifications table to update read status
+            if (notificationsTableData.length > 0) {
+                const updatedData = notificationsTableData.map(n => 
+                    n.id === notification.id 
+                        ? { ...n, is_read: true }
+                        : n
+                );
+                setNotificationsTableData(updatedData);
+            }
         } catch (error) {
-            console.error('Error fetching project:', error);
+            console.error('Error opening project:', error);
             toast({
                 title: 'Error',
-                description: 'Failed to load project details.',
+                description: 'Failed to open project.',
                 variant: 'destructive',
             });
         }
@@ -939,24 +1107,24 @@ const JudgesPortalPage = () => {
                         </div>
 
                         {/* Notifications/Assignments Table */}
-                        <Card className="mb-6">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Bell className="h-5 w-5" />
+                        <Card className="mb-6 shadow-lg border-2">
+                            <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+                                <CardTitle className="flex items-center gap-2 text-2xl">
+                                    <Bell className="h-6 w-6 text-primary" />
                                     My Assigned Shows
                                 </CardTitle>
-                                <CardDescription>
+                                <CardDescription className="text-base mt-1">
                                     View your assigned shows and patterns
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="p-0">
                                 {isLoadingNotificationsTable ? (
-                                    <div className="flex items-center justify-center py-8">
+                                    <div className="flex items-center justify-center py-12">
                                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                         <span className="ml-2 text-muted-foreground">Loading assignments...</span>
                                     </div>
                                 ) : notificationsTableData.length === 0 ? (
-                                    <div className="text-center py-8 text-muted-foreground">
+                                    <div className="text-center py-12 text-muted-foreground">
                                         <Bell className="h-10 w-10 mx-auto mb-3 opacity-50" />
                                         <p>No assignments yet.</p>
                                         <p className="text-sm">You'll see your assigned shows here when you receive notifications.</p>
@@ -964,37 +1132,45 @@ const JudgesPortalPage = () => {
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Show Name</TableHead>
-                                                    <TableHead>Discipline(s)</TableHead>
-                                                    <TableHead className="min-w-[280px]">Pattern(s)</TableHead>
-                                                    <TableHead>Start Date</TableHead>
-                                                    <TableHead>End Date</TableHead>
-                                                    <TableHead className="text-right">Action</TableHead>
+                                            <TableHeader className="bg-muted/50">
+                                                <TableRow className="hover:bg-muted/50 border-b-2">
+                                                    <TableHead className="font-semibold text-sm h-14">Show Name</TableHead>
+                                                    <TableHead className="font-semibold text-sm">Discipline(s)</TableHead>
+                                                    <TableHead className="font-semibold text-sm min-w-[280px]">Pattern(s)</TableHead>
+                                                    <TableHead className="font-semibold text-sm">Start Date</TableHead>
+                                                    <TableHead className="font-semibold text-sm">End Date</TableHead>
+                                                    <TableHead className="font-semibold text-sm">Status</TableHead>
+                                                    <TableHead className="font-semibold text-sm text-center">Action</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {notificationsTableData.map((notification) => (
-                                                    <TableRow key={notification.id}>
-                                                        <TableCell className="font-medium">
-                                                            <div className="flex items-center gap-2">
+                                                {notificationsTableData.map((notification, rowIdx) => (
+                                                    <TableRow 
+                                                        key={notification.id}
+                                                        className="border-b hover:bg-muted/30 transition-colors"
+                                                    >
+                                                        <TableCell className="font-semibold py-4">
+                                                            <div className="flex items-center gap-2.5">
                                                                 {!notification.is_read && (
-                                                                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                                                                    <div className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0 animate-pulse" />
                                                                 )}
-                                                                {notification.project_name}
+                                                                <span className="text-base">{notification.project_name}</span>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="py-4">
                                                             {notification.discipline_names?.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                <div className="flex flex-wrap gap-2">
                                                                     {notification.discipline_names.slice(0, 3).map((name, idx) => (
-                                                                        <Badge key={idx} variant="outline" className="text-xs truncate max-w-[140px]">
+                                                                        <Badge 
+                                                                            key={idx} 
+                                                                            variant="outline" 
+                                                                            className="text-xs px-3 py-1.5 whitespace-nowrap bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-full shadow-sm hover:shadow-md transition-shadow"
+                                                                        >
                                                                             {name}
                                                                         </Badge>
                                                                     ))}
                                                                     {notification.discipline_names.length > 3 && (
-                                                                        <Badge variant="outline" className="text-xs">
+                                                                        <Badge variant="outline" className="text-xs px-3 py-1.5 whitespace-nowrap rounded-full">
                                                                             +{notification.discipline_names.length - 3} more
                                                                         </Badge>
                                                                     )}
@@ -1003,41 +1179,59 @@ const JudgesPortalPage = () => {
                                                                 <span className="text-muted-foreground text-sm">—</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell className="min-w-[280px]">
+                                                        <TableCell className="min-w-[320px] py-4">
                                                             {notification.pattern_items?.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-2">
+                                                                <div className="flex flex-col gap-2.5">
                                                                     {notification.pattern_items.slice(0, 3).map((pattern, idx) => (
-                                                                        <div key={idx} className="flex items-center gap-1">
-                                                                            <Badge variant="secondary" className="text-xs truncate max-w-[140px]">
-                                                                                {pattern.name}
-                                                                            </Badge>
-                                                                            <HoverCard openDelay={200} closeDelay={100}>
-                                                                                <HoverCardTrigger asChild>
-                                                                                    <button className="p-0.5 hover:bg-muted rounded transition-colors">
-                                                                                        <Eye className="h-3.5 w-3.5 text-muted-foreground hover:text-primary transition-colors" />
-                                                                                    </button>
-                                                                                </HoverCardTrigger>
-                                                                                <HoverCardContent side="top" className="w-80 p-2">
-                                                                                    <div className="space-y-2">
-                                                                                        <p className="text-xs font-medium text-center">{pattern.name}</p>
-                                                                                        {pattern.previewImageUrl ? (
+                                                                        <HoverCard key={idx} openDelay={150} closeDelay={100}>
+                                                                            <HoverCardTrigger asChild>
+                                                                                <span className="inline-flex items-center cursor-pointer">
+                                                                                    <Badge 
+                                                                                        variant="secondary" 
+                                                                                        className="text-xs px-3.5 py-2 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-600 flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200 w-fit rounded-full shadow-sm hover:shadow-md"
+                                                                                    >
+                                                                                        <span className="block truncate max-w-[220px] font-medium" title={pattern.name}>{pattern.name}</span>
+                                                                                        <Eye className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                                                                    </Badge>
+                                                                                </span>
+                                                                            </HoverCardTrigger>
+                                                                            <HoverCardContent 
+                                                                                className="w-96 p-4 shadow-xl border-2 rounded-lg"
+                                                                                align="start"
+                                                                                sideOffset={8}
+                                                                                onOpenAutoFocus={(e) => e.preventDefault()}
+                                                                            >
+                                                                                <div className="space-y-3">
+                                                                                    <p className="text-sm font-semibold text-center break-words mb-3 text-foreground border-b pb-2">{pattern.name}</p>
+                                                                                    {pattern.previewImageUrl ? (
+                                                                                        <div className="rounded-lg overflow-hidden border-2 bg-muted/30 shadow-inner">
                                                                                             <img 
                                                                                                 src={pattern.previewImageUrl} 
                                                                                                 alt={pattern.name}
-                                                                                                className="w-full h-auto rounded border"
+                                                                                                className="w-full h-auto object-contain max-h-[400px]"
+                                                                                                onError={(e) => {
+                                                                                                    e.target.style.display = 'none';
+                                                                                                    const errorDiv = e.target.parentElement?.querySelector('.error-fallback');
+                                                                                                    if (errorDiv) errorDiv.style.display = 'flex';
+                                                                                                }}
                                                                                             />
-                                                                                        ) : (
-                                                                                            <div className="w-full h-40 rounded border bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                                                                                            <div className="w-full h-40 rounded border bg-muted flex items-center justify-center text-muted-foreground text-sm hidden error-fallback">
                                                                                                 No preview available
                                                                                             </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </HoverCardContent>
-                                                                            </HoverCard>
-                                                                        </div>
+                                                                                        </div>
+                                                                                    ) : pattern.id ? (
+                                                                                        <PatternPreviewImage patternId={pattern.id} patternName={pattern.name} />
+                                                                                    ) : (
+                                                                                        <div className="w-full h-40 rounded-lg border-2 bg-muted flex items-center justify-center text-muted-foreground text-sm">
+                                                                                            No preview available
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </HoverCardContent>
+                                                                        </HoverCard>
                                                                     ))}
                                                                     {notification.pattern_items.length > 3 && (
-                                                                        <Badge variant="outline" className="text-xs">
+                                                                        <Badge variant="outline" className="text-xs px-3 py-1.5 w-fit whitespace-nowrap rounded-full">
                                                                             +{notification.pattern_items.length - 3} more
                                                                         </Badge>
                                                                     )}
@@ -1046,35 +1240,89 @@ const JudgesPortalPage = () => {
                                                                 <span className="text-muted-foreground text-sm">—</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="py-4">
                                                             {notification.start_date ? (
-                                                                <div className="flex items-center gap-1 text-sm">
-                                                                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                    {format(new Date(notification.start_date), 'MMM d, yyyy')}
+                                                                <div className="flex items-center gap-2 text-sm font-medium">
+                                                                    <Calendar className="h-4 w-4 text-primary" />
+                                                                    <span>{format(parseLocalDate(notification.start_date), "MMMM do, yyyy")}</span>
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-muted-foreground text-sm">—</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell className="py-4">
                                                             {notification.end_date ? (
-                                                                <div className="flex items-center gap-1 text-sm">
-                                                                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                                                    {format(new Date(notification.end_date), 'MMM d, yyyy')}
+                                                                <div className="flex items-center gap-2 text-sm font-medium">
+                                                                    <Calendar className="h-4 w-4 text-primary" />
+                                                                    <span>{format(parseLocalDate(notification.end_date), "MMMM do, yyyy")}</span>
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-muted-foreground text-sm">—</span>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleOpenNotificationProject(notification)}
+                                                        <TableCell className="py-4">
+                                                            <Badge 
+                                                                variant={(notification.status || 'Draft') === 'Lock & Approve Mode' ? 'default' : 'secondary'}
+                                                                className={cn(
+                                                                    'text-xs px-3.5 py-2 font-semibold rounded-full shadow-sm',
+                                                                    (notification.status || 'Draft') === 'Lock & Approve Mode' 
+                                                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border-2 border-green-300 dark:border-green-700' 
+                                                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-2 border-gray-300 dark:border-gray-600'
+                                                                )}
                                                             >
-                                                                <Eye className="mr-2 h-4 w-4" />
-                                                                View
-                                                            </Button>
+                                                                {(notification.status || 'Draft') === 'Lock & Approve Mode' 
+                                                                    ? 'Lock & Approve Mode' 
+                                                                    : (notification.status || 'Draft') === 'Draft' 
+                                                                    ? 'In Progress' 
+                                                                    : notification.status || 'In Progress'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right py-4">
+                                                            <div className="flex items-center gap-2.5 justify-end">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    disabled={(notification.status || 'Draft') === 'Lock & Approve Mode'}
+                                                                    className={cn(
+                                                                        "font-medium transition-all duration-200",
+                                                                        (notification.status || 'Draft') === 'Lock & Approve Mode' 
+                                                                            ? "opacity-50 cursor-not-allowed" 
+                                                                            : "hover:bg-primary hover:text-primary-foreground hover:border-primary hover:shadow-md"
+                                                                    )}
+                                                                    onClick={() => {
+                                                                        // Fetch full project data
+                                                                        supabase
+                                                                            .from('projects')
+                                                                            .select('*')
+                                                                            .eq('id', notification.project_id)
+                                                                            .single()
+                                                                            .then(({ data, error }) => {
+                                                                                if (error) {
+                                                                                    toast({
+                                                                                        title: 'Error',
+                                                                                        description: 'Failed to load project.',
+                                                                                        variant: 'destructive',
+                                                                                    });
+                                                                                    return;
+                                                                                }
+                                                                                setSelectedProjectForEdit(data);
+                                                                                setIsPatternEditorOpen(true);
+                                                                            });
+                                                                    }}
+                                                                >
+                                                                    <Edit className="mr-2 h-4 w-4" />
+                                                                    Edit Patterns
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="font-medium transition-all duration-200 hover:bg-primary hover:text-primary-foreground hover:border-primary hover:shadow-md"
+                                                                    onClick={() => handleOpenNotificationProject(notification)}
+                                                                >
+                                                                    <Eye className="mr-2 h-4 w-4" />
+                                                                    View
+                                                                </Button>
+                                                            </div>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -1727,6 +1975,247 @@ const JudgesPortalPage = () => {
                 project={selectedProjectForModal}
                 isFromJudgesPortal={true}
             />
+            
+            {/* Judge Pattern Editor Modal */}
+            <Dialog open={isPatternEditorOpen} onOpenChange={setIsPatternEditorOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Edit Patterns - {selectedProjectForEdit?.project_name || 'Project'}</DialogTitle>
+                        <DialogDescription>
+                            Edit pattern selections for disciplines assigned to you. Changes will be saved to the project.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedProjectForEdit && (
+                        <JudgePatternEditor
+                            project={selectedProjectForEdit}
+                            userEmail={user?.email}
+                            onSave={async (updatedProjectData) => {
+                                // Update project in database
+                                const { error } = await supabase
+                                    .from('projects')
+                                    .update({ project_data: updatedProjectData })
+                                    .eq('id', selectedProjectForEdit.id);
+                                
+                                if (error) {
+                                    toast({
+                                        title: 'Error',
+                                        description: 'Failed to save changes.',
+                                        variant: 'destructive',
+                                    });
+                                    return;
+                                }
+                                
+                                // Update local state
+                                setSelectedProjectForEdit(prev => ({
+                                    ...prev,
+                                    project_data: updatedProjectData,
+                                }));
+                                
+                                // Refresh notifications table by re-running the main fetch
+                                // This will use the same filtering logic
+                                const fetchNotificationsTableData = async () => {
+                                    if (!user?.email) return;
+                                    
+                                    setIsLoadingNotificationsTable(true);
+                                    try {
+                                        const { data: notifications, error: notifError } = await supabase
+                                            .from('judge_notifications')
+                                            .select('*')
+                                            .eq('judge_email', user.email.toLowerCase())
+                                            .order('created_at', { ascending: false });
+                                        
+                                        if (notifError) {
+                                            if (notifError.code === 'PGRST205' || notifError.code === '42P01') {
+                                                setNotificationsTableData([]);
+                                                return;
+                                            }
+                                            throw notifError;
+                                        }
+                                        
+                                        if (!notifications || notifications.length === 0) {
+                                            setNotificationsTableData([]);
+                                            return;
+                                        }
+                                        
+                                        const projectIds = [...new Set(notifications.map(n => n.project_id))];
+                                        
+                                        const { data: projects, error: projError } = await supabase
+                                            .from('projects')
+                                            .select('id, project_name, project_data, status')
+                                            .in('id', projectIds);
+                                        
+                                        if (projError) throw projError;
+                                        
+                                        const projectMap = {};
+                                        (projects || []).forEach(p => {
+                                            projectMap[p.id] = p;
+                                        });
+                                        
+                                        const allPatternIds = new Set();
+                                        (projects || []).forEach(p => {
+                                            const projectData = p.project_data || {};
+                                            if (projectData.patternSelections) {
+                                                Object.values(projectData.patternSelections).forEach(disciplinePatterns => {
+                                                    if (typeof disciplinePatterns === 'object') {
+                                                        Object.values(disciplinePatterns).forEach(patternData => {
+                                                            if (patternData?.patternId) {
+                                                                allPatternIds.add(patternData.patternId);
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        
+                                        let patternImageMap = {};
+                                        if (allPatternIds.size > 0) {
+                                            const { data: patternMediaData, error: patError } = await supabase
+                                                .from('tbl_pattern_media')
+                                                .select('pattern_id, image_url')
+                                                .in('pattern_id', Array.from(allPatternIds));
+                                            
+                                            if (!patError && patternMediaData) {
+                                                patternMediaData.forEach(pm => {
+                                                    if (!patternImageMap[pm.pattern_id]) {
+                                                        patternImageMap[pm.pattern_id] = pm.image_url;
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        
+                                        const getJudgeNameForProject = (projectData) => {
+                                            const userEmailLower = user.email.toLowerCase();
+                                            const associationJudges = projectData.associationJudges || {};
+                                            for (const assocId in associationJudges) {
+                                                const assocData = associationJudges[assocId];
+                                                const judgesList = assocData?.judges || [];
+                                                const matchedJudge = judgesList.find(j => j.email?.toLowerCase() === userEmailLower);
+                                                if (matchedJudge?.name) return matchedJudge.name;
+                                            }
+                                            const officials = projectData.officials || [];
+                                            const matchedOfficial = officials.find(o => o.email?.toLowerCase() === userEmailLower);
+                                            if (matchedOfficial?.name) return matchedOfficial.name;
+                                            return null;
+                                        };
+                                        
+                                        const tableData = notifications.map(n => {
+                                            const project = projectMap[n.project_id] || {};
+                                            const projectData = project.project_data || {};
+                                            const judgeName = getJudgeNameForProject(projectData);
+                                            if (!judgeName) {
+                                                return {
+                                                    id: n.id,
+                                                    project_id: n.project_id,
+                                                    project_name: n.project_name || project.project_name || 'Unknown Show',
+                                                    pattern_items: [],
+                                                    discipline_names: [],
+                                                    start_date: projectData.startDate || null,
+                                                    end_date: projectData.endDate || null,
+                                                    status: project.status || 'Draft',
+                                                    created_at: n.created_at,
+                                                    is_read: n.is_read
+                                                };
+                                            }
+                                            
+                                            const disciplines = projectData.disciplines || [];
+                                            const groupJudges = projectData.groupJudges || {};
+                                            const judgeSelections = projectData.judgeSelections || {};
+                                            const patternSelections = projectData.patternSelections || {};
+                                            
+                                            const assignedDisciplineIds = new Set();
+                                            const assignedDisciplineIndices = new Set();
+                                            
+                                            disciplines.forEach((discipline, disciplineIndex) => {
+                                                const disciplineId = discipline.id;
+                                                let isAssigned = false;
+                                                const disciplineJudge = judgeSelections[disciplineIndex];
+                                                if (disciplineJudge && disciplineJudge.toLowerCase().trim() === judgeName.toLowerCase().trim()) {
+                                                    isAssigned = true;
+                                                }
+                                                if (!isAssigned) {
+                                                    const groups = discipline.patternGroups || [];
+                                                    groups.forEach((group, groupIndex) => {
+                                                        const groupJudge = groupJudges[disciplineIndex]?.[groupIndex];
+                                                        if (groupJudge && groupJudge.toLowerCase().trim() === judgeName.toLowerCase().trim()) {
+                                                            isAssigned = true;
+                                                        }
+                                                    });
+                                                }
+                                                if (isAssigned) {
+                                                    assignedDisciplineIds.add(disciplineId);
+                                                    assignedDisciplineIndices.add(disciplineIndex);
+                                                }
+                                            });
+                                            
+                                            const patternItems = [];
+                                            const disciplineNames = [];
+                                            
+                                            if (patternSelections) {
+                                                Object.entries(patternSelections).forEach(([disciplineKey, disciplinePatterns]) => {
+                                                    let isAssignedDiscipline = false;
+                                                    if (assignedDisciplineIds.has(disciplineKey)) {
+                                                        isAssignedDiscipline = true;
+                                                    } else {
+                                                        const disciplineIndex = parseInt(disciplineKey);
+                                                        if (!isNaN(disciplineIndex) && assignedDisciplineIndices.has(disciplineIndex)) {
+                                                            isAssignedDiscipline = true;
+                                                        }
+                                                    }
+                                                    
+                                                    if (!isAssignedDiscipline) return;
+                                                    
+                                                    const discipline = disciplines.find((d, idx) => 
+                                                        d.id === disciplineKey || idx.toString() === disciplineKey
+                                                    );
+                                                    const disciplineName = discipline?.name || disciplineKey;
+                                                    
+                                                    if (disciplineName && !disciplineNames.includes(disciplineName)) {
+                                                        disciplineNames.push(disciplineName);
+                                                    }
+                                                    
+                                                    if (typeof disciplinePatterns === 'object') {
+                                                        Object.values(disciplinePatterns).forEach(patternData => {
+                                                            if (patternData?.patternName) {
+                                                                patternItems.push({
+                                                                    name: patternData.patternName,
+                                                                    id: patternData.patternId || null,
+                                                                    previewImageUrl: patternData.patternId ? patternImageMap[patternData.patternId] : null
+                                                                });
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                            
+                                            return {
+                                                id: n.id,
+                                                project_id: n.project_id,
+                                                project_name: n.project_name || project.project_name || 'Unknown Show',
+                                                pattern_items: patternItems,
+                                                discipline_names: disciplineNames,
+                                                start_date: projectData.startDate || null,
+                                                end_date: projectData.endDate || null,
+                                                status: project.status || 'Draft',
+                                                created_at: n.created_at,
+                                                is_read: n.is_read
+                                            };
+                                        });
+                                        
+                                        setNotificationsTableData(tableData);
+                                    } catch (error) {
+                                        console.error('Error refreshing notifications:', error);
+                                        setNotificationsTableData([]);
+                                    } finally {
+                                        setIsLoadingNotificationsTable(false);
+                                    }
+                                };
+                                
+                                fetchNotificationsTableData();
+                            }}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 };

@@ -19,48 +19,97 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const sendJudgeNotifications = async () => {
     const projectName = pbbData.showName || 'Pattern Book';
     const projectId = pbbData.id || 'unknown';
-    const judges = [];
-
-    // Collect judges from associationJudges
+    
+    // Step 1: Collect all assigned judge names from disciplines
+    const assignedJudgeNames = new Set();
+    
+    // Collect from groupJudges: { disciplineIndex: { groupIndex: judgeName } }
+    if (pbbData.groupJudges) {
+      Object.values(pbbData.groupJudges).forEach((groups) => {
+        if (groups && typeof groups === 'object') {
+          Object.values(groups).forEach((judgeName) => {
+            if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
+              assignedJudgeNames.add(judgeName.trim().toLowerCase());
+            }
+          });
+        }
+      });
+    }
+    
+    // Collect from judgeSelections: { disciplineIndex: judgeName }
+    if (pbbData.judgeSelections) {
+      Object.values(pbbData.judgeSelections).forEach((judgeName) => {
+        if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
+          assignedJudgeNames.add(judgeName.trim().toLowerCase());
+        }
+      });
+    }
+    
+    if (assignedJudgeNames.size === 0) {
+      console.log('No assigned judges found to notify');
+      return;
+    }
+    
+    // Step 2: Build a map of all available judges (name -> { email, name })
+    const availableJudgesMap = new Map();
+    
+    // Collect from associationJudges
     if (pbbData.associationJudges) {
       Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
         if (assocData?.judges) {
           assocData.judges.forEach((judge) => {
             if (judge.email && judge.name) {
-              judges.push({
+              const normalizedName = judge.name.trim().toLowerCase();
+              // Store with original name but use normalized key for lookup
+              availableJudgesMap.set(normalizedName, {
                 email: judge.email.toLowerCase(),
-                name: judge.name,
+                name: judge.name.trim(), // Keep original name
               });
             }
           });
         }
       });
     }
-
+    
     // Also collect from officials if they have judge role
     if (pbbData.officials) {
       pbbData.officials.forEach((official) => {
         if (official.email && official.name && official.role?.toLowerCase().includes('judge')) {
-          // Avoid duplicates
-          if (!judges.some(j => j.email === official.email.toLowerCase())) {
-            judges.push({
+          const normalizedName = official.name.trim().toLowerCase();
+          // Only add if not already in map (avoid duplicates)
+          if (!availableJudgesMap.has(normalizedName)) {
+            availableJudgesMap.set(normalizedName, {
               email: official.email.toLowerCase(),
-              name: official.name,
+              name: official.name.trim(), // Keep original name
             });
           }
         }
       });
     }
-
-    if (judges.length === 0) {
-      console.log('No judges to notify');
+    
+    // Step 3: Match assigned judge names with available judges
+    const judgesToNotify = [];
+    assignedJudgeNames.forEach((assignedNameNormalized) => {
+      const judgeInfo = availableJudgesMap.get(assignedNameNormalized);
+      if (judgeInfo) {
+        // Avoid duplicates by email
+        if (!judgesToNotify.some(j => j.email === judgeInfo.email)) {
+          judgesToNotify.push(judgeInfo);
+        }
+      } else {
+        console.warn(`Assigned judge "${assignedNameNormalized}" not found in available judges list`);
+      }
+    });
+    
+    if (judgesToNotify.length === 0) {
+      console.log('No matching judges found to notify');
       return;
     }
 
-    console.log(`Sending notifications to ${judges.length} judges`);
+    console.log(`Sending notifications to ${judgesToNotify.length} assigned judge(s):`, judgesToNotify.map(j => j.name).join(', '));
 
-    // Insert notifications for each judge
-    const notifications = judges.map(judge => ({
+    // Step 4: Insert notifications for each assigned judge
+    const notifications = judgesToNotify.map(judge => ({
       judge_email: judge.email,
       judge_name: judge.name,
       project_id: projectId,
