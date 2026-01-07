@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CreditCard, Mail, Check, ArrowRight, ArrowLeft, Building2, Smartphone, Lock } from 'lucide-react';
+import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock } from 'lucide-react';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { supabase } from '@/lib/supabaseClient';
 import { useAnalytics } from '@/components/AnalyticsProvider';
@@ -126,15 +126,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   };
 
   const handlePayment = async () => {
-    if (paymentMethod === 'card' && (!cardNumber || !cardExpiry || !cardCvv || !cardName)) {
-      toast({
-        variant: 'destructive',
-        title: 'Missing Information',
-        description: 'Please fill in all card details.',
-      });
-      return;
-    }
-    
+    // Dummy payment - just proceed to next step
     setIsProcessingPayment(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
     
@@ -281,7 +273,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
               </Card>
 
               {/* Payment Methods */}
-              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-3 gap-3">
+              <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-2 gap-3">
                 <Label
                   htmlFor="card"
                   className={`flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === 'card' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
@@ -297,14 +289,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                   <RadioGroupItem value="bank" id="bank" className="sr-only" />
                   <Building2 className="h-5 w-5" />
                   <span className="text-xs font-medium">Bank</span>
-                </Label>
-                <Label
-                  htmlFor="upi"
-                  className={`flex flex-col items-center gap-2 p-3 border rounded-lg cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
-                >
-                  <RadioGroupItem value="upi" id="upi" className="sr-only" />
-                  <Smartphone className="h-5 w-5" />
-                  <span className="text-xs font-medium">UPI</span>
                 </Label>
               </RadioGroup>
 
@@ -364,13 +348,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 </div>
               )}
 
-              {/* UPI Payment */}
-              {paymentMethod === 'upi' && (
-                <div className="space-y-3">
-                  <Label htmlFor="upiId" className="text-xs">UPI ID</Label>
-                  <Input id="upiId" placeholder="yourname@upi" />
-                </div>
-              )}
 
               {/* Security Badge */}
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
