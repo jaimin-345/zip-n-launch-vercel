@@ -32,7 +32,7 @@ const ArchivePatternsPage = () => {
             .from('projects')
             .select('*')
             .eq('user_id', user.id)
-            .eq('status', 'archived')
+            .eq('mode', 'archived')
             .gte('updated_at', thirtyDaysAgo.toISOString())
             .order('updated_at', { ascending: false });
 
@@ -45,7 +45,7 @@ const ArchivePatternsPage = () => {
     const handleRestore = async (projectId) => {
         const { error } = await supabase
             .from('projects')
-            .update({ status: 'active' })
+            .update({ mode: null })
             .eq('id', projectId);
 
         if (!error) {

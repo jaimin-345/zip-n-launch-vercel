@@ -1666,9 +1666,10 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
             case 'archive':
                 await supabase
                     .from('projects')
-                    .update({ status: 'archived' })
+                    .update({ mode: 'archived' })
                     .eq('id', project.id);
                 toast({ title: "Project archived", description: "Project has been archived" });
+                if (onRefresh) onRefresh();
                 break;
             case 'preview':
                 navigate(`${editPath}?preview=true`);
@@ -2032,35 +2033,52 @@ const CustomerPortalPage = () => {
     const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
     
     // Filter pattern books by status (case-insensitive comparison)
-    // Active Pattern Book: Show all projects with Status === 'Draft'
+    // Active Pattern Books Portal: Show all projects with Status === 'Draft' AND mode !== 'archived'
     const activePatternBooks = patternBookProjects.filter(p => {
         const status = (p.status || 'Draft').toString().trim();
-        return status.toLowerCase() === 'draft';
+        const mode = (p.mode || '').toString().trim();
+        return status.toLowerCase() === 'draft' && mode.toLowerCase() !== 'archived';
     });
     
-    // Pattern Portal: Show all projects with Status !== 'Draft' AND Status !== 'Publication'
-    const pastPatternBooks = patternBookProjects.filter(p => {
+    // In Progress Pattern Books Portal: Show all projects with Status === 'Lock & Approve Mode' or 'Approval and Locked' AND mode !== 'archived'
+    const inProgressPatternBooks = patternBookProjects.filter(p => {
         const status = (p.status || 'Draft').toString().trim();
         const statusLower = status.toLowerCase();
-        return statusLower !== 'draft' && statusLower !== 'publication';
+        const mode = (p.mode || '').toString().trim();
+        return (statusLower === 'lock & approve mode' || statusLower === 'approval and locked' || statusLower.includes('lock') || statusLower.includes('approve')) 
+               && mode.toLowerCase() !== 'archived';
     });
     
-    // Past Pattern Portal: Show only projects with Status === 'Publication'
-    const publishedPatternBooks = patternBookProjects.filter(p => {
+    // Pattern Portal: Show all projects with Status !== 'Draft' AND Status !== 'Publication' AND Status !== 'Lock & Approve Mode' AND mode !== 'archived'
+    const patternPortalBooks = patternBookProjects.filter(p => {
         const status = (p.status || 'Draft').toString().trim();
-        return status.toLowerCase() === 'publication';
+        const statusLower = status.toLowerCase();
+        const mode = (p.mode || '').toString().trim();
+        return statusLower !== 'draft' && 
+               statusLower !== 'publication' && 
+               statusLower !== 'lock & approve mode' && 
+               !statusLower.includes('lock') && 
+               !statusLower.includes('approve') &&
+               mode.toLowerCase() !== 'archived';
     });
     
-    // Debug logging
-    console.log('Total projects:', projects.length);
-    console.log('Pattern book projects:', patternBookProjects.length);
-    console.log('Active pattern books (Draft):', activePatternBooks.length, activePatternBooks.map(p => ({ name: p.project_name, status: p.status })));
-    console.log('Past pattern books (Non-Draft):', pastPatternBooks.length);
-    console.log('Published pattern books:', publishedPatternBooks.length);
+    // Choose a Pattern Portal: Show all pattern books (for selection/browsing) excluding archived
+    const choosePatternBooks = patternBookProjects.filter(p => {
+        const mode = (p.mode || '').toString().trim();
+        return mode.toLowerCase() !== 'archived';
+    });
+    
+    // Past Patterns & Pattern Books Portal: Show only archived projects (mode === 'archived')
+    const pastPatternBooks = patternBookProjects.filter(p => {
+        const mode = (p.mode || '').toString().trim();
+        return mode.toLowerCase() === 'archived';
+    });
     
     const [expandedSections, setExpandedSections] = useState({
-        patternFolders: true,
-        patternBooks: true,
+        activePatternBooks: true,
+        inProgressPatternBooks: true,
+        patternPortal: true,
+        choosePatternPortal: true,
         pastPatternPortal: true,
         horseShows: true
     });
@@ -2149,26 +2167,46 @@ const CustomerPortalPage = () => {
                         <div>
                             {renderProjectList(
                                 activePatternBooks,
-                                "Active Pattern Book",
+                                "Active Pattern Books Portal",
                                 "Build and manage your horse show pattern books.",
                                 "/pattern-book-builder",
                                 "New Pattern Book",
-                                "patternBooks",
+                                "activePatternBooks",
                                 "default"
                             )}
                             {renderProjectList(
-                                pastPatternBooks,
-                                "Pattern Portal",
-                                "Organize and store your pattern collections.",
+                                inProgressPatternBooks,
+                                "In Progress Pattern Books Portal",
+                                "Pattern books that are locked and ready for approval.",
                                 "",
                                 "",
-                                "patternFolders",
+                                "inProgressPatternBooks",
                                 "folder",
                                 true
                             )}
                             {renderProjectList(
-                                publishedPatternBooks,
-                                "Past Pattern Portal",
+                                patternPortalBooks,
+                                "Pattern Portal",
+                                "Organize and store your pattern collections.",
+                                "",
+                                "",
+                                "patternPortal",
+                                "folder",
+                                true
+                            )}
+                            {renderProjectList(
+                                choosePatternBooks,
+                                "Choose a Pattern Portal",
+                                "Browse and select from all available pattern books.",
+                                "",
+                                "",
+                                "choosePatternPortal",
+                                "folder",
+                                true
+                            )}
+                            {renderProjectList(
+                                pastPatternBooks,
+                                "Past Patterns & Pattern Books Portal",
                                 "View your published pattern books.",
                                 "",
                                 "",
