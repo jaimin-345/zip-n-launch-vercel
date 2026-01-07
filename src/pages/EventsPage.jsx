@@ -41,32 +41,29 @@ const EventCard = ({ event }) => {
             return <Button variant="secondary" size="sm" disabled><BookOpen className="h-4 w-4 mr-2" /> No Patterns</Button>;
         }
 
-        // This logic would be more complex, checking publish dates on the linked project
-        const isLive = true; 
-        
-        const handlePatternClick = (e) => {
-            e.preventDefault();
-            if (isLive) {
-                toast({ title: `Viewing patterns for ${event.name}` });
-            } else {
-                toast({ 
-                    title: "Patterns Not Yet Available",
-                    description: `Patterns for this event are not yet published.`,
-                });
-            }
-        };
+        const isPublished = event.project?.status === 'Publication';
 
         return (
-            <Button
-                onClick={handlePatternClick}
-                variant="default"
-                size="sm"
-                className="bg-green-500 hover:bg-green-600"
-            >
-                <BookOpen className="h-4 w-4 mr-2" />
-                View Patterns
-            </Button>
+            <Link to={`/public-show/${event.pattern_book_id}`}>
+                <Button
+                    variant="default"
+                    size="sm"
+                    className={isPublished ? "bg-green-500 hover:bg-green-600" : "bg-amber-500 hover:bg-amber-600"}
+                >
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    View Patterns
+                </Button>
+            </Link>
         );
+    };
+
+    const getLocationDisplay = () => {
+        if (event.location) return event.location;
+        if (event.isFromProjects && event.project) {
+            // Try to get location from project_data
+            return 'Location TBD';
+        }
+        return 'Location TBD';
     };
     
     return (
@@ -98,7 +95,7 @@ const EventCard = ({ event }) => {
                     </Link>
                     <div className="text-sm text-muted-foreground mt-2 space-y-2">
                         <div className="flex items-center"><Calendar className="h-4 w-4 mr-2" />{format(new Date(event.start_date), 'MMM d, yyyy')} - {format(new Date(event.end_date), 'MMM d, yyyy')}</div>
-                        <div className="flex items-center"><MapPin className="h-4 w-4 mr-2" />{event.location}</div>
+                        <div className="flex items-center"><MapPin className="h-4 w-4 mr-2" />{getLocationDisplay()}</div>
                         {event.status === 'upcoming' && (
                             <div className="flex items-center">
                                 <BookOpen className="h-4 w-4 mr-2" />
