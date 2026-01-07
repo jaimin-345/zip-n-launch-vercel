@@ -102,7 +102,7 @@ const EventCard = ({ event }) => {
                         {event.status === 'upcoming' && (
                             <div className="flex items-center">
                                 <BookOpen className="h-4 w-4 mr-2" />
-                                {event.pattern_book_id ? (
+                                {event.project?.status === 'Publication' ? (
                                     <span className="text-green-600 dark:text-green-400">Patterns Published</span>
                                 ) : (
                                     <span className="text-amber-600 dark:text-amber-400">Patterns Pending</span>
@@ -132,7 +132,17 @@ const EventsPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
         setIsLoading(true);
-        const { data, error } = await supabase.from('events').select('*').order('start_date', { ascending: false });
+        const { data, error } = await supabase
+            .from('events')
+            .select(`
+                *,
+                project:pattern_book_id (
+                    id,
+                    project_name,
+                    status
+                )
+            `)
+            .order('start_date', { ascending: false });
         if (error) {
             toast({ title: 'Error fetching events', description: error.message, variant: 'destructive' });
         } else {
