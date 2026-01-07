@@ -132,6 +132,8 @@ const EventsPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
         setIsLoading(true);
+        
+        // Fetch events from events table
         const { data: eventsData, error: eventsError } = await supabase
             .from('events')
             .select('*')
@@ -139,38 +141,46 @@ const EventsPage = () => {
         
         if (eventsError) {
             toast({ title: 'Error fetching events', description: eventsError.message, variant: 'destructive' });
-            setIsLoading(false);
-            return;
         }
 
-        // Fetch project statuses for events with pattern_book_id
-        const patternBookIds = eventsData
-            .filter(e => e.pattern_book_id)
-            .map(e => e.pattern_book_id);
+        // Also fetch projects with 'Publication' status to show as upcoming events
+        const { data: publishedProjects, error: projectsError } = await supabase
+            .from('projects')
+            .select('*')
+            .eq('status', 'Publication')
+            .order('created_at', { ascending: false });
 
-        let projectsMap = {};
-        if (patternBookIds.length > 0) {
-            const { data: projectsData } = await supabase
-                .from('projects')
-                .select('id, status')
-                .in('id', patternBookIds);
-            
-            if (projectsData) {
-                projectsMap = projectsData.reduce((acc, p) => {
-                    acc[p.id] = p;
-                    return acc;
-                }, {});
-            }
+        if (projectsError) {
+            toast({ title: 'Error fetching projects', description: projectsError.message, variant: 'destructive' });
         }
 
-        // Merge project data into events
-        const eventsWithProjects = eventsData.map(event => ({
-            ...event,
-            project: event.pattern_book_id ? projectsMap[event.pattern_book_id] : null
+        // Convert projects to event-like format
+        const projectEvents = (publishedProjects || []).map(project => ({
+            id: project.id,
+            name: project.project_name || 'Untitled Show',
+            start_date: project.project_data?.startDate || project.created_at,
+            end_date: project.project_data?.endDate || project.created_at,
+            location: project.project_data?.showLocation || project.project_data?.location || null,
+            status: 'upcoming',
+            thumbnail_url: null,
+            pattern_book_id: project.id,
+            project: { id: project.id, status: project.status },
+            isFromProjects: true
         }));
 
-        setAllEvents(eventsWithProjects);
-        const live = eventsWithProjects.filter(e => e.status === 'live');
+        // Combine events from both sources, avoiding duplicates
+        const eventsFromTable = eventsData || [];
+        const combinedEvents = [...eventsFromTable];
+        
+        projectEvents.forEach(pe => {
+            const exists = combinedEvents.some(e => e.pattern_book_id === pe.id);
+            if (!exists) {
+                combinedEvents.push(pe);
+            }
+        });
+
+        setAllEvents(combinedEvents);
+        const live = combinedEvents.filter(e => e.status === 'live');
         if (live.length > 0) {
             setSelectedShow(live[0]);
         }
