@@ -46,9 +46,24 @@ const ReviewItem = ({ icon, title, children }) => (
 );
 
 
-const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
+const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpdate }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [openPopover, setOpenPopover] = useState(null);
+    const [isEditingContact, setIsEditingContact] = useState(false);
+    const [editedContact, setEditedContact] = useState({
+        name: staffMember.name || '',
+        email: staffMember.email || '',
+        phone: staffMember.phone || ''
+    });
+
+    // Sync editedContact when staffMember changes
+    React.useEffect(() => {
+        setEditedContact({
+            name: staffMember.name || '',
+            email: staffMember.email || '',
+            phone: staffMember.phone || ''
+        });
+    }, [staffMember.name, staffMember.email, staffMember.phone]);
 
     const handleAccessPhaseChange = (phaseId) => {
         const currentPhases = staffMember.delegation?.accessPhase || [];
@@ -102,6 +117,22 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
         onUpdate(staffMember.id, { delegation: { ...staffMember.delegation, roles: newRoles } });
     };
 
+    const handleSaveContact = () => {
+        if (onContactUpdate) {
+            onContactUpdate(staffMember.id, editedContact);
+        }
+        setIsEditingContact(false);
+    };
+
+    const handleCancelEdit = () => {
+        setEditedContact({
+            name: staffMember.name || '',
+            email: staffMember.email || '',
+            phone: staffMember.phone || ''
+        });
+        setIsEditingContact(false);
+    };
+
     const accessPhase = staffMember.delegation?.accessPhase || [];
     const delegatedRolesForStaff = staffMember.delegation?.roles || [];
 
@@ -135,9 +166,68 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                 <div className="flex-grow">
                     <div className="flex items-center gap-3 mb-3">
                         <User className="h-5 w-5 text-primary" />
-                        <div>
-                            <p className="font-semibold">{staffMember.name}</p>
-                            <p className="text-sm text-muted-foreground">{staffMember.role}</p>
+                        <div className="flex-1">
+                            {isEditingContact ? (
+                                <div className="space-y-2">
+                                    <Input
+                                        value={editedContact.name}
+                                        onChange={(e) => setEditedContact(prev => ({ ...prev, name: e.target.value }))}
+                                        placeholder="Name"
+                                        className="h-8"
+                                    />
+                                    <div className="flex gap-2">
+                                        <div className="flex-1 relative">
+                                            <Mail className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                            <Input
+                                                value={editedContact.email}
+                                                onChange={(e) => setEditedContact(prev => ({ ...prev, email: e.target.value }))}
+                                                placeholder="Email"
+                                                className="h-8 pl-7 text-sm"
+                                            />
+                                        </div>
+                                        <div className="flex-1 relative">
+                                            <Phone className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                            <Input
+                                                value={editedContact.phone}
+                                                onChange={(e) => setEditedContact(prev => ({ ...prev, phone: e.target.value }))}
+                                                placeholder="Phone"
+                                                className="h-8 pl-7 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button size="sm" onClick={handleSaveContact} className="h-7 text-xs">
+                                            <Check className="h-3 w-3 mr-1" /> Save
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-7 text-xs">
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div 
+                                    className="cursor-pointer hover:bg-muted/50 rounded p-1 -m-1 transition-colors"
+                                    onClick={() => setIsEditingContact(true)}
+                                    title="Click to edit"
+                                >
+                                    <p className="font-semibold">{staffMember.name}</p>
+                                    <p className="text-sm text-muted-foreground">{staffMember.role}</p>
+                                    {(staffMember.email || staffMember.phone) && (
+                                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                                            {staffMember.email && (
+                                                <span className="flex items-center gap-1">
+                                                    <Mail className="h-3 w-3" /> {staffMember.email}
+                                                </span>
+                                            )}
+                                            {staffMember.phone && (
+                                                <span className="flex items-center gap-1">
+                                                    <Phone className="h-3 w-3" /> {staffMember.phone}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-col items-start gap-2">
@@ -278,77 +368,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate }) => {
                             })}
                         </div>
                     </div>
-
-                    {/* Delegate Roles - Conditional */}
-                    {/* {accessPhase.includes('draft') && (
-                        <div className="space-y-4 p-4 border rounded-md bg-background">
-                            <h4 className="font-semibold">Delegate Roles</h4>
-                            {delegatedRoles.map(role => {
-                                const isSelected = delegatedRolesForStaff.some(r => r.id === role.id);
-                                const roleData = delegatedRolesForStaff.find(r => r.id === role.id);
-
-                                return (
-                                    <div key={role.id} className="space-y-3">
-                                        <div className="flex items-center space-x-2">
-                                            <input
-                                                type="checkbox"
-                                                id={`${staffMember.id}-${role.id}`}
-                                                checked={isSelected}
-                                                onChange={() => handleRoleToggle(role.id)}
-                                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                            />
-                                            <Label htmlFor={`${staffMember.id}-${role.id}`} className="font-medium">{role.name}</Label>
-                                        </div>
-
-                                        {isSelected && roleData && (
-                                            <div className="pl-6 space-y-3">
-                                                <Popover open={openPopover === role.id} onOpenChange={(isOpen) => setOpenPopover(isOpen ? role.id : null)}>
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-start">
-                                                            <ChevronsUpDown className="mr-2 h-4 w-4" />
-                                                            Select Disciplines
-                                                            {roleData.disciplines.length > 0 && (
-                                                                <Badge variant="secondary" className="ml-auto">{roleData.disciplines.length} selected</Badge>
-                                                            )}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                                                        <Command>
-                                                            <CommandInput placeholder="Search disciplines..." />
-                                                            <CommandList>
-                                                                <CommandEmpty>No disciplines found.</CommandEmpty>
-                                                                <CommandGroup>
-                                                                    {disciplines.map(disc => {
-                                                                        const isDisciplineSelected = roleData.disciplines.includes(disc.id);
-                                                                        return (
-                                                                            <CommandItem key={disc.id} onSelect={() => handleDisciplineSelect(role.id, disc.id)}>
-                                                                                <Check className={cn("mr-2 h-4 w-4", isDisciplineSelected ? "opacity-100" : "opacity-0")} />
-                                                                                <span>{disc.name}</span>
-                                                                            </CommandItem>
-                                                                        );
-                                                                    })}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
-
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !roleData.deadline && "text-muted-foreground")}>
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {roleData.deadline ? format(new Date(roleData.deadline), "PPP") : <span>Set Deadline (Optional)</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={roleData.deadline ? new Date(roleData.deadline) : null} onSelect={(date) => handleDeadlineChange(role.id, date)} initialFocus /></PopoverContent>
-                                                </Popover>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )} */}
                 </div>
             )}
         </div>
@@ -526,6 +545,47 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                 }
             };
             return { ...prev, delegations: newDelegations };
+        });
+    };
+
+    // Handle contact updates - syncs back to Step 4 data (associationJudges or officials)
+    const handleContactUpdate = (staffId, contactData) => {
+        if (isReadOnly) return;
+        
+        setFormData(prev => {
+            const newFormData = { ...prev };
+            
+            // Check if this is a judge (staffId format: judge-{assocId}-{index})
+            if (staffId.startsWith('judge-')) {
+                const parts = staffId.split('-');
+                const assocId = parts[1];
+                const judgeIndex = parseInt(parts[2], 10);
+                
+                if (newFormData.associationJudges?.[assocId]?.judges?.[judgeIndex]) {
+                    newFormData.associationJudges = {
+                        ...newFormData.associationJudges,
+                        [assocId]: {
+                            ...newFormData.associationJudges[assocId],
+                            judges: newFormData.associationJudges[assocId].judges.map((judge, idx) => 
+                                idx === judgeIndex 
+                                    ? { ...judge, name: contactData.name, email: contactData.email, phone: contactData.phone }
+                                    : judge
+                            )
+                        }
+                    };
+                }
+            } else {
+                // This is an official/staff member
+                if (newFormData.officials) {
+                    newFormData.officials = newFormData.officials.map(official => 
+                        official.id === staffId 
+                            ? { ...official, name: contactData.name, email: contactData.email, phone: contactData.phone }
+                            : official
+                    );
+                }
+            }
+            
+            return newFormData;
         });
     };
 
@@ -740,6 +800,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                                 staffMember={staff}
                                 disciplines={disciplines}
                                 onUpdate={handleUpdateStaffDelegation}
+                                onContactUpdate={handleContactUpdate}
                             />
                         ))
                     ) : (
