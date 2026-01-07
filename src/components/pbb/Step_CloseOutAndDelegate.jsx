@@ -6,14 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users, UserCog, Crown, Mail, Phone } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users, UserCog, Crown, Mail, Phone, Pencil, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 const accessPhases = [
     { id: 'draft', name: 'Draft, Build, Review' },
@@ -49,21 +52,102 @@ const ReviewItem = ({ icon, title, children }) => (
 const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpdate }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [openPopover, setOpenPopover] = useState(null);
-    const [isEditingContact, setIsEditingContact] = useState(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isCheckingUser, setIsCheckingUser] = useState(false);
+    const [existingUser, setExistingUser] = useState(null);
     const [editedContact, setEditedContact] = useState({
         name: staffMember.name || '',
         email: staffMember.email || '',
         phone: staffMember.phone || ''
     });
+    const { toast } = useToast();
 
-    // Sync editedContact when staffMember changes
+    // Sync editedContact when dialog opens
     React.useEffect(() => {
-        setEditedContact({
-            name: staffMember.name || '',
-            email: staffMember.email || '',
-            phone: staffMember.phone || ''
-        });
-    }, [staffMember.name, staffMember.email, staffMember.phone]);
+        if (isEditDialogOpen) {
+            setEditedContact({
+                name: staffMember.name || '',
+                email: staffMember.email || '',
+                phone: staffMember.phone || ''
+            });
+            setExistingUser(null);
+        }
+    }, [isEditDialogOpen, staffMember.name, staffMember.email, staffMember.phone]);
+
+    const checkUserExists = async (emailValue) => {
+        if (!emailValue || !emailValue.includes('@')) return;
+        
+        setIsCheckingUser(true);
+        try {
+            const { data: profiles, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, role')
+                .eq('email', emailValue)
+                .single();
+
+            if (profiles && !error) {
+                setExistingUser(profiles);
+                setEditedContact(prev => ({ ...prev, name: profiles.full_name || prev.name }));
+                toast({
+                    title: 'User Found',
+                    description: `Found existing user: ${profiles.full_name}`,
+                });
+            } else {
+                setExistingUser(null);
+            }
+        } catch (error) {
+            console.error('Error checking user:', error);
+            setExistingUser(null);
+        } finally {
+            setIsCheckingUser(false);
+        }
+    };
+
+    const handleEmailBlur = () => {
+        if (editedContact.email !== staffMember.email) {
+            checkUserExists(editedContact.email);
+        }
+    };
+
+    const handleSaveContact = async () => {
+        const currentName = editedContact.name;
+        const currentEmail = editedContact.email;
+        const currentPhone = editedContact.phone;
+        
+        // If user doesn't exist and email is provided, create the user
+        if (!existingUser && currentEmail && currentEmail.includes('@')) {
+            try {
+                const { data, error } = await supabase.functions.invoke('create-staff-user', {
+                    body: {
+                        email: currentEmail,
+                        name: currentName,
+                        role: staffMember.role
+                    }
+                });
+
+                if (error) throw error;
+
+                if (data?.created) {
+                    toast({
+                        title: 'User Created',
+                        description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
+                    });
+                }
+            } catch (error) {
+                console.error('Error creating user:', error);
+                toast({
+                    title: 'Error',
+                    description: 'Failed to create user account. Contact information saved.',
+                    variant: 'destructive'
+                });
+            }
+        }
+        
+        if (onContactUpdate) {
+            onContactUpdate(staffMember.id, { name: currentName, email: currentEmail, phone: currentPhone });
+        }
+        setIsEditDialogOpen(false);
+    };
 
     const handleAccessPhaseChange = (phaseId) => {
         const currentPhases = staffMember.delegation?.accessPhase || [];
@@ -117,22 +201,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
         onUpdate(staffMember.id, { delegation: { ...staffMember.delegation, roles: newRoles } });
     };
 
-    const handleSaveContact = () => {
-        if (onContactUpdate) {
-            onContactUpdate(staffMember.id, editedContact);
-        }
-        setIsEditingContact(false);
-    };
-
-    const handleCancelEdit = () => {
-        setEditedContact({
-            name: staffMember.name || '',
-            email: staffMember.email || '',
-            phone: staffMember.phone || ''
-        });
-        setIsEditingContact(false);
-    };
-
     const accessPhase = staffMember.delegation?.accessPhase || [];
     const delegatedRolesForStaff = staffMember.delegation?.roles || [];
 
@@ -167,49 +235,8 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                     <div className="flex items-center gap-3 mb-3">
                         <User className="h-5 w-5 text-primary" />
                         <div className="flex-1">
-                            {isEditingContact ? (
-                                <div className="space-y-2">
-                                    <Input
-                                        value={editedContact.name}
-                                        onChange={(e) => setEditedContact(prev => ({ ...prev, name: e.target.value }))}
-                                        placeholder="Name"
-                                        className="h-8"
-                                    />
-                                    <div className="flex gap-2">
-                                        <div className="flex-1 relative">
-                                            <Mail className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                            <Input
-                                                value={editedContact.email}
-                                                onChange={(e) => setEditedContact(prev => ({ ...prev, email: e.target.value }))}
-                                                placeholder="Email"
-                                                className="h-8 pl-7 text-sm"
-                                            />
-                                        </div>
-                                        <div className="flex-1 relative">
-                                            <Phone className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-                                            <Input
-                                                value={editedContact.phone}
-                                                onChange={(e) => setEditedContact(prev => ({ ...prev, phone: e.target.value }))}
-                                                placeholder="Phone"
-                                                className="h-8 pl-7 text-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button size="sm" onClick={handleSaveContact} className="h-7 text-xs">
-                                            <Check className="h-3 w-3 mr-1" /> Save
-                                        </Button>
-                                        <Button size="sm" variant="outline" onClick={handleCancelEdit} className="h-7 text-xs">
-                                            Cancel
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div 
-                                    className="cursor-pointer hover:bg-muted/50 rounded p-1 -m-1 transition-colors"
-                                    onClick={() => setIsEditingContact(true)}
-                                    title="Click to edit"
-                                >
+                            <div className="flex items-center gap-2">
+                                <div>
                                     <p className="font-semibold">{staffMember.name}</p>
                                     <p className="text-sm text-muted-foreground">{staffMember.role}</p>
                                     {(staffMember.email || staffMember.phone) && (
@@ -227,7 +254,90 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                         </div>
                                     )}
                                 </div>
-                            )}
+                                <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit Contact Info">
+                                            <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[500px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Edit Contact Info</DialogTitle>
+                                            <DialogDescription>
+                                                Add or update the contact details for this staff member. System will check if they're an existing user.
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="grid gap-4 py-4">
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor={`name-${staffMember.id}`} className="text-right">
+                                                    Name
+                                                </Label>
+                                                <Input
+                                                    id={`name-${staffMember.id}`}
+                                                    value={editedContact.name}
+                                                    onChange={(e) => setEditedContact(prev => ({ ...prev, name: e.target.value }))}
+                                                    className="col-span-3"
+                                                    placeholder="Full Name"
+                                                />
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor={`email-${staffMember.id}`} className="text-right">
+                                                    Email
+                                                </Label>
+                                                <div className="col-span-3 space-y-2">
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            id={`email-${staffMember.id}`}
+                                                            type="email"
+                                                            value={editedContact.email}
+                                                            onChange={(e) => setEditedContact(prev => ({ ...prev, email: e.target.value }))}
+                                                            onBlur={handleEmailBlur}
+                                                            className="flex-1"
+                                                            placeholder="name@example.com"
+                                                        />
+                                                        {isCheckingUser && <Loader2 className="w-4 h-4 animate-spin mt-2" />}
+                                                    </div>
+                                                    {existingUser && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                            ✓ Existing user found
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-4 items-center gap-4">
+                                                <Label htmlFor={`phone-${staffMember.id}`} className="text-right">
+                                                    Phone
+                                                </Label>
+                                                <Input
+                                                    id={`phone-${staffMember.id}`}
+                                                    value={editedContact.phone}
+                                                    onChange={(e) => setEditedContact(prev => ({ ...prev, phone: e.target.value }))}
+                                                    className="col-span-3"
+                                                    placeholder="(555) 123-4567"
+                                                />
+                                            </div>
+
+                                            {existingUser && existingUser.role && (
+                                                <div className="grid grid-cols-4 items-center gap-4">
+                                                    <Label className="text-right text-xs text-muted-foreground">
+                                                        Current Role
+                                                    </Label>
+                                                    <div className="col-span-3">
+                                                        <Badge variant="secondary">{existingUser.role}</Badge>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <DialogFooter>
+                                            <Button onClick={handleSaveContact} disabled={isCheckingUser}>
+                                                {isCheckingUser ? 'Checking...' : 'Save Changes'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
                         </div>
                     </div>
                     <div className="flex flex-col items-start gap-2">
