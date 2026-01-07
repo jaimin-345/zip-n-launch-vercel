@@ -28,52 +28,84 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
 
-  // Get all judges and staff from pbbData
+  // Get only ASSIGNED judges from groupJudges and judgeSelections
   const recipientsList = useMemo(() => {
-    const recipients = [];
+    const assignedJudgeNames = new Set();
     
-    // Get judges from associationJudges
-    if (pbbData.associationJudges) {
-      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
-        if (assocData?.judges) {
-          assocData.judges.forEach((judge) => {
-            if (judge.name && judge.email) {
-              const key = `judge-${judge.email}`;
-              if (!recipients.find(r => r.key === key)) {
-                recipients.push({
-                  key,
-                  name: judge.name,
-                  email: judge.email,
-                  role: 'Judge',
-                  type: 'judge'
-                });
-              }
+    // Collect assigned judge names from groupJudges
+    if (pbbData.groupJudges) {
+      Object.values(pbbData.groupJudges).forEach((groups) => {
+        if (groups && typeof groups === 'object') {
+          Object.values(groups).forEach((judgeName) => {
+            if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
+              assignedJudgeNames.add(judgeName.trim().toLowerCase());
             }
           });
         }
       });
     }
     
-    // Get staff from officials
+    // Collect assigned judge names from judgeSelections
+    if (pbbData.judgeSelections) {
+      Object.values(pbbData.judgeSelections).forEach((judgeName) => {
+        if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
+          assignedJudgeNames.add(judgeName.trim().toLowerCase());
+        }
+      });
+    }
+    
+    // Build map of available judges with their details
+    const availableJudgesMap = new Map();
+    
+    if (pbbData.associationJudges) {
+      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
+        if (assocData?.judges) {
+          assocData.judges.forEach((judge) => {
+            if (judge.name && judge.email) {
+              availableJudgesMap.set(judge.name.trim().toLowerCase(), {
+                name: judge.name.trim(),
+                email: judge.email.toLowerCase(),
+                role: 'Judge'
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Also check officials for judges
     if (pbbData.officials) {
       pbbData.officials.forEach((official) => {
-        if (official.name && official.email) {
-          const key = `staff-${official.email}`;
-          if (!recipients.find(r => r.key === key)) {
-            recipients.push({
-              key,
-              name: official.name,
-              email: official.email,
-              role: official.role || 'Staff',
-              type: official.role?.toLowerCase().includes('judge') ? 'judge' : 'staff'
+        if (official.name && official.email && official.role?.toLowerCase().includes('judge')) {
+          const normalizedName = official.name.trim().toLowerCase();
+          if (!availableJudgesMap.has(normalizedName)) {
+            availableJudgesMap.set(normalizedName, {
+              name: official.name.trim(),
+              email: official.email.toLowerCase(),
+              role: official.role || 'Judge'
             });
           }
         }
       });
     }
     
+    // Filter to only assigned judges
+    const recipients = [];
+    assignedJudgeNames.forEach((assignedName) => {
+      const judgeInfo = availableJudgesMap.get(assignedName);
+      if (judgeInfo && !recipients.find(r => r.email === judgeInfo.email)) {
+        recipients.push({
+          key: `judge-${judgeInfo.email}`,
+          name: judgeInfo.name,
+          email: judgeInfo.email,
+          role: judgeInfo.role,
+          type: 'judge'
+        });
+      }
+    });
+    
     return recipients;
-  }, [pbbData.associationJudges, pbbData.officials]);
+  }, [pbbData.groupJudges, pbbData.judgeSelections, pbbData.associationJudges, pbbData.officials]);
 
   // Initialize email notifications state when recipients change
   React.useEffect(() => {
