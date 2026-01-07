@@ -99,6 +99,16 @@ const EventCard = ({ event }) => {
                     <div className="text-sm text-muted-foreground mt-2 space-y-2">
                         <div className="flex items-center"><Calendar className="h-4 w-4 mr-2" />{format(new Date(event.start_date), 'MMM d, yyyy')} - {format(new Date(event.end_date), 'MMM d, yyyy')}</div>
                         <div className="flex items-center"><MapPin className="h-4 w-4 mr-2" />{event.location}</div>
+                        {event.status === 'upcoming' && (
+                            <div className="flex items-center">
+                                <BookOpen className="h-4 w-4 mr-2" />
+                                {event.pattern_book_id ? (
+                                    <span className="text-green-600 dark:text-green-400">Patterns Published</span>
+                                ) : (
+                                    <span className="text-amber-600 dark:text-amber-400">Patterns Pending</span>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </CardContent>
                 <CardFooter className="pt-4 flex items-center justify-between">
