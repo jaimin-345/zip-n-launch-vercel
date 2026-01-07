@@ -132,25 +132,47 @@ const EventsPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
         setIsLoading(true);
-        const { data, error } = await supabase
+        const { data: eventsData, error: eventsError } = await supabase
             .from('events')
-            .select(`
-                *,
-                project:pattern_book_id (
-                    id,
-                    project_name,
-                    status
-                )
-            `)
+            .select('*')
             .order('start_date', { ascending: false });
-        if (error) {
-            toast({ title: 'Error fetching events', description: error.message, variant: 'destructive' });
-        } else {
-            setAllEvents(data);
-            const live = data.filter(e => e.status === 'live');
-            if (live.length > 0) {
-                setSelectedShow(live[0]);
+        
+        if (eventsError) {
+            toast({ title: 'Error fetching events', description: eventsError.message, variant: 'destructive' });
+            setIsLoading(false);
+            return;
+        }
+
+        // Fetch project statuses for events with pattern_book_id
+        const patternBookIds = eventsData
+            .filter(e => e.pattern_book_id)
+            .map(e => e.pattern_book_id);
+
+        let projectsMap = {};
+        if (patternBookIds.length > 0) {
+            const { data: projectsData } = await supabase
+                .from('projects')
+                .select('id, status')
+                .in('id', patternBookIds);
+            
+            if (projectsData) {
+                projectsMap = projectsData.reduce((acc, p) => {
+                    acc[p.id] = p;
+                    return acc;
+                }, {});
             }
+        }
+
+        // Merge project data into events
+        const eventsWithProjects = eventsData.map(event => ({
+            ...event,
+            project: event.pattern_book_id ? projectsMap[event.pattern_book_id] : null
+        }));
+
+        setAllEvents(eventsWithProjects);
+        const live = eventsWithProjects.filter(e => e.status === 'live');
+        if (live.length > 0) {
+            setSelectedShow(live[0]);
         }
         setIsLoading(false);
     };
