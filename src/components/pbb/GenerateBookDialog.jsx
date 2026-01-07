@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock } from 'lucide-react';
+import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock, User, Users } from 'lucide-react';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { supabase } from '@/lib/supabaseClient';
 import { useAnalytics } from '@/components/AnalyticsProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const [email, setEmail] = useState('');
@@ -22,8 +24,65 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
+  const [emailNotifications, setEmailNotifications] = useState({});
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
+
+  // Get all judges and staff from pbbData
+  const recipientsList = useMemo(() => {
+    const recipients = [];
+    
+    // Get judges from associationJudges
+    if (pbbData.associationJudges) {
+      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
+        if (assocData?.judges) {
+          assocData.judges.forEach((judge) => {
+            if (judge.name && judge.email) {
+              const key = `judge-${judge.email}`;
+              if (!recipients.find(r => r.key === key)) {
+                recipients.push({
+                  key,
+                  name: judge.name,
+                  email: judge.email,
+                  role: 'Judge',
+                  type: 'judge'
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    // Get staff from officials
+    if (pbbData.officials) {
+      pbbData.officials.forEach((official) => {
+        if (official.name && official.email) {
+          const key = `staff-${official.email}`;
+          if (!recipients.find(r => r.key === key)) {
+            recipients.push({
+              key,
+              name: official.name,
+              email: official.email,
+              role: official.role || 'Staff',
+              type: official.role?.toLowerCase().includes('judge') ? 'judge' : 'staff'
+            });
+          }
+        }
+      });
+    }
+    
+    return recipients;
+  }, [pbbData.associationJudges, pbbData.officials]);
+
+  // Initialize email notifications state when recipients change
+  React.useEffect(() => {
+    const initialState = {};
+    recipientsList.forEach(r => {
+      initialState[r.key] = true; // Default to enabled
+    });
+    setEmailNotifications(initialState);
+  }, [recipientsList]);
 
   const handleOpenChange = (isOpen) => {
     if (!isOpen) {
@@ -38,95 +97,45 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
     onOpenChange(isOpen);
   };
 
+  const toggleRecipientEmail = (key) => {
+    setEmailNotifications(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
   const sendJudgeNotifications = async () => {
     const projectName = pbbData.showName || 'Pattern Book';
     const projectId = pbbData.id || 'unknown';
     
-    const assignedJudgeNames = new Set();
+    // Filter recipients who have email notifications enabled
+    const enabledRecipients = recipientsList.filter(r => emailNotifications[r.key]);
     
-    if (pbbData.groupJudges) {
-      Object.values(pbbData.groupJudges).forEach((groups) => {
-        if (groups && typeof groups === 'object') {
-          Object.values(groups).forEach((judgeName) => {
-            if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
-              assignedJudgeNames.add(judgeName.trim().toLowerCase());
-            }
-          });
-        }
-      });
-    }
-    
-    if (pbbData.judgeSelections) {
-      Object.values(pbbData.judgeSelections).forEach((judgeName) => {
-        if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
-          assignedJudgeNames.add(judgeName.trim().toLowerCase());
-        }
-      });
-    }
-    
-    if (assignedJudgeNames.size === 0) return;
-    
-    const availableJudgesMap = new Map();
-    
-    if (pbbData.associationJudges) {
-      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
-        if (assocData?.judges) {
-          assocData.judges.forEach((judge) => {
-            if (judge.email && judge.name) {
-              availableJudgesMap.set(judge.name.trim().toLowerCase(), {
-                email: judge.email.toLowerCase(),
-                name: judge.name.trim(),
-              });
-            }
-          });
-        }
-      });
-    }
-    
-    if (pbbData.officials) {
-      pbbData.officials.forEach((official) => {
-        if (official.email && official.name && official.role?.toLowerCase().includes('judge')) {
-          const normalizedName = official.name.trim().toLowerCase();
-          if (!availableJudgesMap.has(normalizedName)) {
-            availableJudgesMap.set(normalizedName, {
-              email: official.email.toLowerCase(),
-              name: official.name.trim(),
-            });
-          }
-        }
-      });
-    }
-    
-    const judgesToNotify = [];
-    assignedJudgeNames.forEach((assignedNameNormalized) => {
-      const judgeInfo = availableJudgesMap.get(assignedNameNormalized);
-      if (judgeInfo && !judgesToNotify.some(j => j.email === judgeInfo.email)) {
-        judgesToNotify.push(judgeInfo);
-      }
-    });
-    
-    if (judgesToNotify.length === 0) return;
+    if (enabledRecipients.length === 0) return;
 
-    const notifications = judgesToNotify.map(judge => ({
-      judge_email: judge.email,
-      judge_name: judge.name,
+    const notifications = enabledRecipients.map(recipient => ({
+      judge_email: recipient.email.toLowerCase(),
+      judge_name: recipient.name,
       project_id: projectId,
       project_name: projectName,
       notification_type: 'assignment',
-      message: `You have been assigned as a judge for "${projectName}". The pattern book is now published and available for review.`,
+      message: `You have been assigned as ${recipient.role} for "${projectName}". The pattern book is now published and available for review.`,
       is_read: false,
       created_by: email,
     }));
 
     try {
       await supabase.from('judge_notifications').insert(notifications);
+      toast({
+        title: 'Notifications Sent',
+        description: `Email notifications sent to ${enabledRecipients.length} recipient(s).`,
+      });
     } catch (err) {
       console.error('Error sending notifications:', err);
     }
   };
 
   const handlePayment = async () => {
-    // Dummy payment - just proceed to next step
     setIsProcessingPayment(true);
     await new Promise(resolve => setTimeout(resolve, 2000));
     
@@ -224,9 +233,11 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const customFee = customClassCount * 50;
   const totalPrice = basePrice + customFee;
 
+  const enabledCount = Object.values(emailNotifications).filter(Boolean).length;
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="sm:max-w-[560px]">
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-4 mb-2">
           <div className={`flex items-center gap-2 ${dialogStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -252,7 +263,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
             </DialogHeader>
             
             <div className="space-y-4 py-2">
-              {/* Order Summary */}
               <Card className="bg-muted/50">
                 <CardContent className="pt-4 space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -272,7 +282,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 </CardContent>
               </Card>
 
-              {/* Payment Methods */}
               <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-2 gap-3">
                 <Label
                   htmlFor="card"
@@ -292,55 +301,29 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 </Label>
               </RadioGroup>
 
-              {/* Card Payment Form */}
               {paymentMethod === 'card' && (
                 <div className="space-y-3">
                   <div>
                     <Label htmlFor="cardName" className="text-xs">Cardholder Name</Label>
-                    <Input
-                      id="cardName"
-                      placeholder="John Doe"
-                      value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                    />
+                    <Input id="cardName" placeholder="John Doe" value={cardName} onChange={(e) => setCardName(e.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="cardNumber" className="text-xs">Card Number</Label>
-                    <Input
-                      id="cardNumber"
-                      placeholder="4242 4242 4242 4242"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      maxLength={19}
-                    />
+                    <Input id="cardNumber" placeholder="4242 4242 4242 4242" value={cardNumber} onChange={(e) => setCardNumber(formatCardNumber(e.target.value))} maxLength={19} />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="cardExpiry" className="text-xs">Expiry</Label>
-                      <Input
-                        id="cardExpiry"
-                        placeholder="MM/YY"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                        maxLength={5}
-                      />
+                      <Input id="cardExpiry" placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(formatExpiry(e.target.value))} maxLength={5} />
                     </div>
                     <div>
                       <Label htmlFor="cardCvv" className="text-xs">CVV</Label>
-                      <Input
-                        id="cardCvv"
-                        placeholder="123"
-                        type="password"
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        maxLength={4}
-                      />
+                      <Input id="cardCvv" placeholder="123" type="password" value={cardCvv} onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Bank Payment */}
               {paymentMethod === 'bank' && (
                 <div className="text-center py-4 border rounded-lg bg-muted/30">
                   <Building2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
@@ -348,8 +331,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 </div>
               )}
 
-
-              {/* Security Badge */}
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                 <Lock className="h-3 w-3" />
                 <span>Secured with 256-bit SSL encryption</span>
@@ -357,18 +338,9 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isProcessingPayment}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isProcessingPayment}>Cancel</Button>
               <Button onClick={handlePayment} disabled={isProcessingPayment}>
-                {isProcessingPayment ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>Pay ${totalPrice.toFixed(2)}</>
-                )}
+                {isProcessingPayment ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : <>Pay ${totalPrice.toFixed(2)}</>}
               </Button>
             </DialogFooter>
           </>
@@ -381,38 +353,84 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 <Check className="h-5 w-5 text-green-500" />
                 Payment Complete
               </DialogTitle>
-              <DialogDescription>
-                Enter your email to receive the pattern book PDF.
-              </DialogDescription>
+              <DialogDescription>Enter your email and select who should receive notifications.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">Email</Label>
+            
+            <div className="space-y-4 py-2">
+              {/* Your Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Your Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="col-span-3"
-                  placeholder="recipient@example.com"
+                  placeholder="your@email.com"
                   disabled={isGenerating}
                 />
               </div>
+
+              {/* Recipients List */}
+              {recipientsList.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Send Email Notifications
+                    </Label>
+                    <Badge variant="secondary" className="text-xs">
+                      {enabledCount}/{recipientsList.length} selected
+                    </Badge>
+                  </div>
+                  
+                  <ScrollArea className="h-[180px] border rounded-lg">
+                    <div className="p-3 space-y-2">
+                      {recipientsList.map((recipient) => (
+                        <div
+                          key={recipient.key}
+                          className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${recipient.type === 'judge' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                              <User className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">{recipient.name}</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{recipient.email}</span>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  {recipient.role}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={emailNotifications[recipient.key] || false}
+                            onCheckedChange={() => toggleRecipientEmail(recipient.key)}
+                            disabled={isGenerating}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+
+              {recipientsList.length === 0 && (
+                <div className="text-center py-6 border rounded-lg bg-muted/30">
+                  <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">No judges or staff found to notify.</p>
+                </div>
+              )}
             </div>
+
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={() => setDialogStep(1)} disabled={isGenerating}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
               <Button onClick={handleSend} disabled={isGenerating || !email}>
-                {isGenerating ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  'Download & Send'
-                )}
+                {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : 'Download & Send'}
               </Button>
             </DialogFooter>
           </>
