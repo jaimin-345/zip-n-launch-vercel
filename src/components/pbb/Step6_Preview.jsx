@@ -422,6 +422,14 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   // Fetch scoresheet images based on selected patterns AND user-selected scoresheets
   useEffect(() => {
     const fetchScoresheetDetails = async () => {
+      // Check if 4-H association is selected
+      const is4HSelected = formData.associations?.['4-H'] === true || 
+        formData.disciplines?.some(d => d.association_id === '4-H');
+      
+      // Only filter by city_state when 4-H is selected AND city is specifically Colorado
+      // For 4-H with other cities (or no city), show scoresheets normally without city_state filter
+      const is4HWithColorado = is4HSelected && formData.selected4HCity === 'Colorado';
+      
       const selectedIds = [];
       const patternIdToDisciplineMap = {}; // Map pattern_id to discipline info
       const disciplinesNeedingScoresheet = []; // Disciplines with scoresheets but no pattern selections
@@ -507,12 +515,21 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
               
               if (associationAbbrev) {
                 try {
-                  const { data: scoresheetData, error: scoresheetError } = await supabase
+                  let query = supabase
                     .from('tbl_scoresheet')
                     .select('id, pattern_id, image_url, storage_path, discipline, association_abbrev')
                     .eq('association_abbrev', associationAbbrev)
-                    .eq('discipline', queryDisciplineName)
-                    .maybeSingle();
+                    .eq('discipline', queryDisciplineName);
+                  
+                  // If 4-H is selected, add city_state filter only when Colorado is selected
+                  // For 4-H with other cities, don't filter by city_state (show all 4-H scoresheets)
+                  if (is4HSelected && associationAbbrev === '4-H' && is4HWithColorado) {
+                    query = query.eq('city_state', 'Colorado');
+                  }
+                  
+                  // When 4-H is selected with a non-Colorado city, get the first matching scoresheet
+                  // (could be any city_state or null - we don't filter)
+                  const { data: scoresheetData, error: scoresheetError } = await query.limit(1).maybeSingle();
                   
                   if (!scoresheetError && scoresheetData) {
                     // Store with discipline key for lookup
@@ -546,15 +563,44 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
       // Fetch scoresheets by pattern_id if we have pattern selections
       if (uniqueIds.length > 0) {
         try {
-          const { data, error } = await supabase
-            .from('tbl_scoresheet')
-            .select('id, pattern_id, image_url, storage_path')
-            .in('pattern_id', uniqueIds);
-
-          if (data && data.length > 0) {
-            data.forEach(s => {
-              scoresheetMap[s.pattern_id] = s;
-            });
+          // If 4-H and Colorado, we need to handle 4-H scoresheets separately with city_state filter
+          if (is4HWithColorado) {
+            // First, get 4-H scoresheets with Colorado filter
+            const { data: fourHData, error: fourHError } = await supabase
+              .from('tbl_scoresheet')
+              .select('id, pattern_id, image_url, storage_path, association_abbrev')
+              .in('pattern_id', uniqueIds)
+              .eq('association_abbrev', '4-H')
+              .eq('city_state', 'Colorado');
+            
+            // Then, get non-4-H scoresheets (no city_state filter)
+            const { data: otherData, error: otherError } = await supabase
+              .from('tbl_scoresheet')
+              .select('id, pattern_id, image_url, storage_path, association_abbrev')
+              .in('pattern_id', uniqueIds)
+              .neq('association_abbrev', '4-H');
+            
+            const data = [...(fourHData || []), ...(otherData || [])];
+            const error = fourHError || otherError;
+            
+            if (data && data.length > 0) {
+              data.forEach(s => {
+                scoresheetMap[s.pattern_id] = s;
+              });
+            }
+          } else {
+            // For all other cases (non-Colorado, non-4-H, or 4-H with other cities): show scoresheets normally
+            // NO city_state filter - get all scoresheets matching pattern_id regardless of city_state
+            const { data, error } = await supabase
+              .from('tbl_scoresheet')
+              .select('id, pattern_id, image_url, storage_path, association_abbrev, city_state')
+              .in('pattern_id', uniqueIds);
+            
+            if (data && data.length > 0) {
+              data.forEach(s => {
+                scoresheetMap[s.pattern_id] = s;
+              });
+            }
           }
           
           // Fallback: If pattern_id query returned empty or missing data, try by association_abbrev and discipline
@@ -570,12 +616,21 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 
                 if (associationAbbrev && disciplineInfo.disciplineName) {
                   try {
-                    const { data: fallbackData, error: fallbackError } = await supabase
+                    let query = supabase
                       .from('tbl_scoresheet')
-                      .select('id, pattern_id, image_url, storage_path')
+                      .select('id, pattern_id, image_url, storage_path, city_state')
                       .eq('association_abbrev', associationAbbrev)
-                      .eq('discipline', disciplineInfo.disciplineName)
-                      .maybeSingle();
+                      .eq('discipline', disciplineInfo.disciplineName);
+                    
+                    // If 4-H is selected, add city_state filter only when Colorado is selected
+                    // For 4-H with other cities (or no city), don't filter by city_state (show all 4-H scoresheets)
+                    if (is4HSelected && associationAbbrev === '4-H' && is4HWithColorado) {
+                      query = query.eq('city_state', 'Colorado');
+                    }
+                    // When 4-H is selected with a non-Colorado city, get the first matching scoresheet
+                    // (could be any city_state or null - we don't filter)
+                    
+                    const { data: fallbackData, error: fallbackError } = await query.limit(1).maybeSingle();
                     
                     if (!fallbackError && fallbackData) {
                       scoresheetMap[patternId] = fallbackData;
@@ -607,12 +662,21 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
           
           if (associationAbbrev && discInfo.disciplineName) {
             try {
-              const { data: fallbackData, error: fallbackError } = await supabase
+              let query = supabase
                 .from('tbl_scoresheet')
-                .select('id, pattern_id, image_url, storage_path')
+                .select('id, pattern_id, image_url, storage_path, city_state')
                 .eq('association_abbrev', associationAbbrev)
-                .eq('discipline', discInfo.disciplineName)
-                .maybeSingle();
+                .eq('discipline', discInfo.disciplineName);
+              
+              // If 4-H is selected, add city_state filter only when Colorado is selected
+              // For 4-H with other cities (or no city), don't filter by city_state (show all 4-H scoresheets)
+              if (is4HSelected && associationAbbrev === '4-H' && is4HWithColorado) {
+                query = query.eq('city_state', 'Colorado');
+              }
+              // When 4-H is selected with a non-Colorado city, get the first matching scoresheet
+              // (could be any city_state or null - we don't filter)
+              
+              const { data: fallbackData, error: fallbackError } = await query.limit(1).maybeSingle();
               
               if (!fallbackError && fallbackData) {
                 // Store with discipline ID key for lookup
@@ -629,7 +693,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     };
 
     fetchScoresheetDetails();
-  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), JSON.stringify(formData.vrhRanchCowWorkSelections), JSON.stringify(formData.disciplines), associationsData]);
+  }, [JSON.stringify(formData.patternSelections), JSON.stringify(formData.disciplineScoresheetSelections), JSON.stringify(formData.vrhRanchCowWorkSelections), JSON.stringify(formData.disciplines), formData.selected4HCity, formData.associations, associationsData]);
 
   // Fetch associations data
   useEffect(() => {
@@ -643,6 +707,14 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   // Fetch scoresheet data for scoresheet-only disciplines (use user selection from Step 2 if available)
   useEffect(() => {
     const fetchScoresheetOnlyData = async () => {
+      // Check if 4-H association is selected
+      const is4HSelected = formData.associations?.['4-H'] === true || 
+        formData.disciplines?.some(d => d.association_id === '4-H');
+      
+      // Only filter by city_state when 4-H is selected AND city is specifically Colorado
+      // For 4-H with other cities (or no city), show scoresheets normally without city_state filter
+      const is4HWithColorado = is4HSelected && formData.selected4HCity === 'Colorado';
+      
       const scoresheetOnlyDisciplines = allDisciplines.filter(d => 
         d.hasScoresheet && !d.hasPattern
       );
@@ -674,12 +746,21 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
 
           // Strategy 1: Match both discipline name and first available association abbreviation
           if (associationAbbrevs.length > 0) {
-            const { data, error } = await supabase
+            let query = supabase
               .from('tbl_scoresheet')
               .select('*')
               .ilike('discipline', `%${discipline.name}%`)
-              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
-              .maybeSingle();
+              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`);
+            
+            // If 4-H is selected, add city_state filter only when Colorado is selected
+            // For 4-H with other cities, don't filter by city_state (show all 4-H scoresheets)
+            if (is4HSelected && associationAbbrevs[0] === '4-H' && is4HWithColorado) {
+              query = query.eq('city_state', 'Colorado');
+            }
+            // When 4-H is selected with a non-Colorado city, get the first matching scoresheet
+            // (could be any city_state or null - we don't filter)
+            
+            const { data, error } = await query.limit(1).maybeSingle();
             
             if (!error && data) {
               scoresheetResult = data;
@@ -688,11 +769,21 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
 
           // Strategy 2: If Strategy 1 fails, try matching only discipline name
           if (!scoresheetResult) {
-            const { data, error } = await supabase
+            let query = supabase
               .from('tbl_scoresheet')
               .select('*')
-              .ilike('discipline', `%${discipline.name}%`)
-              .maybeSingle();
+              .ilike('discipline', `%${discipline.name}%`);
+            
+            // If 4-H is selected, always filter by association_abbrev
+            if (is4HSelected && associationAbbrevs.length > 0 && associationAbbrevs[0] === '4-H') {
+              query = query.eq('association_abbrev', '4-H');
+              // Only add city_state filter if Colorado is selected
+              if (is4HWithColorado) {
+                query = query.eq('city_state', 'Colorado');
+              }
+            }
+            
+            const { data, error } = await query.limit(1).maybeSingle();
             
             if (!error && data) {
               scoresheetResult = data;
@@ -701,11 +792,20 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
 
           // Strategy 3: If Strategy 2 fails, try matching only association abbreviation
           if (!scoresheetResult && associationAbbrevs.length > 0) {
-            const { data, error } = await supabase
+            let query = supabase
               .from('tbl_scoresheet')
               .select('*')
-              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`)
-              .maybeSingle();
+              .ilike('association_abbrev', `%${associationAbbrevs[0]}%`);
+            
+            // If 4-H is selected, add city_state filter only when Colorado is selected
+            // For 4-H with other cities (or no city), don't filter by city_state (show all 4-H scoresheets)
+            if (is4HSelected && associationAbbrevs[0] === '4-H' && is4HWithColorado) {
+              query = query.eq('city_state', 'Colorado');
+            }
+            // When 4-H is selected with a non-Colorado city, get the first matching scoresheet
+            // (could be any city_state or null - we don't filter)
+            
+            const { data, error } = await query.limit(1).maybeSingle();
             
             if (!error && data) {
               scoresheetResult = data;
@@ -727,7 +827,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     if (associationsData.length > 0) {
       fetchScoresheetOnlyData();
     }
-  }, [allDisciplines, associationsData, formData.disciplineScoresheetSelections]);
+  }, [allDisciplines, associationsData, formData.disciplineScoresheetSelections, formData.selected4HCity, formData.associations, formData.disciplines]);
   
   const handlePatternSelectionChange = (disciplineId, groupId, newPatternId) => {
     setFormData(prev => {

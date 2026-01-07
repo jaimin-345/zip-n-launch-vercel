@@ -46,6 +46,7 @@ const ScoresheetUploadPage = () => {
         pattern_id: '',
         association_abbrev: '',
         discipline: '',
+        city_state: '',
     });
 
     useEffect(() => {
@@ -99,10 +100,10 @@ const ScoresheetUploadPage = () => {
     };
 
     const fetchDisciplines = async () => {
-        // Fetch disciplines with direct association_id
+        // Fetch disciplines with direct association_id and city
         const { data: discData, error: discError } = await supabase
             .from('disciplines')
-            .select('id, name, association_id')
+            .select('id, name, association_id, city')
             .order('name');
 
         if (discError) {
@@ -145,6 +146,41 @@ const ScoresheetUploadPage = () => {
         setDisciplines(mappedDisciplines);
     };
 
+    // Check if selected association is 4-H
+    const is4HAssociation = useMemo(() => {
+        if (!formData.association_abbrev) return false;
+        const selectedAssociation = associations.find(a => 
+            (a.abbreviation && a.abbreviation === formData.association_abbrev) || 
+            a.name === formData.association_abbrev ||
+            a.id === formData.association_abbrev
+        );
+        return selectedAssociation && (
+            selectedAssociation.abbreviation === '4-H' || 
+            selectedAssociation.name?.includes('4-H') ||
+            selectedAssociation.id === '4-H'
+        );
+    }, [formData.association_abbrev, associations]);
+
+    // Get unique cities for 4-H disciplines
+    const availableCities = useMemo(() => {
+        if (!is4HAssociation) return [];
+        const selectedAssociation = associations.find(a => 
+            (a.abbreviation && a.abbreviation === formData.association_abbrev) || 
+            a.name === formData.association_abbrev ||
+            a.id === formData.association_abbrev
+        );
+        if (!selectedAssociation) return [];
+        
+        const fourHDisciplines = disciplines.filter(d => 
+            d.association_ids && d.association_ids.includes(selectedAssociation.id) && d.city
+        );
+        const cities = new Set();
+        fourHDisciplines.forEach(d => {
+            if (d.city) cities.add(d.city);
+        });
+        return Array.from(cities).sort();
+    }, [disciplines, is4HAssociation, formData.association_abbrev, associations]);
+
     // Deduplicate and filter disciplines by name and selected association (when in manual mode)
     const sortedDisciplineTypes = useMemo(() => {
         // Filter disciplines based on selected association when in manual mode
@@ -159,6 +195,11 @@ const ScoresheetUploadPage = () => {
                 filtered = disciplines.filter(d => 
                     d.association_ids && d.association_ids.includes(selectedAssociation.id)
                 );
+                
+                // If 4-H and city is selected, filter by city
+                if (is4HAssociation && formData.city_state) {
+                    filtered = filtered.filter(d => d.city === formData.city_state);
+                }
             } else {
                 filtered = [];
             }
@@ -174,7 +215,7 @@ const ScoresheetUploadPage = () => {
             }
         }
         return unique.sort((a, b) => a.name.localeCompare(b.name));
-    }, [disciplines, formData.association_abbrev, selectionMode, associations]);
+    }, [disciplines, formData.association_abbrev, formData.city_state, selectionMode, associations, is4HAssociation]);
 
     // Get unique associations from existing scoresheets for filter (normalized to abbreviations)
     const uniqueAssociationsInScoresheets = useMemo(() => {
@@ -251,6 +292,7 @@ const ScoresheetUploadPage = () => {
             pattern_id: '',
             association_abbrev: '',
             discipline: '',
+            city_state: '',
         });
         setImage(null);
         setEditingScoresheetId(null);
@@ -296,6 +338,21 @@ const ScoresheetUploadPage = () => {
                 toast({ title: "Missing required fields", description: "Please select both Association and Discipline.", variant: "destructive" });
                 return;
             }
+            // Check if 4-H association requires city
+            const selectedAssociation = associations.find(a => 
+                (a.abbreviation && a.abbreviation === formData.association_abbrev) || 
+                a.name === formData.association_abbrev ||
+                a.id === formData.association_abbrev
+            );
+            const is4H = selectedAssociation && (
+                selectedAssociation.abbreviation === '4-H' || 
+                selectedAssociation.name?.includes('4-H') ||
+                selectedAssociation.id === '4-H'
+            );
+            if (is4H && !formData.city_state) {
+                toast({ title: "Missing required fields", description: "Please select a City for 4-H association.", variant: "destructive" });
+                return;
+            }
         }
 
         if (!image && !editingScoresheetId) {
@@ -330,6 +387,7 @@ const ScoresheetUploadPage = () => {
                 pattern_id: selectionMode === 'pattern' ? parseInt(formData.pattern_id) : null,
                 association_abbrev: formData.association_abbrev || null,
                 discipline: formData.discipline || null,
+                city_state: formData.city_state || null,
             };
 
             // Add image fields if new image was uploaded
@@ -393,6 +451,7 @@ const ScoresheetUploadPage = () => {
             pattern_id: scoresheet.pattern_id?.toString() || '',
             association_abbrev: scoresheet.association_abbrev || '',
             discipline: scoresheet.discipline || '',
+            city_state: scoresheet.city_state || '',
         });
         if (scoresheet.image_url) {
             setImage({
@@ -612,7 +671,7 @@ const ScoresheetUploadPage = () => {
                                     setSelectionMode(value);
                                     // Clear opposite fields when switching
                                     if (value === 'pattern') {
-                                        setFormData(prev => ({ ...prev, association_abbrev: '', discipline: '' }));
+                                        setFormData(prev => ({ ...prev, association_abbrev: '', discipline: '', city_state: '' }));
                                     } else {
                                         setFormData(prev => ({ ...prev, pattern_id: '' }));
                                     }
@@ -672,47 +731,99 @@ const ScoresheetUploadPage = () => {
 
                         {/* Association & Discipline Selection (shown when mode is 'manual') */}
                         {selectionMode === 'manual' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <Label htmlFor="association_abbrev">Association *</Label>
-                                    <Select
-                                        value={formData.association_abbrev}
-                                        onValueChange={value => {
-                                            setFormData(p => ({ ...p, association_abbrev: value, discipline: '' }));
-                                        }}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Association" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {associations.filter(a => a.abbreviation).map(a => (
-                                                <SelectItem key={a.id} value={a.abbreviation}>
-                                                    {a.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                            <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="association_abbrev">Association *</Label>
+                                        <Select
+                                            value={formData.association_abbrev}
+                                            onValueChange={value => {
+                                                setFormData(p => ({ ...p, association_abbrev: value, discipline: '', city_state: '' }));
+                                            }}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Association" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {associations.filter(a => a.abbreviation).map(a => (
+                                                    <SelectItem key={a.id} value={a.abbreviation}>
+                                                        {a.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    {is4HAssociation && (
+                                        <div>
+                                            <Label htmlFor="city_state">City *</Label>
+                                            <Select
+                                                value={formData.city_state}
+                                                onValueChange={value => {
+                                                    setFormData(p => ({ ...p, city_state: value, discipline: '' }));
+                                                }}
+                                                disabled={!formData.association_abbrev}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select City" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableCities.map(city => (
+                                                        <SelectItem key={city} value={city}>
+                                                            {city}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                    {!is4HAssociation && (
+                                        <div>
+                                            <Label htmlFor="discipline">Discipline *</Label>
+                                            <Select
+                                                value={formData.discipline}
+                                                onValueChange={value => {
+                                                    setFormData(p => ({ ...p, discipline: value }));
+                                                }}
+                                                disabled={!formData.association_abbrev}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder={formData.association_abbrev ? "Select Discipline" : "Select Association first"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {sortedDisciplineTypes.map(d => (
+                                                        <SelectItem key={d.id} value={d.name}>
+                                                            {d.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <Label htmlFor="discipline">Discipline *</Label>
-                                    <Select
-                                        value={formData.discipline}
-                                        onValueChange={value => setFormData(p => ({ ...p, discipline: value }))}
-                                        disabled={!formData.association_abbrev}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder={formData.association_abbrev ? "Select Discipline" : "Select Association first"} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {sortedDisciplineTypes.map(d => (
-                                                <SelectItem key={d.id} value={d.name}>
-                                                    {d.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
+                                {is4HAssociation && (
+                                    <div>
+                                        <Label htmlFor="discipline">Discipline *</Label>
+                                        <Select
+                                            value={formData.discipline}
+                                            onValueChange={value => {
+                                                setFormData(p => ({ ...p, discipline: value }));
+                                            }}
+                                            disabled={!formData.association_abbrev || !formData.city_state}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={formData.city_state ? "Select Discipline" : "Select City first"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {sortedDisciplineTypes.map(d => (
+                                                    <SelectItem key={d.id} value={d.name}>
+                                                        {d.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         <Card>
