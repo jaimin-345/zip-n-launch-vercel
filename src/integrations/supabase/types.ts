@@ -2052,6 +2052,7 @@ export type Database = {
           created_at: string | null
           customer_id: string | null
           id: string
+          mode: string | null
           project_data: Json | null
           project_name: string | null
           project_type: string | null
@@ -2064,6 +2065,7 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           id?: string
+          mode?: string | null
           project_data?: Json | null
           project_name?: string | null
           project_type?: string | null
@@ -2076,6 +2078,7 @@ export type Database = {
           created_at?: string | null
           customer_id?: string | null
           id?: string
+          mode?: string | null
           project_data?: Json | null
           project_name?: string | null
           project_type?: string | null
