@@ -112,7 +112,7 @@ const EventCard = ({ event }) => {
                     <Link to={`/event-detail/${event.id}`} className="flex-1">
                         <Button variant="ghost" size="sm">View Details</Button>
                     </Link>
-                    {getPatternButton()}
+                    {/* {getPatternButton()} */}
                 </CardFooter>
             </Card>
         </motion.div>
