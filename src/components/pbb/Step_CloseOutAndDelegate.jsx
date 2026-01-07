@@ -54,6 +54,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
     const [openPopover, setOpenPopover] = useState(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isCheckingUser, setIsCheckingUser] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [existingUser, setExistingUser] = useState(null);
     const [editedContact, setEditedContact] = useState({
         name: staffMember.name || '',
@@ -110,13 +111,14 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
     };
 
     const handleSaveContact = async () => {
+        setIsSaving(true);
         const currentName = editedContact.name;
         const currentEmail = editedContact.email;
         const currentPhone = editedContact.phone;
         
-        // If user doesn't exist and email is provided, create the user
-        if (!existingUser && currentEmail && currentEmail.includes('@')) {
-            try {
+        try {
+            // If user doesn't exist and email is provided, create the user
+            if (!existingUser && currentEmail && currentEmail.includes('@')) {
                 const { data, error } = await supabase.functions.invoke('create-staff-user', {
                     body: {
                         email: currentEmail,
@@ -133,20 +135,22 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                         description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
                     });
                 }
-            } catch (error) {
-                console.error('Error creating user:', error);
-                toast({
-                    title: 'Error',
-                    description: 'Failed to create user account. Contact information saved.',
-                    variant: 'destructive'
-                });
             }
+            
+            if (onContactUpdate) {
+                onContactUpdate(staffMember.id, { name: currentName, email: currentEmail, phone: currentPhone });
+            }
+            setIsEditDialogOpen(false);
+        } catch (error) {
+            console.error('Error creating user:', error);
+            toast({
+                title: 'Error',
+                description: 'Failed to create user account. Contact information saved.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsSaving(false);
         }
-        
-        if (onContactUpdate) {
-            onContactUpdate(staffMember.id, { name: currentName, email: currentEmail, phone: currentPhone });
-        }
-        setIsEditDialogOpen(false);
     };
 
     const handleAccessPhaseChange = (phaseId) => {
@@ -331,8 +335,13 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                             )}
                                         </div>
                                         <DialogFooter>
-                                            <Button onClick={handleSaveContact} disabled={isCheckingUser}>
-                                                {isCheckingUser ? 'Checking...' : 'Save Changes'}
+                                            <Button onClick={handleSaveContact} disabled={isCheckingUser || isSaving}>
+                                                {isSaving ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Saving...
+                                                    </>
+                                                ) : isCheckingUser ? 'Checking...' : 'Save Changes'}
                                             </Button>
                                         </DialogFooter>
                                     </DialogContent>
