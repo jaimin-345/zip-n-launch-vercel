@@ -2623,11 +2623,11 @@ export type Database = {
       tbl_scoresheet: {
         Row: {
           association_abbrev: string | null
+          city_state: string | null
           created_at: string
           discipline: string | null
           file_name: string
           file_path: string | null
-          file_url: string | null
           id: number
           image_url: string | null
           pattern_id: number | null
@@ -2636,11 +2636,11 @@ export type Database = {
         }
         Insert: {
           association_abbrev?: string | null
+          city_state?: string | null
           created_at?: string
           discipline?: string | null
           file_name?: string
           file_path?: string | null
-          file_url?: string | null
           id?: number
           image_url?: string | null
           pattern_id?: number | null
@@ -2649,11 +2649,11 @@ export type Database = {
         }
         Update: {
           association_abbrev?: string | null
+          city_state?: string | null
           created_at?: string
           discipline?: string | null
           file_name?: string
           file_path?: string | null
-          file_url?: string | null
           id?: number
           image_url?: string | null
           pattern_id?: number | null
