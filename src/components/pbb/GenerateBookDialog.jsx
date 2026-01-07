@@ -4,16 +4,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CreditCard, Mail, Check, ArrowRight, ArrowLeft, DollarSign } from 'lucide-react';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { supabase } from '@/lib/supabaseClient';
 import { useAnalytics } from '@/components/AnalyticsProvider';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const [email, setEmail] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [dialogStep, setDialogStep] = useState(1); // 1 = Payment, 2 = Generate & Email
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
+
+  // Reset dialog state when closed
+  const handleOpenChange = (isOpen) => {
+    if (!isOpen) {
+      setDialogStep(1);
+      setEmail('');
+    }
+    onOpenChange(isOpen);
+  };
 
   // Function to send notifications to assigned judges
   const sendJudgeNotifications = async () => {
@@ -60,10 +73,9 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
           assocData.judges.forEach((judge) => {
             if (judge.email && judge.name) {
               const normalizedName = judge.name.trim().toLowerCase();
-              // Store with original name but use normalized key for lookup
               availableJudgesMap.set(normalizedName, {
                 email: judge.email.toLowerCase(),
-                name: judge.name.trim(), // Keep original name
+                name: judge.name.trim(),
               });
             }
           });
@@ -76,11 +88,10 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
       pbbData.officials.forEach((official) => {
         if (official.email && official.name && official.role?.toLowerCase().includes('judge')) {
           const normalizedName = official.name.trim().toLowerCase();
-          // Only add if not already in map (avoid duplicates)
           if (!availableJudgesMap.has(normalizedName)) {
             availableJudgesMap.set(normalizedName, {
               email: official.email.toLowerCase(),
-              name: official.name.trim(), // Keep original name
+              name: official.name.trim(),
             });
           }
         }
@@ -92,7 +103,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
     assignedJudgeNames.forEach((assignedNameNormalized) => {
       const judgeInfo = availableJudgesMap.get(assignedNameNormalized);
       if (judgeInfo) {
-        // Avoid duplicates by email
         if (!judgesToNotify.some(j => j.email === judgeInfo.email)) {
           judgesToNotify.push(judgeInfo);
         }
@@ -135,6 +145,27 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
     }
   };
 
+  // Dummy payment handler
+  const handlePayment = async () => {
+    setIsProcessingPayment(true);
+    
+    // Simulate payment processing
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    trackBehaviorEvent('pbb_payment_processed', {
+      showName: pbbData.showName,
+      amount: '$0.00 (Demo)',
+    });
+    
+    toast({
+      title: 'Payment Successful',
+      description: 'Demo payment processed. Proceeding to generate your pattern book.',
+    });
+    
+    setIsProcessingPayment(false);
+    setDialogStep(2);
+  };
+
   const handleSend = async () => {
     if (!email) {
       toast({
@@ -156,7 +187,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
 
       const pdfDataUri = await generatePatternBookPdf(pbbData);
 
-      // Track pattern book generation
       trackPatternEvent('download', {
         patternId: pbbData.id,
         discipline: pbbData.disciplines?.map(d => d.name).join(', '),
@@ -173,7 +203,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
       link.click();
       document.body.removeChild(link);
 
-      // Track behavior event for PDF download
       trackBehaviorEvent('pattern_book_download', {
         showName: pbbData.showName,
         fileName,
@@ -200,12 +229,10 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
         throw new Error(error.message);
       }
 
-      // Check if the response contains an error from the edge function
       if (data?.error) {
         throw new Error(data.error);
       }
 
-      // Track email sent event
       trackBehaviorEvent('pattern_book_email_sent', {
         showName: pbbData.showName,
         recipientEmail: email,
@@ -215,8 +242,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
         title: 'Success!',
         description: `Pattern book sent to ${email} and downloaded.`,
       });
-      onOpenChange(false);
-      setEmail('');
+      handleOpenChange(false);
 
     } catch (error) {
       console.error('Failed to generate or send book:', error);
@@ -234,11 +260,122 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
     }
   };
 
-      return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-[425px]">
+  // Calculate dummy pricing
+  const disciplineCount = (pbbData.disciplines || []).length;
+  const customClassCount = (pbbData.disciplines || []).filter(d => d.isCustom).length;
+  const basePrice = 0; // Demo mode
+  const customFee = customClassCount * 50;
+  const totalPrice = basePrice + customFee;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        {/* Step Indicator */}
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <div className={`flex items-center gap-2 ${dialogStep >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${dialogStep >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+              {dialogStep > 1 ? <Check className="h-4 w-4" /> : '1'}
+            </div>
+            <span className="text-sm font-medium">Payment</span>
+          </div>
+          <div className="w-8 h-px bg-border" />
+          <div className={`flex items-center gap-2 ${dialogStep >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${dialogStep >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+              2
+            </div>
+            <span className="text-sm font-medium">Generate & Email</span>
+          </div>
+        </div>
+
+        {dialogStep === 1 && (
+          <>
             <DialogHeader>
-              <DialogTitle>Generate & Email Pattern Book</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Step 1: Payment
+              </DialogTitle>
+              <DialogDescription>
+                Review your order and complete payment to proceed.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {/* Order Summary */}
+              <Card>
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Pattern Book</span>
+                    <span className="font-medium">{pbbData.showName || 'Untitled'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Disciplines</span>
+                    <span>{disciplineCount}</span>
+                  </div>
+                  {customClassCount > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Custom Classes</span>
+                      <span>{customClassCount} × $50.00</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-3 flex justify-between items-center">
+                    <span className="font-semibold">Total</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">DEMO</Badge>
+                      <span className="text-lg font-bold text-primary">
+                        ${totalPrice.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Demo Payment Notice */}
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <DollarSign className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Demo Mode</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">This is a demonstration. No real payment will be processed.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => handleOpenChange(false)}
+                disabled={isProcessingPayment}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handlePayment} 
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Pay & Continue
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {dialogStep === 2 && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Step 2: Generate & Email Pattern Book
+              </DialogTitle>
               <DialogDescription>
                 A PDF of your pattern book will be generated, downloaded to your device, and sent to the email address you provide.
               </DialogDescription>
@@ -259,7 +396,15 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setDialogStep(1)}
+                disabled={isGenerating}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
               <Button
                 onClick={handleSend}
                 disabled={isGenerating || !email}
@@ -274,9 +419,11 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 )}
               </Button>
             </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      );
-    };
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
     
-    export default GenerateBookDialog;
+export default GenerateBookDialog;
