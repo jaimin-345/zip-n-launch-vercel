@@ -112,6 +112,10 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
 
     const handleSaveContact = async () => {
         setIsSaving(true);
+        
+        // Small delay to ensure spinner renders before async work
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const currentName = editedContact.name;
         const currentEmail = editedContact.email;
         const currentPhone = editedContact.phone;
@@ -243,20 +247,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                 <div>
                                     <p className="font-semibold">{staffMember.name}</p>
                                     <p className="text-sm text-muted-foreground">{staffMember.role}</p>
-                                    {(staffMember.email || staffMember.phone) && (
-                                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                                            {staffMember.email && (
-                                                <span className="flex items-center gap-1">
-                                                    <Mail className="h-3 w-3" /> {staffMember.email}
-                                                </span>
-                                            )}
-                                            {staffMember.phone && (
-                                                <span className="flex items-center gap-1">
-                                                    <Phone className="h-3 w-3" /> {staffMember.phone}
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                                 <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                                     <DialogTrigger asChild>
