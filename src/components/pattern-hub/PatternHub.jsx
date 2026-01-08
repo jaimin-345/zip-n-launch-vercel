@@ -115,12 +115,37 @@ export const PatternHub = () => {
                 return;
             }
 
+            // Check if all steps are complete
+            const isStep0Complete = !!formData.usageType;
+            const isStep1Complete = Object.values(formData.associations || {}).some(val => val);
+            const isStep2Complete = formData.disciplines.length > 0;
+            const isStep3Complete = formData.showName && formData.startDate;
+            const isStep4Complete = (() => {
+                const patternDisciplines = formData.disciplines.filter(d => d.pattern);
+                if (patternDisciplines.length === 0) return true;
+                return patternDisciplines.every(pbbDiscipline => {
+                    const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
+                    return (pbbDiscipline.patternGroups || []).every((_, groupIndex) => 
+                        !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
+                    );
+                });
+            })();
+            const isStep5Complete = true; // Uploads optional
+            const isStep6Complete = true; // Preview always complete
+            const isStep7Complete = true; // Close out always complete
+
+            const allStepsComplete = isStep0Complete && isStep1Complete && isStep2Complete && 
+                                     isStep3Complete && isStep4Complete && isStep5Complete && 
+                                     isStep6Complete && isStep7Complete;
+
+            const status = allStepsComplete ? 'draft' : 'in_progress';
+
             const projectData = {
                 project_name: formData.showName || 'Untitled Pattern Hub Project',
                 project_type: 'pattern_hub',
                 project_data: formData,
                 user_id: user.id,
-                status: 'draft',
+                status: status,
             };
 
             const { error } = await supabase
@@ -131,7 +156,7 @@ export const PatternHub = () => {
 
             toast({
                 title: "Project Saved",
-                description: "Your pattern selection has been saved successfully.",
+                description: `Your project has been saved with status: ${status === 'draft' ? 'Draft' : 'In Progress'}.`,
             });
         } catch (error) {
             toast({
