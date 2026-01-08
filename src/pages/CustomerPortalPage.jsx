@@ -2904,8 +2904,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         console.log(`Found patternSelections for ${disciplineName} using key: ${matchingKey}`);
                     }
                 }
-                    }
-                }
                 
                 if (!disciplineSelections) continue;
                 
