@@ -3459,9 +3459,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 {/* Main Content Area */}
                 <div className="flex-1 flex overflow-hidden">
-                    <div className="flex-1 p-6 overflow-y-auto">
+                    <div className="flex-1 p-6 flex flex-col overflow-hidden">
                         {activeTab === 'patternBook' && (
-                            <>
+                            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                 {/* Sub-tabs */}
                                 <div className="flex gap-4 mb-6 border-b">
                                     <button 
@@ -3588,14 +3588,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 
                                 {/* Content based on active sub-tab */}
                                 {activeSubTab === 'patterns' && (
-                                    <div className="flex flex-col flex-1 min-h-0">
+                                    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                         {/* Patterns List */}
                                         {isLoadingPatterns ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 flex-1 overflow-y-auto pr-2">
+                                            <div className="space-y-2 overflow-y-auto pr-2">
                                                 {filteredPatterns.map((pattern, index) => (
                                                     <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3690,14 +3690,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 )}
                                 
                                 {activeSubTab === 'scoreSheets' && (
-                                    <div className="flex flex-col flex-1 min-h-0">
+                                    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                         {/* Score Sheets List */}
                                         {isLoadingScoresheets ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 flex-1 overflow-y-auto pr-2">
+                                            <div className="space-y-2 overflow-y-auto pr-2">
                                                 {filteredScoresheets.map((scoresheet, index) => (
                                                     <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3779,7 +3779,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         Coming soon
                                     </div>
                                 )}
-                            </>
+                            </div>
                         )}
                         
                         {activeTab === 'results' && (
