@@ -2385,7 +2385,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     
     // Filter patterns based on selected filters
     const filteredPatterns = patterns.filter(pattern => {
-        if (filterDiscipline !== 'all' && pattern.discipline !== filterDiscipline) return false;
+        if (filterDiscipline !== 'all') {
+            // Normalize both strings for comparison (handle spaces, dashes, case)
+            const patternDiscipline = (pattern.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
+            const selectedDiscipline = filterDiscipline.toLowerCase().replace(/[\s-]+/g, '');
+            if (patternDiscipline !== selectedDiscipline) return false;
+        }
         if (filterClass !== 'all' && pattern.groupName !== filterClass) return false;
         if (filterJudge !== 'all') {
             // Check both judges array and judgeNames string
@@ -2407,7 +2412,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     
     // Filter scoresheets based on selected filters (same filters)
     const filteredScoresheets = scoresheets.filter(scoresheet => {
-        if (filterDiscipline !== 'all' && scoresheet.disciplineName !== filterDiscipline) return false;
+        if (filterDiscipline !== 'all') {
+            // Normalize both strings for comparison (handle spaces, dashes, case)
+            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
+            const selectedDiscipline = filterDiscipline.toLowerCase().replace(/[\s-]+/g, '');
+            if (scoresheetDiscipline !== selectedDiscipline) return false;
+        }
         if (filterClass !== 'all' && scoresheet.groupName !== filterClass) return false;
         if (filterJudge !== 'all') {
             const hasJudge = (scoresheet.judges && scoresheet.judges.includes(filterJudge)) ||
@@ -3578,14 +3588,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 
                                 {/* Content based on active sub-tab */}
                                 {activeSubTab === 'patterns' && (
-                                    <>
+                                    <div className="flex flex-col flex-1 min-h-0">
                                         {/* Patterns List */}
                                         {isLoadingPatterns ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                            <div className="space-y-2 flex-1 overflow-y-auto pr-2">
                                                 {filteredPatterns.map((pattern, index) => (
                                                     <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3676,18 +3686,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 )}
                                             </div>
                                         )}
-                                    </>
+                                    </div>
                                 )}
                                 
                                 {activeSubTab === 'scoreSheets' && (
-                                    <>
+                                    <div className="flex flex-col flex-1 min-h-0">
                                         {/* Score Sheets List */}
                                         {isLoadingScoresheets ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                            <div className="space-y-2 flex-1 overflow-y-auto pr-2">
                                                 {filteredScoresheets.map((scoresheet, index) => (
                                                     <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3761,7 +3771,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 )}
                                             </div>
                                         )}
-                                    </>
+                                    </div>
                                 )}
                                 
                                 {(activeSubTab === 'accessory' || activeSubTab === 'complete') && (
