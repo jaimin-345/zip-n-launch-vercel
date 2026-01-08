@@ -19,6 +19,7 @@ import { Step_CloseOutAndDelegate } from '@/components/pbb/Step_CloseOutAndDeleg
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { useToast } from '@/components/ui/use-toast';
 import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
+import { supabase } from '@/integrations/supabase/client';
 
 // Base steps - step 3 name will be dynamic based on purpose
 const getHubSteps = (purposeName) => [
@@ -104,8 +105,30 @@ export const PatternHub = () => {
     const handleSaveProject = async () => {
         setIsSaving(true);
         try {
-            // Simulate save - in real implementation this would save to Supabase
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast({
+                    title: "Authentication Required",
+                    description: "Please log in to save your project.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            const projectData = {
+                project_name: formData.showName || 'Untitled Pattern Hub Project',
+                project_type: 'pattern_hub',
+                project_data: formData,
+                user_id: user.id,
+                status: 'draft',
+            };
+
+            const { error } = await supabase
+                .from('projects')
+                .upsert(projectData, { onConflict: 'id' });
+
+            if (error) throw error;
+
             toast({
                 title: "Project Saved",
                 description: "Your pattern selection has been saved successfully.",
@@ -113,7 +136,7 @@ export const PatternHub = () => {
         } catch (error) {
             toast({
                 title: "Error Saving",
-                description: "Failed to save project. Please try again.",
+                description: error.message || "Failed to save project. Please try again.",
                 variant: "destructive",
             });
         } finally {
