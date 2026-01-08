@@ -3278,7 +3278,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     );
     
     return (
-        <div className="flex flex-col h-[85vh] max-h-[900px] bg-background overflow-hidden">
+        <div className="flex flex-col h-[75vh] max-h-[800px] bg-background overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b">
                 <div className="flex items-start justify-between mb-4">
