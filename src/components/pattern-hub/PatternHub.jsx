@@ -66,7 +66,7 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     );
 };
 
-export const PatternHub = () => {
+export const PatternHub = ({ projectId }) => {
     const { toast } = useToast();
     const { 
         currentStep, setCurrentStep,
@@ -77,10 +77,11 @@ export const PatternHub = () => {
         divisionsData,
         usagePurposes,
         resetDisciplines,
-    } = usePatternHub();
+        highestStepReached,
+        setHighestStepReached,
+    } = usePatternHub(projectId);
 
     const [isSaving, setIsSaving] = useState(false);
-    const [highestStepReached, setHighestStepReached] = useState(0);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
     const isClinicMode = formData.usageType === 'clinic';
@@ -140,23 +141,44 @@ export const PatternHub = () => {
 
             const status = allStepsComplete ? 'Draft' : 'In progress';
 
+            // Prepare form data for saving (exclude id from project_data as it's stored at project level)
+            const { id: formDataId, ...formDataToSave } = formData;
+            
             const projectData = {
                 project_name: formData.showName || 'Untitled Pattern Hub Project',
                 project_type: 'pattern_hub',
-                project_data: formData,
+                project_data: {
+                    ...formDataToSave,
+                    currentStep: currentStep,
+                    completedSteps: Array.from(completedSteps),
+                },
                 user_id: user.id,
                 status: status,
             };
 
-            const { error } = await supabase
+            // If editing existing project, include the ID (use projectId prop or formData.id)
+            if (projectId && projectId !== 'undefined') {
+                projectData.id = projectId;
+            } else if (formDataId) {
+                projectData.id = formDataId;
+            }
+
+            console.log('Saving project data:', projectData);
+
+            const { error, data } = await supabase
                 .from('projects')
-                .upsert(projectData, { onConflict: 'id' });
+                .upsert(projectData, { onConflict: 'id' })
+                .select();
 
             if (error) throw error;
 
+            console.log('Project saved successfully:', data);
+
             toast({
                 title: "Project Saved",
-                description: `Your project has been saved with status: ${status === 'draft' ? 'Draft' : 'In Progress'}.`,
+                description: projectId 
+                    ? `Your project has been updated with status: ${status === 'Draft' ? 'Draft' : 'In Progress'}.`
+                    : `Your project has been saved with status: ${status === 'Draft' ? 'Draft' : 'In Progress'}.`,
             });
         } catch (error) {
             toast({

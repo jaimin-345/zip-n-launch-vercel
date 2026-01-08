@@ -4,33 +4,56 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCart } from '@/hooks/useCart';
 import { fetchAssociations } from '@/lib/associationsData';
 
-export const usePatternHub = () => {
+const initialFormData = {
+    usageType: 'individual',
+    showType: '',
+    associations: {},
+    customAssociations: [],
+    primaryAffiliates: [],
+    nsbaApprovalType: '',
+    nsbaCategory: '',
+    nsbaDualApprovedWith: [],
+    phbaHorseType: 'stock',
+    pthaHorseType: 'stock',
+    disciplines: [],
+    showName: '',
+    startDate: '',
+    endDate: '',
+    venueAddress: '',
+    officials: [],
+    staff: [],
+    coverPageOption: 'none',
+    patternSelections: {},
+    scoresheetSelections: {},
+    groupJudges: {},
+    associationJudges: {},
+    dueDateSelections: [],
+    disciplineDueDates: {},
+    groupDueDates: {},
+    divisionDates: {},
+    divisionOrder: [],
+    schedule: [],
+    judgeSelections: [],
+    customDivisions: [],
+    subAssociationSelections: {},
+    disciplinePatterns: {},
+    open_divisions: false,
+    selectedAssociations: {},
+    pattern_type: 'rulebook',
+    category: 'pattern_and_scoresheet',
+    isCustom: false,
+    sort_order: 0,
+    city: null,
+    patternGroups: [],
+};
+
+export const usePatternHub = (projectId) => {
     const { toast } = useToast();
     const { addToCart } = useCart();
     
     const [currentStep, setCurrentStep] = useState(0);
-    const [formData, setFormData] = useState({
-        usageType: 'individual',
-        showType: '',
-        associations: {},
-        customAssociations: [],
-        primaryAffiliates: [],
-        nsbaApprovalType: '',
-        nsbaCategory: '',
-        nsbaDualApprovedWith: [],
-        phbaHorseType: 'stock',
-        pthaHorseType: 'stock',
-        disciplines: [],
-        showName: '',
-        startDate: '',
-        endDate: '',
-        venueAddress: '',
-        officials: [],
-        staff: [],
-        coverPageOption: 'none',
-        patternSelections: {},
-        scoresheetSelections: {},
-    });
+    const [formData, setFormData] = useState(initialFormData);
+    const [highestStepReached, setHighestStepReached] = useState(0);
     
     const [isLoading, setIsLoading] = useState(true);
     const [disciplineLibrary, setDisciplineLibrary] = useState([]);
@@ -76,11 +99,65 @@ export const usePatternHub = () => {
                 }, {});
                 setDivisionsData(divisionsByAssoc);
                 
-                setFormData(prev => ({
-                    ...prev,
-                    startDate: new Date().toISOString().split('T')[0],
-                    venueAddress: 'Digital Download',
-                }));
+                // Load existing project data if projectId is provided
+                if (projectId && projectId !== 'undefined') {
+                    const { data: projectData, error: projectError } = await supabase
+                        .from('projects')
+                        .select('id, project_name, project_data, status')
+                        .eq('id', projectId)
+                        .eq('project_type', 'pattern_hub')
+                        .maybeSingle();
+                    
+                    if (projectError) {
+                        console.error('Error fetching project:', projectError);
+                        toast({
+                            title: 'Error loading project',
+                            description: projectError.message || 'Failed to load project data',
+                            variant: 'destructive',
+                        });
+                    } else if (projectData && projectData.project_data) {
+                        console.log('Loading project data:', projectData);
+                        
+                        // Extract project_data and merge with initialFormData to ensure all fields are present
+                        const savedProjectData = projectData.project_data;
+                        
+                        // Load project data - merge with initialFormData to ensure all fields exist
+                        setFormData(prev => {
+                            const mergedData = {
+                                ...initialFormData,
+                                ...savedProjectData,
+                                id: projectId, // Store projectId in formData for reference
+                            };
+                            console.log('Merged form data:', mergedData);
+                            return mergedData;
+                        });
+                        
+                        // Restore step and completed steps from project_data (not from separate columns)
+                        const savedStep = savedProjectData.currentStep || 0;
+                        const savedCompleted = savedProjectData.completedSteps || [];
+                        const maxCompleted = savedCompleted.length > 0 ? Math.max(...savedCompleted) : 0;
+                        const maxStep = Math.max(savedStep, maxCompleted);
+                        
+                        console.log('Restoring step:', savedStep, 'completed steps:', savedCompleted, 'highest:', maxStep);
+                        setCurrentStep(savedStep);
+                        setHighestStepReached(maxStep);
+                    } else {
+                        console.log('No project data found, using defaults');
+                        // Project not found or not a pattern_hub, use defaults
+                        setFormData(prev => ({
+                            ...prev,
+                            startDate: new Date().toISOString().split('T')[0],
+                            venueAddress: 'Digital Download',
+                        }));
+                    }
+                } else {
+                    // No projectId, use defaults
+                    setFormData(prev => ({
+                        ...prev,
+                        startDate: new Date().toISOString().split('T')[0],
+                        venueAddress: 'Digital Download',
+                    }));
+                }
     
             } catch (error) {
                 toast({
@@ -94,7 +171,7 @@ export const usePatternHub = () => {
         };
 
         fetchInitialData();
-    }, [toast]);
+    }, [projectId, toast]);
 
     const resetDisciplines = useCallback(() => {
       setFormData(prev => ({ ...prev, disciplines: [] }));
@@ -138,5 +215,7 @@ export const usePatternHub = () => {
         usagePurposes,
         handlePurchase,
         resetDisciplines,
+        highestStepReached,
+        setHighestStepReached,
     };
 };

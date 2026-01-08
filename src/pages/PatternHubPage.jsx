@@ -1,9 +1,12 @@
 import React from 'react';
     import { HelmetProvider, Helmet } from 'react-helmet-async';
+    import { useParams } from 'react-router-dom';
     import Navigation from '@/components/Navigation';
     import { PatternHub } from '@/components/pattern-hub/PatternHub';
 
     const PatternHubPage = () => {
+      const { projectId } = useParams();
+      
       return (
         <HelmetProvider>
           <Helmet>
@@ -15,7 +18,7 @@ import React from 'react';
           <div className="min-h-screen bg-background text-foreground">
             <Navigation />
             <main className="container mx-auto px-4 py-8">
-                <PatternHub />
+                <PatternHub projectId={projectId} />
             </main>
           </div>
         </HelmetProvider>

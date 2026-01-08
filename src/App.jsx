@@ -160,6 +160,7 @@ function App() {
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
                   <Route path="/judges-portal" element={<JudgesPortalPage />} />
                   <Route path="/pattern-hub" element={<PatternHubPage />} />
+                  <Route path="/pattern-hub/:projectId" element={<PatternHubPage />} />
                   <Route path="/store" element={<StorePage />} />
                   <Route path="/product/:id" element={<ProductDetailPage />} />
                   <Route path="/success" element={<SuccessPage />} />

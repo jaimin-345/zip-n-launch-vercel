@@ -197,7 +197,8 @@ export const usePatternBookBuilder = (projectId) => {
     const completedStepsArray = Array.from(updatedCompletedSteps);
     const allSteps = [1, 2, 3, 4, 5, 6, 7, 8];
     const allStepsComplete = allSteps.every(step => completedStepsArray.includes(step));
-    const projectStatus = allStepsComplete ? 'Lock & Approve Mode' : 'Draft';
+    // If all steps are complete (including step 8), set status to "Draft", otherwise "In progress"
+    const projectStatus = allStepsComplete ? 'Draft' : 'In progress';
 
     const projectToSave = {
       ...formData,
