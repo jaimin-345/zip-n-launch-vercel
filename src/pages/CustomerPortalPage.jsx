@@ -3278,7 +3278,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     );
     
     return (
-        <div className="flex flex-col h-full bg-background">
+        <div className="flex flex-col h-[85vh] max-h-[900px] bg-background overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b">
                 <div className="flex items-start justify-between mb-4">
@@ -3595,7 +3595,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 overflow-y-auto pr-2">
+                                            <div className="space-y-2 overflow-y-auto pr-2 flex-1">
                                                 {filteredPatterns.map((pattern, index) => (
                                                     <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3697,7 +3697,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2 overflow-y-auto pr-2">
+                                            <div className="space-y-2 overflow-y-auto pr-2 flex-1">
                                                 {filteredScoresheets.map((scoresheet, index) => (
                                                     <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
