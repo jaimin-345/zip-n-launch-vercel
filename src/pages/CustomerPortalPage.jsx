@@ -2626,21 +2626,29 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
                 
                 // Try multiple ways to find discipline selections
-                // First try by index, id, or name
-                let disciplineSelections = patternSelections[disciplineIndex] 
-                    || patternSelections[`${disciplineIndex}`]
-                    || patternSelections[discipline.id] 
-                    || patternSelections[discipline.name];
+                // First try by direct discipline.id (most reliable for unique discipline keys like "VRH-RHC-Ranch-Reining-AQHA-1767684438175")
+                let disciplineSelections = patternSelections[discipline.id];
+                
+                // Then try by index or string index
+                if (!disciplineSelections) {
+                    disciplineSelections = patternSelections[disciplineIndex] 
+                        || patternSelections[`${disciplineIndex}`]
+                        || patternSelections[discipline.name];
+                }
                 
                 // If not found, try to find by matching key format: "Discipline-Name-Association-Timestamp"
                 if (!disciplineSelections && disciplineName && associationId) {
                     const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
                     const associationAbbrev = associationId;
                     
-                    // Find matching key in patternSelections
+                    // Find matching key in patternSelections - check all possible matching strategies
                     const matchingKey = Object.keys(patternSelections).find(key => {
+                        // Skip numeric keys (indices)
+                        if (!isNaN(parseInt(key))) return false;
                         // Match format: "Discipline-Name-Association-..." or "Discipline-Name-AssociationAbbrev-..."
-                        return key.includes(disciplineNameNormalized) && key.includes(associationAbbrev);
+                        const keyNormalized = key.toLowerCase();
+                        const disciplineNormalized = disciplineNameNormalized.toLowerCase();
+                        return keyNormalized.includes(disciplineNormalized) && keyNormalized.includes(associationAbbrev.toLowerCase());
                     });
                     
                     if (matchingKey) {
@@ -2871,20 +2879,31 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
                 
                 // Try multiple ways to find discipline selections
-                let disciplineSelections = patternSelections[disciplineIndex] 
-                    || patternSelections[`${disciplineIndex}`]
-                    || patternSelections[discipline.id] 
-                    || patternSelections[discipline.name];
+                // First try by direct discipline.id (most reliable for unique discipline keys)
+                let disciplineSelections = patternSelections[discipline.id];
+                
+                // Then try by index or string index
+                if (!disciplineSelections) {
+                    disciplineSelections = patternSelections[disciplineIndex] 
+                        || patternSelections[`${disciplineIndex}`]
+                        || patternSelections[discipline.name];
+                }
                 
                 // If not found, try to find by matching key format: "Discipline-Name-Association-Timestamp"
                 if (!disciplineSelections && disciplineName && associationId) {
                     const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
                     const matchingKey = Object.keys(patternSelections).find(key => {
-                        return key.includes(disciplineNameNormalized) && key.includes(associationId);
+                        // Skip numeric keys
+                        if (!isNaN(parseInt(key))) return false;
+                        const keyNormalized = key.toLowerCase();
+                        const disciplineNormalized = disciplineNameNormalized.toLowerCase();
+                        return keyNormalized.includes(disciplineNormalized) && keyNormalized.includes(associationId.toLowerCase());
                     });
                     if (matchingKey) {
                         disciplineSelections = patternSelections[matchingKey];
                         console.log(`Found patternSelections for ${disciplineName} using key: ${matchingKey}`);
+                    }
+                }
                     }
                 }
                 
@@ -3023,16 +3042,25 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
                 
                 // Try multiple ways to find discipline selections (same as patterns)
-                let disciplineSelections = patternSelections[disciplineIndex] 
-                    || patternSelections[`${disciplineIndex}`]
-                    || patternSelections[discipline.id] 
-                    || patternSelections[discipline.name];
+                // First try by direct discipline.id (most reliable for unique discipline keys)
+                let disciplineSelections = patternSelections[discipline.id];
+                
+                // Then try by index or string index
+                if (!disciplineSelections) {
+                    disciplineSelections = patternSelections[disciplineIndex] 
+                        || patternSelections[`${disciplineIndex}`]
+                        || patternSelections[discipline.name];
+                }
                 
                 // If not found, try to find by matching key format
                 if (!disciplineSelections && disciplineName && associationId) {
                     const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
                     const matchingKey = Object.keys(patternSelections).find(key => {
-                        return key.includes(disciplineNameNormalized) && key.includes(associationId);
+                        // Skip numeric keys
+                        if (!isNaN(parseInt(key))) return false;
+                        const keyNormalized = key.toLowerCase();
+                        const disciplineNormalized = disciplineNameNormalized.toLowerCase();
+                        return keyNormalized.includes(disciplineNormalized) && keyNormalized.includes(associationId.toLowerCase());
                     });
                     if (matchingKey) {
                         disciplineSelections = patternSelections[matchingKey];
@@ -3559,7 +3587,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                                                 {filteredPatterns.map((pattern, index) => (
                                                     <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
@@ -3661,7 +3689,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
+                                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                                                 {filteredScoresheets.map((scoresheet, index) => (
                                                     <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
                                                         <input type="checkbox" className="w-4 h-4" />
