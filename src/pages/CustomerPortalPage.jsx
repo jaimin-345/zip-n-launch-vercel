@@ -3278,7 +3278,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     );
     
     return (
-        <div className="flex flex-col h-[75vh] max-h-[800px] bg-background overflow-hidden">
+        <div className="flex flex-col max-h-[80vh] bg-background overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b">
                 <div className="flex items-start justify-between mb-4">
@@ -3386,7 +3386,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             {/* Main Content */}
             <div className="flex flex-1 overflow-hidden">
                 {/* Left Sidebar */}
-                <div className="w-64 border-r bg-muted/30 p-4 overflow-y-auto">
+                <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
                     <div className="mb-6">
                         <h3 className="text-sm font-semibold mb-2">My Filing System</h3>
                         <div className="space-y-1">
