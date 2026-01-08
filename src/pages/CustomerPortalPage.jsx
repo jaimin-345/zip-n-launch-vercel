@@ -1914,7 +1914,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
             
             {/* Pattern Book Dialog */}
             <Dialog open={patternBookDialogOpen} onOpenChange={setPatternBookDialogOpen}>
-                <DialogContent className="max-w-5xl p-0 overflow-hidden">
+                <DialogContent className="max-w-7xl p-0 overflow-hidden">
                     <PatternBookDialogContent 
                         project={project}
                         profile={profile}
