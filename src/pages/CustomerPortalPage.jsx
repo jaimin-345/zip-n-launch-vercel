@@ -2373,21 +2373,34 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     // Get unique classes from both patterns AND scoresheets
     const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
     const allClassesFromScoresheets = [...new Set(scoresheets.map(s => s.groupName))];
-    const uniqueClasses = [...new Set([...allClassesFromPatterns, ...allClassesFromScoresheets])].sort();
+    const uniqueClasses = [...new Set([...allClassesFromPatterns, ...allClassesFromScoresheets])].filter(Boolean).sort();
+    
+    // Get unique judges from patterns, scoresheets, and project data (associationJudges)
+    const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
+    const allJudgesFromScoresheets = scoresheets.flatMap(s => s.judges || []);
+    const allJudgesFromProjectData = Object.values(projectData.associationJudges || {}).flatMap(assoc => 
+        (assoc?.judges || []).map(j => j?.name).filter(Boolean)
+    );
+    const uniqueJudges = [...new Set([...allJudgesFromPatterns, ...allJudgesFromScoresheets, ...allJudgesFromProjectData])].filter(Boolean).sort();
     
     // Filter patterns based on selected filters
     const filteredPatterns = patterns.filter(pattern => {
         if (filterDiscipline !== 'all' && pattern.discipline !== filterDiscipline) return false;
         if (filterClass !== 'all' && pattern.groupName !== filterClass) return false;
-        if (filterJudge !== 'all' && pattern.judgeNames && !pattern.judgeNames.includes(filterJudge)) return false;
+        if (filterJudge !== 'all') {
+            // Check both judges array and judgeNames string
+            const hasJudge = (pattern.judges && pattern.judges.includes(filterJudge)) ||
+                             (pattern.judgeNames && pattern.judgeNames.includes(filterJudge));
+            if (!hasJudge) return false;
+        }
         return true;
     }).sort((a, b) => {
         if (sortBy === 'newest') {
-            return b.id - a.id; // Assuming higher ID = newer
+            return (b.numericId || b.id || 0) - (a.numericId || a.id || 0);
         } else if (sortBy === 'oldest') {
-            return a.id - b.id;
+            return (a.numericId || a.id || 0) - (b.numericId || b.id || 0);
         } else if (sortBy === 'name') {
-            return a.name.localeCompare(b.name);
+            return (a.name || '').localeCompare(b.name || '');
         }
         return 0;
     });
@@ -2396,7 +2409,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const filteredScoresheets = scoresheets.filter(scoresheet => {
         if (filterDiscipline !== 'all' && scoresheet.disciplineName !== filterDiscipline) return false;
         if (filterClass !== 'all' && scoresheet.groupName !== filterClass) return false;
-        if (filterJudge !== 'all' && scoresheet.judgeNames && !scoresheet.judgeNames.includes(filterJudge)) return false;
+        if (filterJudge !== 'all') {
+            const hasJudge = (scoresheet.judges && scoresheet.judges.includes(filterJudge)) ||
+                             (scoresheet.judgeNames && scoresheet.judgeNames.includes(filterJudge));
+            if (!hasJudge) return false;
+        }
         return true;
     });
     
@@ -2848,18 +2865,51 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 const discipline = disciplines[disciplineIndex];
                 const disciplineName = discipline.name || 'Unknown Discipline';
                 
-                const disciplineSelections = patternSelections[disciplineIndex] 
+                // Get association for this discipline
+                const associationId = discipline.association_id || 
+                    (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
+                    (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
+                
+                // Try multiple ways to find discipline selections
+                let disciplineSelections = patternSelections[disciplineIndex] 
                     || patternSelections[`${disciplineIndex}`]
                     || patternSelections[discipline.id] 
                     || patternSelections[discipline.name];
+                
+                // If not found, try to find by matching key format: "Discipline-Name-Association-Timestamp"
+                if (!disciplineSelections && disciplineName && associationId) {
+                    const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
+                    const matchingKey = Object.keys(patternSelections).find(key => {
+                        return key.includes(disciplineNameNormalized) && key.includes(associationId);
+                    });
+                    if (matchingKey) {
+                        disciplineSelections = patternSelections[matchingKey];
+                        console.log(`Found patternSelections for ${disciplineName} using key: ${matchingKey}`);
+                    }
+                }
                 
                 if (!disciplineSelections) continue;
                 
                 const groups = discipline.patternGroups || [];
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
-                    const patternSelection = disciplineSelections[groupIndex]
+                    const group = groups[groupIndex];
+                    const groupId = group.id || `pattern-group-${groupIndex}`;
+                    
+                    // Try multiple ways to find pattern selection
+                    let patternSelection = disciplineSelections[groupIndex]
                         || disciplineSelections[`${groupIndex}`]
-                        || disciplineSelections[groups[groupIndex]?.id];
+                        || disciplineSelections[groupId]
+                        || disciplineSelections[group.id];
+                    
+                    // If not found, try to find by group ID pattern
+                    if (!patternSelection && groupId) {
+                        const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
+                            return key === groupId || key.includes('pattern-group');
+                        });
+                        if (matchingGroupKey) {
+                            patternSelection = disciplineSelections[matchingGroupKey];
+                        }
+                    }
                     
                     if (!patternSelection) continue;
                     
@@ -2967,14 +3017,33 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 const groups = discipline.patternGroups || [];
                 const groupJudges = projectData.groupJudges?.[disciplineIndex] || projectData.groupJudges?.[`${disciplineIndex}`] || {};
                 
-                const disciplineSelections = patternSelections[disciplineIndex] 
+                // Get association for this discipline
+                const associationId = discipline.association_id || 
+                    (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
+                    (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
+                
+                // Try multiple ways to find discipline selections (same as patterns)
+                let disciplineSelections = patternSelections[disciplineIndex] 
                     || patternSelections[`${disciplineIndex}`]
                     || patternSelections[discipline.id] 
                     || patternSelections[discipline.name];
                 
+                // If not found, try to find by matching key format
+                if (!disciplineSelections && disciplineName && associationId) {
+                    const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
+                    const matchingKey = Object.keys(patternSelections).find(key => {
+                        return key.includes(disciplineNameNormalized) && key.includes(associationId);
+                    });
+                    if (matchingKey) {
+                        disciplineSelections = patternSelections[matchingKey];
+                        console.log(`Found patternSelections for scoresheet ${disciplineName} using key: ${matchingKey}`);
+                    }
+                }
+                
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
                     const groupName = group.name || `Group ${groupIndex + 1}`;
+                    const groupId = group.id || `pattern-group-${groupIndex}`;
                     
                     // Get judges for this group
                     const judgesForGroup = groupJudges[groupIndex] || groupJudges[`${groupIndex}`] || [];
@@ -2982,10 +3051,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         ? judgesForGroup 
                         : (judgesForGroup ? [judgesForGroup] : []);
                     
-                    // Get pattern selection to find pattern ID
-                    const patternSelection = disciplineSelections?.[groupIndex]
+                    // Get pattern selection to find pattern ID - try multiple matching strategies
+                    let patternSelection = disciplineSelections?.[groupIndex]
                         || disciplineSelections?.[`${groupIndex}`]
+                        || disciplineSelections?.[groupId]
                         || disciplineSelections?.[group.id];
+                    
+                    // If not found, try to find by group ID pattern
+                    if (!patternSelection && disciplineSelections && groupId) {
+                        const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
+                            return key === groupId || key.includes('pattern-group');
+                        });
+                        if (matchingGroupKey) {
+                            patternSelection = disciplineSelections[matchingGroupKey];
+                        }
+                    }
                     
                     let scoresheetData = null;
                     let numericPatternId = null;
@@ -3424,10 +3504,17 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                     </Select>
                                     <Select value={filterJudge} onValueChange={setFilterJudge}>
                                         <SelectTrigger className="w-40">
-                                            <SelectValue>Any Judge</SelectValue>
+                                            <SelectValue>
+                                                {filterJudge === 'all' ? 'Any Judge' : filterJudge}
+                                            </SelectValue>
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">Any Judge</SelectItem>
+                                            {uniqueJudges.map(judge => (
+                                                <SelectItem key={judge} value={judge}>
+                                                    {judge}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <Select value={sortBy} onValueChange={setSortBy}>
