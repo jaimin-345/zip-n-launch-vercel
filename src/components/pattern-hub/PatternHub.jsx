@@ -138,7 +138,7 @@ export const PatternHub = () => {
                                      isStep3Complete && isStep4Complete && isStep5Complete && 
                                      isStep6Complete && isStep7Complete;
 
-            const status = allStepsComplete ? 'draft' : 'in_progress';
+            const status = allStepsComplete ? 'Draft' : 'In progress';
 
             const projectData = {
                 project_name: formData.showName || 'Untitled Pattern Hub Project',
