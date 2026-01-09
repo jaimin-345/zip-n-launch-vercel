@@ -232,6 +232,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [dialogJudge, setDialogJudge] = useState('');
   const [dialogStaff, setDialogStaff] = useState('');
+  const [selectedDisciplines, setSelectedDisciplines] = useState(new Set());
+  const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
+  const [bulkAssignJudge, setBulkAssignJudge] = useState('');
+  const [bulkAssignDueDate, setBulkAssignDueDate] = useState('');
   const disciplineRefs = useRef({});
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -864,6 +868,93 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     setAssignDialogOpen(false);
   };
 
+  // Handler for bulk judge assignment
+  const handleBulkAssignJudge = () => {
+    if (selectedDisciplines.size === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one discipline.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const judgeName = bulkAssignJudge && bulkAssignJudge.trim() ? bulkAssignJudge.trim() : null;
+    const dueDate = bulkAssignDueDate && bulkAssignDueDate.trim() ? bulkAssignDueDate.trim() : null;
+    
+    if (!judgeName && !dueDate) {
+      toast({
+        title: "Error",
+        description: "Please select a judge or date to assign.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setFormData(prev => {
+      const newJudges = { ...(prev.groupJudges || {}) };
+      const judgeSelections = { ...(prev.judgeSelections || {}) };
+      const newDueDates = { ...(prev.disciplineDueDates || {}) };
+      const dueDateSelections = { ...(prev.dueDateSelections || {}) };
+
+      // Assign judge and/or date to all selected disciplines
+      selectedDisciplines.forEach(disciplineId => {
+        const disciplineIndex = (prev.disciplines || []).findIndex(d => d.id === disciplineId);
+        if (disciplineIndex === -1) return;
+
+        const discipline = prev.disciplines[disciplineIndex];
+        const groups = discipline.patternGroups || [];
+
+        // Assign judge if provided
+        if (judgeName) {
+          // Store judge for the first group (index 0) to avoid duplicates
+          if (groups.length > 0) {
+            if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
+            newJudges[disciplineIndex][0] = judgeName;
+
+            // Clear any existing judge assignments for other groups
+            for (let i = 1; i < groups.length; i++) {
+              if (newJudges[disciplineIndex][i]) {
+                delete newJudges[disciplineIndex][i];
+              }
+            }
+          }
+
+          // Also store in judgeSelections for discipline-level access
+          judgeSelections[disciplineIndex] = judgeName;
+        }
+
+        // Assign due date if provided
+        if (dueDate) {
+          newDueDates[disciplineIndex] = dueDate;
+          dueDateSelections[disciplineIndex] = dueDate;
+        }
+      });
+
+      return {
+        ...prev,
+        groupJudges: newJudges,
+        judgeSelections,
+        disciplineDueDates: newDueDates,
+        dueDateSelections,
+      };
+    });
+
+    const successMessages = [];
+    if (judgeName) successMessages.push(`Judge "${judgeName}"`);
+    if (dueDate) successMessages.push(`Due date "${format(parseLocalDate(dueDate), 'MMM d, yyyy')}"`);
+    
+    toast({
+      title: "Success",
+      description: `${successMessages.join(' and ')} assigned to ${selectedDisciplines.size} discipline(s).`,
+    });
+
+    setBulkAssignDialogOpen(false);
+    setBulkAssignJudge('');
+    setBulkAssignDueDate('');
+    setSelectedDisciplines(new Set());
+  };
+
   const dateRange = formData.startDate && formData.endDate
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
@@ -1121,7 +1212,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {/* Pattern selection accordion-style list */}
         {patternDisciplines.length > 0 && (
           <section>
-            <h3 className="text-lg font-semibold mb-4">Discipline Configuration</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Discipline Configuration</h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setBulkAssignDialogOpen(true)}
+                >
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  Assign Judge to Multiple Disciplines
+                </Button>
+              </div>
+            </div>
             <div className="space-y-2">
               {patternDisciplines.map((discipline, logicalIndex) => {
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
@@ -1145,7 +1249,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 return (
                   <div 
                     key={discipline.id} 
-                    className="bg-card rounded-lg border"
+                    className={cn(
+                      "bg-card rounded-lg border transition-all duration-300",
+                      isOpen && "border-primary"
+                    )}
                     ref={(el) => disciplineRefs.current[discipline.id] = el}
                   >
                     {/* Toggle row with inline pattern selection */}
@@ -1969,6 +2076,152 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Assign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bulk Assign Judge Dialog */}
+        <Dialog open={bulkAssignDialogOpen} onOpenChange={setBulkAssignDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Assign Judge & Date to Disciplines</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm mb-2 block">Select Disciplines ({selectedDisciplines.size} selected)</Label>
+                <div className="max-h-48 overflow-y-auto border rounded-md p-3 space-y-2">
+                  {patternDisciplines.map(discipline => (
+                    <div key={discipline.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`bulk-discipline-${discipline.id}`}
+                        checked={selectedDisciplines.has(discipline.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedDisciplines(prev => {
+                            const newSet = new Set(prev);
+                            if (checked) {
+                              newSet.add(discipline.id);
+                            } else {
+                              newSet.delete(discipline.id);
+                            }
+                            return newSet;
+                          });
+                        }}
+                      />
+                      <Label 
+                        htmlFor={`bulk-discipline-${discipline.id}`}
+                        className="text-sm font-normal cursor-pointer flex-1"
+                      >
+                        {discipline.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="bulk-dialog-judge" className="text-sm">Select Judge (Optional)</Label>
+                  {bulkAssignJudge && bulkAssignJudge.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setBulkAssignJudge('')}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <Select 
+                  value={bulkAssignJudge && !bulkAssignJudge.startsWith('judge-') ? bulkAssignJudge : ''} 
+                  onValueChange={(value) => {
+                    setBulkAssignJudge(value);
+                  }}
+                >
+                  <SelectTrigger id="bulk-dialog-judge" className="bg-background">
+                    <SelectValue placeholder="Select a judge..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {judgesWithAssociations.length > 0 ? (
+                      judgesWithAssociations.map((judge, idx) => {
+                        const judgeName = judge.name || 'Unnamed Judge';
+                        return (
+                          <SelectItem key={idx} value={judgeName}>
+                            {judgeName}
+                            {judge.associations.length > 0 && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                ({judge.associations.join(', ')})
+                              </span>
+                            )}
+                          </SelectItem>
+                        );
+                      })
+                    ) : (
+                      <SelectItem value="no-judges" disabled>No judges available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="bulk-dialog-due-date" className="text-sm">Due Date (Optional)</Label>
+                  {bulkAssignDueDate && bulkAssignDueDate.trim() && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={() => setBulkAssignDueDate('')}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !bulkAssignDueDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {bulkAssignDueDate ? format(parseLocalDate(bulkAssignDueDate), 'EEE, MMM d, yyyy') : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={bulkAssignDueDate ? parseLocalDate(bulkAssignDueDate) : undefined}
+                      onSelect={(date) => setBulkAssignDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 mt-4">
+              <Button variant="outline" onClick={() => {
+                setBulkAssignDialogOpen(false);
+                setBulkAssignJudge('');
+                setBulkAssignDueDate('');
+              }}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleBulkAssignJudge}
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={selectedDisciplines.size === 0 || (!bulkAssignJudge?.trim() && !bulkAssignDueDate?.trim())}
+              >
+                Assign to {selectedDisciplines.size} Discipline{selectedDisciplines.size !== 1 ? 's' : ''}
               </Button>
             </DialogFooter>
           </DialogContent>

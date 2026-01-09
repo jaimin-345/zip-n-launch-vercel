@@ -33,7 +33,7 @@ const PATTERN_VERSIONS = [
 ];
 
 
-const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId }) => {
+const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, associationsData, groupId, divisionsData }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: division.id,
         data: {
@@ -51,7 +51,174 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
     const [isEditing, setIsEditing] = useState(false);
     const [editedTitle, setEditedTitle] = useState(division.customTitle || '');
+    const [selectedDivisionId, setSelectedDivisionId] = useState('');
     const [popoverOpen, setPopoverOpen] = useState(false);
+    const [selectOpen, setSelectOpen] = useState(false);
+    
+    // Parse division name to extract category
+    const divisionName = division.division || '';
+    const originalDivisionName = divisionName.startsWith('custom') ? divisionName.substring(7) : divisionName;
+    const dashIndex = originalDivisionName.indexOf(' - ');
+    const divisionCategory = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
+
+    // Get available divisions from the same category and association
+    const getAvailableDivisions = useMemo(() => {
+        if (!divisionsData || !division.assocId) return [];
+        
+        const assocDivisions = divisionsData[division.assocId] || [];
+        
+        // Get checked divisions from Tab 1 for this discipline and association
+        const checkedDivisions = new Set();
+        if (formData?.disciplines) {
+            const discipline = formData.disciplines.find(d => d.id === pbbDiscipline.id);
+            if (discipline?.divisions?.[division.assocId]) {
+                Object.keys(discipline.divisions[division.assocId]).forEach(key => {
+                    if (discipline.divisions[division.assocId][key]) {
+                        checkedDivisions.add(key);
+                    }
+                });
+            }
+        }
+        
+        // Filter divisions by the same category (group)
+        const categoryDivisions = assocDivisions
+            .filter(d => d.group && d.group.toLowerCase() === divisionCategory.toLowerCase())
+            .flatMap(d => (d.levels || []).map(level => {
+                const divisionKey = `${d.group} - ${level}`;
+                const divisionId = `${division.assocId}-${divisionKey}`;
+                const isChecked = checkedDivisions.has(divisionKey);
+                return {
+                    id: divisionId,
+                    name: divisionKey,
+                    assocId: division.assocId,
+                    group: d.group,
+                    level: level,
+                    isChecked: isChecked
+                };
+            }));
+        
+        return categoryDivisions;
+    }, [divisionsData, division.assocId, divisionCategory, formData, pbbDiscipline.id]);
+    
+    // Initialize selectedDivisionId when editing starts or division changes
+    useEffect(() => {
+        if (isEditing && getAvailableDivisions.length > 0) {
+            // Find the matching division ID from available divisions
+            const currentDivisionName = division.division || '';
+            const currentDivisionId = division.id || '';
+            
+            // Try multiple matching strategies
+            let matchingDivision = getAvailableDivisions.find(d => {
+                // Strategy 1: Exact ID match
+                if (d.id === currentDivisionId) return true;
+                // Strategy 2: Exact name match
+                if (d.name === currentDivisionName) return true;
+                // Strategy 3: Match by parsing division name (handle "Open - Open All Aged" format)
+                const currentNameParts = currentDivisionName.split(' - ');
+                if (currentNameParts.length >= 2) {
+                    const currentLevel = currentNameParts.slice(1).join(' - ');
+                    return d.level === currentLevel || d.name.includes(currentLevel);
+                }
+                return false;
+            });
+            
+            if (matchingDivision) {
+                setSelectedDivisionId(matchingDivision.id);
+            } else if (currentDivisionId) {
+                // Fallback: use division.id if no match found
+                setSelectedDivisionId(currentDivisionId);
+            }
+            
+            // Open the dropdown when editing starts
+            setSelectOpen(true);
+        } else if (!isEditing) {
+            setSelectOpen(false);
+        }
+    }, [isEditing, division.id, division.division, getAvailableDivisions]);
+
+    const handleDivisionChange = (newDivisionId) => {
+        const selectedDivision = getAvailableDivisions.find(d => d.id === newDivisionId);
+        if (!selectedDivision) return;
+        
+        // Parse old division to get the key for Tab 1
+        const oldDivisionName = division.division || '';
+        const oldDivisionKey = oldDivisionName.startsWith('custom-') ? oldDivisionName : oldDivisionName;
+        const oldAssocId = division.assocId;
+        const oldDivisionIdentifier = `${oldAssocId}-${oldDivisionKey}`;
+        
+        // Parse new division to get the key for Tab 1
+        const newDivisionKey = selectedDivision.name; // Format: "Open - Open All Aged"
+        const newAssocId = selectedDivision.assocId;
+        const newDivisionIdentifier = `${newAssocId}-${newDivisionKey}`;
+        
+        setFormData(prev => {
+            const updatedDisciplines = prev.disciplines.map(disc => {
+                if (disc.id === pbbDiscipline.id) {
+                    // Update divisions object for Tab 1
+                    const newDivisions = { ...(disc.divisions || {}) };
+                    
+                    // Uncheck old division in Tab 1
+                    if (oldAssocId && newDivisions[oldAssocId]) {
+                        if (newDivisions[oldAssocId][oldDivisionKey]) {
+                            delete newDivisions[oldAssocId][oldDivisionKey];
+                            // If no divisions left for this association, clean up
+                            if (Object.keys(newDivisions[oldAssocId]).length === 0) {
+                                delete newDivisions[oldAssocId];
+                            }
+                        }
+                    }
+                    
+                    // Check new division in Tab 1
+                    if (newAssocId) {
+                        if (!newDivisions[newAssocId]) {
+                            newDivisions[newAssocId] = {};
+                        }
+                        newDivisions[newAssocId][newDivisionKey] = true;
+                    }
+                    
+                    // Update divisionOrder array
+                    let newDivisionOrder = [...(disc.divisionOrder || [])];
+                    
+                    // Remove old division from divisionOrder
+                    newDivisionOrder = newDivisionOrder.filter(d => d !== oldDivisionIdentifier);
+                    
+                    // Add new division to divisionOrder if not already present
+                    if (!newDivisionOrder.includes(newDivisionIdentifier)) {
+                        newDivisionOrder.push(newDivisionIdentifier);
+                    }
+                    
+                    // Update pattern groups
+                    const updatedGroups = (disc.patternGroups || []).map(g => {
+                        if (g.id === groupId) {
+                            const updatedDivisions = g.divisions.map(d => {
+                                if (d.id === division.id) {
+                                    return {
+                                        ...d,
+                                        id: selectedDivision.id,
+                                        division: selectedDivision.name,
+                                        assocId: selectedDivision.assocId
+                                    };
+                                }
+                                return d;
+                            });
+                            return { ...g, divisions: updatedDivisions };
+                        }
+                        return g;
+                    });
+                    
+                    return { 
+                        ...disc, 
+                        patternGroups: updatedGroups,
+                        divisions: newDivisions,
+                        divisionOrder: newDivisionOrder
+                    };
+                }
+                return disc;
+            });
+            return { ...prev, disciplines: updatedDisciplines };
+        });
+        setIsEditing(false);
+    };
 
     const handleTitleSave = () => {
         setFormData(prev => ({
@@ -96,11 +263,8 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
         }));
     };
 
-    // Parse division name to extract tag and clean name
-    const divisionName = division.division || '';
-    const originalDivisionName = divisionName.startsWith('custom') ? divisionName.substring(7) : divisionName;
-    const dashIndex = originalDivisionName.indexOf(' - ');
-    const divisionTag = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
+    // Use already parsed divisionCategory for divisionTag
+    const divisionTag = divisionCategory;
     const cleanedName = dashIndex > -1 ? originalDivisionName.substring(dashIndex + 3).trim() : originalDivisionName;
     const displayName = division.customTitle || cleanedName || 'Unknown Division';
 
@@ -133,41 +297,61 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
     return (
         <div ref={setNodeRef} style={style} className="relative p-1.5 pr-2 border rounded-md bg-background/70 text-xs flex items-center touch-none w-full group">
-            {/* Edit and Date Change buttons - positioned before drag handle, always visible */}
-            <div className="flex items-center gap-1 mr-2">
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(true)}><Edit className="h-3 w-3" /></Button>
-                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarIcon className="h-3 w-3" /></Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={division.date ? parseLocalDate(division.date) : null}
-                            onSelect={handleDateSelect}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
-            </div>
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 mr-1">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
             {isEditing ? (
                 <div className="flex-grow flex items-center gap-1">
-                    <Input
-                        type="text"
-                        value={editedTitle}
-                        onChange={(e) => setEditedTitle(e.target.value)}
-                        className="h-6 text-xs"
-                        autoFocus
-                        onBlur={handleTitleSave}
-                        onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                    />
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleTitleSave}><Save className="h-3 w-3" /></Button>
+                    <Select
+                        value={selectedDivisionId}
+                        onValueChange={handleDivisionChange}
+                        open={selectOpen}
+                        onOpenChange={(open) => {
+                            setSelectOpen(open);
+                            if (!open && !selectedDivisionId) {
+                                setIsEditing(false);
+                            }
+                        }}
+                    >
+                        <SelectTrigger className="h-6 text-xs flex-1">
+                            <SelectValue placeholder="Select division..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {getAvailableDivisions.length > 0 ? (
+                                getAvailableDivisions.map(div => (
+                                    <SelectItem 
+                                        key={div.id} 
+                                        value={div.id}
+                                        disabled={div.isChecked}
+                                        className={div.isChecked ? "opacity-60 cursor-not-allowed bg-muted/30" : ""}
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <span className={div.isChecked ? "text-muted-foreground" : ""}>
+                                                {div.name}
+                                            </span>
+                                            {div.isChecked && (
+                                                <span className="text-xs text-muted-foreground ml-2">(Selected)</span>
+                                            )}
+                                        </div>
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value="" disabled>No divisions available</SelectItem>
+                            )}
+                        </SelectContent>
+                    </Select>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(false)}><X className="h-3 w-3" /></Button>
                 </div>
             ) : (
-                <span className="truncate flex-grow">{displayName}</span>
+                <span 
+                    className="truncate flex-grow cursor-pointer hover:text-primary transition-colors"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsEditing(true);
+                    }}
+                >
+                    {displayName}
+                </span>
             )}
             <div className="flex items-center gap-1 ml-2">
                 {divisionTag && (
@@ -176,13 +360,55 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     </Badge>
                 )}
 
-                {division.date && (
-                    <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs p-1 h-auto font-normal">
-                        <CalendarIcon className="h-3 w-3" />
-                        {format(parseLocalDate(division.date), 'EEE, MMM d')}
-                        <button onClick={handleRemoveDate} className="ml-1 rounded-full hover:bg-muted-foreground/20"><X className="h-3 w-3" /></button>
-                    </Badge>
-                )}
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    {division.date ? (
+                        <div className="flex items-center gap-1">
+                            <PopoverTrigger asChild>
+                                <button
+                                    type="button"
+                                    className="flex items-center gap-1 border border-info bg-info/10 text-info-foreground text-xs px-2 py-1 h-auto font-normal cursor-pointer hover:bg-info/20 transition-colors rounded-md"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                    }}
+                                >
+                                    <CalendarIcon className="h-3 w-3" />
+                                    {format(parseLocalDate(division.date), 'EEE, MMM d')}
+                                </button>
+                            </PopoverTrigger>
+                            <button 
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveDate(e);
+                                }} 
+                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                            >
+                                <X className="h-3 w-3" />
+                            </button>
+                        </div>
+                    ) : (
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                className="flex items-center gap-1 border border-dashed text-muted-foreground text-xs px-2 py-1 h-auto font-normal cursor-pointer hover:bg-muted/50 transition-colors rounded-md"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                }}
+                            >
+                                <CalendarIcon className="h-3 w-3" />
+                                Add Date
+                            </button>
+                        </PopoverTrigger>
+                    )}
+                    <PopoverContent className="w-auto p-0" onClick={(e) => e.stopPropagation()}>
+                        <Calendar
+                            mode="single"
+                            selected={division.date ? parseLocalDate(division.date) : null}
+                            onSelect={handleDateSelect}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
                 {getAssociationBadges()}
             </div>
         </div>
@@ -190,7 +416,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 };
 
 
-const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, handleRemovePatternGroup, handleAiAssistClick, setFormData, formData, associationsData }) => {
+const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, handleRemovePatternGroup, handleAiAssistClick, setFormData, formData, associationsData, divisionsData }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: group.id,
         data: {
@@ -1211,7 +1437,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                 <SortableContext items={divisionsWithDetails.map(d => d.id)} strategy={verticalListSortingStrategy} id={group.id}>
                     <div className="space-y-2">
                         {divisionsWithDetails.map(div => (
-                            <SortableDivisionItem key={div.id} division={div} pbbDiscipline={pbbDiscipline} setFormData={setFormData} formData={formData} associationsData={associationsData} groupId={group.id} />
+                            <SortableDivisionItem key={div.id} division={div} pbbDiscipline={pbbDiscipline} setFormData={setFormData} formData={formData} associationsData={associationsData} groupId={group.id} divisionsData={divisionsData} />
                         ))}
                     </div>
                 </SortableContext>

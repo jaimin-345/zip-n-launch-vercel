@@ -1395,6 +1395,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         isCustomOpenShow={isCustomOpenShowDiscipline}
                         formData={formData}
                         associationsData={associationsData}
+                        divisionsData={divisionsData}
                     />
                 </TabsContent>
             </Tabs>

@@ -14,7 +14,7 @@ import DropZoneGroup from './DropZoneGroup';
 
 const UNGROUPED_ID = 'ungrouped-list';
 
-export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData }) => {
+export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData, divisionsData }) => {
     const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
     const { toast } = useToast();
 
@@ -709,6 +709,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                                 setFormData={setFormData}
                                 formData={formData}
                                 associationsData={associationsData}
+                                divisionsData={divisionsData}
                             />
                         ))}
                     </SortableContext>

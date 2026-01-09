@@ -457,6 +457,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
             style={style} 
             className={cn(
                 "bg-card rounded-lg border transition-all duration-300 relative overflow-hidden",
+                isAccordionOpen && "border-primary",
                 !isComplete && !isAccordionOpen && "border-red-500/70 shadow-lg shadow-red-500/30"
             )}
         >

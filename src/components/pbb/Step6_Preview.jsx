@@ -13,7 +13,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
-import { parseLocalDate } from '@/lib/utils';
+import { parseLocalDate, cn } from '@/lib/utils';
 import { fetchAssociations } from '@/lib/associationsData';
 
 // Pattern Badge with Hover Functionality Component
@@ -1011,7 +1011,10 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 const isScoresheetExpanded = expandedSections.has(scoresheetSectionKey);
                 
                 return (
-                  <div key={pbbDiscipline.id} className="border rounded-lg bg-muted/30 overflow-hidden">
+                  <div key={pbbDiscipline.id} className={cn(
+                    "border rounded-lg bg-muted/30 overflow-hidden transition-all duration-300",
+                    isDisciplineExpanded && "border-primary"
+                  )}>
                     {/* Discipline Header */}
                     <button
                       type="button"
