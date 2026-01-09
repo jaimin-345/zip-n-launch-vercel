@@ -21,9 +21,39 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
             <div className="mb-2">
                 <p className="font-semibold">{group.name}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                    {(group.divisions || []).map(div => (
-                        <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{div.division}</Badge>
-                    ))}
+                    {(group.divisions || []).map(div => {
+                        // Remove first word, "Pro", and "Non-Pro" from division name
+                        const divisionName = div.division || '';
+                        const removeFirstWord = (name) => {
+                            if (!name) return name;
+                            let cleaned = name;
+                            
+                            // Remove first word and any separator (dash, hyphen, etc.)
+                            cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+                            
+                            // Remove "Pro" or "Non-Pro" at the start
+                            cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+                            
+                            // If no separator found and still original, try removing just the first word
+                            if (cleaned === name) {
+                                const parts = name.split(/\s+/);
+                                // Skip first word if it's not "Pro" or "Non-Pro"
+                                if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
+                                    cleaned = parts.slice(1).join(' ');
+                                } else if (parts.length > 1) {
+                                    // If first word is "Pro" or "Non-Pro", remove it and separator if present
+                                    cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
+                                }
+                            }
+                            
+                            return cleaned || name;
+                        };
+                        const displayName = removeFirstWord(divisionName);
+                        
+                        return (
+                            <Badge key={`${div.assocId}-${div.division}`} variant="secondary" className="text-xs">{displayName}</Badge>
+                        );
+                    })}
                 </div>
             </div>
             

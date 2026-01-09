@@ -44,6 +44,32 @@ export const generatePatternBookPdf = async (pbbData) => {
         yPos = margin + 30;
     };
 
+    // Helper function to remove first word, "Pro", and "Non-Pro" from division names
+    const removeFirstWord = (name) => {
+        if (!name) return name;
+        let cleaned = name;
+        
+        // Remove first word and any separator (dash, hyphen, etc.)
+        cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+        
+        // Remove "Pro" or "Non-Pro" at the start
+        cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+        
+        // If no separator found and still original, try removing just the first word
+        if (cleaned === name) {
+            const parts = name.split(/\s+/);
+            // Skip first word if it's not "Pro" or "Non-Pro"
+            if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
+                cleaned = parts.slice(1).join(' ');
+            } else if (parts.length > 1) {
+                // If first word is "Pro" or "Non-Pro", remove it and separator if present
+                cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
+            }
+        }
+        
+        return cleaned || name;
+    };
+
     const addImageToPage = async (base64, x, y, width, height) => {
         if (!base64) return;
         try {
@@ -363,7 +389,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                     yPos = margin + 30;
                 }
                 
-                const divisions = group.divisions?.map(d => d.division).join(', ');
+                const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(', ');
                 // Extract pattern ID - handle both object format and direct ID
                 const patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
                 let patternId = null;
@@ -474,7 +500,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             
             // Add to TOC with sequential numbering
             sequentialClassNumber++;
-            const className = `${discipline.name} - ${group.divisions.map(d => d.division).join('/')}`;
+            const className = `${discipline.name} - ${group.divisions.map(d => removeFirstWord(d.division || '')).join('/')}`;
             toc.push({ 
                 title: className,
                 page: doc.internal.getNumberOfPages() - 1,
@@ -509,7 +535,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
             
             // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
-            const divisions = group.divisions?.map(d => d.division).join(' / ') || '';
+            const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(' / ') || '';
             if (divisions) {
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
@@ -594,7 +620,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                 yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
                 
                 // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
-                const divisions = group.divisions?.map(d => d.division).join(' / ') || '';
+                const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(' / ') || '';
                 if (divisions) {
                     doc.setFontSize(10);
                     doc.setFont('times', 'normal');

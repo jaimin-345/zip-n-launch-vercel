@@ -584,17 +584,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   // Check if discipline is complete
-  const isDisciplineComplete = (discipline) => {
+  const isDisciplineComplete = (discipline, disciplineIndex) => {
     const groups = discipline.patternGroups || [];
     if (groups.length === 0) return false;
     
     // Check if this is a scoresheet-only discipline
     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
     
-    // For scoresheet-only disciplines: complete if they have groups with divisions (no pattern selection needed)
+    // For scoresheet-only disciplines: complete if they have groups with divisions (no judge or pattern selection needed)
     if (isScoresheetOnly) {
       return groups.every(group => group.divisions && group.divisions.length > 0);
     }
+    
+    // For pattern disciplines: first check if judge is assigned - if not, discipline is incomplete
+    const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
+                          formData.judgeSelections[disciplineIndex].trim() && 
+                          !formData.judgeSelections[disciplineIndex].startsWith('judge-');
+    
+    if (!judgeAssigned) return false;
     
     // For pattern disciplines: all groups must have pattern selections
     return groups.every(group => {
@@ -1012,7 +1019,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <div className="text-xs text-muted-foreground mb-2">
                 {(() => {
                   const completeDisciplines = patternDisciplines.filter((discipline) => {
-                    return isDisciplineComplete(discipline);
+                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                    return isDisciplineComplete(discipline, disciplineIndex);
                   }).length;
                   const allComplete = completeDisciplines === patternDisciplines.length && patternDisciplines.length > 0;
                   return `${completeDisciplines} of ${patternDisciplines.length} disciplines ${allComplete ? 'complete' : 'incomplete'}`;
@@ -1020,9 +1028,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               </div>
               <div className="space-y-2">
                 {patternDisciplines.map((discipline) => {
+                  const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                   const groups = discipline.patternGroups || [];
-                  const isComplete = isDisciplineComplete(discipline);
+                  const isComplete = isDisciplineComplete(discipline, disciplineIndex);
                   const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                  
+                  // Check if judge is assigned
+                  const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
+                                        formData.judgeSelections[disciplineIndex].trim() && 
+                                        !formData.judgeSelections[disciplineIndex].startsWith('judge-');
                   
                   // For scoresheet-only: count groups with divisions. For pattern disciplines: count groups with pattern selections
                   const assignedCount = isScoresheetOnly
@@ -1032,10 +1046,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         return selection?.patternId;
                       }).length;
                   
+                  const handleDisciplineClick = () => {
+                    // If judge is not assigned (and not scoresheet-only), show message
+                    if (!isScoresheetOnly && !judgeAssigned) {
+                      toast({
+                        title: "Judge Required",
+                        description: "First assign this discipline judge before proceeding.",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+                    // Otherwise, scroll to discipline
+                    scrollToDiscipline(discipline.id);
+                  };
+                  
                   return (
                     <div
                       key={discipline.id}
-                      onClick={() => scrollToDiscipline(discipline.id)}
+                      onClick={handleDisciplineClick}
                       className={cn(
                         "p-3 rounded-lg border-2 flex items-center justify-between cursor-pointer transition-all",
                         isComplete 
@@ -1469,15 +1497,45 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                       })()}
                                     </div>
                                     <div className="flex flex-wrap gap-1 mt-2">
-                                      {(group.divisions || []).map(div => (
-                                        <Badge
-                                          key={div.id || `${div.assocId}-${div.division}`}
-                                          variant="secondary"
-                                          className="text-xs"
-                                        >
-                                          {div.division || div.id}
-                                        </Badge>
-                                      ))}
+                                      {(group.divisions || []).map(div => {
+                                        // Remove first word, "Pro", and "Non-Pro" from division name
+                                        const divisionName = div.division || div.id || '';
+                                        const removeFirstWord = (name) => {
+                                          if (!name) return name;
+                                          let cleaned = name;
+                                          
+                                          // Remove first word and any separator (dash, hyphen, etc.)
+                                          cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+                                          
+                                          // Remove "Pro" or "Non-Pro" at the start
+                                          cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+                                          
+                                          // If no separator found and still original, try removing just the first word
+                                          if (cleaned === name) {
+                                            const parts = name.split(/\s+/);
+                                            // Skip first word if it's not "Pro" or "Non-Pro"
+                                            if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
+                                              cleaned = parts.slice(1).join(' ');
+                                            } else if (parts.length > 1) {
+                                              // If first word is "Pro" or "Non-Pro", remove it and separator if present
+                                              cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
+                                            }
+                                          }
+                                          
+                                          return cleaned || name;
+                                        };
+                                        const displayName = removeFirstWord(divisionName);
+                                        
+                                        return (
+                                          <Badge
+                                            key={div.id || `${div.assocId}-${div.division}`}
+                                            variant="secondary"
+                                            className="text-xs"
+                                          >
+                                            {displayName}
+                                          </Badge>
+                                        );
+                                      })}
                                     </div>
                                   </div>
 

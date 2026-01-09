@@ -1691,6 +1691,26 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         }
     };
     
+    const handleArchive = async () => {
+        try {
+            await supabase
+                .from('projects')
+                .update({ mode: 'archived' })
+                .eq('id', project.id);
+            toast({
+                title: "Project archived",
+                description: "Project has been archived successfully"
+            });
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to archive project",
+                variant: "destructive"
+            });
+        }
+    };
+    
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1900,15 +1920,27 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                         </div>
                     </div>
                     
-                    {/* Continue Editing Button - Only show when status is Draft */}
-                    {displayStatus === 'Draft' && (
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                        {/* Continue Editing Button - Only show when status is Draft */}
+                        {displayStatus === 'Draft' && (
+                            <Button 
+                                onClick={handleContinueEditing} 
+                                className="flex-1 bg-primary hover:bg-primary/90 text-white font-medium"
+                            >
+                                Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        )}
+                        {/* Archive Button - Show for all projects */}
                         <Button 
-                            onClick={handleContinueEditing} 
-                            className="w-full bg-primary hover:bg-primary/90 text-white font-medium"
+                            onClick={handleArchive} 
+                            variant="outline"
+                            className={displayStatus === 'Draft' ? "flex-1" : "w-full"}
                         >
-                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                            <Archive className="mr-2 h-4 w-4" />
+                            Archive
                         </Button>
-                    )}
+                    </div>
                 </div>
             </div>
             
@@ -4440,11 +4472,10 @@ const CustomerPortalPage = () => {
     const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
     
     // Filter pattern books by status (case-insensitive comparison)
-    // Active Pattern Books Portal: Show all projects EXCEPT status === 'In progress' AND mode !== 'archived'
+    // Active Pattern Books Portal: Show all projects EXCEPT status === 'In progress' (regardless of mode)
     const activePatternBooks = patternBookProjects.filter(p => {
         const status = (p.status || 'Draft').toString().trim();
-        const mode = (p.mode || '').toString().trim();
-        return status.toLowerCase() !== 'in progress' && mode.toLowerCase() !== 'archived';
+        return status.toLowerCase() !== 'in progress';
     });
     
     // In Progress Pattern Books Portal: Show only projects with Status === 'In progress' AND mode !== 'archived'

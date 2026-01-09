@@ -20,9 +20,33 @@ const ArchivePatternsPage = () => {
 
     useEffect(() => {
         if (user) {
+            checkAndAutoRestoreExpired();
             fetchArchivedProjects();
         }
     }, [user]);
+
+    // Automatically restore projects that have been archived for more than 30 days
+    const checkAndAutoRestoreExpired = async () => {
+        if (!user) return;
+        
+        const thirtyDaysAgo = addDays(new Date(), -30);
+        
+        const { data: expiredProjects, error } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('mode', 'archived')
+            .lt('updated_at', thirtyDaysAgo.toISOString());
+
+        if (!error && expiredProjects && expiredProjects.length > 0) {
+            // Update all expired projects to set mode = null
+            const projectIds = expiredProjects.map(p => p.id);
+            await supabase
+                .from('projects')
+                .update({ mode: null })
+                .in('id', projectIds);
+        }
+    };
 
     const fetchArchivedProjects = async () => {
         setLoading(true);
@@ -57,12 +81,18 @@ const ArchivePatternsPage = () => {
     const handlePermanentDelete = async (projectId) => {
         const { error } = await supabase
             .from('projects')
-            .delete()
+            .update({ mode: null })
             .eq('id', projectId);
 
         if (!error) {
-            toast({ title: "Project deleted", description: "Project has been permanently deleted" });
+            toast({ title: "Project removed", description: "Project has been removed from archive" });
             fetchArchivedProjects();
+        } else {
+            toast({ 
+                title: "Error", 
+                description: "Failed to remove project from archive",
+                variant: "destructive"
+            });
         }
     };
 
@@ -82,7 +112,7 @@ const ArchivePatternsPage = () => {
                         Archive Pattern
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Archived pattern books are stored for 30 days before being permanently deleted.
+                        Archived pattern books are stored for 30 days before being automatically restored.
                     </p>
                 </div>
 

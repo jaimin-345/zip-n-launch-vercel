@@ -1045,6 +1045,18 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                             />
                           ))}
                         </div>
+                        {/* Display assigned judge for this discipline */}
+                        {(() => {
+                          const judgeValue = formData.judgeSelections?.[originalDisciplineIndex];
+                          if (judgeValue && judgeValue.trim() && !judgeValue.startsWith('judge-')) {
+                            return (
+                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap">
+                                Judge: {judgeValue}
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <div className="flex items-center gap-2 ml-2">
                         {isDisciplineExpanded ? (

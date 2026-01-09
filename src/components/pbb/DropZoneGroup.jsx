@@ -133,6 +133,23 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
     return (
         <div ref={setNodeRef} style={style} className="relative p-1.5 pr-2 border rounded-md bg-background/70 text-xs flex items-center touch-none w-full group">
+            {/* Edit and Date Change buttons - positioned before drag handle, always visible */}
+            <div className="flex items-center gap-1 mr-2">
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(true)}><Edit className="h-3 w-3" /></Button>
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                    <PopoverTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarIcon className="h-3 w-3" /></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={division.date ? parseLocalDate(division.date) : null}
+                            onSelect={handleDateSelect}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 mr-1">
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
             </div>
@@ -152,22 +169,6 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
             ) : (
                 <span className="truncate flex-grow">{displayName}</span>
             )}
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setIsEditing(true)}><Edit className="h-3 w-3" /></Button>
-                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    <PopoverTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-6 w-6"><CalendarIcon className="h-3 w-3" /></Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={division.date ? parseLocalDate(division.date) : null}
-                            onSelect={handleDateSelect}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
-            </div>
             <div className="flex items-center gap-1 ml-2">
                 {divisionTag && (
                     <Badge variant="outline" className="text-xs">

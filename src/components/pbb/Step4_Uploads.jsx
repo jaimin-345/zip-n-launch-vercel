@@ -38,11 +38,23 @@ const FilePreview = ({ fileData, onRemove, onEdit }) => (
   </div>
 );
 
-const FileUploadZone = ({ dropzone, files, onRemove, onEdit, title, description, isUploading }) => (
-  <div className="space-y-2">
-    <Label>{title}</Label>
-    <div {...dropzone.getRootProps()} className={cn("p-6 border-2 border-dashed rounded-md text-center cursor-pointer hover:border-primary transition-colors", isUploading && "cursor-not-allowed opacity-50")}>
-      <input {...dropzone.getInputProps()} disabled={isUploading} />
+const FileUploadZone = ({ dropzone, files, onRemove, onEdit, title, description, isUploading }) => {
+  const { isDragActive, getRootProps, getInputProps } = dropzone;
+  const rootProps = getRootProps();
+  
+  return (
+    <div className="space-y-2">
+      <Label>{title}</Label>
+      <div 
+        {...rootProps}
+        className={cn(
+          rootProps.className,
+          "p-6 border-2 border-dashed rounded-md text-center cursor-pointer hover:border-primary transition-colors",
+          isUploading && "cursor-not-allowed opacity-50",
+          isDragActive && "border-primary bg-primary/10"
+        )}
+      >
+        <input {...getInputProps()} disabled={isUploading} />
       {isUploading ? (
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -54,14 +66,15 @@ const FileUploadZone = ({ dropzone, files, onRemove, onEdit, title, description,
             <p className="mt-2 text-sm">{description}</p>
         </div>
       )}
+      </div>
+      <div className="space-y-2 mt-2">
+        {(files || []).map((file, index) => (
+          <FilePreview key={index} fileData={file} onRemove={() => onRemove(index)} onEdit={() => onEdit(file, index)} />
+        ))}
+      </div>
     </div>
-    <div className="space-y-2 mt-2">
-      {(files || []).map((file, index) => (
-        <FilePreview key={index} fileData={file} onRemove={() => onRemove(index)} onEdit={() => onEdit(file, index)} />
-      ))}
-    </div>
-  </div>
-);
+  );
+};
 
 const SocialMediaInput = ({ icon: Icon, id, value, onChange, placeholder }) => (
   <div className="relative">
@@ -102,12 +115,17 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
     setFormData(prev => {
         const newFormData = { ...prev };
         if (editingFileType === 'general_marketing') {
+            newFormData.generalMarketing = newFormData.generalMarketing || [];
             newFormData.generalMarketing[editingFileIndex] = updatedFileData;
         } else if (editingFileType === 'lesson_plan') {
+            newFormData.lessonPlans = newFormData.lessonPlans || [];
             newFormData.lessonPlans[editingFileIndex] = updatedFileData;
         } else if (editingFileType === 'sponsor_logo') {
+            newFormData.marketing = newFormData.marketing || {};
+            newFormData.marketing.sponsorLogos = newFormData.marketing.sponsorLogos || [];
             newFormData.marketing.sponsorLogos[editingFileIndex] = updatedFileData;
         } else if (editingFileType === 'show_documents') {
+            newFormData.showDocuments = newFormData.showDocuments || [];
             newFormData.showDocuments[editingFileIndex] = updatedFileData;
         }
         return newFormData;
@@ -191,16 +209,27 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   }, [setFormData, toast, user, formData.id]);
 
   const removeFile = async (index, type) => {
-    const fileToRemove = formData[type]?.[index] || formData.marketing?.sponsorLogos?.[index];
+    let fileToRemove = null;
+    if (type === 'general_marketing') {
+      fileToRemove = formData.generalMarketing?.[index];
+    } else if (type === 'lesson_plan') {
+      fileToRemove = formData.lessonPlans?.[index];
+    } else if (type === 'sponsor_logo') {
+      fileToRemove = formData.marketing?.sponsorLogos?.[index];
+    } else if (type === 'show_documents') {
+      fileToRemove = formData.showDocuments?.[index];
+    }
+    
     if (fileToRemove?.filePath) {
         await supabase.storage.from('project_files').remove([fileToRemove.filePath]);
     }
+    
     if (type === 'general_marketing') {
       setFormData(prev => ({ ...prev, generalMarketing: (prev.generalMarketing || []).filter((_, i) => i !== index) }));
     } else if (type === 'lesson_plan') {
       setFormData(prev => ({ ...prev, lessonPlans: (prev.lessonPlans || []).filter((_, i) => i !== index) }));
     } else if (type === 'sponsor_logo') {
-      setFormData(prev => ({ ...prev, marketing: { ...prev.marketing, sponsorLogos: (prev.marketing.sponsorLogos || []).filter((_, i) => i !== index) } }));
+      setFormData(prev => ({ ...prev, marketing: { ...prev.marketing, sponsorLogos: (prev.marketing?.sponsorLogos || []).filter((_, i) => i !== index) } }));
     } else if (type === 'show_documents') {
       setFormData(prev => ({ ...prev, showDocuments: (prev.showDocuments || []).filter((_, i) => i !== index) }));
     }
@@ -210,7 +239,14 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
   const generalMarketingDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'general_marketing'), accept: { 'application/pdf': ['.pdf'], 'image/*': ['.jpeg', '.png', '.jpg'] }, disabled: isUploading });
   const lessonPlanDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'lesson_plan'), disabled: isUploading });
   const sponsorLogoDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'sponsor_logo'), accept: { 'application/pdf': ['.pdf'], 'image/*': ['.jpeg', '.png', '.jpg'] }, disabled: isUploading });
-  const showDocumentsDropzone = useDropzone({ onDrop: (files) => handleDrop(files, 'show_documents'), accept: { 'application/pdf': ['.pdf'], 'application/msword': ['.doc'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }, disabled: isUploading });
+  const showDocumentsDropzone = useDropzone({ 
+    onDrop: (files) => handleDrop(files, 'show_documents'), 
+    accept: { 
+      'application/pdf': ['.pdf'], 
+      'image/*': ['.jpeg', '.png', '.jpg'] 
+    }, 
+    disabled: isUploading
+  });
 
   return (
     <>
@@ -225,7 +261,7 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
           onRemove={(index) => removeFile(index, 'show_documents')}
           onEdit={(file, index) => handleEditFile(file, index, 'show_documents')}
           title={purposeName ? `${purposeName} Information (Optional)` : "Show Schedule/Show Bill (Optional)"}
-          description="Upload schedule and information documents (PDF, DOC, or DOCX)."
+          description="Upload JPEGs or PDFs of schedule and information documents."
           isUploading={isUploading}
         />
 

@@ -228,11 +228,41 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
           {/* Group Data - Show actual divisions */}
           {currentGroup && currentGroup.divisions && (
             <div className="mb-6 space-y-1">
-              {currentGroup.divisions.map((div, idx) => (
-                <p key={idx} className="text-base text-gray-800 dark:text-gray-200">
-                  {div.division}
-                </p>
-              ))}
+              {currentGroup.divisions.map((div, idx) => {
+                // Remove first word, "Pro", and "Non-Pro" from division name
+                const divisionName = div.division || '';
+                const removeFirstWord = (name) => {
+                  if (!name) return name;
+                  let cleaned = name;
+                  
+                  // Remove first word and any separator (dash, hyphen, etc.)
+                  cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+                  
+                  // Remove "Pro" or "Non-Pro" at the start
+                  cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+                  
+                  // If no separator found and still original, try removing just the first word
+                  if (cleaned === name) {
+                    const parts = name.split(/\s+/);
+                    // Skip first word if it's not "Pro" or "Non-Pro"
+                    if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
+                      cleaned = parts.slice(1).join(' ');
+                    } else if (parts.length > 1) {
+                      // If first word is "Pro" or "Non-Pro", remove it and separator if present
+                      cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
+                    }
+                  }
+                  
+                  return cleaned || name;
+                };
+                const displayName = removeFirstWord(divisionName);
+                
+                return (
+                  <p key={idx} className="text-base text-gray-800 dark:text-gray-200">
+                    {displayName}
+                  </p>
+                );
+              })}
             </div>
           )}
 

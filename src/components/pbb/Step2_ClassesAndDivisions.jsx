@@ -37,28 +37,32 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
                     {displayName || disc.name}
                 </Label>
             </div>
-            {/* VRH-RHC Ranch CowWork Dropdown */}
+            {/* VRH-RHC Ranch CowWork Multiple Selection */}
             {showVrhRanchCowWorkDropdown && (
-                <div className="ml-6 mt-2 space-y-1">
+                <div className="ml-6 mt-2 space-y-2">
                     <Label className="text-xs text-muted-foreground">Select Scoresheet</Label>
-                    <Select 
-                        value={selectedVrhRanchCowWork || 'none'} 
-                        onValueChange={(value) => onVrhRanchCowWorkSelect(disciplineKey, value === 'none' ? '' : value)}
-                    >
-                        <SelectTrigger className="w-56 h-8 text-xs">
-                            <SelectValue placeholder="Select Scoresheet" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="none" className="text-xs">
-                                Select Scoresheet
-                            </SelectItem>
-                            {vrhRanchCowWorkOptions.map(option => (
-                                <SelectItem key={option.value} value={option.value} className="text-xs">
-                                    {option.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="space-y-1.5">
+                        {vrhRanchCowWorkOptions.map(option => {
+                            const isSelected = Array.isArray(selectedVrhRanchCowWork) 
+                                ? selectedVrhRanchCowWork.includes(option.value)
+                                : selectedVrhRanchCowWork === option.value;
+                            return (
+                                <div key={option.value} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`vrh-${disciplineKey}-${option.value}`}
+                                        checked={isSelected}
+                                        onCheckedChange={(checked) => onVrhRanchCowWorkSelect(disciplineKey, option.value, checked)}
+                                    />
+                                    <Label 
+                                        htmlFor={`vrh-${disciplineKey}-${option.value}`} 
+                                        className="text-xs font-normal cursor-pointer"
+                                    >
+                                        {option.label}
+                                    </Label>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
             {isSelected && dualApprovedAssociations && dualApprovedAssociations.length > 0 && (
@@ -383,43 +387,122 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         { value: 'limited', label: 'VRH-RHC Ranch CowWork Limited' }
     ];
     
-    // Handler for VRH-RHC Ranch CowWork selection
-    const handleVrhRanchCowWorkSelect = (disciplineKey, value) => {
-        if (!value || value === 'none' || value === '') {
-            setFormData(prev => {
-                const newSelections = { ...prev.vrhRanchCowWorkSelections };
-                delete newSelections[disciplineKey];
-                return {
-                    ...prev,
-                    vrhRanchCowWorkSelections: newSelections
-                };
-            });
-            return;
-        }
-        
-        const currentSelection = formData.vrhRanchCowWorkSelections?.[disciplineKey];
-        
-        // If clicking the same value, unselect it
-        if (currentSelection && String(currentSelection) === String(value)) {
-            setFormData(prev => {
-                const newSelections = { ...prev.vrhRanchCowWorkSelections };
-                delete newSelections[disciplineKey];
-                return {
-                    ...prev,
-                    vrhRanchCowWorkSelections: newSelections
-                };
-            });
-            return;
-        }
-        
-        // Otherwise, select the new value
-        setFormData(prev => ({
-            ...prev,
-            vrhRanchCowWorkSelections: {
-                ...prev.vrhRanchCowWorkSelections,
-                [disciplineKey]: value
+    // Handler for VRH-RHC Ranch CowWork selection (multiple selection support)
+    // Creates separate discipline entries for each selected scoresheet
+    const handleVrhRanchCowWorkSelect = (disciplineKey, value, checked) => {
+        setFormData(prev => {
+            const currentSelection = prev.vrhRanchCowWorkSelections?.[disciplineKey];
+            
+            // Convert to array if it's a single value (for backward compatibility)
+            const currentArray = Array.isArray(currentSelection) 
+                ? currentSelection 
+                : currentSelection ? [currentSelection] : [];
+            
+            let newSelection;
+            if (checked) {
+                // Add value if not already in array
+                if (!currentArray.includes(value)) {
+                    newSelection = [...currentArray, value];
+                } else {
+                    newSelection = currentArray;
+                }
+            } else {
+                // Remove value from array
+                newSelection = currentArray.filter(v => v !== value);
             }
-        }));
+            
+            // Map values to discipline names
+            const valueToName = {
+                'open': 'VRH-RHC Ranch CowWork',
+                'rookie': 'VRH-RHC Ranch CowWork Rookie',
+                'limited': 'VRH-RHC Ranch CowWork Limited'
+            };
+            
+            // Find the base discipline from the library
+            const baseDiscipline = disciplineLibrary.find(d => 
+                (d.name === 'VRH-RHC Ranch CowWork' || d.name === 'Ranch Cow Work') && 
+                d.association_id === 'AQHA'
+            );
+            
+            if (!baseDiscipline) {
+                // If base discipline not found, just update selections
+                const newSelections = { ...prev.vrhRanchCowWorkSelections };
+                if (newSelection.length === 0) {
+                    delete newSelections[disciplineKey];
+                } else {
+                    newSelections[disciplineKey] = newSelection;
+                }
+                return { ...prev, vrhRanchCowWorkSelections: newSelections };
+            }
+            
+            // Update disciplines: remove old VRH-RHC entries and add new ones
+            let newDisciplines = [...(prev.disciplines || [])];
+            
+            // Remove all existing VRH-RHC Ranch CowWork disciplines (all variants)
+            newDisciplines = newDisciplines.filter(d => {
+                const isVrhRanchCowWork = (d.name === 'VRH-RHC Ranch CowWork' || 
+                    d.name === 'VRH-RHC Ranch CowWork Rookie' || 
+                    d.name === 'VRH-RHC Ranch CowWork Limited') &&
+                    d.association_id === 'AQHA';
+                return !isVrhRanchCowWork;
+            });
+            
+            // Add new discipline entries for each selected scoresheet
+            const selectedAssocIds = Object.keys(prev.associations).filter(id => prev.associations[id]);
+            
+            newSelection.forEach(selectedValue => {
+                const disciplineName = valueToName[selectedValue];
+                if (!disciplineName) return;
+                
+                const newDiscipline = {
+                    ...baseDiscipline,
+                    name: disciplineName,
+                    id: `${disciplineName.replace(/\s+/g, '-')}-${baseDiscipline.association_id}-${Date.now()}-${selectedValue}`,
+                    pattern: baseDiscipline.pattern_type !== 'none' && baseDiscipline.pattern_type !== 'scoresheet_only',
+                    scoresheet: baseDiscipline.category !== 'none',
+                    isCustom: baseDiscipline.isCustom || false,
+                    selectedAssociations: {},
+                    divisions: {},
+                    customDivisions: [],
+                    patternGroups: [],
+                    sub_association_type: baseDiscipline.sub_association_type,
+                    pattern_type: baseDiscipline.pattern_type || 'none',
+                    vrhRanchCowWorkType: selectedValue, // Store the type for reference
+                };
+                
+                if (newDiscipline.pattern) {
+                    newDiscipline.patternGroups.push({
+                        id: `pattern-group-${Date.now()}-${selectedValue}`, 
+                        name: 'Group 1', 
+                        divisions: [], 
+                        rulebookPatternId: '', 
+                        competitionDate: null
+                    });
+                }
+                
+                if (baseDiscipline.association_id === 'open-show') {
+                    newDiscipline.selectedAssociations['open-show'] = true;
+                } else if (baseDiscipline.association_id && selectedAssocIds.includes(baseDiscipline.association_id)) {
+                    newDiscipline.selectedAssociations[baseDiscipline.association_id] = true;
+                }
+                
+                newDisciplines.push(newDiscipline);
+            });
+            
+            // Update selections
+            const newSelections = { ...prev.vrhRanchCowWorkSelections };
+            if (newSelection.length === 0) {
+                delete newSelections[disciplineKey];
+            } else {
+                newSelections[disciplineKey] = newSelection;
+            }
+            
+            return {
+                ...prev,
+                disciplines: newDisciplines,
+                vrhRanchCowWorkSelections: newSelections
+            };
+        });
     };
 
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
@@ -639,29 +722,99 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         
         const disciplineKey = getDisciplineKey(disc);
         
-        // Check if this is VRH-RHC Ranch CowWork for AQHA - auto-select default scoresheet
+        // Check if this is VRH-RHC Ranch CowWork for AQHA
         const isVrhRanchCowWork = (disc.name === 'VRH-RHC Ranch CowWork' || disc.name === 'Ranch Cow Work') && 
             disc.association_id === 'AQHA';
         
         if (isChecked && isVrhRanchCowWork) {
-            // Auto-select 'open' (VRH-RHC Ranch CowWork) as default
-            setFormData(prev => ({
-                ...prev,
-                vrhRanchCowWorkSelections: {
-                    ...prev.vrhRanchCowWorkSelections,
-                    [disciplineKey]: 'open'
-                }
-            }));
-        } else if (!isChecked && isVrhRanchCowWork) {
-            // Clear the selection when unchecking
+            // Auto-select 'open' (VRH-RHC Ranch CowWork) as default and create discipline
             setFormData(prev => {
-                const newSelections = { ...prev.vrhRanchCowWorkSelections };
-                delete newSelections[disciplineKey];
+                const newSelections = {
+                    ...prev.vrhRanchCowWorkSelections,
+                    [disciplineKey]: ['open']
+                };
+                
+                // Map values to discipline names
+                const valueToName = {
+                    'open': 'VRH-RHC Ranch CowWork',
+                    'rookie': 'VRH-RHC Ranch CowWork Rookie',
+                    'limited': 'VRH-RHC Ranch CowWork Limited'
+                };
+                
+                // Create discipline for 'open' (default selection)
+                let newDisciplines = [...(prev.disciplines || [])];
+                const disciplineName = valueToName['open'];
+                
+                // Check if discipline already exists
+                const exists = newDisciplines.some(d => 
+                    d.name === disciplineName && d.association_id === 'AQHA'
+                );
+                
+                if (!exists) {
+                    const newDiscipline = {
+                        ...disc,
+                        name: disciplineName,
+                        id: `${disciplineName.replace(/\s+/g, '-')}-${disc.association_id}-${Date.now()}-open`,
+                        pattern: disc.pattern_type !== 'none' && disc.pattern_type !== 'scoresheet_only',
+                        scoresheet: disc.category !== 'none',
+                        isCustom: disc.isCustom || false,
+                        selectedAssociations: {},
+                        divisions: {},
+                        customDivisions: [],
+                        patternGroups: [],
+                        sub_association_type: disc.sub_association_type,
+                        pattern_type: disc.pattern_type || 'none',
+                        vrhRanchCowWorkType: 'open',
+                    };
+                    
+                    if (newDiscipline.pattern) {
+                        newDiscipline.patternGroups.push({
+                            id: `pattern-group-${Date.now()}-open`, 
+                            name: 'Group 1', 
+                            divisions: [], 
+                            rulebookPatternId: '', 
+                            competitionDate: null
+                        });
+                    }
+                    
+                    const selectedAssocIds = Object.keys(prev.associations).filter(id => prev.associations[id]);
+                    if (disc.association_id === 'open-show') {
+                        newDiscipline.selectedAssociations['open-show'] = true;
+                    } else if (disc.association_id && selectedAssocIds.includes(disc.association_id)) {
+                        newDiscipline.selectedAssociations[disc.association_id] = true;
+                    }
+                    
+                    newDisciplines.push(newDiscipline);
+                }
+                
                 return {
                     ...prev,
+                    disciplines: newDisciplines,
                     vrhRanchCowWorkSelections: newSelections
                 };
             });
+            return; // Don't proceed with normal discipline toggle
+        } else if (!isChecked && isVrhRanchCowWork) {
+            // Remove all VRH-RHC Ranch CowWork disciplines when unchecking
+            setFormData(prev => {
+                const newDisciplines = (prev.disciplines || []).filter(d => {
+                    const isVrhRanchCowWork = (d.name === 'VRH-RHC Ranch CowWork' || 
+                        d.name === 'VRH-RHC Ranch CowWork Rookie' || 
+                        d.name === 'VRH-RHC Ranch CowWork Limited') &&
+                        d.association_id === 'AQHA';
+                    return !isVrhRanchCowWork;
+                });
+                
+                const newSelections = { ...prev.vrhRanchCowWorkSelections };
+                delete newSelections[disciplineKey];
+                
+                return {
+                    ...prev,
+                    disciplines: newDisciplines,
+                    vrhRanchCowWorkSelections: newSelections
+                };
+            });
+            return; // Don't proceed with normal discipline toggle
         }
         
         setFormData(prev => {
@@ -671,6 +824,11 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
             );
 
             if (isChecked) {
+                // Skip adding discipline if it's VRH-RHC Ranch CowWork (handled separately)
+                if (isVrhRanchCowWork) {
+                    return; // Already handled above
+                }
+                
                 if (disciplineExistsIndex === -1) {
                     const newDiscipline = {
                         ...disc,

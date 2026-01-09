@@ -472,7 +472,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         </div>
                         <div className="flex-grow text-left min-w-0">
                             <span className="font-semibold text-sm">{pbbDiscipline.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 {divisionCounts.map(item => (
                                     <span key={item.id} className="text-xs text-amber-600 font-medium">{item.abbreviation}</span>
                                 ))}

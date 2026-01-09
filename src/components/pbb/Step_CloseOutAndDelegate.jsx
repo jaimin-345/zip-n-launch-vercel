@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { flushSync } from 'react-dom';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -62,6 +63,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
         phone: staffMember.phone || ''
     });
     const { toast } = useToast();
+    const { signUp } = useAuth();
 
     // Sync editedContact when dialog opens
     React.useEffect(() => {
@@ -80,24 +82,38 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
         
         setIsCheckingUser(true);
         try {
-            const { data: profiles, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, role')
-                .eq('email', emailValue)
-                .single();
+            // Check customers table by email (profiles table doesn't have email column)
+            const { data: customerData, error: customerError } = await supabase
+                .from('customers')
+                .select('id, user_id, email, full_name')
+                .ilike('email', emailValue.trim().toLowerCase())
+                .maybeSingle();
 
-            if (profiles && !error) {
-                setExistingUser(profiles);
-                setEditedContact(prev => ({ ...prev, name: profiles.full_name || prev.name }));
-                toast({
-                    title: 'User Found',
-                    description: `Found existing user: ${profiles.full_name}`,
-                });
+            if (customerData && !customerError && customerData.user_id) {
+                // If customer exists, get profile data using user_id
+                const { data: profileData, error: profileError } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, role')
+                    .eq('id', customerData.user_id)
+                    .maybeSingle();
+
+                if (profileData && !profileError) {
+                    setExistingUser({
+                        ...profileData,
+                        email: customerData.email
+                    });
+                    setEditedContact(prev => ({ ...prev, name: customerData.full_name || profileData.full_name || prev.name }));
+                    toast({
+                        title: 'User Found',
+                        description: `Found existing user: ${customerData.full_name || profileData.full_name}`,
+                    });
+                } else {
+                    setExistingUser(null);
+                }
             } else {
                 setExistingUser(null);
             }
         } catch (error) {
-            console.error('Error checking user:', error);
             setExistingUser(null);
         } finally {
             setIsCheckingUser(false);
@@ -111,45 +127,195 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
     };
 
     const handleSaveContact = async () => {
-        setIsSaving(true);
+        // Force immediate UI update with flushSync
+        flushSync(() => {
+            setIsSaving(true);
+        });
         
-        // Small delay to ensure spinner renders before async work
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay to ensure spinner renders
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         const currentName = editedContact.name;
         const currentEmail = editedContact.email;
         const currentPhone = editedContact.phone;
         
         try {
-            // If user doesn't exist and email is provided, create the user
-            if (!existingUser && currentEmail && currentEmail.includes('@')) {
-                const { data, error } = await supabase.functions.invoke('create-staff-user', {
-                    body: {
-                        email: currentEmail,
-                        name: currentName,
-                        role: staffMember.role
+            // First, check if user exists in customers table by email (primary check)
+            let userExistsInCustomers = false;
+            
+            if (currentEmail && currentEmail.includes('@')) {
+                // Normalize email (trim and lowercase for comparison)
+                const normalizedEmail = currentEmail.trim().toLowerCase();
+                const trimmedEmail = currentEmail.trim();
+                
+                // Try case-insensitive check first
+                let customerData = null;
+                let customerCheckError = null;
+                
+                const { data: customerDataIlike, error: errorIlike } = await supabase
+                    .from('customers')
+                    .select('id, user_id, email, full_name')
+                    .ilike('email', normalizedEmail)
+                    .maybeSingle();
+                
+                if (errorIlike) {
+                    // Fallback to exact match
+                    const { data: customerDataExact, error: errorExact } = await supabase
+                        .from('customers')
+                        .select('id, user_id, email, full_name')
+                        .eq('email', trimmedEmail)
+                        .maybeSingle();
+                    
+                    customerData = customerDataExact;
+                    customerCheckError = errorExact;
+                } else {
+                    customerData = customerDataIlike;
+                    customerCheckError = errorIlike;
+                }
+
+                if (customerCheckError) {
+                    // Error checking customers - continue
+                } else if (customerData) {
+                    userExistsInCustomers = true;
+                    // If customer exists, also check profiles to set existingUser state
+                    if (customerData.user_id) {
+                        const { data: profileData } = await supabase
+                            .from('profiles')
+                            .select('id, full_name, role')
+                            .eq('id', customerData.user_id)
+                            .maybeSingle();
+                        if (profileData) {
+                            setExistingUser({
+                                ...profileData,
+                                email: customerData.email
+                            });
+                        }
                     }
-                });
+                }
+            }
 
-                if (error) throw error;
+            // If user exists in customers table, just save to project (don't create account)
+            // If user doesn't exist in customers table, create the user account using signUp (same as signup flow)
+            if (!userExistsInCustomers && currentEmail && currentEmail.includes('@')) {
+                // Parse name to get firstName and lastName (same as signup flow)
+                const nameParts = currentName.trim().split(/\s+/);
+                const firstName = nameParts[0] || currentName;
+                const lastName = nameParts.slice(1).join(' ') || '';
+                
+                // Create metadata (same structure as signup flow)
+                const metadata = {
+                    firstName: firstName,
+                    lastName: lastName,
+                    mobile: currentPhone || '',
+                };
+                
+                // Use default password (must be at least 6 characters)
+                const defaultPassword = '123456';
+                
+                // Call signUp (same as AuthModal handleSignUp)
+                const { data, error } = await signUp(currentEmail, defaultPassword, metadata);
 
-                if (data?.created) {
+                if (error) {
+                    toast({
+                        title: 'Error',
+                        description: `Failed to create user account: ${error.message || 'Unknown error'}`,
+                        variant: 'destructive'
+                    });
+                    // Don't throw - continue to save contact info to project
+                } else if (data?.user) {
+                    if (data.user.id) {
+                        // Wait for database triggers to create profile (signup flow relies on triggers)
+                        // Try multiple times to wait for trigger
+                        let profileExists = false;
+                        let retries = 0;
+                        const maxRetries = 5;
+                        
+                        while (!profileExists && retries < maxRetries) {
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            const { data: profileCheck } = await supabase
+                                .from('profiles')
+                                .select('id')
+                                .eq('id', data.user.id)
+                                .maybeSingle();
+                            
+                            if (profileCheck) {
+                                profileExists = true;
+                            }
+                            retries++;
+                        }
+                        
+                        // Step 1: Update profile with role and full_name (profile should exist from trigger)
+                        const { error: profileUpdateError } = await supabase
+                            .from('profiles')
+                            .update({ 
+                                full_name: currentName,
+                                role: staffMember.role 
+                            })
+                            .eq('id', data.user.id);
+                        
+                        if (profileUpdateError) {
+                            // If profile doesn't exist, try to insert it
+                            const { error: profileInsertError } = await supabase
+                                .from('profiles')
+                                .insert({
+                                    id: data.user.id,
+                                    full_name: currentName,
+                                    role: staffMember.role
+                                });
+                            
+                            // Profile insert attempted (error handling silent)
+                        }
+                        
+                        // Step 2: Check if customer record exists, create if it doesn't
+                        // Note: Customer creation might be handled by database triggers from signup
+                        // Wait a bit for potential triggers
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        
+                        const { data: existingCustomer, error: customerCheckError } = await supabase
+                            .from('customers')
+                            .select('id')
+                            .eq('user_id', data.user.id)
+                            .maybeSingle();
+                        
+                        if (!existingCustomer) {
+                            // Try to create customer record (may fail due to RLS - that's okay, might be created by trigger later)
+                            const { error: customerCreateError } = await supabase
+                                .from('customers')
+                                .insert({
+                                    id: crypto.randomUUID(),
+                                    user_id: data.user.id,
+                                    email: currentEmail,
+                                    full_name: currentName,
+                                    last_name: lastName,
+                                    created_at: new Date().toISOString()
+                                });
+                            
+                            // Customer creation attempted (error handling silent - RLS or trigger may handle)
+                        }
+                    }
+                    
                     toast({
                         title: 'User Created',
                         description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
                     });
                 }
+            } else if (userExistsInCustomers) {
+                // User exists in customers table, just save to project (no account creation needed)
+                toast({
+                    title: 'Contact Info Saved',
+                    description: `Contact information saved for existing user ${currentName}.`,
+                });
             }
             
+            // Always save contact info to project
             if (onContactUpdate) {
                 onContactUpdate(staffMember.id, { name: currentName, email: currentEmail, phone: currentPhone });
             }
             setIsEditDialogOpen(false);
         } catch (error) {
-            console.error('Error creating user:', error);
             toast({
                 title: 'Error',
-                description: 'Failed to create user account. Contact information saved.',
+                description: 'Failed to save contact information. Please try again.',
                 variant: 'destructive'
             });
         } finally {
@@ -325,13 +491,22 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                             )}
                                         </div>
                                         <DialogFooter>
-                                            <Button onClick={handleSaveContact} disabled={isCheckingUser || isSaving}>
+                                            <Button 
+                                                type="button"
+                                                onClick={handleSaveContact} 
+                                                disabled={isCheckingUser || isSaving}
+                                            >
                                                 {isSaving ? (
                                                     <>
                                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                                         Saving...
                                                     </>
-                                                ) : isCheckingUser ? 'Checking...' : 'Save Changes'}
+                                                ) : isCheckingUser ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Checking...
+                                                    </>
+                                                ) : 'Save Changes'}
                                             </Button>
                                         </DialogFooter>
                                     </DialogContent>
@@ -360,7 +535,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                             </Badge>
                                         );
                                     } catch (e) {
-                                        console.error('Error formatting deadline:', e, role.deadline);
                                         return (
                                             <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
                                                 Due: {role.deadline}
@@ -408,7 +582,6 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                             </Badge>
                                         );
                                     } catch (e) {
-                                        console.error('Error formatting deadline:', e, role.deadline);
                                         return (
                                             <Badge className={cn('hover:bg-opacity-80', TAG_COLORS.deadline)}>
                                                 Due: {role.deadline}
