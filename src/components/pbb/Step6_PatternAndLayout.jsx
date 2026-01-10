@@ -1021,91 +1021,94 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         )}
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Show summary - 3 column layout */}
+        {/* Show summary - 2 column layout with Discipline Folders in second row */}
         <Card className="p-4 bg-muted/50">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left Column - Show Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
-              <div className="space-y-3 text-sm">
-                {formData.showName && (
-                  <div className="flex items-start gap-2">
-                    <Trophy className="w-4 h-4 mt-0.5 text-blue-600" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
-                      <p className="font-medium">{formData.showName}</p>
-                    </div>
-                  </div>
-                )}
-                {formData.venueName && (
-                  <div className="flex items-start gap-2">
-                    <Building className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Venue Name</p>
-                      <p className="text-muted-foreground">{formData.venueName}</p>
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-start gap-2">
-                  <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                    <p className="font-semibold text-xs text-muted-foreground">Show Dates</p>
-                    <p className="text-muted-foreground">{dateRange}</p>
-                  </div>
-                </div>
-                {formData.venueAddress && (
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 mt-0.5 text-blue-600" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Location</p>
-                      <p className="text-muted-foreground">{formData.venueAddress}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Middle Column - Staff */}
-            <div className="space-y-4">
-              {/* Show Staff Section */}
-              <div className="border rounded-lg p-3">
-                <h3 className="text-lg font-semibold mb-3">Show Staff</h3>
-                <div className="space-y-2">
-                  {showStaff.length > 0 ? (
-                    showStaff.map((staff, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-sm">
-                        <span className="text-blue-600 font-medium">{staff.role}:</span>
-                        <span className="font-semibold uppercase">{staff.name || 'Not assigned'}</span>
+          <div className="space-y-6">
+            {/* First Row - 2 columns */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column - Show Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
+                <div className="space-y-3 text-sm">
+                  {formData.showName && (
+                    <div className="flex items-start gap-2">
+                      <Trophy className="w-4 h-4 mt-0.5 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
+                        <p className="font-medium">{formData.showName}</p>
                       </div>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No staff assigned</span>
+                    </div>
+                  )}
+                  {formData.venueName && (
+                    <div className="flex items-start gap-2">
+                      <Building className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold text-xs text-muted-foreground">Venue Name</p>
+                        <p className="text-muted-foreground">{formData.venueName}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <p className="font-semibold text-xs text-muted-foreground">Show Dates</p>
+                      <p className="text-muted-foreground">{dateRange}</p>
+                    </div>
+                  </div>
+                  {formData.venueAddress && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 text-blue-600" />
+                      <div>
+                        <p className="font-semibold text-xs text-muted-foreground">Location</p>
+                        <p className="text-muted-foreground">{formData.venueAddress}</p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Judges Section */}
-              <div className="border rounded-lg p-3">
-                <h3 className="text-lg font-semibold mb-3">Show Judges</h3>
-                <div className="space-y-2">
-                  {judgesWithAssociations.length > 0 ? (
-                    judgesWithAssociations.map((judge, idx) => (
-                      <div key={idx} className="flex justify-between items-center">
-                        <span className="font-medium uppercase text-sm">{judge.name}</span>
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-200 text-xs">
-                          - {judge.associations.join(', ')}
-                        </Badge>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-sm">No judges assigned</span>
-                  )}
+              {/* Right Column - Staff & Judges */}
+              <div className="space-y-4">
+                {/* Show Staff Section */}
+                <div className="border rounded-lg p-3">
+                  <h3 className="text-lg font-semibold mb-3">Show Staff</h3>
+                  <div className="space-y-2">
+                    {showStaff.length > 0 ? (
+                      showStaff.map((staff, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm">
+                          <span className="text-blue-600 font-medium">{staff.role}:</span>
+                          <span className="font-semibold uppercase">{staff.name || 'Not assigned'}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No staff assigned</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Judges Section */}
+                <div className="border rounded-lg p-3">
+                  <h3 className="text-lg font-semibold mb-3">Show Judges</h3>
+                  <div className="space-y-2">
+                    {judgesWithAssociations.length > 0 ? (
+                      judgesWithAssociations.map((judge, idx) => (
+                        <div key={idx} className="flex justify-between items-center">
+                          <span className="font-medium uppercase text-sm">{judge.name}</span>
+                          <Badge className="bg-green-100 text-green-700 hover:bg-green-200 text-xs">
+                            - {judge.associations.join(', ')}
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No judges assigned</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Discipline Folder */}
-            <div className="space-y-4">
+            {/* Second Row - Discipline Folders (Full Width) */}
+            <div className="space-y-4 pt-4 border-t">
               <h3 className="text-lg font-semibold border-b pb-2">Discipline Folders</h3>
               <div className="text-xs text-muted-foreground mb-2">
                 {(() => {
@@ -1117,7 +1120,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   return `${completeDisciplines} of ${patternDisciplines.length} disciplines ${allComplete ? 'complete' : 'incomplete'}`;
                 })()}
               </div>
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {patternDisciplines.map((discipline) => {
                   const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                   const groups = discipline.patternGroups || [];
@@ -1129,6 +1132,25 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         formData.judgeSelections[disciplineIndex].trim() && 
                                         !formData.judgeSelections[disciplineIndex].startsWith('judge-');
                   
+                  // Get judge name
+                  const judgeName = judgeAssigned ? formData.judgeSelections[disciplineIndex] : null;
+                  
+                  // Get all pattern names for this discipline
+                  const patternNames = [];
+                  if (!isScoresheetOnly) {
+                    groups.forEach(group => {
+                      const selection = getPatternSelection(discipline.id, group.id);
+                      if (selection?.patternName) {
+                        const patternName = selection.patternName.replace(/\.(pdf|PDF)$/, '');
+                        const version = selection.version || '';
+                        const displayText = version && version !== 'ALL' ? `${patternName} (${version})` : patternName;
+                        if (!patternNames.includes(displayText)) {
+                          patternNames.push(displayText);
+                        }
+                      }
+                    });
+                  }
+                  
                   // For scoresheet-only: count groups with divisions. For pattern disciplines: count groups with pattern selections
                   const assignedCount = isScoresheetOnly
                     ? groups.filter(group => group.divisions && group.divisions.length > 0).length
@@ -1138,17 +1160,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       }).length;
                   
                   const handleDisciplineClick = () => {
-                    // If judge is not assigned (and not scoresheet-only), show message
+                    // Always scroll to and expand the discipline
+                    scrollToDiscipline(discipline.id);
+                    
+                    // If judge is not assigned (and not scoresheet-only), show message but still expand
                     if (!isScoresheetOnly && !judgeAssigned) {
                       toast({
                         title: "Judge Required",
                         description: "First assign this discipline judge before proceeding.",
                         variant: "destructive"
                       });
-                      return;
                     }
-                    // Otherwise, scroll to discipline
-                    scrollToDiscipline(discipline.id);
                   };
                   
                   return (
@@ -1156,24 +1178,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       key={discipline.id}
                       onClick={handleDisciplineClick}
                       className={cn(
-                        "p-3 rounded-lg border-2 flex items-center justify-between cursor-pointer transition-all",
+                        "p-2 rounded-lg border-2 flex flex-col gap-1.5 cursor-pointer transition-all shadow-sm hover:shadow-md",
                         isComplete 
                           ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-950/30" 
-                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700 hover:bg-destructive/10 hover:border-destructive dark:hover:border-destructive"
+                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-950/30"
                       )}
                     >
+                      {/* Header with icon, title, and judge name */}
                       <div className="flex items-center gap-2">
                         {isComplete ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
                         ) : (
                           <AlertCircle className={cn(
-                            "w-4 h-4",
-                            isComplete ? "text-orange-600 dark:text-orange-400" : "text-destructive"
+                            "w-4 h-4 flex-shrink-0",
+                            "text-destructive"
                           )} />
                         )}
-                        <div>
-                          <p className="font-semibold text-sm">{discipline.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-sm truncate leading-tight">{discipline.name}</p>
+                            {judgeName && (
+                              <div className="flex items-center gap-1">
+                                <UserCheck className="w-3 h-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                <span className="text-xs font-medium text-blue-600 dark:text-blue-400 truncate">{judgeName}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-tight">
                             {isScoresheetOnly 
                               ? `${assignedCount} group${assignedCount !== 1 ? 's' : ''} configured`
                               : `${assignedCount} pattern${assignedCount !== 1 ? 's' : ''} assigned`
@@ -1181,10 +1212,33 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      
+                      {/* Pattern Names - without label */}
+                      {!isScoresheetOnly && patternNames.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {patternNames.slice(0, 2).map((patternName, idx) => (
+                            <span 
+                              key={idx} 
+                              className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded font-medium truncate max-w-full border border-green-200 dark:border-green-800"
+                            >
+                              {patternName}
+                            </span>
+                          ))}
+                          {patternNames.length > 2 && (
+                            <span className="text-xs text-muted-foreground font-medium px-1.5 py-0.5">
+                              +{patternNames.length - 2} more
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Footer with status and action */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/10">
                         <span className={cn(
-                          "text-xs font-semibold px-2 py-1 rounded",
-                          isComplete ? "text-green-700 dark:text-green-300" : "text-orange-700 dark:text-orange-300"
+                          "text-xs font-semibold px-2 py-0.5 rounded",
+                          isComplete 
+                            ? "bg-green-200 text-green-800 dark:bg-green-900/40 dark:text-green-300" 
+                            : "bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
                         )}>
                           {isComplete ? 'Complete' : 'Incomplete'}
                         </span>
@@ -1195,9 +1249,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               setPreviewDiscipline(discipline);
                               setIsPreviewOpen(true);
                             }}
-                            className="p-1 hover:bg-green-100 dark:hover:bg-green-900/20 rounded transition-colors"
+                            className="p-1 hover:bg-green-200 dark:hover:bg-green-900/40 rounded transition-colors flex-shrink-0"
+                            title="Preview"
                           >
-                            <Eye className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            <Eye className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
                           </button>
                         )}
                       </div>

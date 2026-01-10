@@ -35,6 +35,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
+import { generatePatternBookPdf } from '@/lib/bookGenerator';
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -1980,6 +1981,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isLoadingPreview, setIsLoadingPreview] = useState(false);
     const [projectStatus, setProjectStatus] = useState(project.status || 'Draft'); // Local status state
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [viewDownloadDialogOpen, setViewDownloadDialogOpen] = useState(false);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     
     const projectData = project.project_data || {};
     const { toast } = useToast();
@@ -3295,10 +3298,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         // Count staff (excluding judges and admins)
         const staffCount = officials.filter(o => o.role !== 'judge' && o.role !== 'admin').length;
         
-        // Format admin display - if it shows "Judges: X", that means admin is managing judges
-        const adminDisplay = admin !== 'Not set' ? admin : (judgesCount > 0 ? `Judges: ${judgesCount}` : 'Not set');
-        
-        return { owner, admin: adminDisplay, judgesCount, staffCount, judgesList };
+        // Return admin as is (no fallback to judges count)
+        return { owner, admin, judgesCount, staffCount, judgesList };
     };
     
     const { owner, admin, judgesCount, staffCount, judgesList } = getPeopleData();
@@ -3483,7 +3484,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         </Button>
                     </div>
                     
-                    <Button className="w-full mt-auto">
+                    <Button 
+                        className="w-full mt-auto"
+                        onClick={() => setViewDownloadDialogOpen(true)}
+                    >
                         <Download className="h-4 w-4 mr-2" />
                         View/Download Entire Pattern Book
                     </Button>
@@ -3585,37 +3589,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Select value={sortBy} onValueChange={setSortBy}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue>
-                                                {sortBy === 'newest' ? 'Sort: Newest' : 
-                                                 sortBy === 'oldest' ? 'Sort: Oldest' : 
-                                                 'Sort: Name'}
-                                            </SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="newest">Sort: Newest</SelectItem>
-                                            <SelectItem value="oldest">Sort: Oldest</SelectItem>
-                                            <SelectItem value="name">Sort: Name</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={project.status || 'Draft'} onValueChange={() => {}}>
-                                        <SelectTrigger className="w-32">
-                                            <SelectValue>{project.status || 'Draft'}</SelectValue>
-                                        </SelectTrigger>
-                                    </Select>
-                                    <Button variant="ghost" size="icon">
-                                        <LayoutGrid className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon">
-                                        <FileText className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon">
-                                        <PlusCircle className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
                                 </div>
                                 
                                 {/* Content based on active sub-tab */}
@@ -3630,7 +3603,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
                                                 {filteredPatterns.map((pattern, index) => (
                                                     <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
-                                                        <input type="checkbox" className="w-4 h-4" />
                                                         {/* Pattern Image or Icon - Similar to Step 3 */}
                                                         {pattern.image_url ? (
                                                             <div className="w-16 h-16 rounded-md overflow-hidden border bg-muted/20 shrink-0 flex items-center justify-center">
@@ -3732,7 +3704,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
                                                 {filteredScoresheets.map((scoresheet, index) => (
                                                     <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
-                                                        <input type="checkbox" className="w-4 h-4" />
                                                         <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center shrink-0">
                                                             <FileText className="h-4 w-4 text-primary" />
                                                         </div>
@@ -3848,9 +3819,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 <div>
                                     <p className="text-sm"><span className="font-semibold">Owner:</span> {owner}</p>
                                 </div>
-                                <div>
-                                    <p className="text-sm"><span className="font-semibold">Admin:</span> {admin}</p>
-                                </div>
+                                {admin && admin !== 'Not set' && (
+                                    <div>
+                                        <p className="text-sm"><span className="font-semibold">Admin:</span> {admin}</p>
+                                    </div>
+                                )}
                                 <div>
                                     <p className="text-sm mb-1"><span className="font-semibold">Judges:</span> {judgesCount} Assigned</p>
                                     {judgesList && judgesList.length > 0 && (
@@ -3922,6 +3895,276 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 )}
                             </div>
                         )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* View/Download Entire Pattern Book Dialog */}
+            <Dialog open={viewDownloadDialogOpen} onOpenChange={setViewDownloadDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>View/Download Entire Pattern Book</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                        <p className="text-sm text-muted-foreground">
+                            Choose a layout and action to view or download the entire pattern book.
+                        </p>
+                        
+                        {/* Layout A Section */}
+                        <div className="border rounded-lg p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                <h3 className="font-semibold text-lg">Layout A - Modern</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Modern layout with clean design and contemporary styling.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button 
+                                    onClick={async () => {
+                                        try {
+                                            setIsGeneratingPdf(true);
+                                            const pbbData = {
+                                                ...project.project_data,
+                                                id: project.id,
+                                                layoutSelection: 'layout-a'
+                                            };
+                                            const pdfDataUri = await generatePatternBookPdf(pbbData);
+                                            
+                                            // Convert data URI to blob and open in new window
+                                            const byteString = atob(pdfDataUri.split(',')[1]);
+                                            const mimeString = pdfDataUri.split(',')[0].split(':')[1].split(';')[0];
+                                            const ab = new ArrayBuffer(byteString.length);
+                                            const ia = new Uint8Array(ab);
+                                            for (let i = 0; i < byteString.length; i++) {
+                                                ia[i] = byteString.charCodeAt(i);
+                                            }
+                                            const blob = new Blob([ab], { type: mimeString });
+                                            const blobUrl = URL.createObjectURL(blob);
+                                            
+                                            // Open PDF in new window
+                                            const newWindow = window.open(blobUrl, '_blank');
+                                            if (newWindow) {
+                                                newWindow.focus();
+                                                // Clean up blob URL after a delay
+                                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                            } else {
+                                                toast({
+                                                    title: "Popup Blocked",
+                                                    description: "Please allow popups to view the PDF",
+                                                    variant: "destructive"
+                                                });
+                                                URL.revokeObjectURL(blobUrl);
+                                            }
+                                            setViewDownloadDialogOpen(false);
+                                        } catch (error) {
+                                            console.error('Error generating PDF:', error);
+                                            toast({
+                                                title: "Error",
+                                                description: "Failed to generate pattern book",
+                                                variant: "destructive"
+                                            });
+                                        } finally {
+                                            setIsGeneratingPdf(false);
+                                        }
+                                    }}
+                                    className="flex-1"
+                                    variant="default"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View Layout A
+                                        </>
+                                    )}
+                                </Button>
+                                <Button 
+                                    onClick={async () => {
+                                        try {
+                                            setIsGeneratingPdf(true);
+                                            const pbbData = {
+                                                ...project.project_data,
+                                                id: project.id,
+                                                layoutSelection: 'layout-a'
+                                            };
+                                            const pdfDataUri = await generatePatternBookPdf(pbbData);
+                                            
+                                            // Download PDF
+                                            const link = document.createElement('a');
+                                            link.href = pdfDataUri;
+                                            link.download = `${project.project_name || 'Pattern-Book'}_Layout-A.pdf`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            
+                                            toast({
+                                                title: "Success",
+                                                description: "Layout A PDF downloaded successfully",
+                                            });
+                                            setViewDownloadDialogOpen(false);
+                                        } catch (error) {
+                                            console.error('Error generating PDF:', error);
+                                            toast({
+                                                title: "Error",
+                                                description: "Failed to generate pattern book",
+                                                variant: "destructive"
+                                            });
+                                        } finally {
+                                            setIsGeneratingPdf(false);
+                                        }
+                                    }}
+                                    className="flex-1"
+                                    variant="outline"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Download Layout A
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                        
+                        {/* Layout B Section */}
+                        <div className="border rounded-lg p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                <h3 className="font-semibold text-lg">Layout B - Classic</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Classic layout with traditional design and professional styling.
+                            </p>
+                            <div className="flex gap-3">
+                                <Button 
+                                    onClick={async () => {
+                                        try {
+                                            setIsGeneratingPdf(true);
+                                            const pbbData = {
+                                                ...project.project_data,
+                                                id: project.id,
+                                                layoutSelection: 'layout-b'
+                                            };
+                                            const pdfDataUri = await generatePatternBookPdf(pbbData);
+                                            
+                                            // Convert data URI to blob and open in new window
+                                            const byteString = atob(pdfDataUri.split(',')[1]);
+                                            const mimeString = pdfDataUri.split(',')[0].split(':')[1].split(';')[0];
+                                            const ab = new ArrayBuffer(byteString.length);
+                                            const ia = new Uint8Array(ab);
+                                            for (let i = 0; i < byteString.length; i++) {
+                                                ia[i] = byteString.charCodeAt(i);
+                                            }
+                                            const blob = new Blob([ab], { type: mimeString });
+                                            const blobUrl = URL.createObjectURL(blob);
+                                            
+                                            // Open PDF in new window
+                                            const newWindow = window.open(blobUrl, '_blank');
+                                            if (newWindow) {
+                                                newWindow.focus();
+                                                // Clean up blob URL after a delay
+                                                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+                                            } else {
+                                                toast({
+                                                    title: "Popup Blocked",
+                                                    description: "Please allow popups to view the PDF",
+                                                    variant: "destructive"
+                                                });
+                                                URL.revokeObjectURL(blobUrl);
+                                            }
+                                            setViewDownloadDialogOpen(false);
+                                        } catch (error) {
+                                            console.error('Error generating PDF:', error);
+                                            toast({
+                                                title: "Error",
+                                                description: "Failed to generate pattern book",
+                                                variant: "destructive"
+                                            });
+                                        } finally {
+                                            setIsGeneratingPdf(false);
+                                        }
+                                    }}
+                                    className="flex-1"
+                                    variant="default"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye className="h-4 w-4 mr-2" />
+                                            View Layout B
+                                        </>
+                                    )}
+                                </Button>
+                                <Button 
+                                    onClick={async () => {
+                                        try {
+                                            setIsGeneratingPdf(true);
+                                            const pbbData = {
+                                                ...project.project_data,
+                                                id: project.id,
+                                                layoutSelection: 'layout-b'
+                                            };
+                                            const pdfDataUri = await generatePatternBookPdf(pbbData);
+                                            
+                                            // Download PDF
+                                            const link = document.createElement('a');
+                                            link.href = pdfDataUri;
+                                            link.download = `${project.project_name || 'Pattern-Book'}_Layout-B.pdf`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            
+                                            toast({
+                                                title: "Success",
+                                                description: "Layout B PDF downloaded successfully",
+                                            });
+                                            setViewDownloadDialogOpen(false);
+                                        } catch (error) {
+                                            console.error('Error generating PDF:', error);
+                                            toast({
+                                                title: "Error",
+                                                description: "Failed to generate pattern book",
+                                                variant: "destructive"
+                                            });
+                                        } finally {
+                                            setIsGeneratingPdf(false);
+                                        }
+                                    }}
+                                    className="flex-1"
+                                    variant="outline"
+                                    disabled={isGeneratingPdf}
+                                >
+                                    {isGeneratingPdf ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download className="h-4 w-4 mr-2" />
+                                            Download Layout B
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
