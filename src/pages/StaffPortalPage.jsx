@@ -192,6 +192,41 @@ const StaffPortalPage = () => {
         
         return 'Staff';
     };
+
+    // Get all staff members for a project
+    const getProjectStaff = (project) => {
+        const projectData = project.project_data || {};
+        const officials = projectData.officials || [];
+        const associationJudges = projectData.associationJudges || {};
+        const staffList = [];
+
+        // Add officials/staff
+        officials.forEach(official => {
+            if (official.name) {
+                staffList.push({
+                    name: official.name,
+                    role: official.role || 'Staff',
+                    type: 'staff'
+                });
+            }
+        });
+
+        // Add judges from all associations
+        Object.values(associationJudges).forEach(assocData => {
+            const judges = assocData?.judges || [];
+            judges.forEach(judge => {
+                if (judge.name) {
+                    staffList.push({
+                        name: judge.name,
+                        role: 'Judge',
+                        type: 'judge'
+                    });
+                }
+            });
+        });
+
+        return staffList;
+    };
     
     return (
         <>
@@ -262,6 +297,7 @@ const StaffPortalPage = () => {
                                                     <TableRow className="hover:bg-muted/50 border-b-2">
                                                         <TableHead className="font-semibold text-sm h-14">Show Name</TableHead>
                                                         <TableHead className="font-semibold text-sm">Your Role</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Staff & Judges</TableHead>
                                                         <TableHead className="font-semibold text-sm">Associations</TableHead>
                                                         <TableHead className="font-semibold text-sm">Start Date</TableHead>
                                                         <TableHead className="font-semibold text-sm">End Date</TableHead>
@@ -273,6 +309,7 @@ const StaffPortalPage = () => {
                                                     {patternBookProjects.map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const userRole = getUserRole(project);
+                                                        const projectStaff = getProjectStaff(project);
                                                         return (
                                                             <TableRow 
                                                                 key={project.id}
@@ -289,6 +326,34 @@ const StaffPortalPage = () => {
                                                                         <Users className="h-3 w-3 mr-1" />
                                                                         {userRole}
                                                                     </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    {projectStaff.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                            {projectStaff.slice(0, 4).map((staff, idx) => (
+                                                                                <Badge 
+                                                                                    key={idx}
+                                                                                    variant={staff.type === 'judge' ? 'default' : 'secondary'}
+                                                                                    className={cn(
+                                                                                        'text-xs px-2 py-0.5 rounded-full',
+                                                                                        staff.type === 'judge' 
+                                                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                                                                            : ''
+                                                                                    )}
+                                                                                >
+                                                                                    {staff.name}
+                                                                                    <span className="ml-1 opacity-70 text-[10px]">({staff.role})</span>
+                                                                                </Badge>
+                                                                            ))}
+                                                                            {projectStaff.length > 4 && (
+                                                                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                                                                                    +{projectStaff.length - 4} more
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">No staff assigned</span>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
                                                                     {details.associations?.length > 0 ? (
@@ -403,6 +468,7 @@ const StaffPortalPage = () => {
                                                     <TableRow className="hover:bg-muted/50 border-b-2">
                                                         <TableHead className="font-semibold text-sm h-14">Show Name</TableHead>
                                                         <TableHead className="font-semibold text-sm">Your Role</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Staff</TableHead>
                                                         <TableHead className="font-semibold text-sm">Venue</TableHead>
                                                         <TableHead className="font-semibold text-sm">Location</TableHead>
                                                         <TableHead className="font-semibold text-sm">Start Date</TableHead>
@@ -415,6 +481,7 @@ const StaffPortalPage = () => {
                                                     {horseShowProjects.map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const userRole = getUserRole(project);
+                                                        const projectStaff = getProjectStaff(project);
                                                         const location = [details.city, details.state].filter(Boolean).join(', ');
                                                         return (
                                                             <TableRow 
@@ -432,6 +499,34 @@ const StaffPortalPage = () => {
                                                                         <Users className="h-3 w-3 mr-1" />
                                                                         {userRole}
                                                                     </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    {projectStaff.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                                                            {projectStaff.slice(0, 4).map((staff, idx) => (
+                                                                                <Badge 
+                                                                                    key={idx}
+                                                                                    variant={staff.type === 'judge' ? 'default' : 'secondary'}
+                                                                                    className={cn(
+                                                                                        'text-xs px-2 py-0.5 rounded-full',
+                                                                                        staff.type === 'judge' 
+                                                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                                                                            : ''
+                                                                                    )}
+                                                                                >
+                                                                                    {staff.name}
+                                                                                    <span className="ml-1 opacity-70 text-[10px]">({staff.role})</span>
+                                                                                </Badge>
+                                                                            ))}
+                                                                            {projectStaff.length > 4 && (
+                                                                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
+                                                                                    +{projectStaff.length - 4} more
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">No staff assigned</span>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
                                                                     {details.venue ? (
