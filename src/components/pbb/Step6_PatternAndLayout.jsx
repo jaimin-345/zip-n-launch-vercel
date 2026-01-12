@@ -1176,9 +1176,38 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle opening edit dialog for staff
   const handleOpenEditStaff = (staff, index) => {
-    // Find the staff member by id to ensure we have the complete object
-    const staffMember = showStaff.find(s => s.id === staff.id || (index !== undefined && showStaff[index]?.id === staff.id));
-    const actualStaff = staffMember || staff;
+    // Always read from formData.officials to get the most up-to-date data including email and phone from Step 3
+    let actualStaff = staff;
+    
+    // Try to find by id first
+    if (staff.id) {
+      const foundById = (formData.officials || []).find(s => s.id === staff.id);
+      if (foundById) {
+        actualStaff = foundById;
+      }
+    }
+    
+    // If not found by id, try by index
+    if (index !== undefined && (formData.officials || [])[index]) {
+      const foundByIndex = (formData.officials || [])[index];
+      // Use foundByIndex if it has more complete data (email/phone) or if we didn't find by id
+      if (!actualStaff.email && !actualStaff.phone && (foundByIndex.email || foundByIndex.phone)) {
+        actualStaff = foundByIndex;
+      } else if (foundByIndex.id === staff.id || (!staff.id && foundByIndex.role === staff.role && foundByIndex.name === staff.name)) {
+        actualStaff = foundByIndex;
+      }
+    }
+    
+    // If still not found, try by role and name match
+    if ((!actualStaff.email && !actualStaff.phone) || (!actualStaff.id && staff.id)) {
+      const foundByRoleName = (formData.officials || []).find(s => 
+        s.role === staff.role && s.name === staff.name
+      );
+      if (foundByRoleName && (foundByRoleName.email || foundByRoleName.phone)) {
+        actualStaff = foundByRoleName;
+      }
+    }
+    
     setEditingStaff({ ...actualStaff, index });
     setEditedStaffContact({
       name: actualStaff.name || '',
@@ -1191,9 +1220,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle opening edit dialog for judge
   const handleOpenEditJudge = (judge) => {
-    // Find the actual judge object from formData to get complete data including email and phone
+    // Always read from formData.associationJudges to get the most up-to-date data including email and phone from Step 3
     // Search through all associations to find the judge with the most complete data
-    let actualJudge = judge;
+    let actualJudge = { ...judge };
+    let bestMatch = null;
     
     if (formData.associationJudges) {
       Object.keys(formData.associationJudges).forEach(assocId => {
@@ -1202,19 +1232,39 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           j.name && judge.name && j.name.toLowerCase().trim() === judge.name.toLowerCase().trim()
         );
         if (foundJudge) {
-          // Use the judge with the most complete data (email and phone)
-          if ((foundJudge.email || foundJudge.phone) && (!actualJudge.email && !actualJudge.phone)) {
-            actualJudge = foundJudge;
-          } else if (foundJudge.email && foundJudge.phone) {
-            // Prefer judge with both email and phone
-            actualJudge = foundJudge;
-          } else if (foundJudge.email && !actualJudge.email) {
-            actualJudge = foundJudge;
-          } else if (foundJudge.phone && !actualJudge.phone) {
-            actualJudge = foundJudge;
+          // Prioritize judge with both email and phone, then email only, then phone only
+          if (!bestMatch) {
+            bestMatch = foundJudge;
+          } else {
+            // If current foundJudge has more complete data, use it
+            const bestHasBoth = bestMatch.email && bestMatch.phone;
+            const foundHasBoth = foundJudge.email && foundJudge.phone;
+            const bestHasEmail = bestMatch.email;
+            const foundHasEmail = foundJudge.email;
+            const bestHasPhone = bestMatch.phone;
+            const foundHasPhone = foundJudge.phone;
+            
+            if (foundHasBoth && !bestHasBoth) {
+              bestMatch = foundJudge;
+            } else if (foundHasEmail && !bestHasEmail) {
+              bestMatch = foundJudge;
+            } else if (foundHasPhone && !bestHasPhone) {
+              bestMatch = foundJudge;
+            }
           }
         }
       });
+    }
+    
+    // Use bestMatch if found, otherwise use the passed judge
+    if (bestMatch) {
+      actualJudge = {
+        ...actualJudge,
+        ...bestMatch,
+        // Ensure we use the best match's email and phone
+        email: bestMatch.email || actualJudge.email || '',
+        phone: bestMatch.phone || actualJudge.phone || ''
+      };
     }
     
     setEditingJudge(actualJudge);
