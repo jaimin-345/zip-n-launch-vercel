@@ -327,7 +327,7 @@ const StaffPortalPage = () => {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {patternBookProjects
-                                                        .filter(project => project.status !== 'In Progress')
+                                                        .filter(project => (project.status || '').toLowerCase() !== 'in progress')
                                                         .map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const peopleData = getPeopleData(project);
@@ -502,7 +502,7 @@ const StaffPortalPage = () => {
                                                 </TableHeader>
                                                 <TableBody>
                                                     {horseShowProjects
-                                                        .filter(project => project.status !== 'In Progress')
+                                                        .filter(project => (project.status || '').toLowerCase() !== 'in progress')
                                                         .map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const peopleData = getPeopleData(project);
