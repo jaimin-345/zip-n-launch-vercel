@@ -1767,10 +1767,12 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                 {/* Header Section */}
                 <div className="p-4">
                     <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-1">
                             <BookCopy className="h-5 w-5 text-primary shrink-0" />
                             <h3 className="text-lg font-bold text-foreground">
-                                {project.project_name || 'Untitled Project'}
+                                {projectData.showNumber 
+                                    ? `${project.project_name || 'Untitled Project'} - ${projectData.showNumber}`
+                                    : project.project_name || 'Untitled Project'}
                             </h3>
                         </div>
                         {/* Horse Show Logo Placeholder */}

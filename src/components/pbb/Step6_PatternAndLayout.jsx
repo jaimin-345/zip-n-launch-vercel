@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, Check, ChevronsUpDown, X, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, Check, ChevronsUpDown, X, ZoomIn, ZoomOut, RotateCcw, Loader2, Info, ChevronRight } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -252,6 +252,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [hoveredPatternImage, setHoveredPatternImage] = useState(null);
   const [loadingHoveredImage, setLoadingHoveredImage] = useState(false);
   const [hoverPosition, setHoverPosition] = useState({ x: 0, y: 0 });
+  
+  // Filter and sort state for Discipline Folders
+  const [filters, setFilters] = useState({
+    incomplete: true,
+    completed: true,
+    patternsAssigned: false
+  });
+  const [sortBy, setSortBy] = useState('name');
+  const [showAllDisciplines, setShowAllDisciplines] = useState(false);
+  const [isDisciplineFoldersOpen, setIsDisciplineFoldersOpen] = useState(true);
+  const [isDisciplineConfigOpen, setIsDisciplineConfigOpen] = useState(true);
 
   // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
@@ -1109,157 +1120,288 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
             {/* Second Row - Discipline Folders (Full Width) */}
             <div className="space-y-4 pt-4 border-t">
-              <h3 className="text-lg font-semibold border-b pb-2">Discipline Folders</h3>
-              <div className="text-xs text-muted-foreground mb-2">
-                {(() => {
-                  const completeDisciplines = patternDisciplines.filter((discipline) => {
-                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
-                    return isDisciplineComplete(discipline, disciplineIndex);
-                  }).length;
-                  const allComplete = completeDisciplines === patternDisciplines.length && patternDisciplines.length > 0;
-                  return `${completeDisciplines} of ${patternDisciplines.length} disciplines ${allComplete ? 'complete' : 'incomplete'}`;
-                })()}
+              <div 
+                className="flex items-center justify-between mb-2 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+                onClick={() => setIsDisciplineFoldersOpen(!isDisciplineFoldersOpen)}
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronDown className={cn("w-4 h-4 transition-transform", isDisciplineFoldersOpen ? "rotate-0" : "-rotate-90")} />
+                  <h3 className="text-lg font-semibold">Discipline Folders</h3>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowAllDisciplines(!showAllDisciplines);
+                  }}
+                >
+                  {showAllDisciplines ? 'Show Less' : 'See All'} <ChevronRight className={cn("w-4 h-4 ml-1 transition-transform", showAllDisciplines && "rotate-90")} />
+                </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {patternDisciplines.map((discipline) => {
-                  const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
-                  const groups = discipline.patternGroups || [];
-                  const isComplete = isDisciplineComplete(discipline, disciplineIndex);
-                  const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+              
+              {isDisciplineFoldersOpen && (
+                <>
+              
+              <div className="text-sm text-muted-foreground mb-4">
+                <p>
+                  {(() => {
+                    const incompleteCount = patternDisciplines.filter((discipline) => {
+                      const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                      return !isDisciplineComplete(discipline, disciplineIndex);
+                    }).length;
+                    return `${incompleteCount} of ${patternDisciplines.length} disciplines incomplete`;
+                  })()}
+                </p>
+              </div>
+              
+              {/* Filter Checkboxes */}
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="filter-incomplete"
+                    checked={filters.incomplete}
+                    onCheckedChange={(checked) => setFilters(prev => ({ ...prev, incomplete: checked }))}
+                  />
+                  <Label 
+                    htmlFor="filter-incomplete" 
+                    className={cn(
+                      "text-sm cursor-pointer px-2 py-1 rounded transition-colors"
+                    )}
+                  >
+                    Incomplete
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="filter-completed"
+                    checked={filters.completed}
+                    onCheckedChange={(checked) => setFilters(prev => ({ ...prev, completed: checked }))}
+                  />
+                  <Label htmlFor="filter-completed" className="text-sm cursor-pointer">Completed</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="filter-patterns-assigned"
+                    checked={filters.patternsAssigned}
+                    onCheckedChange={(checked) => setFilters(prev => ({ ...prev, patternsAssigned: checked }))}
+                  />
+                  <Label htmlFor="filter-patterns-assigned" className="text-sm cursor-pointer">Patterns Assigned</Label>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Label className="text-sm">Sort by:</Label>
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="w-[150px] h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                      <SelectItem value="patterns">Patterns</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {/* Grid of Discipline Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {(() => {
+                  // Filter disciplines based on selected filters
+                  const hasActiveFilters = Object.values(filters).some(v => v);
                   
-                  // Check if judge is assigned
-                  const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
-                                        formData.judgeSelections[disciplineIndex].trim() && 
-                                        !formData.judgeSelections[disciplineIndex].startsWith('judge-');
-                  
-                  // Get judge name
-                  const judgeName = judgeAssigned ? formData.judgeSelections[disciplineIndex] : null;
-                  
-                  // Get all pattern names for this discipline
-                  const patternNames = [];
-                  if (!isScoresheetOnly) {
-                    groups.forEach(group => {
-                      const selection = getPatternSelection(discipline.id, group.id);
-                      if (selection?.patternName) {
-                        const patternName = selection.patternName.replace(/\.(pdf|PDF)$/, '');
-                        const version = selection.version || '';
-                        const displayText = version && version !== 'ALL' ? `${patternName} (${version})` : patternName;
-                        if (!patternNames.includes(displayText)) {
-                          patternNames.push(displayText);
-                        }
-                      }
-                    });
-                  }
-                  
-                  // For scoresheet-only: count groups with divisions. For pattern disciplines: count groups with pattern selections
-                  const assignedCount = isScoresheetOnly
-                    ? groups.filter(group => group.divisions && group.divisions.length > 0).length
-                    : groups.filter(group => {
-                        const selection = getPatternSelection(discipline.id, group.id);
-                        return selection?.patternId;
-                      }).length;
-                  
-                  const handleDisciplineClick = () => {
-                    // Always scroll to and expand the discipline
-                    scrollToDiscipline(discipline.id);
+                  let filteredDisciplines = patternDisciplines.filter((discipline) => {
+                    if (!hasActiveFilters) return true; // Show all if no filters active
                     
-                    // If judge is not assigned (and not scoresheet-only), show message but still expand
-                    if (!isScoresheetOnly && !judgeAssigned) {
-                      toast({
-                        title: "Judge Required",
-                        description: "First assign this discipline judge before proceeding.",
-                        variant: "destructive"
+                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                    const isComplete = isDisciplineComplete(discipline, disciplineIndex);
+                    const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                    
+                    // Count patterns/groups
+                    const assignedCount = isScoresheetOnly
+                      ? (discipline.patternGroups || []).filter(group => group.divisions && group.divisions.length > 0).length
+                      : (discipline.patternGroups || []).filter(group => {
+                          const selection = getPatternSelection(discipline.id, group.id);
+                          return selection?.patternId;
+                        }).length;
+                    const hasPatterns = assignedCount > 0;
+                    
+                    // Check if discipline matches any active filter
+                    if (filters.incomplete && !isComplete) return true;
+                    if (filters.completed && isComplete) return true;
+                    if (filters.patternsAssigned && hasPatterns) return true;
+                    return false;
+                  });
+                  
+                  // Sort disciplines
+                  filteredDisciplines = [...filteredDisciplines].sort((a, b) => {
+                    const aIndex = (formData.disciplines || []).findIndex(d => d.id === a.id);
+                    const bIndex = (formData.disciplines || []).findIndex(d => d.id === b.id);
+                    const aComplete = isDisciplineComplete(a, aIndex);
+                    const bComplete = isDisciplineComplete(b, bIndex);
+                    const aIsScoresheetOnly = a.pattern_type === 'scoresheet_only' || (!a.pattern && a.scoresheet);
+                    const bIsScoresheetOnly = b.pattern_type === 'scoresheet_only' || (!b.pattern && b.scoresheet);
+                    
+                    const aAssignedCount = aIsScoresheetOnly
+                      ? (a.patternGroups || []).filter(group => group.divisions && group.divisions.length > 0).length
+                      : (a.patternGroups || []).filter(group => {
+                          const selection = getPatternSelection(a.id, group.id);
+                          return selection?.patternId;
+                        }).length;
+                    const bAssignedCount = bIsScoresheetOnly
+                      ? (b.patternGroups || []).filter(group => group.divisions && group.divisions.length > 0).length
+                      : (b.patternGroups || []).filter(group => {
+                          const selection = getPatternSelection(b.id, group.id);
+                          return selection?.patternId;
+                        }).length;
+                    
+                    if (sortBy === 'name') {
+                      return a.name.localeCompare(b.name);
+                    } else if (sortBy === 'status') {
+                      return aComplete === bComplete ? 0 : aComplete ? 1 : -1;
+                    } else if (sortBy === 'patterns') {
+                      return bAssignedCount - aAssignedCount;
+                    }
+                    return 0;
+                  });
+                  
+                  // Limit to 8 items if not showing all
+                  const displayDisciplines = showAllDisciplines ? filteredDisciplines : filteredDisciplines.slice(0, 8);
+                  
+                  return displayDisciplines.map((discipline) => {
+                    const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+                    const groups = discipline.patternGroups || [];
+                    const isComplete = isDisciplineComplete(discipline, disciplineIndex);
+                    const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                    
+                    // Check if judge is assigned
+                    const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
+                                          formData.judgeSelections[disciplineIndex].trim() && 
+                                          !formData.judgeSelections[disciplineIndex].startsWith('judge-');
+                    
+                    // Get judge name and number
+                    let judgeName = null;
+                    let judgeNumber = null;
+                    if (judgeAssigned) {
+                      judgeName = formData.judgeSelections[disciplineIndex];
+                      const match = judgeName.match(/(\d+)/);
+                      judgeNumber = match ? match[1] : null;
+                    }
+                    
+                    // Count assigned patterns/groups
+                    const assignedCount = isScoresheetOnly
+                      ? groups.filter(group => group.divisions && group.divisions.length > 0).length
+                      : groups.filter(group => {
+                          const selection = getPatternSelection(discipline.id, group.id);
+                          return selection?.patternId;
+                        }).length;
+                    
+                    // Get pattern names for display
+                    const patternNames = [];
+                    if (!isScoresheetOnly) {
+                      groups.forEach(group => {
+                        const selection = getPatternSelection(discipline.id, group.id);
+                        if (selection?.patternName) {
+                          const patternName = selection.patternName.replace(/\.(pdf|PDF)$/, '');
+                          const version = selection.version || '';
+                          const displayText = version && version !== 'ALL' ? `${patternName} (${version})` : patternName;
+                          if (!patternNames.includes(displayText)) {
+                            patternNames.push(displayText);
+                          }
+                        }
                       });
                     }
-                  };
-                  
-                  return (
-                    <div
-                      key={discipline.id}
-                      onClick={handleDisciplineClick}
-                      className={cn(
-                        "p-2 rounded-lg border-2 flex flex-col gap-1.5 cursor-pointer transition-all shadow-sm hover:shadow-md",
-                        isComplete 
-                          ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-950/30" 
-                          : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-950/30"
-                      )}
-                    >
-                      {/* Header with icon, title, and judge name */}
-                      <div className="flex items-center gap-2">
-                        {isComplete ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
-                        ) : (
-                          <AlertCircle className={cn(
-                            "w-4 h-4 flex-shrink-0",
-                            "text-destructive"
-                          )} />
+                    
+                    // Determine subtitle text
+                    let subtitle = '';
+                    let subtitleColor = 'text-muted-foreground';
+                    if (judgeName && judgeNumber) {
+                      subtitle = `★ Test Judge ${judgeNumber}`;
+                      subtitleColor = 'text-blue-600 dark:text-blue-400';
+                    } else if (isScoresheetOnly) {
+                      subtitle = `${assignedCount} group${assignedCount !== 1 ? 's' : ''} configured`;
+                    } else if (assignedCount > 0) {
+                      subtitle = `${assignedCount} pattern${assignedCount !== 1 ? 's' : ''} assigned`;
+                      // Add pattern names if available
+                      if (patternNames.length > 0) {
+                        subtitle += ` ${patternNames.join(' ')}`;
+                      }
+                    } else {
+                      subtitle = '0 patterns assigned';
+                    }
+                    
+                    const handleDisciplineClick = () => {
+                      scrollToDiscipline(discipline.id);
+                      if (!isScoresheetOnly && !judgeAssigned) {
+                        toast({
+                          title: "Judge Required",
+                          description: "First assign this discipline judge before proceeding.",
+                          variant: "destructive"
+                        });
+                      }
+                    };
+                    
+                    return (
+                      <div
+                        key={discipline.id}
+                        onClick={handleDisciplineClick}
+                        className={cn(
+                          "relative p-4 border-2 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md",
+                          isComplete 
+                            ? "bg-green-50 border-green-300 dark:bg-green-950/20 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-950/30" 
+                            : "bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-950/30"
                         )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-sm truncate leading-tight">{discipline.name}</p>
-                            {judgeName && (
-                              <div className="flex items-center gap-1">
-                                <UserCheck className="w-3 h-3 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                <span className="text-xs font-medium text-blue-600 dark:text-blue-400 truncate">{judgeName}</span>
-                              </div>
+                      >
+                        {/* Discipline Name with Status Icon */}
+                        <div className="flex items-start gap-2 mb-2">
+                          {isComplete ? (
+                            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-base leading-tight">{discipline.name}</h4>
+                            {subtitle && (
+                              <p className={cn("text-sm mt-1", subtitleColor)}>
+                                {subtitle}
+                              </p>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground leading-tight">
-                            {isScoresheetOnly 
-                              ? `${assignedCount} group${assignedCount !== 1 ? 's' : ''} configured`
-                              : `${assignedCount} pattern${assignedCount !== 1 ? 's' : ''} assigned`
-                            }
-                          </p>
                         </div>
-                      </div>
-                      
-                      {/* Pattern Names - without label */}
-                      {!isScoresheetOnly && patternNames.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {patternNames.slice(0, 2).map((patternName, idx) => (
-                            <span 
-                              key={idx} 
-                              className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-1.5 py-0.5 rounded font-medium truncate max-w-full border border-green-200 dark:border-green-800"
+                        
+                        {/* Footer with status badge and action */}
+                        <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-current/10">
+                          <Badge 
+                            className={cn(
+                              "text-xs font-semibold",
+                              isComplete 
+                                ? "bg-green-200 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-300 dark:border-green-700" 
+                                : "bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-300 dark:border-orange-700"
+                            )}
+                          >
+                            {isComplete ? "Complete" : "Incomplete"}
+                          </Badge>
+                          {isComplete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewDiscipline(discipline);
+                                setIsPreviewOpen(true);
+                              }}
+                              className="p-1 hover:bg-green-200 dark:hover:bg-green-900/40 rounded transition-colors flex-shrink-0"
+                              title="Preview"
                             >
-                              {patternName}
-                            </span>
-                          ))}
-                          {patternNames.length > 2 && (
-                            <span className="text-xs text-muted-foreground font-medium px-1.5 py-0.5">
-                              +{patternNames.length - 2} more
-                            </span>
+                              <Eye className="w-4 h-4 text-green-700 dark:text-green-400" />
+                            </button>
                           )}
                         </div>
-                      )}
-                      
-                      {/* Footer with status and action */}
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-current/10">
-                        <span className={cn(
-                          "text-xs font-semibold px-2 py-0.5 rounded",
-                          isComplete 
-                            ? "bg-green-200 text-green-800 dark:bg-green-900/40 dark:text-green-300" 
-                            : "bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300"
-                        )}>
-                          {isComplete ? 'Complete' : 'Incomplete'}
-                        </span>
-                        {isComplete && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewDiscipline(discipline);
-                              setIsPreviewOpen(true);
-                            }}
-                            className="p-1 hover:bg-green-200 dark:hover:bg-green-900/40 rounded transition-colors flex-shrink-0"
-                            title="Preview"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-green-700 dark:text-green-400" />
-                          </button>
-                        )}
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
+                </>
+              )}
             </div>
           </div>
         </Card>
@@ -1267,9 +1409,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {/* Pattern selection accordion-style list */}
         {patternDisciplines.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Discipline Configuration</h3>
+            <div 
+              className="flex items-center justify-between mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
+              onClick={() => setIsDisciplineConfigOpen(!isDisciplineConfigOpen)}
+            >
               <div className="flex items-center gap-2">
+                <ChevronDown className={cn("w-4 h-4 transition-transform", isDisciplineConfigOpen ? "rotate-0" : "-rotate-90")} />
+                <h3 className="text-lg font-semibold">Discipline Configuration</h3>
+              </div>
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1281,7 +1429,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
+            
+            {isDisciplineConfigOpen && (
+              <div className="space-y-2">
               {patternDisciplines.map((discipline, logicalIndex) => {
                 const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
                 const isOpen = openDisciplineId === discipline.id;
@@ -2023,7 +2173,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   </div>
                 );
               })}
-            </div>
+              </div>
+            )}
           </section>
         )}
 

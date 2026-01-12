@@ -486,15 +486,28 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         <CardDescription className="text-sm">{getDescription()}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="showName" className="font-semibold">{getShowNameLabel()}</Label>
-          <Input
-              id="showName"
-              placeholder={getShowNamePlaceholder()}
-              value={formData.showName || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
-              disabled={isReadOnly}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="showName" className="font-semibold">{getShowNameLabel()}</Label>
+            <Input
+                id="showName"
+                placeholder={getShowNamePlaceholder()}
+                value={formData.showName || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
+                disabled={isReadOnly}
+            />
+          </div>
+          
+          <div className="space-y-1.5">
+            <Label htmlFor="showNumber" className="font-semibold">Show Number</Label>
+            <Input
+                id="showNumber"
+                placeholder="E.g., 2024-001"
+                value={formData.showNumber || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, showNumber: e.target.value }))}
+                disabled={isReadOnly}
+            />
+          </div>
         </div>
         
         <div className="space-y-2">

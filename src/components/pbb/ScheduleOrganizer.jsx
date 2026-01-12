@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
     import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
     import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
     import { CSS } from '@dnd-kit/utilities';
-    import { GripVertical, Calendar as CalendarIcon, Pencil, Check, X } from 'lucide-react';
+    import { GripVertical, Calendar as CalendarIcon, X } from 'lucide-react';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Badge } from '@/components/ui/badge';
@@ -27,8 +27,6 @@ import React, { useState, useMemo } from 'react';
     }) => {
         const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: divisionIdentifier });
         const style = { transform: CSS.Transform.toString(transform), transition };
-        const [isEditing, setIsEditing] = useState(false);
-        const [title, setTitle] = useState(customTitle || '');
 
     const [assocId, ...divisionParts] = divisionIdentifier.split('-');
     const originalDivisionName = divisionParts.join('-');
@@ -44,11 +42,6 @@ import React, { useState, useMemo } from 'react';
     };
 
     const { tag: divisionTag, name: divisionName } = parseDivisionDisplay(originalDivisionName);
-
-    const handleTitleSave = () => {
-        onTitleChange(divisionIdentifier, title);
-        setIsEditing(false);
-    };
     
     const getAssociationBadges = () => {
         if (!pbbDiscipline || !formData) return [];
@@ -84,22 +77,9 @@ import React, { useState, useMemo } from 'react';
                 </Button>
                 <Checkbox id={`select-${divisionIdentifier}`} checked={isSelected} onCheckedChange={(checked) => onSelectionChange(divisionIdentifier, checked)} />
         <div className="flex-grow text-sm">
-            {isEditing ? (
-                <Input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    onBlur={handleTitleSave}
-                    onKeyDown={(e) => e.key === 'Enter' && handleTitleSave()}
-                    placeholder={customTitle || divisionName}
-                    className="h-8"
-                    autoFocus
-                />
-            ) : (
-                <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
-                    {customTitle || divisionName}
-                </Label>
-            )}
+            <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
+                {customTitle || divisionName}
+            </Label>
         </div>
         {divisionTag && (
             <Badge variant="outline" className="text-xs rounded-full px-2">
@@ -118,9 +98,6 @@ import React, { useState, useMemo } from 'react';
                 <div className="flex items-center gap-1 ml-auto">
                     {getAssociationBadges()}
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => isEditing ? handleTitleSave() : setIsEditing(true)}>
-                    {isEditing ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Pencil className="h-3.5 w-3.5" />}
-                </Button>
             </div>
         );
     };
@@ -150,8 +127,8 @@ import React, { useState, useMemo } from 'react';
             }, {});
 
             const sortedKeys = Object.keys(groups).sort((a, b) => {
-                if (a === 'Unscheduled') return 1;
-                if (b === 'Unscheduled') return -1;
+                if (a === 'Unscheduled') return -1;
+                if (b === 'Unscheduled') return 1;
                 return parseLocalDate(a) - parseLocalDate(b);
             });
 
@@ -263,7 +240,7 @@ import React, { useState, useMemo } from 'react';
         return (
             <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
-                    Organize the general class schedule. Drag to reorder, and click the pencil to rename individual classes. Select classes to apply a date.
+                    Organize the general class schedule. Drag to reorder. Select classes to apply a date.
                 </p>
 
                 <div className="p-3 border rounded-lg bg-background space-y-2">

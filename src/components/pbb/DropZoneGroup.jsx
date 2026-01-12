@@ -61,11 +61,12 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
     const dashIndex = originalDivisionName.indexOf(' - ');
     const divisionCategory = dashIndex > -1 ? originalDivisionName.substring(0, dashIndex).trim() : '';
 
-    // Get available divisions from the same category and association
+    // Get available divisions from all categories for this discipline and association
+    // Apply the same filtering logic as Tab 1 to match what's actually shown
     const getAvailableDivisions = useMemo(() => {
-        if (!divisionsData || !division.assocId) return [];
+        if (!divisionsData || !division.assocId) return {};
         
-        const assocDivisions = divisionsData[division.assocId] || [];
+        let assocDivisions = divisionsData[division.assocId] || [];
         
         // Get checked divisions from Tab 1 for this discipline and association
         const checkedDivisions = new Set();
@@ -80,35 +81,82 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
             }
         }
         
-        // Filter divisions by the same category (group)
-        const categoryDivisions = assocDivisions
-            .filter(d => d.group && d.group.toLowerCase() === divisionCategory.toLowerCase())
-            .flatMap(d => (d.levels || []).map(level => {
+        // Apply the same filtering logic as Tab 1 (from ClassTabs.jsx)
+        // Non-Pro divisions should only be shown for specific disciplines
+        const nonProAllowedDisciplines = ['Showmanship at Halter', 'Horsemanship', 'Hunt Seat Equitation'];
+        const shouldShowNonPro = nonProAllowedDisciplines.includes(pbbDiscipline.name);
+        
+        // Associations that should only show Open, Non-Pro, Youth (hide Amateur)
+        const openNonProYouthOnlyAssocs = ['SHTX', 'NRHA', 'NRCHA'];
+        const isOpenNonProYouthOnlyAssoc = openNonProYouthOnlyAssocs.includes(division.assocId);
+        
+        // Filter divisions to match Tab 1 display logic
+        const filteredDivisions = assocDivisions
+            .filter(d => {
+                // Hide Non-Pro division group entirely unless discipline allows it (for non Open/Non-Pro/Youth only assocs)
+                if (d.group === 'Non-Pro' && !shouldShowNonPro && !isOpenNonProYouthOnlyAssoc) {
+                    return false;
+                }
+                // Hide Amateur for SHTX/NRHA/NRCHA - only show Open, Non-Pro, Youth
+                if (isOpenNonProYouthOnlyAssoc && d.group === 'Amateur') {
+                    return false;
+                }
+                return true;
+            })
+            .map(d => {
+                // Filter Non-Pro levels to only show matching discipline (for non Open/Non-Pro/Youth only assocs)
+                if (shouldShowNonPro && d.group === 'Non-Pro' && !isOpenNonProYouthOnlyAssoc) {
+                    return {
+                        ...d,
+                        levels: d.levels.filter(level => {
+                            // Match the level to the current discipline
+                            const disciplineKeyword = pbbDiscipline.name.replace(' at Halter', '');
+                            return level.includes(disciplineKeyword);
+                        })
+                    };
+                }
+                return d;
+            });
+        
+        // Group divisions by category (Open, Amateur, Youth, etc.)
+        const divisionsByCategory = {};
+        
+        filteredDivisions.forEach(d => {
+            const category = d.group || 'Other';
+            if (!divisionsByCategory[category]) {
+                divisionsByCategory[category] = [];
+            }
+            
+            (d.levels || []).forEach(level => {
                 const divisionKey = `${d.group} - ${level}`;
                 const divisionId = `${division.assocId}-${divisionKey}`;
                 const isChecked = checkedDivisions.has(divisionKey);
-                return {
+                
+                divisionsByCategory[category].push({
                     id: divisionId,
                     name: divisionKey,
                     assocId: division.assocId,
                     group: d.group,
                     level: level,
                     isChecked: isChecked
-                };
-            }));
+                });
+            });
+        });
         
-        return categoryDivisions;
-    }, [divisionsData, division.assocId, divisionCategory, formData, pbbDiscipline.id]);
+        // Return grouped divisions as an object for rendering with category headers
+        return divisionsByCategory;
+    }, [divisionsData, division.assocId, formData, pbbDiscipline.id, pbbDiscipline.name]);
     
     // Initialize selectedDivisionId when editing starts or division changes
     useEffect(() => {
-        if (isEditing && getAvailableDivisions.length > 0) {
+        const allDivisions = Object.values(getAvailableDivisions).flat();
+        if (isEditing && allDivisions.length > 0) {
             // Find the matching division ID from available divisions
             const currentDivisionName = division.division || '';
             const currentDivisionId = division.id || '';
             
             // Try multiple matching strategies
-            let matchingDivision = getAvailableDivisions.find(d => {
+            let matchingDivision = allDivisions.find(d => {
                 // Strategy 1: Exact ID match
                 if (d.id === currentDivisionId) return true;
                 // Strategy 2: Exact name match
@@ -137,7 +185,8 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
     }, [isEditing, division.id, division.division, getAvailableDivisions]);
 
     const handleDivisionChange = (newDivisionId) => {
-        const selectedDivision = getAvailableDivisions.find(d => d.id === newDivisionId);
+        const allDivisions = Object.values(getAvailableDivisions).flat();
+        const selectedDivision = allDivisions.find(d => d.id === newDivisionId);
         if (!selectedDivision) return;
         
         // Parse old division to get the key for Tab 1
@@ -317,24 +366,32 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                             <SelectValue placeholder="Select division..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {getAvailableDivisions.length > 0 ? (
-                                getAvailableDivisions.map(div => (
-                                    <SelectItem 
-                                        key={div.id} 
-                                        value={div.id}
-                                        disabled={div.isChecked}
-                                        className={div.isChecked ? "opacity-60 cursor-not-allowed bg-muted/30" : ""}
-                                    >
-                                        <div className="flex items-center justify-between w-full">
-                                            <span className={div.isChecked ? "text-muted-foreground" : ""}>
-                                                {div.name}
-                                            </span>
-                                            {div.isChecked && (
-                                                <span className="text-xs text-muted-foreground ml-2">(Selected)</span>
-                                            )}
-                                        </div>
-                                    </SelectItem>
-                                ))
+                            {Object.keys(getAvailableDivisions).length > 0 ? (
+                                Object.keys(getAvailableDivisions).sort().map(category => {
+                                    const categoryDivisions = getAvailableDivisions[category];
+                                    return (
+                                        <SelectGroup key={category}>
+                                            <SelectLabel>{category}</SelectLabel>
+                                            {categoryDivisions.map(div => (
+                                                <SelectItem 
+                                                    key={div.id} 
+                                                    value={div.id}
+                                                    disabled={div.isChecked}
+                                                    className={div.isChecked ? "opacity-60 cursor-not-allowed bg-muted/30" : ""}
+                                                >
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <span className={div.isChecked ? "text-muted-foreground" : ""}>
+                                                            {div.name}
+                                                        </span>
+                                                        {div.isChecked && (
+                                                            <span className="text-xs text-muted-foreground ml-2">(Selected)</span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    );
+                                })
                             ) : (
                                 <SelectItem value="" disabled>No divisions available</SelectItem>
                             )}

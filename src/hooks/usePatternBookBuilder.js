@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const initialFormData = {
   showName: '',
+  showNumber: '',
   showType: 'multi-day',
   associations: {},
   customAssociations: [],
