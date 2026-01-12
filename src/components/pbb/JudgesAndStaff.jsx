@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Trash2, Award, Users, Contact2, ChevronsUpDown, Check } from 'lucide-react';
+import { PlusCircle, Trash2, Award, Users, Contact2, ChevronsUpDown, Check, Pencil } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
@@ -185,7 +185,9 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                                         className="bg-background"
                                     />
                                     <ContactInfo official={official} onUpdate={(updated) => handleContactUpdate(official.id, updated)}>
-                                        <Button variant="ghost" size="icon"><Contact2 className="h-4 w-4" /></Button>
+                                        <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
+                                            <Pencil className="h-4 w-4 text-primary" />
+                                        </Button>
                                     </ContactInfo>
                                 </div>
                                 {roleInfo?.subCategories && (
@@ -335,7 +337,9 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
                           className="bg-background"
                         />
                         <ContactInfo official={judgeInfo.judges[index] || {}} onUpdate={(updated) => handleJudgeContactUpdate(assocId, index, updated)}>
-                          <Button variant="ghost" size="icon"><Contact2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
+                            <Pencil className="h-4 w-4 text-primary" />
+                          </Button>
                         </ContactInfo>
                       </div>
                     ))}

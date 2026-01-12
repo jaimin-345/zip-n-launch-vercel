@@ -1048,15 +1048,50 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                             />
                           ))}
                         </div>
-                        {/* Display assigned judge for this discipline */}
+                        {/* Display assigned judge for this discipline (only for non-custom pattern disciplines) */}
                         {(() => {
-                          const judgeValue = formData.judgeSelections?.[originalDisciplineIndex];
-                          if (judgeValue && judgeValue.trim() && !judgeValue.startsWith('judge-')) {
-                            return (
-                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap">
-                                Judge: {judgeValue}
-                              </Badge>
-                            );
+                          const isCustomPattern = pbbDiscipline.isCustom || pbbDiscipline.pattern_type === 'custom';
+                          if (!isCustomPattern) {
+                            const judgeValue = formData.judgeSelections?.[originalDisciplineIndex];
+                            if (judgeValue && judgeValue.trim() && !judgeValue.startsWith('judge-')) {
+                              return (
+                                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200 whitespace-nowrap">
+                                  Judge: {judgeValue}
+                                </Badge>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+                        {/* Display assigned staff for Custom Pattern disciplines */}
+                        {(() => {
+                          const isCustomPattern = pbbDiscipline.isCustom || pbbDiscipline.pattern_type === 'custom';
+                          if (isCustomPattern) {
+                            const staffValue = formData.staffSelections?.[originalDisciplineIndex];
+                            if (staffValue && staffValue.trim()) {
+                              return (
+                                <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200 whitespace-nowrap">
+                                  Staff: {staffValue}
+                                </Badge>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
+                        {/* Display due date for this discipline */}
+                        {(() => {
+                          const dueDateValue = formData.dueDateSelections?.[originalDisciplineIndex];
+                          if (dueDateValue && dueDateValue.trim()) {
+                            try {
+                              const dueDate = parseLocalDate(dueDateValue);
+                              return (
+                                <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 border-purple-200 whitespace-nowrap">
+                                  Due: {format(dueDate, 'MMM d, yyyy')}
+                                </Badge>
+                              );
+                            } catch (e) {
+                              return null;
+                            }
                           }
                           return null;
                         })()}
