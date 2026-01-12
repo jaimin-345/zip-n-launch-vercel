@@ -72,26 +72,30 @@ const StaffPortalPage = () => {
         }
     }, [activeTab, user?.id, toast]);
     
-    // Fetch Horse Show Projects - Show ALL user's projects (like Customer Portal)
+    // Fetch Horse Show Projects - Show user's projects that aren't pattern books (like Customer Portal)
     useEffect(() => {
         const fetchHorseShows = async () => {
             if (!user?.id) return;
             
             setIsLoadingHorseShows(true);
             try {
-                // Fetch all horse show projects owned by the user
+                // Fetch all projects owned by the user
                 const { data, error } = await supabase
                     .from('projects')
                     .select('*')
                     .eq('user_id', user.id)
-                    .neq('project_type', 'pattern_book')
-                    .neq('project_type', 'pattern_folder')
-                    .neq('project_type', 'pattern_hub')
                     .order('updated_at', { ascending: false });
                 
                 if (error) throw error;
                 
-                setHorseShowProjects(data || []);
+                // Filter to exclude pattern_book and pattern_folder (same as Customer Portal)
+                const horseShows = (data || []).filter(p => 
+                    p.project_type !== 'pattern_book' && 
+                    p.project_type !== 'pattern_folder' &&
+                    p.project_type !== 'pattern_hub'
+                );
+                
+                setHorseShowProjects(horseShows);
             } catch (error) {
                 console.error('Error fetching horse shows:', error);
                 toast({
