@@ -1736,6 +1736,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       showStaff.map((staff, idx) => (
                         <div key={idx} className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
+                            {!isReadOnly && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1745,6 +1746,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            )}
                             <span className="text-blue-600 font-medium">{staff.role}:</span>
                           </div>
                           <span className="font-semibold uppercase">{staff.name || 'Not assigned'}</span>
@@ -1764,6 +1766,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       judgesWithAssociations.map((judge, idx) => (
                         <div key={idx} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
+                            {!isReadOnly && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1773,6 +1776,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
+                            )}
                             <span className="font-medium uppercase text-sm">{judge.name}</span>
                           </div>
                           <Badge className="bg-green-100 text-green-700 hover:bg-green-200 text-xs">

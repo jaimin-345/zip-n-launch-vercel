@@ -50,7 +50,7 @@ const ReviewItem = ({ icon, title, children }) => (
 );
 
 
-const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpdate }) => {
+const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpdate, isReadOnly = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [openPopover, setOpenPopover] = useState(null);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -414,6 +414,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                     <p className="font-semibold">{staffMember.name}</p>
                                     <p className="text-sm text-muted-foreground">{staffMember.role}</p>
                                 </div>
+                                {!isReadOnly && (
                                 <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                                     <DialogTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit Contact Info">
@@ -511,6 +512,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                         </DialogFooter>
                                     </DialogContent>
                                 </Dialog>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -638,6 +640,7 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
                                             id={`${staffMember.id}-phase-${phase.id}`}
                                             checked={isSelected}
                                             onCheckedChange={() => handleAccessPhaseChange(phase.id)}
+                                            disabled={isReadOnly}
                                         />
                                         <Label 
                                             htmlFor={`${staffMember.id}-phase-${phase.id}`}
@@ -1083,6 +1086,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                                 disciplines={disciplines}
                                 onUpdate={handleUpdateStaffDelegation}
                                 onContactUpdate={handleContactUpdate}
+                                isReadOnly={isReadOnly}
                             />
                         ))
                     ) : (
