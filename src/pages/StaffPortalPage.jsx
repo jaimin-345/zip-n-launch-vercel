@@ -237,10 +237,14 @@ const StaffPortalPage = () => {
         
         const judgesCount = judgesList.length;
         
-        // Count staff (excluding judges and admins)
-        const staffCount = officials.filter(o => o.role !== 'judge' && o.role !== 'admin').length;
+        // Get staff list (excluding judges and admins)
+        const staffList = officials
+            .filter(o => o.role !== 'judge' && o.role !== 'admin')
+            .map(o => o.name || o.email || 'Unknown')
+            .filter(Boolean);
+        const staffCount = staffList.length;
         
-        return { owner, admin, judgesCount, staffCount, judgesList };
+        return { owner, admin, judgesCount, staffCount, judgesList, staffList };
     };
     
     return (
@@ -322,7 +326,9 @@ const StaffPortalPage = () => {
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {patternBookProjects.map((project) => {
+                                                    {patternBookProjects
+                                                        .filter(project => project.status !== 'In Progress')
+                                                        .map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const peopleData = getPeopleData(project);
                                                         const projectData = project.project_data || {};
@@ -361,12 +367,26 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    <Badge 
-                                                                        variant="outline"
-                                                                        className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
-                                                                    >
-                                                                        {peopleData.staffCount} Assigned
-                                                                    </Badge>
+                                                                    {peopleData.staffList.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {peopleData.staffList.slice(0, 2).map((name, idx) => (
+                                                                                <Badge 
+                                                                                    key={idx}
+                                                                                    variant="outline"
+                                                                                    className="text-xs px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
+                                                                                >
+                                                                                    {name}
+                                                                                </Badge>
+                                                                            ))}
+                                                                            {peopleData.staffList.length > 2 && (
+                                                                                <Badge variant="outline" className="text-xs px-2 py-1 rounded-full">
+                                                                                    +{peopleData.staffList.length - 2}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">—</span>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
                                                                     {selectedAssocKeys.length > 0 ? (
@@ -481,7 +501,9 @@ const StaffPortalPage = () => {
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
-                                                    {horseShowProjects.map((project) => {
+                                                    {horseShowProjects
+                                                        .filter(project => project.status !== 'In Progress')
+                                                        .map((project) => {
                                                         const details = getProjectDetails(project);
                                                         const peopleData = getPeopleData(project);
                                                         return (
@@ -513,12 +535,26 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    <Badge 
-                                                                        variant="outline"
-                                                                        className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
-                                                                    >
-                                                                        {peopleData.staffCount} Assigned
-                                                                    </Badge>
+                                                                    {peopleData.staffList.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {peopleData.staffList.slice(0, 2).map((name, idx) => (
+                                                                                <Badge 
+                                                                                    key={idx}
+                                                                                    variant="outline"
+                                                                                    className="text-xs px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
+                                                                                >
+                                                                                    {name}
+                                                                                </Badge>
+                                                                            ))}
+                                                                            {peopleData.staffList.length > 2 && (
+                                                                                <Badge variant="outline" className="text-xs px-2 py-1 rounded-full">
+                                                                                    +{peopleData.staffList.length - 2}
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">—</span>
+                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
                                                                     {details.venue ? (
