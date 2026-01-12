@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Menu, X, ShoppingCart, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel } from 'lucide-react';
+import { Menu, X, ShoppingCart, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel, Briefcase } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import {
@@ -122,6 +122,12 @@ const Navigation = () => {
                                 <Link to="/judges-portal" className="w-full">
                                     <Gavel className="mr-2 h-4 w-4" />
                                     <span>Judges Portal</span>
+                                </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <Link to="/staff-portal" className="w-full">
+                                    <Briefcase className="mr-2 h-4 w-4" />
+                                    <span>Staff Portal</span>
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -285,6 +291,7 @@ const Navigation = () => {
                                 <Link to="/contributor-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><UploadCloud className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>
                                 <Link to="/archive-patterns" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
                                 <Link to="/judges-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Gavel className="inline-block mr-2 h-4 w-4"/>Judges Portal</Link>
+                                <Link to="/staff-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Briefcase className="inline-block mr-2 h-4 w-4"/>Staff Portal</Link>
                                 <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Edit className="inline-block mr-2 h-4 w-4"/>Edit Profile</Link>
                                 <Link to="/account-security" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Shield className="inline-block mr-2 h-4 w-4"/>Account & Security</Link>
                                 <a href="#" onClick={() => { signOut(); setIsMenuOpen(false); }} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50"><LogOut className="inline-block mr-2 h-4 w-4" />Logout</a>
