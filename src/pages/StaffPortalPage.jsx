@@ -37,47 +37,24 @@ const StaffPortalPage = () => {
     const [selectedProject, setSelectedProject] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // Fetch Pattern Book Projects
+    // Fetch Pattern Book Projects - Show ALL user's projects (like Customer Portal)
     useEffect(() => {
         const fetchPatternBooks = async () => {
-            if (!user?.email) return;
+            if (!user?.id) return;
             
             setIsLoadingPatternBooks(true);
             try {
-                // Fetch all pattern book projects where user is staff
+                // Fetch all pattern book projects owned by the user (same as Customer Portal)
                 const { data, error } = await supabase
                     .from('projects')
                     .select('*')
                     .eq('project_type', 'pattern_book')
-                    .neq('status', 'In progress')
+                    .eq('user_id', user.id)
                     .order('updated_at', { ascending: false });
                 
                 if (error) throw error;
                 
-                // Filter projects where current user is in officials/staff
-                const staffProjects = (data || []).filter(project => {
-                    const projectData = project.project_data || {};
-                    const officials = projectData.officials || [];
-                    const associationJudges = projectData.associationJudges || {};
-                    
-                    // Check if user email is in officials
-                    const isInOfficials = officials.some(o => 
-                        o.email?.toLowerCase() === user.email.toLowerCase()
-                    );
-                    
-                    // Check if user email is in associationJudges
-                    let isInJudges = false;
-                    Object.values(associationJudges).forEach(assocData => {
-                        const judges = assocData?.judges || [];
-                        if (judges.some(j => j.email?.toLowerCase() === user.email.toLowerCase())) {
-                            isInJudges = true;
-                        }
-                    });
-                    
-                    return isInOfficials || isInJudges;
-                });
-                
-                setPatternBookProjects(staffProjects);
+                setPatternBookProjects(data || []);
             } catch (error) {
                 console.error('Error fetching pattern books:', error);
                 toast({
@@ -93,19 +70,20 @@ const StaffPortalPage = () => {
         if (activeTab === 'pattern-books') {
             fetchPatternBooks();
         }
-    }, [activeTab, user?.email, toast]);
+    }, [activeTab, user?.id, toast]);
     
-    // Fetch Horse Show Projects
+    // Fetch Horse Show Projects - Show ALL user's projects (like Customer Portal)
     useEffect(() => {
         const fetchHorseShows = async () => {
-            if (!user?.email) return;
+            if (!user?.id) return;
             
             setIsLoadingHorseShows(true);
             try {
-                // Fetch all horse show projects where user is staff
+                // Fetch all horse show projects owned by the user
                 const { data, error } = await supabase
                     .from('projects')
                     .select('*')
+                    .eq('user_id', user.id)
                     .neq('project_type', 'pattern_book')
                     .neq('project_type', 'pattern_folder')
                     .neq('project_type', 'pattern_hub')
@@ -113,18 +91,7 @@ const StaffPortalPage = () => {
                 
                 if (error) throw error;
                 
-                // Filter projects where current user is in officials/staff
-                const staffProjects = (data || []).filter(project => {
-                    const projectData = project.project_data || {};
-                    const officials = projectData.officials || [];
-                    
-                    // Check if user email is in officials
-                    return officials.some(o => 
-                        o.email?.toLowerCase() === user.email.toLowerCase()
-                    );
-                });
-                
-                setHorseShowProjects(staffProjects);
+                setHorseShowProjects(data || []);
             } catch (error) {
                 console.error('Error fetching horse shows:', error);
                 toast({
@@ -140,7 +107,7 @@ const StaffPortalPage = () => {
         if (activeTab === 'horse-shows') {
             fetchHorseShows();
         }
-    }, [activeTab, user?.email, toast]);
+    }, [activeTab, user?.id, toast]);
     
     // Handle View Project
     const handleViewProject = (project) => {
@@ -227,6 +194,54 @@ const StaffPortalPage = () => {
 
         return staffList;
     };
+
+    // Get people data for a project (like Customer Portal)
+    const getPeopleData = (project) => {
+        const projectData = project.project_data || {};
+        const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
+        
+        // Get admin - check secondAdmin or officials with admin role
+        let admin = projectData.secondAdmin || 'Not set';
+        if (admin === 'Not set') {
+            const adminOfficial = (projectData.officials || []).find(o => o.role === 'admin');
+            admin = adminOfficial?.name || 'Not set';
+        }
+        
+        // Collect judges from associationJudges
+        const judgesList = [];
+        Object.values(projectData.associationJudges || {}).forEach(assocData => {
+            const judges = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
+            if (Array.isArray(judges)) {
+                judges.forEach(judge => {
+                    if (typeof judge === 'string') {
+                        judgesList.push(judge);
+                    } else if (judge?.name) {
+                        judgesList.push(judge.name);
+                    } else if (judge?.email) {
+                        judgesList.push(judge.email);
+                    }
+                });
+            }
+        });
+        
+        // Also collect judges from officials
+        const officials = projectData.officials || [];
+        const judgeOfficials = officials.filter(o => o.role === 'judge');
+        judgeOfficials.forEach(judge => {
+            if (judge.name && !judgesList.includes(judge.name)) {
+                judgesList.push(judge.name);
+            } else if (judge.email && !judgesList.includes(judge.email)) {
+                judgesList.push(judge.email);
+            }
+        });
+        
+        const judgesCount = judgesList.length;
+        
+        // Count staff (excluding judges and admins)
+        const staffCount = officials.filter(o => o.role !== 'judge' && o.role !== 'admin').length;
+        
+        return { owner, admin, judgesCount, staffCount, judgesList };
+    };
     
     return (
         <>
@@ -275,7 +290,7 @@ const StaffPortalPage = () => {
                                         Active Pattern Books Portal
                                     </CardTitle>
                                     <CardDescription className="text-base mt-1">
-                                        View pattern books you're assigned to as staff
+                                        View and manage your pattern book projects
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
@@ -296,11 +311,12 @@ const StaffPortalPage = () => {
                                                 <TableHeader className="bg-muted/50">
                                                     <TableRow className="hover:bg-muted/50 border-b-2">
                                                         <TableHead className="font-semibold text-sm h-14">Show Name</TableHead>
-                                                        <TableHead className="font-semibold text-sm">Your Role</TableHead>
-                                                        <TableHead className="font-semibold text-sm">Staff & Judges</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Owner</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Admin</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Judges</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Staff</TableHead>
                                                         <TableHead className="font-semibold text-sm">Associations</TableHead>
                                                         <TableHead className="font-semibold text-sm">Start Date</TableHead>
-                                                        <TableHead className="font-semibold text-sm">End Date</TableHead>
                                                         <TableHead className="font-semibold text-sm">Status</TableHead>
                                                         <TableHead className="font-semibold text-sm text-center">Action</TableHead>
                                                     </TableRow>
@@ -308,8 +324,14 @@ const StaffPortalPage = () => {
                                                 <TableBody>
                                                     {patternBookProjects.map((project) => {
                                                         const details = getProjectDetails(project);
-                                                        const userRole = getUserRole(project);
-                                                        const projectStaff = getProjectStaff(project);
+                                                        const peopleData = getPeopleData(project);
+                                                        const projectData = project.project_data || {};
+                                                        
+                                                        // Get selected associations
+                                                        const selectedAssocKeys = Object.keys(projectData.associations || {}).filter(
+                                                            key => projectData.associations[key]
+                                                        );
+                                                        
                                                         return (
                                                             <TableRow 
                                                                 key={project.id}
@@ -319,57 +341,48 @@ const StaffPortalPage = () => {
                                                                     <span className="text-base">{project.project_name || 'Untitled Pattern Book'}</span>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
+                                                                    <div className="flex items-center gap-2 text-sm">
+                                                                        <Users className="h-4 w-4 text-primary shrink-0" />
+                                                                        <span className="font-medium truncate max-w-[120px]">{peopleData.owner}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    <div className="flex items-center gap-2 text-sm">
+                                                                        <Users className="h-4 w-4 text-primary shrink-0" />
+                                                                        <span className="truncate max-w-[120px]">{peopleData.admin}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    <Badge 
+                                                                        variant="outline"
+                                                                        className="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700 rounded-full"
+                                                                    >
+                                                                        {peopleData.judgesCount} Assigned
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
                                                                     <Badge 
                                                                         variant="outline"
                                                                         className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
                                                                     >
-                                                                        <Users className="h-3 w-3 mr-1" />
-                                                                        {userRole}
+                                                                        {peopleData.staffCount} Assigned
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    {projectStaff.length > 0 ? (
-                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
-                                                                            {projectStaff.slice(0, 4).map((staff, idx) => (
-                                                                                <Badge 
-                                                                                    key={idx}
-                                                                                    variant={staff.type === 'judge' ? 'default' : 'secondary'}
-                                                                                    className={cn(
-                                                                                        'text-xs px-2 py-0.5 rounded-full',
-                                                                                        staff.type === 'judge' 
-                                                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
-                                                                                            : ''
-                                                                                    )}
-                                                                                >
-                                                                                    {staff.name}
-                                                                                    <span className="ml-1 opacity-70 text-[10px]">({staff.role})</span>
-                                                                                </Badge>
-                                                                            ))}
-                                                                            {projectStaff.length > 4 && (
-                                                                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
-                                                                                    +{projectStaff.length - 4} more
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">No staff assigned</span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="py-4">
-                                                                    {details.associations?.length > 0 ? (
+                                                                    {selectedAssocKeys.length > 0 ? (
                                                                         <div className="flex flex-wrap gap-1.5">
-                                                                            {details.associations.slice(0, 3).map((assoc, idx) => (
+                                                                            {selectedAssocKeys.slice(0, 3).map((assocKey, idx) => (
                                                                                 <Badge 
                                                                                     key={idx}
                                                                                     variant="secondary"
                                                                                     className="text-xs px-2 py-1 rounded-full"
                                                                                 >
-                                                                                    {typeof assoc === 'string' ? assoc : assoc.abbreviation || assoc.name || 'Unknown'}
+                                                                                    {assocKey}
                                                                                 </Badge>
                                                                             ))}
-                                                                            {details.associations.length > 3 && (
+                                                                            {selectedAssocKeys.length > 3 && (
                                                                                 <Badge variant="outline" className="text-xs px-2 py-1 rounded-full">
-                                                                                    +{details.associations.length - 3}
+                                                                                    +{selectedAssocKeys.length - 3}
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
@@ -382,16 +395,6 @@ const StaffPortalPage = () => {
                                                                         <div className="flex items-center gap-2 text-sm font-medium">
                                                                             <Calendar className="h-4 w-4 text-primary" />
                                                                             <span>{format(parseLocalDate(details.startDate), "MMM do, yyyy")}</span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">—</span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="py-4">
-                                                                    {details.endDate ? (
-                                                                        <div className="flex items-center gap-2 text-sm font-medium">
-                                                                            <Calendar className="h-4 w-4 text-primary" />
-                                                                            <span>{format(parseLocalDate(details.endDate), "MMM do, yyyy")}</span>
                                                                         </div>
                                                                     ) : (
                                                                         <span className="text-muted-foreground text-sm">—</span>
@@ -458,8 +461,8 @@ const StaffPortalPage = () => {
                                     ) : horseShowProjects.length === 0 ? (
                                         <div className="text-center py-12 text-muted-foreground">
                                             <Building className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                                            <p>No horse shows assigned yet.</p>
-                                            <p className="text-sm">You'll see horse shows here when you're added as staff.</p>
+                                            <p>No horse shows yet.</p>
+                                            <p className="text-sm">Your horse show projects will appear here.</p>
                                         </div>
                                     ) : (
                                         <div className="overflow-x-auto">
@@ -467,12 +470,12 @@ const StaffPortalPage = () => {
                                                 <TableHeader className="bg-muted/50">
                                                     <TableRow className="hover:bg-muted/50 border-b-2">
                                                         <TableHead className="font-semibold text-sm h-14">Show Name</TableHead>
-                                                        <TableHead className="font-semibold text-sm">Your Role</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Owner</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Admin</TableHead>
+                                                        <TableHead className="font-semibold text-sm">Judges</TableHead>
                                                         <TableHead className="font-semibold text-sm">Staff</TableHead>
                                                         <TableHead className="font-semibold text-sm">Venue</TableHead>
-                                                        <TableHead className="font-semibold text-sm">Location</TableHead>
                                                         <TableHead className="font-semibold text-sm">Start Date</TableHead>
-                                                        <TableHead className="font-semibold text-sm">End Date</TableHead>
                                                         <TableHead className="font-semibold text-sm">Status</TableHead>
                                                         <TableHead className="font-semibold text-sm text-center">Action</TableHead>
                                                     </TableRow>
@@ -480,9 +483,7 @@ const StaffPortalPage = () => {
                                                 <TableBody>
                                                     {horseShowProjects.map((project) => {
                                                         const details = getProjectDetails(project);
-                                                        const userRole = getUserRole(project);
-                                                        const projectStaff = getProjectStaff(project);
-                                                        const location = [details.city, details.state].filter(Boolean).join(', ');
+                                                        const peopleData = getPeopleData(project);
                                                         return (
                                                             <TableRow 
                                                                 key={project.id}
@@ -492,57 +493,38 @@ const StaffPortalPage = () => {
                                                                     <span className="text-base">{project.project_name || 'Untitled Show'}</span>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
+                                                                    <div className="flex items-center gap-2 text-sm">
+                                                                        <Users className="h-4 w-4 text-primary shrink-0" />
+                                                                        <span className="font-medium truncate max-w-[120px]">{peopleData.owner}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    <div className="flex items-center gap-2 text-sm">
+                                                                        <Users className="h-4 w-4 text-primary shrink-0" />
+                                                                        <span className="truncate max-w-[120px]">{peopleData.admin}</span>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
+                                                                    <Badge 
+                                                                        variant="outline"
+                                                                        className="text-xs px-3 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700 rounded-full"
+                                                                    >
+                                                                        {peopleData.judgesCount} Assigned
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="py-4">
                                                                     <Badge 
                                                                         variant="outline"
                                                                         className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
                                                                     >
-                                                                        <Users className="h-3 w-3 mr-1" />
-                                                                        {userRole}
+                                                                        {peopleData.staffCount} Assigned
                                                                     </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="py-4">
-                                                                    {projectStaff.length > 0 ? (
-                                                                        <div className="flex flex-wrap gap-1 max-w-xs">
-                                                                            {projectStaff.slice(0, 4).map((staff, idx) => (
-                                                                                <Badge 
-                                                                                    key={idx}
-                                                                                    variant={staff.type === 'judge' ? 'default' : 'secondary'}
-                                                                                    className={cn(
-                                                                                        'text-xs px-2 py-0.5 rounded-full',
-                                                                                        staff.type === 'judge' 
-                                                                                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
-                                                                                            : ''
-                                                                                    )}
-                                                                                >
-                                                                                    {staff.name}
-                                                                                    <span className="ml-1 opacity-70 text-[10px]">({staff.role})</span>
-                                                                                </Badge>
-                                                                            ))}
-                                                                            {projectStaff.length > 4 && (
-                                                                                <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-full">
-                                                                                    +{projectStaff.length - 4} more
-                                                                                </Badge>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">No staff assigned</span>
-                                                                    )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
                                                                     {details.venue ? (
                                                                         <div className="flex items-center gap-2 text-sm">
                                                                             <Building className="h-4 w-4 text-muted-foreground" />
-                                                                            <span>{details.venue}</span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">—</span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="py-4">
-                                                                    {location ? (
-                                                                        <div className="flex items-center gap-2 text-sm">
-                                                                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                                                                            <span>{location}</span>
+                                                                            <span className="truncate max-w-[150px]">{details.venue}</span>
                                                                         </div>
                                                                     ) : (
                                                                         <span className="text-muted-foreground text-sm">—</span>
@@ -553,16 +535,6 @@ const StaffPortalPage = () => {
                                                                         <div className="flex items-center gap-2 text-sm font-medium">
                                                                             <Calendar className="h-4 w-4 text-primary" />
                                                                             <span>{format(parseLocalDate(details.startDate), "MMM do, yyyy")}</span>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">—</span>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="py-4">
-                                                                    {details.endDate ? (
-                                                                        <div className="flex items-center gap-2 text-sm font-medium">
-                                                                            <Calendar className="h-4 w-4 text-primary" />
-                                                                            <span>{format(parseLocalDate(details.endDate), "MMM do, yyyy")}</span>
                                                                         </div>
                                                                     ) : (
                                                                         <span className="text-muted-foreground text-sm">—</span>
