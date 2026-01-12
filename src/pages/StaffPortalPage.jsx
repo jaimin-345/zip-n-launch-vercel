@@ -237,13 +237,30 @@ const StaffPortalPage = () => {
         
         const judgesCount = judgesList.length;
         
-        // Get staff list (excluding judges and admins) with name and role
-        const staffList = officials
+        // Get staff list from both 'officials' and 'staff' arrays (excluding judges and admins)
+        const staffFromOfficials = officials
             .filter(o => o.role?.toLowerCase() !== 'judge' && o.role?.toLowerCase() !== 'admin' && o.name)
             .map(o => ({
                 name: o.name,
                 role: o.role || 'Staff'
             }));
+        
+        // Also check 'staff' field which may contain staff data
+        const staffArray = projectData.staff || [];
+        const staffFromStaffArray = staffArray
+            .filter(s => s.name && s.role?.toLowerCase() !== 'judge' && s.role?.toLowerCase() !== 'admin')
+            .map(s => ({
+                name: s.name,
+                role: s.role || 'Staff'
+            }));
+        
+        // Combine both sources, avoiding duplicates
+        const staffList = [...staffFromOfficials];
+        staffFromStaffArray.forEach(s => {
+            if (!staffList.some(existing => existing.name === s.name)) {
+                staffList.push(s);
+            }
+        });
         const staffCount = staffList.length;
         
         return { owner, admin, judgesCount, staffCount, judgesList, staffList };
