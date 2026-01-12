@@ -386,7 +386,7 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    {peopleData.staffList.length > 0 && (
+                                                                    {peopleData.staffList.length > 0 ? (
                                                                         <div className="flex flex-wrap gap-1">
                                                                             {peopleData.staffList.slice(0, 2).map((staff, idx) => (
                                                                                 <Badge 
@@ -403,6 +403,8 @@ const StaffPortalPage = () => {
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">—</span>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
@@ -552,7 +554,7 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    {peopleData.staffList.length > 0 && (
+                                                                    {peopleData.staffList.length > 0 ? (
                                                                         <div className="flex flex-wrap gap-1">
                                                                             {peopleData.staffList.slice(0, 2).map((staff, idx) => (
                                                                                 <Badge 
@@ -569,6 +571,8 @@ const StaffPortalPage = () => {
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">—</span>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
