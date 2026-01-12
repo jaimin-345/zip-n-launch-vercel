@@ -226,7 +226,7 @@ const PATTERN_VERSIONS = [
   { id: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-800', dotColor: 'bg-pink-500' },
 ];
 
-export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5 }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false }) => {
   const { toast } = useToast();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -463,6 +463,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   }, [hoveredPatternId]);
 
   const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
+    if (isReadOnly) return;
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
@@ -473,6 +474,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle maneuvers range change at discipline level (Multi-select)
   const handleManeuversRangeChange = (disciplineId, rangeValue) => {
+    if (isReadOnly) return;
     setManeuversRangeMap(prev => {
       const currentRanges = prev[disciplineId] || [];
       let newRanges;
@@ -510,6 +512,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle pattern selection for a specific group
   const handleGroupPatternSelect = (disciplineId, groupId, patternId, maneuversRangeValue) => {
+    if (isReadOnly) return;
     const patterns = dbPatterns[disciplineId] || [];
     const selectedPattern = patterns.find(p => p.id.toString() === patternId);
     // Use provided maneuversRangeValue (string) or get from selected pattern's maneuvers_range
@@ -774,7 +777,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   const handleAssignPattern = () => {
-    if (!currentDiscipline) return;
+    if (!currentDiscipline || isReadOnly) return;
     
     const { disciplineIndex } = currentDiscipline;
     const groups = currentDiscipline.patternGroups || [];
@@ -961,7 +964,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle saving staff assignment for Custom Pattern disciplines
   const handleAssignStaff = () => {
-    if (!currentDisciplineForStaff) return;
+    if (!currentDisciplineForStaff || isReadOnly) return;
     
     const { disciplineIndex } = currentDisciplineForStaff;
     const staffName = dialogStaffName && dialogStaffName.trim() ? dialogStaffName.trim() : null;
@@ -1006,6 +1009,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handler for bulk judge assignment
   const handleBulkAssignJudge = () => {
+    if (isReadOnly) return;
     if (selectedDisciplines.size === 0) {
       toast({
         title: "Error",
@@ -1279,7 +1283,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle saving staff contact info
   const handleSaveStaffContact = async () => {
-    if (!editingStaff) return;
+    if (!editingStaff || isReadOnly) return;
     
     flushSync(() => {
       setIsSaving(true);
@@ -1463,7 +1467,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
   // Handle saving judge contact info
   const handleSaveJudgeContact = async () => {
-    if (!editingJudge) return;
+    if (!editingJudge || isReadOnly) return;
     
     flushSync(() => {
       setIsSaving(true);

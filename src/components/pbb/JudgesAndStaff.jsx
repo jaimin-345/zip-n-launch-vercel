@@ -24,7 +24,7 @@ const staffRoles = [
     { id: 'equipment_provider', name: 'Equipment Provider', allowMultiple: true, subCategories: ['General Equipment', 'Jump Equipment', 'Trail Equipment'] },
 ];
 
-const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode }) => {
+const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode, isReadOnly = false }) => {
     const [open, setOpen] = useState(false);
 
     const handleRoleSelect = (roleId) => {
@@ -84,13 +84,20 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
 
     if (mode !== 'show') {
          // Fallback for clinic/education mode - simple add
-        const handleSimpleAdd = () => onUpdate('officials', [...officials, { role: '', name: '', email: '', phone: '' }]);
+        const handleSimpleAdd = () => {
+            if (isReadOnly) return;
+            onUpdate('officials', [...officials, { role: '', name: '', email: '', phone: '' }]);
+        };
         const handleSimpleChange = (index, field, value) => {
+            if (isReadOnly) return;
             const newOfficials = [...officials];
             newOfficials[index] = { ...newOfficials[index], [field]: value };
             onUpdate('officials', newOfficials);
         };
-        const handleSimpleRemove = (index) => onUpdate('officials', officials.filter((_, i) => i !== index));
+        const handleSimpleRemove = (index) => {
+            if (isReadOnly) return;
+            onUpdate('officials', officials.filter((_, i) => i !== index));
+        };
 
         return (
              <Card className="bg-background/50">
@@ -106,22 +113,28 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                             onChange={(e) => handleSimpleChange(index, 'role', e.target.value)}
                             placeholder={mode === 'clinic' ? "Role (e.g., Organizer)" : "Role (e.g., Co-author, Editor)"}
                             className="bg-background"
+                            disabled={isReadOnly}
                         />
                         <Input
                             value={item.name}
                             onChange={(e) => handleSimpleChange(index, 'name', e.target.value)}
                             placeholder="Name"
                             className="bg-background"
+                            disabled={isReadOnly}
                         />
-                        <Button variant="ghost" size="icon" onClick={() => handleSimpleRemove(index)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {!isReadOnly && (
+                            <Button variant="ghost" size="icon" onClick={() => handleSimpleRemove(index)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        )}
                         </div>
                     ))}
                     </div>
-                    <Button variant="outline" size="sm" className="w-full" onClick={handleSimpleAdd}>
-                        <PlusCircle className="h-4 w-4 mr-2" /> Add Staff Member
-                    </Button>
+                    {!isReadOnly && (
+                        <Button variant="outline" size="sm" className="w-full" onClick={handleSimpleAdd}>
+                            <PlusCircle className="h-4 w-4 mr-2" /> Add Staff Member
+                        </Button>
+                    )}
                 </CardContent>
             </Card>
         );
@@ -133,38 +146,40 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                 <CardTitle className="flex items-center text-base"><Users className="mr-2 h-5 w-5 text-primary" /> {staffTitle[mode]}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <Popover open={open} onOpenChange={setOpen}>
-                    <PopoverTrigger asChild>
-                        <Button variant="default" role="combobox" aria-expanded={open} className="w-full justify-between">
-                            Add Staff Member...
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                        <Command>
-                            <CommandInput placeholder="Select role for staff member..." />
-                            <CommandEmpty>No role found.</CommandEmpty>
-                            <CommandGroup>
-                                {staffRoles.map((role) => {
-                                    const isSelected = officials.some(o => o.roleId === role.id);
-                                    const disabled = isSelected && !role.allowMultiple;
-                                    return (
-                                        <CommandItem
-                                            key={role.id}
-                                            value={role.name}
-                                            onSelect={() => handleRoleSelect(role.id)}
-                                            disabled={disabled}
-                                            className={cn(disabled && "opacity-50 cursor-not-allowed")}
-                                        >
-                                            <Check className={cn("mr-2 h-4 w-4", (isSelected && !role.allowMultiple) ? "opacity-100" : "opacity-0")}/>
-                                            {role.name}
-                                        </CommandItem>
-                                    );
-                                })}
-                            </CommandGroup>
-                        </Command>
-                    </PopoverContent>
-                </Popover>
+                 {!isReadOnly && (
+                     <Popover open={open} onOpenChange={setOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="default" role="combobox" aria-expanded={open} className="w-full justify-between">
+                                Add Staff Member...
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Select role for staff member..." />
+                                <CommandEmpty>No role found.</CommandEmpty>
+                                <CommandGroup>
+                                    {staffRoles.map((role) => {
+                                        const isSelected = officials.some(o => o.roleId === role.id);
+                                        const disabled = isSelected && !role.allowMultiple;
+                                        return (
+                                            <CommandItem
+                                                key={role.id}
+                                                value={role.name}
+                                                onSelect={() => handleRoleSelect(role.id)}
+                                                disabled={disabled}
+                                                className={cn(disabled && "opacity-50 cursor-not-allowed")}
+                                            >
+                                                <Check className={cn("mr-2 h-4 w-4", (isSelected && !role.allowMultiple) ? "opacity-100" : "opacity-0")}/>
+                                                {role.name}
+                                            </CommandItem>
+                                        );
+                                    })}
+                                </CommandGroup>
+                            </Command>
+                        </PopoverContent>
+                    </Popover>
+                 )}
 
                 <div className="space-y-4">
                     {officials.map((official) => {
@@ -173,9 +188,11 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                             <div key={official.id} className="p-3 border rounded-md bg-background/70 space-y-2">
                                 <div className="flex justify-between items-center">
                                     <Label className="font-semibold">{official.role}</Label>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(official.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                    {!isReadOnly && (
+                                        <Button variant="ghost" size="icon" onClick={() => handleRemoveItem(official.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
                                 </div>
                                 <div className="flex gap-2 items-center">
                                     <Input
@@ -183,16 +200,19 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                                         onChange={(e) => handleFieldChange(official.id, 'name', e.target.value)}
                                         placeholder="Name"
                                         className="bg-background"
+                                        disabled={isReadOnly}
                                     />
-                                    <ContactInfo official={official} onUpdate={(updated) => handleContactUpdate(official.id, updated)}>
-                                        <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
-                                            <Pencil className="h-4 w-4 text-primary" />
-                                        </Button>
-                                    </ContactInfo>
+                                    {!isReadOnly && (
+                                        <ContactInfo official={official} onUpdate={(updated) => handleContactUpdate(official.id, updated)}>
+                                            <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
+                                                <Pencil className="h-4 w-4 text-primary" />
+                                            </Button>
+                                        </ContactInfo>
+                                    )}
                                 </div>
                                 {roleInfo?.subCategories && (
-                                     <Select value={official.subCategory} onValueChange={(value) => handleFieldChange(official.id, 'subCategory', value)}>
-                                        <SelectTrigger><SelectValue placeholder="Select equipment type..." /></SelectTrigger>
+                                     <Select value={official.subCategory} onValueChange={(value) => handleFieldChange(official.id, 'subCategory', value)} disabled={isReadOnly}>
+                                        <SelectTrigger disabled={isReadOnly}><SelectValue placeholder="Select equipment type..." /></SelectTrigger>
                                         <SelectContent>
                                             {roleInfo.subCategories.map(sub => <SelectItem key={sub} value={sub}>{sub}</SelectItem>)}
                                         </SelectContent>
@@ -201,7 +221,7 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
                             </div>
                         );
                     })}
-                     {staffRoles.filter(role => role.allowMultiple && officials.some(o => o.roleId === role.id)).map(role => (
+                     {!isReadOnly && staffRoles.filter(role => role.allowMultiple && officials.some(o => o.roleId === role.id)).map(role => (
                         <Button key={`add-another-${role.id}`} variant="outline" size="sm" className="w-full" onClick={() => handleAddAnother(role.id)}>
                             <PlusCircle className="h-4 w-4 mr-2" /> Add another {role.name}
                         </Button>
@@ -212,7 +232,7 @@ const OtherOfficialsList = ({ officials, onUpdate, isClinicMode, isEducationMode
     );
 };
 
-export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, isClinicMode = false, isEducationMode = false }) => {
+export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, isClinicMode = false, isEducationMode = false, isReadOnly = false }) => {
   const { toast } = useToast();
   const [associationsData, setAssociationsData] = useState([]);
 
@@ -229,6 +249,7 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
   }, [toast]);
 
   const handleJudgeCountChange = (assocId, count) => {
+    if (isReadOnly) return;
     const newCount = parseInt(count, 10) || 0;
     setFormData(prev => {
       const currentAssocJudges = (prev.associationJudges && prev.associationJudges[assocId]) || { count: 0, judges: [] };
@@ -248,6 +269,7 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
   };
 
   const handleJudgeChange = (assocId, index, field, value) => {
+    if (isReadOnly) return;
     setFormData(prev => {
       const newJudges = [...((prev.associationJudges && prev.associationJudges[assocId]?.judges) || [])];
       newJudges[index] = { ...newJudges[index], [field]: value };
@@ -265,6 +287,7 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
   };
 
   const handleJudgeContactUpdate = (assocId, index, updatedJudge) => {
+    if (isReadOnly) return;
     setFormData(prev => {
       const newJudges = [...((prev.associationJudges && prev.associationJudges[assocId]?.judges) || [])];
       newJudges[index] = updatedJudge;
@@ -282,6 +305,7 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
   };
   
   const handleOfficialsUpdate = (key, value) => {
+      if (isReadOnly) return;
       setFormData(prev => ({...prev, [key]: value}));
   };
   
@@ -314,8 +338,9 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
                   <Select
                     value={String(judgeInfo.count)}
                     onValueChange={(val) => handleJudgeCountChange(assocId, val)}
+                    disabled={isReadOnly}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger disabled={isReadOnly}>
                       <SelectValue placeholder={`Select ${judgeRoleLabels[mode].toLowerCase()} count`} />
                     </SelectTrigger>
                     <SelectContent>
@@ -335,12 +360,15 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
                           onChange={(e) => handleJudgeChange(assocId, index, 'name', e.target.value)}
                           placeholder={`${judgeRoleLabels[mode].slice(0,-1)} ${index + 1} Name`}
                           className="bg-background"
+                          disabled={isReadOnly}
                         />
-                        <ContactInfo official={judgeInfo.judges[index] || {}} onUpdate={(updated) => handleJudgeContactUpdate(assocId, index, updated)}>
-                          <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
-                            <Pencil className="h-4 w-4 text-primary" />
-                          </Button>
-                        </ContactInfo>
+                        {!isReadOnly && (
+                          <ContactInfo official={judgeInfo.judges[index] || {}} onUpdate={(updated) => handleJudgeContactUpdate(assocId, index, updated)}>
+                            <Button variant="ghost" size="icon" title="Edit Contact Info" className="hover:bg-primary/10">
+                              <Pencil className="h-4 w-4 text-primary" />
+                            </Button>
+                          </ContactInfo>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -357,6 +385,7 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
             onUpdate={handleOfficialsUpdate}
             isClinicMode={isClinicMode}
             isEducationMode={isEducationMode}
+            isReadOnly={isReadOnly}
         />
       </div>
     </div>
