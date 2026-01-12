@@ -55,6 +55,7 @@ import ContractManagementPage from '@/pages/ContractManagementPage';
 import UpdatePasswordPage from '@/pages/UpdatePasswordPage';
 import ProfilePage from '@/pages/ProfilePage';
 import JudgesPortalPage from '@/pages/JudgesPortalPage';
+import StaffPortalPage from '@/pages/StaffPortalPage';
 import AdminRoute from '@/components/AdminRoute';
 import RoleBasedRoute from '@/components/RoleBasedRoute';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
@@ -159,6 +160,7 @@ function App() {
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
                   <Route path="/judges-portal" element={<JudgesPortalPage />} />
+                  <Route path="/staff-portal" element={<StaffPortalPage />} />
                   <Route path="/pattern-hub" element={<PatternHubPage />} />
                   <Route path="/pattern-hub/:projectId" element={<PatternHubPage />} />
                   <Route path="/store" element={<StorePage />} />
