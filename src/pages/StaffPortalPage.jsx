@@ -237,11 +237,13 @@ const StaffPortalPage = () => {
         
         const judgesCount = judgesList.length;
         
-        // Get staff list (excluding judges and admins)
+        // Get staff list (excluding judges and admins) with name and role
         const staffList = officials
-            .filter(o => o.role !== 'judge' && o.role !== 'admin')
-            .map(o => o.name || o.email || 'Unknown')
-            .filter(Boolean);
+            .filter(o => o.role?.toLowerCase() !== 'judge' && o.role?.toLowerCase() !== 'admin' && o.name)
+            .map(o => ({
+                name: o.name,
+                role: o.role || 'Staff'
+            }));
         const staffCount = staffList.length;
         
         return { owner, admin, judgesCount, staffCount, judgesList, staffList };
@@ -367,15 +369,15 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    {peopleData.staffList.length > 0 ? (
+                                                                    {peopleData.staffList.length > 0 && (
                                                                         <div className="flex flex-wrap gap-1">
-                                                                            {peopleData.staffList.slice(0, 2).map((name, idx) => (
+                                                                            {peopleData.staffList.slice(0, 2).map((staff, idx) => (
                                                                                 <Badge 
                                                                                     key={idx}
                                                                                     variant="outline"
                                                                                     className="text-xs px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
                                                                                 >
-                                                                                    {name}
+                                                                                    {staff.name} - {staff.role}
                                                                                 </Badge>
                                                                             ))}
                                                                             {peopleData.staffList.length > 2 && (
@@ -384,8 +386,6 @@ const StaffPortalPage = () => {
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">—</span>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
@@ -535,15 +535,15 @@ const StaffPortalPage = () => {
                                                                     </Badge>
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
-                                                                    {peopleData.staffList.length > 0 ? (
+                                                                    {peopleData.staffList.length > 0 && (
                                                                         <div className="flex flex-wrap gap-1">
-                                                                            {peopleData.staffList.slice(0, 2).map((name, idx) => (
+                                                                            {peopleData.staffList.slice(0, 2).map((staff, idx) => (
                                                                                 <Badge 
                                                                                     key={idx}
                                                                                     variant="outline"
                                                                                     className="text-xs px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700 rounded-full"
                                                                                 >
-                                                                                    {name}
+                                                                                    {staff.name} - {staff.role}
                                                                                 </Badge>
                                                                             ))}
                                                                             {peopleData.staffList.length > 2 && (
@@ -552,8 +552,6 @@ const StaffPortalPage = () => {
                                                                                 </Badge>
                                                                             )}
                                                                         </div>
-                                                                    ) : (
-                                                                        <span className="text-muted-foreground text-sm">—</span>
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="py-4">
