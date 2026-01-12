@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock, User, Users } from 'lucide-react';
+import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock, User, Users, Award, CheckCircle2 } from 'lucide-react';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { supabase } from '@/lib/supabaseClient';
 import { useAnalytics } from '@/components/AnalyticsProvider';
@@ -28,9 +28,10 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
 
-  // Get only ASSIGNED judges from groupJudges and judgeSelections
+  // Get ALL judges and staff, showing assigned/unassigned status
   const recipientsList = useMemo(() => {
     const assignedJudgeNames = new Set();
+    const assignedStaffNames = new Set();
     
     // Collect assigned judge names from groupJudges
     if (pbbData.groupJudges) {
@@ -54,64 +55,102 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
       });
     }
     
-    // Build map of available judges with their details
-    const availableJudgesMap = new Map();
+    // Collect assigned staff names from staffSelections
+    if (pbbData.staffSelections) {
+      Object.values(pbbData.staffSelections).forEach((staffName) => {
+        if (staffName && typeof staffName === 'string' && staffName.trim()) {
+          assignedStaffNames.add(staffName.trim().toLowerCase());
+        }
+      });
+    }
     
+    // Build map of all available people (judges and staff) with their details
+    const allPeopleMap = new Map();
+    
+    // Get all judges from associationJudges
     if (pbbData.associationJudges) {
       Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
         if (assocData?.judges) {
           assocData.judges.forEach((judge) => {
             if (judge.name && judge.email) {
-              availableJudgesMap.set(judge.name.trim().toLowerCase(), {
-                name: judge.name.trim(),
-                email: judge.email.toLowerCase(),
-                role: 'Judge'
-              });
+              const normalizedName = judge.name.trim().toLowerCase();
+              const normalizedEmail = judge.email.toLowerCase().trim();
+              const key = `${normalizedName}-${normalizedEmail}`;
+              if (!allPeopleMap.has(key)) {
+                allPeopleMap.set(key, {
+                  name: judge.name.trim(),
+                  email: normalizedEmail,
+                  role: 'Judge',
+                  type: 'judge',
+                  isAssigned: assignedJudgeNames.has(normalizedName)
+                });
+              }
             }
           });
         }
       });
     }
     
-    // Also check officials for judges
+    // Get all people from officials (judges and staff)
     if (pbbData.officials) {
       pbbData.officials.forEach((official) => {
-        if (official.name && official.email && official.role?.toLowerCase().includes('judge')) {
+        if (official.name && official.email) {
           const normalizedName = official.name.trim().toLowerCase();
-          if (!availableJudgesMap.has(normalizedName)) {
-            availableJudgesMap.set(normalizedName, {
+          const normalizedEmail = official.email.toLowerCase().trim();
+          const key = `${normalizedName}-${normalizedEmail}`;
+          const isJudge = official.role?.toLowerCase().includes('judge');
+          
+          if (!allPeopleMap.has(key)) {
+            allPeopleMap.set(key, {
               name: official.name.trim(),
-              email: official.email.toLowerCase(),
-              role: official.role || 'Judge'
+              email: normalizedEmail,
+              role: official.role || (isJudge ? 'Judge' : 'Staff'),
+              type: isJudge ? 'judge' : 'staff',
+              isAssigned: isJudge 
+                ? assignedJudgeNames.has(normalizedName)
+                : assignedStaffNames.has(normalizedName)
             });
+          } else {
+            // Update existing entry if needed
+            const existing = allPeopleMap.get(key);
+            if (isJudge && !existing.isAssigned) {
+              existing.isAssigned = assignedJudgeNames.has(normalizedName);
+            }
           }
         }
       });
     }
     
-    // Filter to only assigned judges
-    const recipients = [];
-    assignedJudgeNames.forEach((assignedName) => {
-      const judgeInfo = availableJudgesMap.get(assignedName);
-      if (judgeInfo && !recipients.find(r => r.email === judgeInfo.email)) {
-        recipients.push({
-          key: `judge-${judgeInfo.email}`,
-          name: judgeInfo.name,
-          email: judgeInfo.email,
-          role: judgeInfo.role,
-          type: 'judge'
-        });
-      }
-    });
+    // Convert map to array and sort: judges first, then staff; assigned first within each group
+    const recipients = Array.from(allPeopleMap.values())
+      .sort((a, b) => {
+        // Judges first
+        if (a.type === 'judge' && b.type !== 'judge') return -1;
+        if (a.type !== 'judge' && b.type === 'judge') return 1;
+        // Within same type, assigned first
+        if (a.isAssigned && !b.isAssigned) return -1;
+        if (!a.isAssigned && b.isAssigned) return 1;
+        // Then alphabetically by name
+        return a.name.localeCompare(b.name);
+      })
+      .map((person, index) => ({
+        key: `${person.type}-${person.email}-${index}`,
+        name: person.name,
+        email: person.email,
+        role: person.role,
+        type: person.type,
+        isAssigned: person.isAssigned
+      }));
     
     return recipients;
-  }, [pbbData.groupJudges, pbbData.judgeSelections, pbbData.associationJudges, pbbData.officials]);
+  }, [pbbData.groupJudges, pbbData.judgeSelections, pbbData.staffSelections, pbbData.associationJudges, pbbData.officials]);
 
   // Initialize email notifications state when recipients change
+  // Default to enabled only for assigned people
   React.useEffect(() => {
     const initialState = {};
     recipientsList.forEach(r => {
-      initialState[r.key] = true; // Default to enabled
+      initialState[r.key] = r.isAssigned; // Default to enabled only if assigned
     });
     setEmailNotifications(initialState);
   }, [recipientsList]);
@@ -415,24 +454,46 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                     </Badge>
                   </div>
                   
-                  <ScrollArea className="h-[180px] border rounded-lg">
+                  <ScrollArea className="h-[280px] border rounded-lg">
                     <div className="p-3 space-y-2">
                       {recipientsList.map((recipient) => (
                         <div
                           key={recipient.key}
-                          className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
+                          className={`flex items-center justify-between p-2.5 rounded-md hover:bg-muted/50 transition-colors border ${recipient.isAssigned ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${recipient.type === 'judge' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                              <User className="h-4 w-4" />
+                          <div className="flex items-center gap-3 flex-1">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${recipient.type === 'judge' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                              {recipient.type === 'judge' ? (
+                                <Award className="h-4 w-4" />
+                              ) : (
+                                <User className="h-4 w-4" />
+                              )}
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">{recipient.name}</p>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">{recipient.email}</span>
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-sm font-medium truncate">{recipient.name}</p>
+                                {recipient.isAssigned && (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-muted-foreground truncate">{recipient.email}</span>
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-[10px] px-1.5 py-0 shrink-0 ${recipient.type === 'judge' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'}`}
+                                >
                                   {recipient.role}
                                 </Badge>
+                                {recipient.isAssigned && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 shrink-0">
+                                    Assigned
+                                  </Badge>
+                                )}
+                                {!recipient.isAssigned && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground shrink-0">
+                                    Not Assigned
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -440,6 +501,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                             checked={emailNotifications[recipient.key] || false}
                             onCheckedChange={() => toggleRecipientEmail(recipient.key)}
                             disabled={isGenerating}
+                            className="ml-2 shrink-0"
                           />
                         </div>
                       ))}
