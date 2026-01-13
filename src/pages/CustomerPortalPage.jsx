@@ -3665,15 +3665,25 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     };
     
     const handleDeleteFolder = async (folderId = null) => {
-        const targetFolderId = folderId || folderToDelete;
-        if (!targetFolderId) {
-            console.log('No folder to delete');
-            return;
-        }
-        
-        console.log('Deleting folder:', targetFolderId);
-        
-        // Get all folder IDs to delete (including nested subfolders)
+        // Some UI elements (droppable IDs) prefix folder IDs with "folder-".
+        // Normalize so we always delete by the real folder.id stored in state.
+        const resolveFolderId = (maybeId) => {
+            if (!maybeId) return null;
+            if (folders.some(f => f.id === maybeId)) return maybeId;
+
+            if (typeof maybeId === 'string' && maybeId.startsWith('folder-')) {
+                const stripped = maybeId.replace(/^folder-/, '');
+                if (folders.some(f => f.id === stripped)) return stripped;
+            }
+
+            return maybeId;
+        };
+
+        const rawTargetId = folderId || folderToDelete;
+        const targetFolderId = resolveFolderId(rawTargetId);
+
+        if (!targetFolderId) return;
+
         const getAllNestedFolderIds = (parentId, allFolders) => {
             const ids = [parentId];
             const childFolders = allFolders.filter(f => f.parentId === parentId);
@@ -3682,32 +3692,36 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             });
             return ids;
         };
-        
+
         const folderIdsToDelete = getAllNestedFolderIds(targetFolderId, folders);
-        console.log('Folders to delete:', folderIdsToDelete);
-        
-        // If deleting the currently selected folder, navigate back
-        if (folderIdsToDelete.includes(selectedFolderId)) {
-            const folder = folders.find(f => f.id === targetFolderId);
-            if (folder?.parentId && !folderIdsToDelete.includes(folder.parentId)) {
-                setSelectedFolderId(folder.parentId);
+
+        // If the current view is inside the folder tree being deleted, navigate out.
+        if (selectedFolderId && folderIdsToDelete.includes(selectedFolderId)) {
+            const targetFolder = folders.find(f => f.id === targetFolderId);
+            const nextFolderId = targetFolder?.parentId;
+
+            if (nextFolderId && !folderIdsToDelete.includes(nextFolderId) && folders.some(f => f.id === nextFolderId)) {
+                setSelectedFolderId(nextFolderId);
             } else {
                 setSelectedSidebarItem('allItems');
                 setSelectedFolderId(null);
             }
         }
-        
-        // Remove folder and all its nested subfolders
+
         const updatedFolders = folders.filter(folder => !folderIdsToDelete.includes(folder.id));
-        console.log('Remaining folders:', updatedFolders.length);
-        
         setFolders(updatedFolders);
+
+        // Clean up expanded state so deleted folders don't linger in UI state.
+        setExpandedFolders(prev => {
+            const next = new Set([...prev].filter(id => !folderIdsToDelete.includes(id)));
+            return next;
+        });
+
         await saveFoldersToProject(updatedFolders);
-        
-        // Always close dialog and reset state
+
         setFolderToDelete(null);
         setDeleteFolderDialogOpen(false);
-        
+
         toast({
             title: "Folder Deleted",
             description: `Folder and ${folderIdsToDelete.length > 1 ? 'its subfolders have' : 'its contents have'} been removed`
@@ -4914,11 +4928,26 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             
                                             {/* Toolbar */}
                                             <div className="px-4 py-2 border-b flex items-center gap-2">
-                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    onClick={() => {
+                                                        startRenamingFolder(selectedFolder.id, selectedFolder.name);
+                                                    }}
+                                                >
                                                     <Edit className="h-3 w-3 mr-1" />
                                                     Rename
                                                 </Button>
-                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    onClick={() => {
+                                                        setFolderToDelete(selectedFolder.id);
+                                                        setDeleteFolderDialogOpen(true);
+                                                    }}
+                                                >
                                                     <Archive className="h-3 w-3 mr-1" />
                                                     Delete
                                                 </Button>
