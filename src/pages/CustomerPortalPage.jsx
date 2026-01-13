@@ -3909,26 +3909,51 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                     console.log(`Pattern fileUrl: ${fileUrl}, fileName: ${fileName}`);
                                     
                                     // If still no URL, try to fetch from database using pattern ID
-                                    if (!fileUrl && patternData.id) {
-                                        try {
-                                            const numericId = typeof patternData.id === 'number' 
-                                                ? patternData.id 
-                                                : parseInt(patternData.id);
-                                            
-                                            if (!isNaN(numericId)) {
-                                                const { data: patternDetail } = await supabase
-                                                    .from('tbl_pattern_media')
-                                                    .select('pdf_url, file_url, image_url')
-                                                    .eq('pattern_id', numericId)
-                                                    .single();
-                                                
-                                                if (patternDetail) {
-                                                    fileUrl = patternDetail.pdf_url || patternDetail.file_url || patternDetail.image_url;
-                                                    console.log('Fetched pattern URL from database:', fileUrl);
+                                    // Check multiple ID sources: numericId, originalPatternId, id
+                                    const possibleIds = [
+                                        patternData.numericId,
+                                        patternData.originalPatternId,
+                                        patternData.id,
+                                        patternData.patternId
+                                    ].filter(Boolean);
+                                    
+                                    console.log('Possible pattern IDs to try:', possibleIds);
+                                    
+                                    if (!fileUrl && possibleIds.length > 0) {
+                                        for (const potentialId of possibleIds) {
+                                            try {
+                                                let numericId = null;
+                                                if (typeof potentialId === 'number') {
+                                                    numericId = potentialId;
+                                                } else if (typeof potentialId === 'string') {
+                                                    // Handle formats like "pattern-1-ALL" or just "123"
+                                                    if (potentialId.includes('-')) {
+                                                        const match = potentialId.match(/\d+/);
+                                                        if (match) {
+                                                            numericId = parseInt(match[0]);
+                                                        }
+                                                    } else if (!isNaN(parseInt(potentialId))) {
+                                                        numericId = parseInt(potentialId);
+                                                    }
                                                 }
+                                                
+                                                if (numericId && !isNaN(numericId)) {
+                                                    console.log(`Trying to fetch pattern image for ID: ${numericId}`);
+                                                    const { data: patternDetail, error: patternError } = await supabase
+                                                        .from('tbl_pattern_media')
+                                                        .select('pdf_url, file_url, image_url')
+                                                        .eq('pattern_id', numericId)
+                                                        .maybeSingle();
+                                                    
+                                                    if (!patternError && patternDetail) {
+                                                        fileUrl = patternDetail.image_url || patternDetail.pdf_url || patternDetail.file_url;
+                                                        console.log('Fetched pattern URL from database:', fileUrl);
+                                                        if (fileUrl) break; // Found URL, stop trying other IDs
+                                                    }
+                                                }
+                                            } catch (dbError) {
+                                                console.error('Error fetching pattern from database:', dbError);
                                             }
-                                        } catch (dbError) {
-                                            console.error('Error fetching pattern from database:', dbError);
                                         }
                                     }
                                 } else {
