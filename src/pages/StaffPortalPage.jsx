@@ -88,7 +88,7 @@ const StaffPortalPage = () => {
                 
                 if (error) throw error;
                 
-                // Filter to exclude pattern_book, pattern_folder, and "In progress" status
+                // Filter: exclude pattern_book, pattern_folder, and "In progress" status projects
                 const horseShows = (data || []).filter(p => 
                     p.project_type !== 'pattern_book' && 
                     p.project_type !== 'pattern_folder' &&
