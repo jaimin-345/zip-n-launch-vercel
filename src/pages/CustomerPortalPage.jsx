@@ -5914,7 +5914,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         }}>
                             Cancel
                         </Button>
-                        <Button variant="destructive" onClick={handleDeleteFolder}>
+                        <Button variant="destructive" onClick={() => handleDeleteFolder(folderToDelete)}>
                             Delete
                         </Button>
                     </div>
