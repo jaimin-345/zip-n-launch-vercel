@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -30,12 +30,26 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
+import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -1949,7 +1963,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
             
             {/* Pattern Book Dialog */}
             <Dialog open={patternBookDialogOpen} onOpenChange={setPatternBookDialogOpen}>
-                <DialogContent className="max-w-7xl p-0 overflow-hidden">
+                <DialogContent className="w-[95vw] h-screen max-w-none max-h-none p-0 m-0 rounded-none overflow-hidden">
                     <PatternBookDialogContent 
                         project={project}
                         profile={profile}
@@ -1985,6 +1999,38 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [viewDownloadDialogOpen, setViewDownloadDialogOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    
+    // Folder management state
+    const [folders, setFolders] = useState(() => {
+        // Load folders from project_data
+        const savedFolders = project.project_data?.folders || [];
+        return savedFolders.length > 0 ? savedFolders : [];
+    });
+    const [expandedFolders, setExpandedFolders] = useState(new Set());
+    const [renameFolderDialogOpen, setRenameFolderDialogOpen] = useState(false);
+    const [deleteFolderDialogOpen, setDeleteFolderDialogOpen] = useState(false);
+    const [newFolderName, setNewFolderName] = useState('');
+    const [editingFolderId, setEditingFolderId] = useState(null);
+    const [folderToDelete, setFolderToDelete] = useState(null);
+    const [selectedFolderId, setSelectedFolderId] = useState(null); // For filtering by folder
+    const [selectedParentFolderId, setSelectedParentFolderId] = useState(null); // For creating nested folders
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [creatingFolderParentId, setCreatingFolderParentId] = useState(null);
+    const [editingFolderName, setEditingFolderName] = useState(''); // For inline rename
+    const [renamingFolderId, setRenamingFolderId] = useState(null); // For inline rename
+    
+    // Drag and drop state
+    const [activeId, setActiveId] = useState(null);
+    const [draggedItem, setDraggedItem] = useState(null);
+    
+    // Drag and drop sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        })
+    );
     
     const projectData = project.project_data || {};
     const { toast } = useToast();
@@ -2420,8 +2466,68 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     );
     const uniqueJudges = [...new Set([...allJudgesFromPatterns, ...allJudgesFromScoresheets, ...allJudgesFromProjectData])].filter(Boolean).sort();
     
+    // Get folder items as patterns/scoresheets when folder is selected
+    const folderItemsAsPatterns = useMemo(() => {
+        if (selectedSidebarItem === 'folder' && selectedFolderId) {
+            const folder = folders.find(f => f.id === selectedFolderId);
+            if (folder && folder.items) {
+                return folder.items
+                    .filter(item => item.type === 'pattern')
+                    .map(item => {
+                        // Use stored data if available, otherwise try to find in patterns array
+                        if (item.data) {
+                            return item.data;
+                        }
+                        // Try to find pattern in main array by ID
+                        const foundPattern = patterns.find(p => {
+                            const pId = p.id || p.numericId || p.patternId;
+                            return (item.id === pId || item.id === String(pId));
+                        });
+                        return foundPattern;
+                    })
+                    .filter(Boolean); // Remove any undefined items
+            }
+        }
+        return [];
+    }, [selectedSidebarItem, selectedFolderId, folders, patterns]);
+    
+    const folderItemsAsScoresheets = useMemo(() => {
+        if (selectedSidebarItem === 'folder' && selectedFolderId) {
+            const folder = folders.find(f => f.id === selectedFolderId);
+            if (folder && folder.items) {
+                return folder.items
+                    .filter(item => item.type === 'scoresheet')
+                    .map(item => {
+                        // Use stored data if available, otherwise try to find in scoresheets array
+                        if (item.data) {
+                            return item.data;
+                        }
+                        // Try to find scoresheet in main array by ID
+                        const foundScoresheet = scoresheets.find(s => {
+                            const sId = s.id || s.numericId;
+                            return (item.id === sId || item.id === String(sId));
+                        });
+                        return foundScoresheet;
+                    })
+                    .filter(Boolean); // Remove any undefined items
+            }
+        }
+        return [];
+    }, [selectedSidebarItem, selectedFolderId, folders, scoresheets]);
+    
     // Filter patterns based on selected filters
-    const filteredPatterns = patterns.filter(pattern => {
+    const filteredPatterns = (selectedSidebarItem === 'folder' && selectedFolderId ? folderItemsAsPatterns : patterns).filter(pattern => {
+        // Filter by folder if one is selected - already handled by folderItemsAsPatterns
+        if (selectedSidebarItem === 'folder' && selectedFolderId) {
+            // Items are already filtered, just apply other filters
+        } else if (selectedSidebarItem === 'allItems') {
+            // Show all items when "All Items" is selected
+        } else if (selectedSidebarItem === 'recentlyViewed') {
+            // TODO: Implement recently viewed filter
+        } else if (selectedSidebarItem === 'assignedToMe') {
+            // TODO: Implement assigned to me filter
+        }
+        
         if (filterDiscipline !== 'all') {
             // Normalize both strings for comparison (handle spaces, dashes, case)
             const patternDiscipline = (pattern.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
@@ -2448,7 +2554,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     });
     
     // Filter scoresheets based on selected filters (same filters)
-    const filteredScoresheets = scoresheets.filter(scoresheet => {
+    const filteredScoresheets = (selectedSidebarItem === 'folder' && selectedFolderId ? folderItemsAsScoresheets : scoresheets).filter(scoresheet => {
+        // Filter by folder if one is selected - already handled by folderItemsAsScoresheets
+        if (selectedSidebarItem === 'folder' && selectedFolderId) {
+            // Items are already filtered, just apply other filters
+        } else if (selectedSidebarItem === 'allItems') {
+            // Show all items when "All Items" is selected
+        } else if (selectedSidebarItem === 'recentlyViewed') {
+            // TODO: Implement recently viewed filter
+        } else if (selectedSidebarItem === 'assignedToMe') {
+            // TODO: Implement assigned to me filter
+        }
+        
         if (filterDiscipline !== 'all') {
             // Normalize both strings for comparison (handle spaces, dashes, case)
             const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
@@ -3312,8 +3429,612 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         selectedAssociations.includes(a.id) || selectedAssociations.includes(a.abbreviation)
     );
     
+    // Folder management functions
+    const generateFolderId = () => `folder-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const saveFoldersToProject = async (updatedFolders) => {
+        try {
+            const updatedProjectData = {
+                ...projectData,
+                folders: updatedFolders
+            };
+            
+            await supabase
+                .from('projects')
+                .update({ project_data: updatedProjectData })
+                .eq('id', project.id);
+            
+            // Don't call onRefresh() here as it causes the dialog to close
+            // The local state update is sufficient for UI updates
+        } catch (error) {
+            console.error('Error saving folders:', error);
+            toast({
+                title: "Error",
+                description: "Failed to save folders",
+                variant: "destructive"
+            });
+        }
+    };
+    
+    const handleCreateFolder = async (folderName, parentId = null) => {
+        if (!folderName || !folderName.trim()) {
+            setIsCreatingFolder(false);
+            setCreatingFolderParentId(null);
+            return;
+        }
+        
+        const newFolder = {
+            id: generateFolderId(),
+            name: folderName.trim(),
+            parentId: parentId || null,
+            items: [], // Store pattern/scoresheet IDs here
+            createdAt: new Date().toISOString()
+        };
+        
+        const updatedFolders = [...folders, newFolder];
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        // Auto-expand parent folder if nested
+        if (parentId) {
+            setExpandedFolders(prev => new Set([...prev, parentId]));
+        }
+        
+        setIsCreatingFolder(false);
+        setCreatingFolderParentId(null);
+        
+        toast({
+            title: "Folder Created",
+            description: `"${newFolder.name}" has been created`
+        });
+    };
+    
+    const startCreatingFolder = (parentId = null) => {
+        setIsCreatingFolder(true);
+        setCreatingFolderParentId(parentId);
+        setNewFolderName('');
+        // Auto-expand parent folder if creating a subfolder
+        if (parentId) {
+            setExpandedFolders(prev => new Set([...prev, parentId]));
+        }
+    };
+    
+    const cancelCreatingFolder = () => {
+        setIsCreatingFolder(false);
+        setCreatingFolderParentId(null);
+        setNewFolderName('');
+    };
+    
+    const handleInlineRename = async (folderId, newName) => {
+        if (!newName || !newName.trim()) {
+            setRenamingFolderId(null);
+            setEditingFolderName('');
+            return;
+        }
+        
+        const updatedFolders = folders.map(folder =>
+            folder.id === folderId
+                ? { ...folder, name: newName.trim() }
+                : folder
+        );
+        
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        setRenamingFolderId(null);
+        setEditingFolderName('');
+        
+        toast({
+            title: "Folder Renamed",
+            description: `Folder has been renamed to "${newName.trim()}"`
+        });
+    };
+    
+    const startRenamingFolder = (folderId, currentName) => {
+        setRenamingFolderId(folderId);
+        setEditingFolderName(currentName);
+    };
+    
+    // Drag and drop handlers
+    const handleDragStart = (event) => {
+        const { active } = event;
+        setActiveId(active.id);
+        
+        // Find the item being dragged (pattern or scoresheet)
+        const itemId = active.id.toString();
+        if (itemId.startsWith('pattern-')) {
+            const patternIndex = parseInt(itemId.replace('pattern-', ''));
+            const pattern = filteredPatterns[patternIndex];
+            if (pattern) {
+                setDraggedItem({ type: 'pattern', data: pattern, index: patternIndex });
+            }
+        } else if (itemId.startsWith('scoresheet-')) {
+            const scoresheetIndex = parseInt(itemId.replace('scoresheet-', ''));
+            const scoresheet = filteredScoresheets[scoresheetIndex];
+            if (scoresheet) {
+                setDraggedItem({ type: 'scoresheet', data: scoresheet, index: scoresheetIndex });
+            }
+        }
+    };
+    
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        
+        if (!over || !draggedItem) {
+            setActiveId(null);
+            setDraggedItem(null);
+            return;
+        }
+        
+        const overId = over.id.toString();
+        
+        // Check if dropped on a folder
+        if (overId.startsWith('folder-')) {
+            const folderId = overId.replace('folder-', '');
+            const folder = folders.find(f => f.id === folderId);
+            
+            if (folder) {
+                // Get unique identifier for the item
+                const itemId = draggedItem.data.id || 
+                              draggedItem.data.numericId || 
+                              `${draggedItem.type}-${draggedItem.index}`;
+                
+                // Check if item already exists in folder
+                const itemExists = folder.items.some(item => 
+                    item.id === itemId && item.type === draggedItem.type
+                );
+                
+                if (!itemExists) {
+                    // Copy item to folder (don't remove from original list)
+                    const updatedFolders = folders.map(f => {
+                        if (f.id === folderId) {
+                            return {
+                                ...f,
+                                items: [...f.items, { 
+                                    id: itemId, 
+                                    type: draggedItem.type,
+                                    data: draggedItem.data, // Store full data for reference
+                                    storedAt: new Date().toISOString() // Store timestamp when added
+                                }]
+                            };
+                        }
+                        return f;
+                    });
+                    
+                    setFolders(updatedFolders);
+                    await saveFoldersToProject(updatedFolders);
+                    
+                    // Auto-expand folder if collapsed
+                    setExpandedFolders(prev => new Set([...prev, folderId]));
+                    
+                    toast({
+                        title: "Item Added to Folder",
+                        description: `${draggedItem.type === 'pattern' ? 'Pattern' : 'Scoresheet'} copied to "${folder.name}"`
+                    });
+                } else {
+                    toast({
+                        title: "Already in Folder",
+                        description: "This item is already in the selected folder",
+                        variant: "default"
+                    });
+                }
+            }
+        }
+        
+        setActiveId(null);
+        setDraggedItem(null);
+    };
+    
+    const handleDragOver = (event) => {
+        // This helps ensure proper collision detection for nested droppables
+        // The custom collision detection function handles the logic
+    };
+    
+    const handleDragCancel = () => {
+        setActiveId(null);
+        setDraggedItem(null);
+    };
+    
+    const handleRenameFolder = async () => {
+        if (!newFolderName.trim() || !editingFolderId) {
+            toast({
+                title: "Invalid Name",
+                description: "Folder name cannot be empty",
+                variant: "destructive"
+            });
+            return;
+        }
+        
+        const updatedFolders = folders.map(folder =>
+            folder.id === editingFolderId
+                ? { ...folder, name: newFolderName.trim() }
+                : folder
+        );
+        
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        setNewFolderName('');
+        setEditingFolderId(null);
+        setRenameFolderDialogOpen(false);
+        
+        toast({
+            title: "Folder Renamed",
+            description: `Folder has been renamed to "${newFolderName.trim()}"`
+        });
+    };
+    
+    const handleDeleteFolder = async (folderId = null) => {
+        const targetFolderId = folderId || folderToDelete;
+        if (!targetFolderId) return;
+        
+        // If deleting the currently selected folder, navigate back
+        if (targetFolderId === selectedFolderId) {
+            const folder = folders.find(f => f.id === targetFolderId);
+            if (folder?.parentId) {
+                setSelectedFolderId(folder.parentId);
+            } else {
+                setSelectedSidebarItem('allItems');
+                setSelectedFolderId(null);
+            }
+        }
+        
+        // Remove folder and all its items
+        const updatedFolders = folders.filter(folder => folder.id !== targetFolderId);
+        
+        // Also remove items from patterns/scoresheets that were in this folder
+        // (This would require updating the pattern/scoresheet data structure)
+        
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        if (!folderId) {
+            setFolderToDelete(null);
+            setDeleteFolderDialogOpen(false);
+        }
+        
+        toast({
+            title: "Folder Deleted",
+            description: "Folder and its contents have been removed"
+        });
+    };
+    
+    const handleAddToFolder = async (itemId, itemType = 'pattern', folderId = null, itemData = null) => {
+        const targetFolderId = folderId || selectedFolderId;
+        
+        if (!targetFolderId) {
+            toast({
+                title: "No Folder Selected",
+                description: "Please select a folder first",
+                variant: "destructive"
+            });
+            return;
+        }
+        
+        // Find the item data if not provided
+        let foundItemData = itemData;
+        if (!foundItemData) {
+            if (itemType === 'pattern') {
+                foundItemData = patterns.find(p => {
+                    const pId = p.id || p.numericId || p.patternId;
+                    return (itemId === pId || itemId === String(pId));
+                });
+            } else if (itemType === 'scoresheet') {
+                foundItemData = scoresheets.find(s => {
+                    const sId = s.id || s.numericId;
+                    return (itemId === sId || itemId === String(sId));
+                });
+            }
+        }
+        
+        const updatedFolders = folders.map(folder => {
+            if (folder.id === targetFolderId) {
+                // Check if item already exists
+                const itemExists = folder.items.some(item => item.id === itemId && item.type === itemType);
+                if (!itemExists) {
+                    return {
+                        ...folder,
+                        items: [...folder.items, { 
+                            id: itemId, 
+                            type: itemType,
+                            data: foundItemData, // Store full data
+                            storedAt: new Date().toISOString() // Store timestamp
+                        }]
+                    };
+                } else {
+                    toast({
+                        title: "Already in Folder",
+                        description: "This item is already in the selected folder",
+                        variant: "default"
+                    });
+                }
+            }
+            return folder;
+        });
+        
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        if (updatedFolders.some(f => f.id === targetFolderId && f.items.some(item => item.id === itemId && item.type === itemType))) {
+            toast({
+                title: "Item Added",
+                description: "Item has been added to folder"
+            });
+        }
+    };
+    
+    const toggleFolderExpansion = (folderId) => {
+        setExpandedFolders(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(folderId)) {
+                newSet.delete(folderId);
+            } else {
+                newSet.add(folderId);
+            }
+            return newSet;
+        });
+    };
+    
+    const getFolderItemCount = (folderId) => {
+        const folder = folders.find(f => f.id === folderId);
+        return folder?.items?.length || 0;
+    };
+    
+    const handleRemoveItemFromFolder = async (itemId, itemType, folderId) => {
+        const updatedFolders = folders.map(folder => {
+            if (folder.id === folderId) {
+                return {
+                    ...folder,
+                    items: folder.items.filter(item => 
+                        !(item.id === itemId && item.type === itemType)
+                    )
+                };
+            }
+            return folder;
+        });
+        
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        
+        toast({
+            title: "Item Removed",
+            description: "Item has been removed from folder"
+        });
+    };
+    
+    const handleDownloadFolderContents = async (folder) => {
+        try {
+            if (!folder || !folder.id) {
+                toast({
+                    title: "Error",
+                    description: "Folder not found",
+                    variant: "destructive"
+                });
+                return;
+            }
+            
+            // Get the latest folder data from state to ensure we have all items
+            const latestFolder = folders.find(f => f.id === folder.id);
+            if (!latestFolder) {
+                toast({
+                    title: "Error",
+                    description: "Folder not found in state",
+                    variant: "destructive"
+                });
+                return;
+            }
+            
+            // Count total items including subfolders
+            const countItems = (f) => {
+                // Get latest folder data
+                const folderData = folders.find(folder => folder.id === f.id) || f;
+                let count = folderData.items?.length || 0;
+                const subfolders = folders.filter(sub => sub.parentId === folderData.id);
+                subfolders.forEach(sub => {
+                    count += countItems(sub);
+                });
+                return count;
+            };
+            
+            const totalItems = countItems(latestFolder);
+            
+            if (totalItems === 0) {
+                toast({
+                    title: "Folder Empty",
+                    description: "This folder has no items to download",
+                    variant: "default"
+                });
+                return;
+            }
+            
+            toast({
+                title: "Preparing Download",
+                description: `Downloading ${totalItems} item(s) from "${latestFolder.name}"...`
+            });
+            
+            const zip = new JSZip();
+            const folderName = latestFolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'folder';
+            
+            // Track downloaded items
+            let downloadedCount = 0;
+            let failedCount = 0;
+            const failedItems = [];
+            
+            // Recursive function to add folder and its contents to ZIP
+            const addFolderToZip = async (currentFolder, zipFolder) => {
+                // Get the latest folder data from state
+                const folderData = folders.find(f => f.id === currentFolder.id) || currentFolder;
+                
+                // Add items in current folder
+                if (folderData.items && folderData.items.length > 0) {
+                    console.log(`Processing ${folderData.items.length} items in folder "${folderData.name}"`);
+                    for (let i = 0; i < folderData.items.length; i++) {
+                        const item = folderData.items[i];
+                        console.log(`Processing item ${i + 1}/${folderData.items.length}:`, item);
+                        
+                        try {
+                            let fileUrl = null;
+                            let fileName = null;
+                            
+                            if (item.type === 'pattern') {
+                                // Use stored data if available
+                                let patternData = item.data;
+                                
+                                // If no stored data, try to find in patterns array
+                                if (!patternData) {
+                                    patternData = patterns.find(p => {
+                                        const pId = p.id || p.numericId || p.patternId;
+                                        const itemId = item.id;
+                                        return (
+                                            (pId === itemId) || 
+                                            (String(pId) === String(itemId)) ||
+                                            (p.patternName === item.data?.patternName) ||
+                                            (p.name === item.data?.name)
+                                        );
+                                    });
+                                }
+                                
+                                if (patternData) {
+                                    console.log('Found pattern data:', patternData);
+                                    // Try multiple URL sources
+                                    fileUrl = patternData.pdf_url || 
+                                             patternData.download_url || 
+                                             patternData.image_url ||
+                                             patternData.url;
+                                    fileName = patternData.patternName || 
+                                              patternData.name || 
+                                              patternData.pdf_file_name ||
+                                              `pattern_${item.id}.pdf`;
+                                    
+                                    console.log(`Pattern fileUrl: ${fileUrl}, fileName: ${fileName}`);
+                                    
+                                    // If still no URL, try to fetch from database using pattern ID
+                                    if (!fileUrl && patternData.id) {
+                                        try {
+                                            const numericId = typeof patternData.id === 'number' 
+                                                ? patternData.id 
+                                                : parseInt(patternData.id);
+                                            
+                                            if (!isNaN(numericId)) {
+                                                const { data: patternDetail } = await supabase
+                                                    .from('tbl_pattern_media')
+                                                    .select('pdf_url, file_url, image_url')
+                                                    .eq('pattern_id', numericId)
+                                                    .single();
+                                                
+                                                if (patternDetail) {
+                                                    fileUrl = patternDetail.pdf_url || patternDetail.file_url || patternDetail.image_url;
+                                                    console.log('Fetched pattern URL from database:', fileUrl);
+                                                }
+                                            }
+                                        } catch (dbError) {
+                                            console.error('Error fetching pattern from database:', dbError);
+                                        }
+                                    }
+                                } else {
+                                    console.warn('Pattern data not found for item:', item);
+                                }
+                            } else if (item.type === 'scoresheet') {
+                                // Use stored data if available
+                                const scoresheetData = item.data || scoresheets.find(s => {
+                                    const sId = s.id || s.numericId;
+                                    return (item.id === sId || item.id === String(sId));
+                                });
+                                
+                                if (scoresheetData) {
+                                    fileUrl = scoresheetData.image_url || scoresheetData.download_url;
+                                    fileName = scoresheetData.displayName || scoresheetData.file_name || scoresheetData.disciplineName || `scoresheet_${item.id}.pdf`;
+                                }
+                            }
+                            
+                            if (fileUrl) {
+                                try {
+                                    console.log(`Fetching file from URL: ${fileUrl}`);
+                                    const response = await fetch(fileUrl);
+                                    if (response.ok) {
+                                        const blob = await response.blob();
+                                        // Sanitize filename
+                                        const sanitizedFileName = fileName.replace(/[^a-z0-9._-]/gi, '_');
+                                        zipFolder.file(sanitizedFileName, blob);
+                                        downloadedCount++;
+                                        console.log(`✓ Added file to ZIP: ${sanitizedFileName}`);
+                                    } else {
+                                        failedCount++;
+                                        failedItems.push({ name: fileName, type: item.type, reason: `HTTP ${response.status}` });
+                                        console.error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+                                    }
+                                } catch (fetchError) {
+                                    failedCount++;
+                                    failedItems.push({ name: fileName || item.id, type: item.type, reason: fetchError.message });
+                                    console.error(`Error fetching file for item ${item.id}:`, fetchError);
+                                }
+                            } else {
+                                failedCount++;
+                                failedItems.push({ name: item.id, type: item.type, reason: 'No file URL available' });
+                                console.warn(`No fileUrl found for item ${item.id} (type: ${item.type})`);
+                            }
+                        } catch (itemError) {
+                            console.error(`Error processing item ${item.id}:`, itemError);
+                        }
+                    }
+                }
+                
+                // Add subfolders recursively
+                const subfolders = folders.filter(f => f.parentId === folderData.id);
+                console.log(`Found ${subfolders.length} subfolders in "${folderData.name}"`);
+                for (const subfolder of subfolders) {
+                    const subfolderName = subfolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'subfolder';
+                    const subfolderZip = zipFolder.folder(subfolderName);
+                    await addFolderToZip(subfolder, subfolderZip);
+                }
+            };
+            
+            // Start adding from root folder
+            const rootZipFolder = zip.folder(folderName);
+            await addFolderToZip(latestFolder, rootZipFolder);
+            
+            // Generate ZIP file
+            const content = await zip.generateAsync({ 
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+            
+            // Trigger download
+            const url = URL.createObjectURL(content);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${folderName}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            const successMessage = failedCount > 0 
+                ? `Downloaded ${downloadedCount} item(s), ${failedCount} failed`
+                : `Downloaded ${downloadedCount} item(s) successfully`;
+            
+            toast({
+                title: downloadedCount > 0 ? "Download Complete" : "Download Failed",
+                description: successMessage,
+                variant: failedCount > 0 ? "default" : "default"
+            });
+            
+            if (failedCount > 0) {
+                console.warn('Failed items:', failedItems);
+            }
+        } catch (error) {
+            console.error('Error downloading folder:', error);
+            toast({
+                title: "Download Failed",
+                description: error.message || "Failed to download folder",
+                variant: "destructive"
+            });
+        }
+    };
+    
     return (
-        <div className="flex flex-col max-h-[80vh] bg-background overflow-hidden">
+        <div className="flex flex-col h-full bg-background overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b">
                 <div className="flex items-start justify-between mb-4">
@@ -3419,14 +4140,57 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             </div>
             
             {/* Main Content */}
-            <div className="flex flex-1 overflow-hidden">
-                {/* Left Sidebar */}
-                <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
+            <DndContext
+                sensors={sensors}
+                collisionDetection={(args) => {
+                    try {
+                        // First try pointerWithin to get the most specific target
+                        const pointerCollisions = pointerWithin(args);
+                        if (pointerCollisions && pointerCollisions.length > 0) {
+                            // Sort by depth (more specific/nested items first)
+                            const sorted = [...pointerCollisions].sort((a, b) => {
+                                try {
+                                    const aId = a.id?.toString() || '';
+                                    const bId = b.id?.toString() || '';
+                                    // Prioritize folders that are deeper in hierarchy
+                                    if (aId.startsWith('folder-') && bId.startsWith('folder-')) {
+                                        const aFolderId = aId.replace('folder-', '');
+                                        const bFolderId = bId.replace('folder-', '');
+                                        const aFolder = folders?.find(f => f.id === aFolderId);
+                                        const bFolder = folders?.find(f => f.id === bFolderId);
+                                        // If one is a child of the other, prioritize the child
+                                        if (aFolder?.parentId === bFolder?.id) return -1;
+                                        if (bFolder?.parentId === aFolder?.id) return 1;
+                                    }
+                                } catch (e) {
+                                    console.error('Error in collision detection sort:', e);
+                                }
+                                return 0;
+                            });
+                            return sorted;
+                        }
+                    } catch (e) {
+                        console.error('Error in collision detection:', e);
+                    }
+                    // Fallback to closestCenter
+                    return closestCenter(args);
+                }}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
+            >
+                <div className="flex flex-1 overflow-hidden">
+                    {/* Left Sidebar */}
+                    <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
                     <div className="mb-6">
                         <h3 className="text-sm font-semibold mb-2">My Filing System</h3>
                         <div className="space-y-1">
                             <button
-                                onClick={() => setSelectedSidebarItem('allItems')}
+                                onClick={() => {
+                                    setSelectedSidebarItem('allItems');
+                                    setSelectedFolderId(null);
+                                }}
                                 className={`w-full flex items-center gap-2 px-3 py-2 rounded text-sm ${
                                     selectedSidebarItem === 'allItems' ? 'bg-primary text-white' : 'hover:bg-muted'
                                 }`}
@@ -3454,33 +4218,327 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     </div>
                     
                     <div className="mb-6">
-                        <h3 className="text-sm font-semibold mb-2">My Folders</h3>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2 px-3 py-2 rounded hover:bg-muted">
-                                <Folder className="h-4 w-4" />
-                                <span className="text-sm flex-1">Custom Folder 1</span>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger>
-                                        <MoreVertical className="h-4 w-4" />
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem>Rename</DropdownMenuItem>
-                                        <DropdownMenuItem>Delete</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
-                            <div className="ml-6 space-y-1">
-                                <div className="flex items-center gap-2 px-3 py-2 rounded hover:bg-muted">
-                                    <Folder className="h-4 w-4" />
-                                    <span className="text-sm">Subfolder A</span>
+                        <h3 
+                            className="text-sm font-semibold mb-2 cursor-pointer hover:text-primary"
+                            onClick={() => {
+                                setSelectedSidebarItem('folder');
+                                setSelectedFolderId(null);
+                            }}
+                        >
+                            My Folders
+                        </h3>
+                        <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                            {/* Inline folder creation at root level */}
+                            {isCreatingFolder && !creatingFolderParentId && (
+                                <div className="flex items-center gap-2 px-3 py-2">
+                                    <Folder className="h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        value={newFolderName}
+                                        onChange={(e) => setNewFolderName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleCreateFolder(newFolderName, null);
+                                            } else if (e.key === 'Escape') {
+                                                cancelCreatingFolder();
+                                            }
+                                        }}
+                                        onBlur={() => {
+                                            if (newFolderName.trim()) {
+                                                handleCreateFolder(newFolderName, null);
+                                            } else {
+                                                cancelCreatingFolder();
+                                            }
+                                        }}
+                                        placeholder="New folder"
+                                        className="h-7 text-sm"
+                                        autoFocus
+                                    />
                                 </div>
-                                <div className="flex items-center gap-2 px-3 py-2 rounded hover:bg-muted">
-                                    <Folder className="h-4 w-4" />
-                                    <span className="text-sm">Subfolder B</span>
-                                </div>
-                            </div>
+                            )}
+                            
+                            {folders.length === 0 && !isCreatingFolder ? (
+                                <p className="text-xs text-muted-foreground px-3 py-2">No folders yet. Create one to get started.</p>
+                            ) : (
+                                folders
+                                    .filter(folder => !folder.parentId) // Show only root folders
+                                    .map(folder => {
+                                        const isExpanded = expandedFolders.has(folder.id);
+                                        const itemCount = getFolderItemCount(folder.id);
+                                        const subfolders = folders.filter(f => f.parentId === folder.id);
+                                        
+                                        return (
+                                            <div key={folder.id}>
+                                                {renamingFolderId === folder.id ? (
+                                                    <div className="flex items-center gap-2 px-3 py-2">
+                                                        <Folder className="h-4 w-4 text-muted-foreground" />
+                                                        <Input
+                                                            value={editingFolderName}
+                                                            onChange={(e) => setEditingFolderName(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    handleInlineRename(folder.id, editingFolderName);
+                                                                } else if (e.key === 'Escape') {
+                                                                    setRenamingFolderId(null);
+                                                                    setEditingFolderName('');
+                                                                }
+                                                            }}
+                                                            onBlur={() => {
+                                                                if (editingFolderName.trim()) {
+                                                                    handleInlineRename(folder.id, editingFolderName);
+                                                                } else {
+                                                                    setRenamingFolderId(null);
+                                                                    setEditingFolderName('');
+                                                                }
+                                                            }}
+                                                            className="h-7 text-sm"
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                ) : (() => {
+                                                    const DroppableFolder = () => {
+                                                        const { setNodeRef, isOver } = useDroppable({
+                                                            id: `folder-${folder.id}`,
+                                                        });
+                                                        
+                                                        return (
+                                                            <div 
+                                                                ref={setNodeRef}
+                                                                className={cn(
+                                                                    "flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors relative",
+                                                                    selectedFolderId === folder.id ? "bg-primary text-white" : "hover:bg-muted",
+                                                                    isOver && "bg-primary/20 border-2 border-primary border-dashed z-50"
+                                                                )}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedSidebarItem('folder');
+                                                                    setSelectedFolderId(folder.id);
+                                                                }}
+                                                                style={{ zIndex: isOver ? 50 : 10 }}
+                                                            >
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleFolderExpansion(folder.id);
+                                                            }}
+                                                            className="p-0.5 hover:bg-muted rounded"
+                                                        >
+                                                            {isExpanded ? (
+                                                                <ChevronDown className="h-3 w-3" />
+                                                            ) : (
+                                                                <ChevronRight className="h-3 w-3" />
+                                                            )}
+                                                        </button>
+                                                        <Folder className="h-4 w-4" />
+                                                        <span className="text-sm flex-1 truncate">{folder.name}</span>
+                                                        {itemCount > 0 && (
+                                                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                                {itemCount}
+                                                            </Badge>
+                                                        )}
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        startCreatingFolder(folder.id);
+                                                                    }}
+                                                                >
+                                                                    <PlusCircle className="h-4 w-4 mr-2" />
+                                                                    Create Subfolder
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        startRenamingFolder(folder.id, folder.name);
+                                                                    }}
+                                                                >
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Rename
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        handleDownloadFolderContents(folder);
+                                                                    }}
+                                                                >
+                                                                    <Download className="h-4 w-4 mr-2" />
+                                                                    Download Folder
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setFolderToDelete(folder.id);
+                                                                        setDeleteFolderDialogOpen(true);
+                                                                    }}
+                                                                    className="text-destructive"
+                                                                >
+                                                                    <Archive className="h-4 w-4 mr-2" />
+                                                                    Delete
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                            </div>
+                                                        );
+                                                    };
+                                                    
+                                                    return <DroppableFolder key={folder.id} />;
+                                                })()}
+                                                {/* Show subfolder creation input even if folder isn't expanded yet */}
+                                                {(isExpanded || (isCreatingFolder && creatingFolderParentId === folder.id)) && (
+                                                    <div className="ml-6 space-y-1">
+                                                        {/* Inline folder creation for subfolder */}
+                                                        {isCreatingFolder && creatingFolderParentId === folder.id && (
+                                                            <div className="flex items-center gap-2 px-3 py-2">
+                                                                <Folder className="h-4 w-4 text-muted-foreground" />
+                                                                <Input
+                                                                    value={newFolderName}
+                                                                    onChange={(e) => setNewFolderName(e.target.value)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            handleCreateFolder(newFolderName, folder.id);
+                                                                        } else if (e.key === 'Escape') {
+                                                                            cancelCreatingFolder();
+                                                                        }
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        if (newFolderName.trim()) {
+                                                                            handleCreateFolder(newFolderName, folder.id);
+                                                                        } else {
+                                                                            cancelCreatingFolder();
+                                                                        }
+                                                                    }}
+                                                                    placeholder="New folder"
+                                                                    className="h-7 text-sm"
+                                                                    autoFocus
+                                                                />
+                                                            </div>
+                                                        )}
+                                                        {/* Only show existing subfolders if folder is expanded */}
+                                                        {isExpanded && subfolders.map(subfolder => {
+                                                            const subItemCount = getFolderItemCount(subfolder.id);
+                                                            return (
+                                                                <div key={subfolder.id}>
+                                                                    {renamingFolderId === subfolder.id ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-2">
+                                                                            <Folder className="h-4 w-4 text-muted-foreground" />
+                                                                            <Input
+                                                                                value={editingFolderName}
+                                                                                onChange={(e) => setEditingFolderName(e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter') {
+                                                                                        handleInlineRename(subfolder.id, editingFolderName);
+                                                                                    } else if (e.key === 'Escape') {
+                                                                                        setRenamingFolderId(null);
+                                                                                        setEditingFolderName('');
+                                                                                    }
+                                                                                }}
+                                                                                onBlur={() => {
+                                                                                    if (editingFolderName.trim()) {
+                                                                                        handleInlineRename(subfolder.id, editingFolderName);
+                                                                                    } else {
+                                                                                        setRenamingFolderId(null);
+                                                                                        setEditingFolderName('');
+                                                                                    }
+                                                                                }}
+                                                                                className="h-7 text-sm"
+                                                                                autoFocus
+                                                                            />
+                                                                        </div>
+                                                                    ) : (() => {
+                                                                        const DroppableSubfolder = () => {
+                                                                            const { setNodeRef, isOver } = useDroppable({
+                                                                                id: `folder-${subfolder.id}`,
+                                                                            });
+                                                                            
+                                                                            return (
+                                                                                <div
+                                                                                    ref={setNodeRef}
+                                                                                    className={cn(
+                                                                                        "flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors relative z-10",
+                                                                                        selectedFolderId === subfolder.id ? "bg-primary text-white" : "hover:bg-muted",
+                                                                                        isOver && "bg-primary/20 border-2 border-primary border-dashed z-20"
+                                                                                    )}
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setSelectedSidebarItem('folder');
+                                                                                        setSelectedFolderId(subfolder.id);
+                                                                                    }}
+                                                                                    onMouseDown={(e) => {
+                                                                                        // Prevent drag from triggering click on parent folders
+                                                                                        e.stopPropagation();
+                                                                                    }}
+                                                                                >
+                                                                            <Folder className="h-4 w-4" />
+                                                                            <span className="text-sm flex-1 truncate">{subfolder.name}</span>
+                                                                            {subItemCount > 0 && (
+                                                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                                                    {subItemCount}
+                                                                                </Badge>
+                                                                            )}
+                                                                            <DropdownMenu>
+                                                                                <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
+                                                                                    <MoreVertical className="h-4 w-4" />
+                                                                                </DropdownMenuTrigger>
+                                                                                <DropdownMenuContent>
+                                                                                    <DropdownMenuItem
+                                                                                        onClick={() => {
+                                                                                            startCreatingFolder(subfolder.id);
+                                                                                        }}
+                                                                                    >
+                                                                                        <PlusCircle className="h-4 w-4 mr-2" />
+                                                                                        Create Subfolder
+                                                                                    </DropdownMenuItem>
+                                                                                    <DropdownMenuItem
+                                                                                        onClick={() => {
+                                                                                            startRenamingFolder(subfolder.id, subfolder.name);
+                                                                                        }}
+                                                                                    >
+                                                                                        <Edit className="h-4 w-4 mr-2" />
+                                                                                        Rename
+                                                                                    </DropdownMenuItem>
+                                                                                    <DropdownMenuItem
+                                                                                        onClick={() => {
+                                                                                            handleDownloadFolderContents(subfolder);
+                                                                                        }}
+                                                                                    >
+                                                                                        <Download className="h-4 w-4 mr-2" />
+                                                                                        Download Folder
+                                                                                    </DropdownMenuItem>
+                                                                                    <DropdownMenuItem
+                                                                                        onClick={() => {
+                                                                                            setFolderToDelete(subfolder.id);
+                                                                                            setDeleteFolderDialogOpen(true);
+                                                                                        }}
+                                                                                        className="text-destructive"
+                                                                                    >
+                                                                                        <Archive className="h-4 w-4 mr-2" />
+                                                                                        Delete
+                                                                                    </DropdownMenuItem>
+                                                                                </DropdownMenuContent>
+                                                                            </DropdownMenu>
+                                                                                </div>
+                                                                            );
+                                                                        };
+                                                                        
+                                                                        return <DroppableSubfolder key={subfolder.id} />;
+                                                                    })()}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                            )}
                         </div>
-                        <Button variant="outline" size="sm" className="w-full mt-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full mt-2"
+                            onClick={() => {
+                                startCreatingFolder(null);
+                            }}
+                        >
                             <PlusCircle className="h-4 w-4 mr-2" />
                             New Folder
                         </Button>
@@ -3500,111 +4558,563 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     <div className="flex-1 p-6 flex flex-col overflow-hidden">
                         {activeTab === 'patternBook' && (
                             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                                {/* Sub-tabs */}
-                                <div className="flex gap-4 mb-6 border-b">
-                                    <button 
-                                        onClick={() => setActiveSubTab('patterns')}
-                                        className={`px-4 py-2 border-b-2 font-medium ${
-                                            activeSubTab === 'patterns' 
-                                                ? 'border-primary text-primary' 
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Patterns
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveSubTab('scoreSheets')}
-                                        className={`px-4 py-2 border-b-2 font-medium ${
-                                            activeSubTab === 'scoreSheets' 
-                                                ? 'border-primary text-primary' 
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Score Sheets
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveSubTab('accessory')}
-                                        className={`px-4 py-2 border-b-2 font-medium ${
-                                            activeSubTab === 'accessory' 
-                                                ? 'border-primary text-primary' 
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Accessory Documents
-                                    </button>
-                                    <button 
-                                        onClick={() => setActiveSubTab('complete')}
-                                        className={`px-4 py-2 border-b-2 font-medium ${
-                                            activeSubTab === 'complete' 
-                                                ? 'border-primary text-primary' 
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Complete Pattern Books
-                                    </button>
-                                </div>
+                                {/* Sub-tabs - Hide when viewing folder */}
+                                {selectedSidebarItem !== 'folder' && (
+                                    <div className="flex gap-4 mb-6 border-b">
+                                        <button 
+                                            onClick={() => setActiveSubTab('patterns')}
+                                            className={`px-4 py-2 border-b-2 font-medium ${
+                                                activeSubTab === 'patterns' 
+                                                    ? 'border-primary text-primary' 
+                                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Patterns
+                                        </button>
+                                        <button 
+                                            onClick={() => setActiveSubTab('scoreSheets')}
+                                            className={`px-4 py-2 border-b-2 font-medium ${
+                                                activeSubTab === 'scoreSheets' 
+                                                    ? 'border-primary text-primary' 
+                                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Score Sheets
+                                        </button>
+                                        <button 
+                                            onClick={() => setActiveSubTab('accessory')}
+                                            className={`px-4 py-2 border-b-2 font-medium ${
+                                                activeSubTab === 'accessory' 
+                                                    ? 'border-primary text-primary' 
+                                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Accessory Documents
+                                        </button>
+                                        <button 
+                                            onClick={() => setActiveSubTab('complete')}
+                                            className={`px-4 py-2 border-b-2 font-medium ${
+                                                activeSubTab === 'complete' 
+                                                    ? 'border-primary text-primary' 
+                                                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Complete Pattern Books
+                                        </button>
+                                    </div>
+                                )}
                                 
-                                {/* Filters and Actions */}
-                                <div className="flex items-center gap-4 mb-4 flex-wrap">
-                                    <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue>
-                                                {filterDiscipline === 'all' ? 'All Disciplines' : filterDiscipline}
-                                            </SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Disciplines</SelectItem>
-                                            {uniqueDisciplines.map(discipline => (
-                                                <SelectItem key={discipline} value={discipline}>
-                                                    {discipline}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={filterClass} onValueChange={setFilterClass}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue>
-                                                {filterClass === 'all' ? 'All Classes' : filterClass}
-                                            </SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Classes</SelectItem>
-                                            {uniqueClasses.map(className => (
-                                                <SelectItem key={className} value={className}>
-                                                    {className}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={filterJudge} onValueChange={setFilterJudge}>
-                                        <SelectTrigger className="w-40">
-                                            <SelectValue>
-                                                {filterJudge === 'all' ? 'Any Judge' : filterJudge}
-                                            </SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Any Judge</SelectItem>
-                                            {uniqueJudges.map(judge => (
-                                                <SelectItem key={judge} value={judge}>
-                                                    {judge}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                {/* Filters and Actions - Hide when viewing folder */}
+                                {selectedSidebarItem !== 'folder' && (
+                                    <div className="flex items-center gap-4 mb-4 flex-wrap">
+                                        <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
+                                            <SelectTrigger className="w-40">
+                                                <SelectValue>
+                                                    {filterDiscipline === 'all' ? 'All Disciplines' : filterDiscipline}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Disciplines</SelectItem>
+                                                {uniqueDisciplines.map(discipline => (
+                                                    <SelectItem key={discipline} value={discipline}>
+                                                        {discipline}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={filterClass} onValueChange={setFilterClass}>
+                                            <SelectTrigger className="w-40">
+                                                <SelectValue>
+                                                    {filterClass === 'all' ? 'All Classes' : filterClass}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Classes</SelectItem>
+                                                {uniqueClasses.map(className => (
+                                                    <SelectItem key={className} value={className}>
+                                                        {className}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={filterJudge} onValueChange={setFilterJudge}>
+                                            <SelectTrigger className="w-40">
+                                                <SelectValue>
+                                                    {filterJudge === 'all' ? 'Any Judge' : filterJudge}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Any Judge</SelectItem>
+                                                {uniqueJudges.map(judge => (
+                                                    <SelectItem key={judge} value={judge}>
+                                                        {judge}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+                                
+                                {/* My Folders View - Show all root folders */}
+                                {selectedSidebarItem === 'folder' && !selectedFolderId && (() => {
+                                    // Get all root-level folders (folders without parentId)
+                                    const rootFolders = folders.filter(f => !f.parentId);
+                                    
+                                    return (
+                                        <div className="flex flex-col flex-1 min-h-0 overflow-hidden border rounded-lg bg-background">
+                                            {/* Breadcrumb Navigation */}
+                                            <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2 text-sm">
+                                                <span className="font-medium">My Folders</span>
+                                            </div>
+                                            
+                                            {/* Toolbar */}
+                                            <div className="px-4 py-2 border-b flex items-center gap-2">
+                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                    <Edit className="h-3 w-3 mr-1" />
+                                                    Rename
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                    <Archive className="h-3 w-3 mr-1" />
+                                                    Delete
+                                                </Button>
+                                                <div className="ml-auto flex items-center gap-2">
+                                                    <Select value="name" onValueChange={() => {}}>
+                                                        <SelectTrigger className="h-8 w-24 text-xs">
+                                                            <SelectValue>Sort</SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="name">Name</SelectItem>
+                                                            <SelectItem value="date">Date</SelectItem>
+                                                            <SelectItem value="type">Type</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Select value="list" onValueChange={() => {}}>
+                                                        <SelectTrigger className="h-8 w-20 text-xs">
+                                                            <SelectValue>View</SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="list">List</SelectItem>
+                                                            <SelectItem value="grid">Grid</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Table View */}
+                                            <div className="flex-1 overflow-auto">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[300px]">Name</TableHead>
+                                                            <TableHead>Date modified</TableHead>
+                                                            <TableHead>Type</TableHead>
+                                                            <TableHead className="w-[100px] text-right">Actions</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {rootFolders.length === 0 ? (
+                                                            <TableRow>
+                                                                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                                                                    No folders yet. Create a new folder to get started.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ) : (
+                                                            rootFolders.map((folder) => {
+                                                                const folderDate = folder.createdAt 
+                                                                    ? format(new Date(folder.createdAt), 'MM-dd-yyyy HH:mm')
+                                                                    : 'N/A';
+                                                                const itemCount = folder.items?.length || 0;
+                                                                
+                                                                return (
+                                                                    <TableRow 
+                                                                        key={folder.id}
+                                                                        className="hover:bg-muted/50"
+                                                                    >
+                                                                        <TableCell 
+                                                                            className="font-medium cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedFolderId(folder.id);
+                                                                            }}
+                                                                        >
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Folder className="h-4 w-4 text-yellow-500" />
+                                                                                <span>{folder.name}</span>
+                                                                                {itemCount > 0 && (
+                                                                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                                                                        {itemCount}
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell 
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedFolderId(folder.id);
+                                                                            }}
+                                                                        >
+                                                                            {folderDate}
+                                                                        </TableCell>
+                                                                        <TableCell 
+                                                                            className="cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedFolderId(folder.id);
+                                                                            }}
+                                                                        >
+                                                                            File folder
+                                                                        </TableCell>
+                                                                        <TableCell className="text-right">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleDeleteFolder(folder.id);
+                                                                                }}
+                                                                                title="Delete folder"
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                
+                                {/* Folder View - Windows Explorer Style Table */}
+                                {selectedSidebarItem === 'folder' && selectedFolderId && (() => {
+                                    const selectedFolder = folders.find(f => f.id === selectedFolderId);
+                                    if (!selectedFolder) return null;
+                                    
+                                    // Get subfolders of the current folder
+                                    const subfolders = folders.filter(f => f.parentId === selectedFolderId);
+                                    
+                                    // Get folder items (patterns and scoresheets)
+                                    const folderItems = selectedFolder.items || [];
+                                    const allFolderItems = folderItems.map(item => {
+                                        if (item.data) {
+                                            return {
+                                                ...item.data,
+                                                itemType: item.type,
+                                                storedAt: item.storedAt || item.createdAt || selectedFolder.createdAt
+                                            };
+                                        }
+                                        // Try to find in main arrays
+                                        if (item.type === 'pattern') {
+                                            const found = patterns.find(p => {
+                                                const pId = p.id || p.numericId || p.patternId;
+                                                return (item.id === pId || item.id === String(pId));
+                                            });
+                                            return found ? { ...found, itemType: 'pattern', storedAt: item.storedAt || selectedFolder.createdAt } : null;
+                                        } else if (item.type === 'scoresheet') {
+                                            const found = scoresheets.find(s => {
+                                                const sId = s.id || s.numericId;
+                                                return (item.id === sId || item.id === String(sId));
+                                            });
+                                            return found ? { ...found, itemType: 'scoresheet', storedAt: item.storedAt || selectedFolder.createdAt } : null;
+                                        }
+                                        return null;
+                                    }).filter(Boolean);
+                                    
+                                    // Build breadcrumb path
+                                    const buildBreadcrumbPath = (folderId) => {
+                                        const path = [];
+                                        let currentFolder = folders.find(f => f.id === folderId);
+                                        while (currentFolder) {
+                                            path.unshift(currentFolder);
+                                            if (currentFolder.parentId) {
+                                                currentFolder = folders.find(f => f.id === currentFolder.parentId);
+                                            } else {
+                                                break;
+                                            }
+                                        }
+                                        return path;
+                                    };
+                                    
+                                    const breadcrumbPath = buildBreadcrumbPath(selectedFolderId);
+                                    
+                                    return (
+                                        <div className="flex flex-col flex-1 min-h-0 overflow-hidden border rounded-lg bg-background">
+                                            {/* Breadcrumb Navigation */}
+                                            <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2 text-sm">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedFolderId(null);
+                                                    }}
+                                                    className="h-7 text-xs"
+                                                >
+                                                    My Folders
+                                                </Button>
+                                                {breadcrumbPath.map((folder, idx) => (
+                                                    <React.Fragment key={folder.id}>
+                                                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setSelectedFolderId(folder.id);
+                                                            }}
+                                                            className="h-7 text-xs"
+                                                        >
+                                                            {folder.name}
+                                                        </Button>
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                            
+                                            {/* Toolbar */}
+                                            <div className="px-4 py-2 border-b flex items-center gap-2">
+                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                    <Edit className="h-3 w-3 mr-1" />
+                                                    Rename
+                                                </Button>
+                                                <Button variant="ghost" size="sm" className="h-8 text-xs">
+                                                    <Archive className="h-3 w-3 mr-1" />
+                                                    Delete
+                                                </Button>
+                                                <div className="ml-auto flex items-center gap-2">
+                                                    <Select value="name" onValueChange={() => {}}>
+                                                        <SelectTrigger className="h-8 w-24 text-xs">
+                                                            <SelectValue>Sort</SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="name">Name</SelectItem>
+                                                            <SelectItem value="date">Date</SelectItem>
+                                                            <SelectItem value="type">Type</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Select value="list" onValueChange={() => {}}>
+                                                        <SelectTrigger className="h-8 w-20 text-xs">
+                                                            <SelectValue>View</SelectValue>
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="list">List</SelectItem>
+                                                            <SelectItem value="grid">Grid</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Table View */}
+                                            <div className="flex-1 overflow-auto">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead className="w-[300px]">Name</TableHead>
+                                                            <TableHead>Date modified</TableHead>
+                                                            <TableHead>Type</TableHead>
+                                                            <TableHead className="w-[100px] text-right">Actions</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {subfolders.length === 0 && allFolderItems.length === 0 ? (
+                                                            <TableRow>
+                                                                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                                                                    This folder is empty
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ) : (
+                                                            <>
+                                                                {/* Subfolders first */}
+                                                                {subfolders.map((subfolder) => {
+                                                                    const subfolderDate = subfolder.createdAt 
+                                                                        ? format(new Date(subfolder.createdAt), 'MM-dd-yyyy HH:mm')
+                                                                        : 'N/A';
+                                                                    const itemCount = subfolder.items?.length || 0;
+                                                                    
+                                                                    return (
+                                                                        <TableRow 
+                                                                            key={subfolder.id}
+                                                                            className="hover:bg-muted/50"
+                                                                        >
+                                                                            <TableCell 
+                                                                                className="font-medium cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    setSelectedFolderId(subfolder.id);
+                                                                                }}
+                                                                            >
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Folder className="h-4 w-4 text-yellow-500" />
+                                                                                    <span>{subfolder.name}</span>
+                                                                                    {itemCount > 0 && (
+                                                                                        <Badge variant="secondary" className="ml-2 text-xs">
+                                                                                            {itemCount}
+                                                                                        </Badge>
+                                                                                    )}
+                                                                                </div>
+                                                                            </TableCell>
+                                                                            <TableCell 
+                                                                                className="cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    setSelectedFolderId(subfolder.id);
+                                                                                }}
+                                                                            >
+                                                                                {subfolderDate}
+                                                                            </TableCell>
+                                                                            <TableCell 
+                                                                                className="cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    setSelectedFolderId(subfolder.id);
+                                                                                }}
+                                                                            >
+                                                                                File folder
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleDeleteFolder(subfolder.id);
+                                                                                    }}
+                                                                                    title="Delete folder"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    );
+                                                                })}
+                                                                
+                                                                {/* Folder items (patterns and scoresheets) */}
+                                                                {allFolderItems.map((item, idx) => {
+                                                                    const itemName = item.itemType === 'pattern' 
+                                                                        ? (item.patternName || item.name || 'Pattern')
+                                                                        : (item.displayName || item.file_name || item.disciplineName || 'Scoresheet');
+                                                                    
+                                                                    const itemDate = item.storedAt 
+                                                                        ? format(new Date(item.storedAt), 'MM-dd-yyyy HH:mm')
+                                                                        : (item.createdAt ? format(new Date(item.createdAt), 'MM-dd-yyyy HH:mm') : 'N/A');
+                                                                    
+                                                                    const itemType = item.itemType === 'pattern' ? 'Pattern File' : 'Scoresheet File';
+                                                                    
+                                                                    // Get the item ID from the folder items
+                                                                    const folderItem = folderItems.find(fi => {
+                                                                        if (fi.data) {
+                                                                            const fiId = fi.data.id || fi.data.numericId || fi.data.patternId;
+                                                                            const itemId = item.id || item.numericId || item.patternId;
+                                                                            return (fiId === itemId || fiId === String(itemId));
+                                                                        }
+                                                                        const fiId = fi.id;
+                                                                        const itemId = item.id || item.numericId || item.patternId;
+                                                                        return (fiId === itemId || fiId === String(itemId));
+                                                                    });
+                                                                    const itemId = folderItem?.id || item.id || item.numericId || item.patternId;
+                                                                    
+                                                                    return (
+                                                                        <TableRow 
+                                                                            key={`item-${idx}`}
+                                                                            className="hover:bg-muted/50"
+                                                                        >
+                                                                            <TableCell 
+                                                                                className="font-medium cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    if (item.itemType === 'pattern') {
+                                                                                        handleViewPattern(item);
+                                                                                    } else {
+                                                                                        handleViewScoresheet(item);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                <div className="flex items-center gap-2">
+                                                                                    {item.itemType === 'pattern' ? (
+                                                                                        <FileText className="h-4 w-4 text-primary" />
+                                                                                    ) : (
+                                                                                        <FileText className="h-4 w-4 text-orange-500" />
+                                                                                    )}
+                                                                                    <span>{itemName}</span>
+                                                                                </div>
+                                                                            </TableCell>
+                                                                            <TableCell 
+                                                                                className="cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    if (item.itemType === 'pattern') {
+                                                                                        handleViewPattern(item);
+                                                                                    } else {
+                                                                                        handleViewScoresheet(item);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                {itemDate}
+                                                                            </TableCell>
+                                                                            <TableCell 
+                                                                                className="cursor-pointer"
+                                                                                onClick={() => {
+                                                                                    if (item.itemType === 'pattern') {
+                                                                                        handleViewPattern(item);
+                                                                                    } else {
+                                                                                        handleViewScoresheet(item);
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                {itemType}
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        handleRemoveItemFromFolder(itemId, item.itemType, selectedFolderId);
+                                                                                    }}
+                                                                                    title="Remove from folder"
+                                                                                >
+                                                                                    <Trash2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    );
+                                                                })}
+                                                            </>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                                 
                                 {/* Content based on active sub-tab */}
-                                {activeSubTab === 'patterns' && (
+                                {selectedSidebarItem !== 'folder' && activeSubTab === 'patterns' && (
                                     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                                        {/* Patterns List */}
-                                        {isLoadingPatterns ? (
-                                            <div className="flex items-center justify-center py-12">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                {filteredPatterns.map((pattern, index) => (
-                                                    <div key={pattern.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
+                                            {/* Patterns List */}
+                                            {isLoadingPatterns ? (
+                                                <div className="flex items-center justify-center py-12">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2 overflow-y-auto pr-2 flex-1">
+                                                    {filteredPatterns.map((pattern, index) => {
+                                                        const DraggablePattern = () => {
+                                                            const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+                                                                id: `pattern-${index}`,
+                                                            });
+                                                            
+                                                            const style = transform ? {
+                                                                transform: CSS.Translate.toString(transform),
+                                                            } : undefined;
+                                                            
+                                                            return (
+                                                                <div
+                                                                    ref={setNodeRef}
+                                                                    style={style}
+                                                                    {...listeners}
+                                                                    {...attributes}
+                                                                    className={cn(
+                                                                        "flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing",
+                                                                        isDragging && "opacity-50"
+                                                                    )}
+                                                                >
                                                         {/* Pattern Image or Icon - Similar to Step 3 */}
                                                         {pattern.image_url ? (
                                                             <div className="w-16 h-16 rounded-md overflow-hidden border bg-muted/20 shrink-0 flex items-center justify-center">
@@ -3671,6 +5181,34 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             >
                                                                 <FileText className="h-4 w-4" />
                                                             </Button>
+                                                            {folders.length > 0 && (
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            title="Add to Folder"
+                                                                        >
+                                                                            <Folder className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent>
+                                                                        {folders.map(folder => (
+                                                                            <DropdownMenuItem
+                                                                                key={folder.id}
+                                                                                onClick={() => {
+                                                                                    const itemId = pattern.id || pattern.numericId || `pattern-${index}`;
+                                                                                    handleAddToFolder(itemId, 'pattern', folder.id, pattern);
+                                                                                }}
+                                                                            >
+                                                                                <Folder className="h-4 w-4 mr-2" />
+                                                                                {folder.name}
+                                                                            </DropdownMenuItem>
+                                                                        ))}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            )}
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon"
@@ -3683,19 +5221,23 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                 <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                                {filteredPatterns.length === 0 && !isLoadingPatterns && (
-                                                    <div className="text-center py-12 text-muted-foreground">
-                                                        {patterns.length === 0 ? 'No patterns found' : 'No patterns match the selected filters'}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                                                                </div>
+                                                            );
+                                                        };
+                                                        
+                                                        return <DraggablePattern key={pattern.id || index} />;
+                                                    })}
+                                                    {filteredPatterns.length === 0 && !isLoadingPatterns && (
+                                                        <div className="text-center py-12 text-muted-foreground">
+                                                            {patterns.length === 0 ? 'No patterns found' : 'No patterns match the selected filters'}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                 )}
                                 
-                                {activeSubTab === 'scoreSheets' && (
+                                {selectedSidebarItem !== 'folder' && activeSubTab === 'scoreSheets' && (
                                     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                         {/* Score Sheets List */}
                                         {isLoadingScoresheets ? (
@@ -3704,8 +5246,27 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </div>
                                         ) : (
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                {filteredScoresheets.map((scoresheet, index) => (
-                                                    <div key={scoresheet.id || index} className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50">
+                                                {filteredScoresheets.map((scoresheet, index) => {
+                                                    const DraggableScoresheet = () => {
+                                                        const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+                                                            id: `scoresheet-${index}`,
+                                                        });
+                                                        
+                                                        const style = transform ? {
+                                                            transform: CSS.Translate.toString(transform),
+                                                        } : undefined;
+                                                        
+                                                        return (
+                                                            <div
+                                                                ref={setNodeRef}
+                                                                style={style}
+                                                                {...listeners}
+                                                                {...attributes}
+                                                                className={cn(
+                                                                    "flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing",
+                                                                    isDragging && "opacity-50"
+                                                                )}
+                                                            >
                                                         <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center shrink-0">
                                                             <FileText className="h-4 w-4 text-primary" />
                                                         </div>
@@ -3767,9 +5328,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                 <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </div>
-                                                    </div>
-                                                ))}
-                                                {filteredScoresheets.length === 0 && !isLoadingScoresheets && (
+                                                                </div>
+                                                            );
+                                                        };
+                                                        
+                                                        return <DraggableScoresheet key={scoresheet.id || index} />;
+                                                    })}
+                                                    {filteredScoresheets.length === 0 && !isLoadingScoresheets && (
                                                     <div className="text-center py-12 text-muted-foreground">
                                                         {scoresheets.length === 0 ? 'No scoresheets found' : 'No scoresheets match the selected filters'}
                                                     </div>
@@ -3793,8 +5358,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             </div>
                         )}
                     </div>
+                </div>
                     
-                    {/* Right Panel */}
+                {/* Right Panel - Hide when viewing folder contents */}
+                {selectedSidebarItem !== 'folder' && (
                     <div className="w-64 border-l bg-muted/30 p-4">
                         <div className="space-y-4">
                             <div>
@@ -3842,8 +5409,22 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             </div>
                         </div>
                     </div>
+                )}
                 </div>
-            </div>
+                <DragOverlay>
+                    {activeId && draggedItem ? (
+                        <div className="flex items-center gap-4 p-3 border rounded bg-background shadow-lg opacity-90">
+                            <Folder className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">
+                                {draggedItem.type === 'pattern' 
+                                    ? (draggedItem.data.patternName || draggedItem.data.name || 'Pattern')
+                                    : (draggedItem.data.displayName || draggedItem.data.name || 'Scoresheet')
+                                }
+                            </span>
+                        </div>
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
             
             {/* Pattern/Scoresheet Preview Modal */}
             <Dialog open={!!previewItem} onOpenChange={() => {
@@ -4167,6 +5748,70 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 </Button>
                             </div>
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Rename Folder Dialog */}
+            <Dialog open={renameFolderDialogOpen} onOpenChange={setRenameFolderDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Folder</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for this folder.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="rename-folder-name">Folder Name</Label>
+                            <Input
+                                id="rename-folder-name"
+                                value={newFolderName}
+                                onChange={(e) => setNewFolderName(e.target.value)}
+                                placeholder="Enter folder name..."
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        handleRenameFolder();
+                                    }
+                                }}
+                                autoFocus
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => {
+                            setRenameFolderDialogOpen(false);
+                            setNewFolderName('');
+                            setEditingFolderId(null);
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleRenameFolder} disabled={!newFolderName.trim()}>
+                            Rename
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Delete Folder Dialog */}
+            <Dialog open={deleteFolderDialogOpen} onOpenChange={setDeleteFolderDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Folder</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this folder? This will also remove all items stored in this folder. This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => {
+                            setDeleteFolderDialogOpen(false);
+                            setFolderToDelete(null);
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteFolder}>
+                            Delete
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
