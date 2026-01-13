@@ -3436,23 +3436,33 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         try {
             const updatedProjectData = {
                 ...projectData,
-                folders: updatedFolders
+                folders: updatedFolders,
             };
-            
-            await supabase
+
+            const { error } = await supabase
                 .from('projects')
                 .update({ project_data: updatedProjectData })
                 .eq('id', project.id);
-            
-            // Don't call onRefresh() here as it causes the dialog to close
-            // The local state update is sufficient for UI updates
+
+            if (error) {
+                console.error('Error saving folders:', error);
+                toast({
+                    title: "Error",
+                    description: error.message || "Failed to save folders",
+                    variant: "destructive",
+                });
+                return { ok: false, error };
+            }
+
+            return { ok: true };
         } catch (error) {
             console.error('Error saving folders:', error);
             toast({
                 title: "Error",
-                description: "Failed to save folders",
-                variant: "destructive"
+                description: error?.message || "Failed to save folders",
+                variant: "destructive",
             });
+            return { ok: false, error };
         }
     };
     
@@ -3669,14 +3679,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         // Normalize so we always delete by the real folder.id stored in state.
         const resolveFolderId = (maybeId) => {
             if (!maybeId) return null;
-            if (folders.some(f => f.id === maybeId)) return maybeId;
 
-            if (typeof maybeId === 'string' && maybeId.startsWith('folder-')) {
-                const stripped = maybeId.replace(/^folder-/, '');
-                if (folders.some(f => f.id === stripped)) return stripped;
+            const raw = String(maybeId);
+            if (folders.some((f) => String(f.id) === raw)) return raw;
+
+            // Strip repeated "folder-" prefixes until we find a match.
+            let probe = raw;
+            while (probe.startsWith('folder-')) {
+                probe = probe.replace(/^folder-/, '');
+                if (folders.some((f) => String(f.id) === probe)) return probe;
             }
 
-            return maybeId;
+            return raw;
         };
 
         const rawTargetId = folderId || folderToDelete;
@@ -3685,22 +3699,29 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         if (!targetFolderId) return;
 
         const getAllNestedFolderIds = (parentId, allFolders) => {
-            const ids = [parentId];
-            const childFolders = allFolders.filter(f => f.parentId === parentId);
-            childFolders.forEach(child => {
+            const ids = [String(parentId)];
+            const childFolders = allFolders.filter((f) => String(f.parentId) === String(parentId));
+            childFolders.forEach((child) => {
                 ids.push(...getAllNestedFolderIds(child.id, allFolders));
             });
             return ids;
         };
 
-        const folderIdsToDelete = getAllNestedFolderIds(targetFolderId, folders);
+        const folderIdsToDelete = new Set(getAllNestedFolderIds(targetFolderId, folders).map(String));
+
+        console.log('[Folders] delete requested', {
+            rawTargetId,
+            targetFolderId,
+            folderIdsToDelete: [...folderIdsToDelete],
+            allFolderIds: folders.map((f) => String(f.id)),
+        });
 
         // If the current view is inside the folder tree being deleted, navigate out.
-        if (selectedFolderId && folderIdsToDelete.includes(selectedFolderId)) {
-            const targetFolder = folders.find(f => f.id === targetFolderId);
+        if (selectedFolderId && folderIdsToDelete.has(String(selectedFolderId))) {
+            const targetFolder = folders.find((f) => String(f.id) === String(targetFolderId));
             const nextFolderId = targetFolder?.parentId;
 
-            if (nextFolderId && !folderIdsToDelete.includes(nextFolderId) && folders.some(f => f.id === nextFolderId)) {
+            if (nextFolderId && !folderIdsToDelete.has(String(nextFolderId)) && folders.some((f) => String(f.id) === String(nextFolderId))) {
                 setSelectedFolderId(nextFolderId);
             } else {
                 setSelectedSidebarItem('allItems');
@@ -3708,23 +3729,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             }
         }
 
-        const updatedFolders = folders.filter(folder => !folderIdsToDelete.includes(folder.id));
+        const prevFolders = folders;
+        const updatedFolders = folders.filter((folder) => !folderIdsToDelete.has(String(folder.id)));
+
+        // Optimistic UI update
         setFolders(updatedFolders);
 
         // Clean up expanded state so deleted folders don't linger in UI state.
-        setExpandedFolders(prev => {
-            const next = new Set([...prev].filter(id => !folderIdsToDelete.includes(id)));
+        setExpandedFolders((prev) => {
+            const next = new Set([...prev].filter((id) => !folderIdsToDelete.has(String(id))));
             return next;
         });
 
-        await saveFoldersToProject(updatedFolders);
+        const saveResult = await saveFoldersToProject(updatedFolders);
+        if (!saveResult?.ok) {
+            // Revert if persistence failed
+            console.warn('[Folders] delete failed, reverting UI');
+            setFolders(prevFolders);
+            return;
+        }
 
         setFolderToDelete(null);
         setDeleteFolderDialogOpen(false);
 
         toast({
             title: "Folder Deleted",
-            description: `Folder and ${folderIdsToDelete.length > 1 ? 'its subfolders have' : 'its contents have'} been removed`
+            description: `Folder and ${folderIdsToDelete.size > 1 ? 'its subfolders have' : 'its contents have'} been removed`,
         });
     };
     
