@@ -4346,17 +4346,19 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             {folders.length === 0 && !isCreatingFolder ? (
                                 <p className="text-xs text-muted-foreground px-3 py-2">No folders yet. Create one to get started.</p>
                             ) : (
-                                folders
-                                    .filter(folder => !folder.parentId) // Show only root folders
-                                    .map(folder => {
+                                // Recursive folder rendering function
+                                (() => {
+                                    const renderFolder = (folder, depth = 0) => {
                                         const isExpanded = expandedFolders.has(folder.id);
                                         const itemCount = getFolderItemCount(folder.id);
                                         const subfolders = folders.filter(f => f.parentId === folder.id);
+                                        const hasSubfolders = subfolders.length > 0;
+                                        const marginLeft = depth * 16; // 16px per level
                                         
                                         return (
                                             <div key={folder.id}>
                                                 {renamingFolderId === folder.id ? (
-                                                    <div className="flex items-center gap-2 px-3 py-2">
+                                                    <div className="flex items-center gap-2 px-3 py-2" style={{ marginLeft }}>
                                                         <Folder className="h-4 w-4 text-muted-foreground" />
                                                         <Input
                                                             value={editingFolderName}
@@ -4400,83 +4402,84 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     setSelectedSidebarItem('folder');
                                                                     setSelectedFolderId(folder.id);
                                                                 }}
-                                                                style={{ zIndex: isOver ? 50 : 10 }}
+                                                                style={{ zIndex: isOver ? 50 : 10, marginLeft }}
                                                             >
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                toggleFolderExpansion(folder.id);
-                                                            }}
-                                                            className="p-0.5 hover:bg-muted rounded"
-                                                        >
-                                                            {isExpanded ? (
-                                                                <ChevronDown className="h-3 w-3" />
-                                                            ) : (
-                                                                <ChevronRight className="h-3 w-3" />
-                                                            )}
-                                                        </button>
-                                                        <Folder className="h-4 w-4" />
-                                                        <span className="text-sm flex-1 truncate">{folder.name}</span>
-                                                        {itemCount > 0 && (
-                                                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                                                {itemCount}
-                                                            </Badge>
-                                                        )}
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent>
-                                                                <DropdownMenuItem
-                                                                    onClick={() => {
-                                                                        startCreatingFolder(folder.id);
-                                                                    }}
-                                                                >
-                                                                    <PlusCircle className="h-4 w-4 mr-2" />
-                                                                    Create Subfolder
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    onClick={() => {
-                                                                        startRenamingFolder(folder.id, folder.name);
-                                                                    }}
-                                                                >
-                                                                    <Edit className="h-4 w-4 mr-2" />
-                                                                    Rename
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    onClick={() => {
-                                                                        handleDownloadFolderContents(folder);
-                                                                    }}
-                                                                >
-                                                                    <Download className="h-4 w-4 mr-2" />
-                                                                    Download Folder
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    onSelect={(e) => {
+                                                                <button
+                                                                    onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        setFolderToDelete(folder.id);
-                                                                        // Open after the menu closes to avoid Radix focus conflicts
-                                                                        requestAnimationFrame(() => setDeleteFolderDialogOpen(true));
+                                                                        toggleFolderExpansion(folder.id);
                                                                     }}
-                                                                    className="text-destructive"
+                                                                    className="p-0.5 hover:bg-muted rounded"
                                                                 >
-                                                                    <Archive className="h-4 w-4 mr-2" />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                                    {isExpanded ? (
+                                                                        <ChevronDown className="h-3 w-3" />
+                                                                    ) : (
+                                                                        <ChevronRight className="h-3 w-3" />
+                                                                    )}
+                                                                </button>
+                                                                <Folder className="h-4 w-4" />
+                                                                <span className="text-sm flex-1 truncate">{folder.name}</span>
+                                                                {itemCount > 0 && (
+                                                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                                        {itemCount}
+                                                                    </Badge>
+                                                                )}
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent className="bg-popover z-50">
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => {
+                                                                                startCreatingFolder(folder.id);
+                                                                                setExpandedFolders(prev => new Set([...prev, folder.id]));
+                                                                            }}
+                                                                        >
+                                                                            <PlusCircle className="h-4 w-4 mr-2" />
+                                                                            Create Subfolder
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => {
+                                                                                startRenamingFolder(folder.id, folder.name);
+                                                                            }}
+                                                                        >
+                                                                            <Edit className="h-4 w-4 mr-2" />
+                                                                            Rename
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => {
+                                                                                handleDownloadFolderContents(folder);
+                                                                            }}
+                                                                        >
+                                                                            <Download className="h-4 w-4 mr-2" />
+                                                                            Download Folder
+                                                                        </DropdownMenuItem>
+                                                                        <DropdownMenuItem
+                                                                            onSelect={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setFolderToDelete(folder.id);
+                                                                                requestAnimationFrame(() => setDeleteFolderDialogOpen(true));
+                                                                            }}
+                                                                            className="text-destructive"
+                                                                        >
+                                                                            <Archive className="h-4 w-4 mr-2" />
+                                                                            Delete
+                                                                        </DropdownMenuItem>
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
                                                             </div>
                                                         );
                                                     };
                                                     
                                                     return <DroppableFolder key={folder.id} />;
                                                 })()}
-                                                {/* Show subfolder creation input even if folder isn't expanded yet */}
+                                                
+                                                {/* Show subfolder creation input and subfolders when expanded */}
                                                 {(isExpanded || (isCreatingFolder && creatingFolderParentId === folder.id)) && (
-                                                    <div className="ml-6 space-y-1">
+                                                    <div className="space-y-1">
                                                         {/* Inline folder creation for subfolder */}
                                                         {isCreatingFolder && creatingFolderParentId === folder.id && (
-                                                            <div className="flex items-center gap-2 px-3 py-2">
+                                                            <div className="flex items-center gap-2 px-3 py-2" style={{ marginLeft: marginLeft + 16 }}>
                                                                 <Folder className="h-4 w-4 text-muted-foreground" />
                                                                 <Input
                                                                     value={newFolderName}
@@ -4501,124 +4504,19 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                 />
                                                             </div>
                                                         )}
-                                                        {/* Only show existing subfolders if folder is expanded */}
-                                                        {isExpanded && subfolders.map(subfolder => {
-                                                            const subItemCount = getFolderItemCount(subfolder.id);
-                                                            return (
-                                                                <div key={subfolder.id}>
-                                                                    {renamingFolderId === subfolder.id ? (
-                                                                        <div className="flex items-center gap-2 px-3 py-2">
-                                                                            <Folder className="h-4 w-4 text-muted-foreground" />
-                                                                            <Input
-                                                                                value={editingFolderName}
-                                                                                onChange={(e) => setEditingFolderName(e.target.value)}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter') {
-                                                                                        handleInlineRename(subfolder.id, editingFolderName);
-                                                                                    } else if (e.key === 'Escape') {
-                                                                                        setRenamingFolderId(null);
-                                                                                        setEditingFolderName('');
-                                                                                    }
-                                                                                }}
-                                                                                onBlur={() => {
-                                                                                    if (editingFolderName.trim()) {
-                                                                                        handleInlineRename(subfolder.id, editingFolderName);
-                                                                                    } else {
-                                                                                        setRenamingFolderId(null);
-                                                                                        setEditingFolderName('');
-                                                                                    }
-                                                                                }}
-                                                                                className="h-7 text-sm"
-                                                                                autoFocus
-                                                                            />
-                                                                        </div>
-                                                                    ) : (() => {
-                                                                        const DroppableSubfolder = () => {
-                                                                            const { setNodeRef, isOver } = useDroppable({
-                                                                                id: `folder-${subfolder.id}`,
-                                                                            });
-                                                                            
-                                                                            return (
-                                                                                <div
-                                                                                    ref={setNodeRef}
-                                                                                    className={cn(
-                                                                                        "flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors relative z-10",
-                                                                                        selectedFolderId === subfolder.id ? "bg-primary text-white" : "hover:bg-muted",
-                                                                                        isOver && "bg-primary/20 border-2 border-primary border-dashed z-20"
-                                                                                    )}
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        setSelectedSidebarItem('folder');
-                                                                                        setSelectedFolderId(subfolder.id);
-                                                                                    }}
-                                                                                    onMouseDown={(e) => {
-                                                                                        // Prevent drag from triggering click on parent folders
-                                                                                        e.stopPropagation();
-                                                                                    }}
-                                                                                >
-                                                                            <Folder className="h-4 w-4" />
-                                                                            <span className="text-sm flex-1 truncate">{subfolder.name}</span>
-                                                                            {subItemCount > 0 && (
-                                                                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                                                                    {subItemCount}
-                                                                                </Badge>
-                                                                            )}
-                                                                            <DropdownMenu>
-                                                                                <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
-                                                                                    <MoreVertical className="h-4 w-4" />
-                                                                                </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent>
-                                                                                    <DropdownMenuItem
-                                                                                        onClick={() => {
-                                                                                            startCreatingFolder(subfolder.id);
-                                                                                        }}
-                                                                                    >
-                                                                                        <PlusCircle className="h-4 w-4 mr-2" />
-                                                                                        Create Subfolder
-                                                                                    </DropdownMenuItem>
-                                                                                    <DropdownMenuItem
-                                                                                        onClick={() => {
-                                                                                            startRenamingFolder(subfolder.id, subfolder.name);
-                                                                                        }}
-                                                                                    >
-                                                                                        <Edit className="h-4 w-4 mr-2" />
-                                                                                        Rename
-                                                                                    </DropdownMenuItem>
-                                                                                    <DropdownMenuItem
-                                                                                        onClick={() => {
-                                                                                            handleDownloadFolderContents(subfolder);
-                                                                                        }}
-                                                                                    >
-                                                                                        <Download className="h-4 w-4 mr-2" />
-                                                                                        Download Folder
-                                                                                    </DropdownMenuItem>
-                                                                                    <DropdownMenuItem
-                                                                                        onSelect={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            setFolderToDelete(subfolder.id);
-                                                                                            requestAnimationFrame(() => setDeleteFolderDialogOpen(true));
-                                                                                        }}
-                                                                                        className="text-destructive"
-                                                                                    >
-                                                                                        <Archive className="h-4 w-4 mr-2" />
-                                                                                        Delete
-                                                                                    </DropdownMenuItem>
-                                                                                </DropdownMenuContent>
-                                                                            </DropdownMenu>
-                                                                                </div>
-                                                                            );
-                                                                        };
-                                                                        
-                                                                        return <DroppableSubfolder key={subfolder.id} />;
-                                                                    })()}
-                                                                </div>
-                                                            );
-                                                        })}
+                                                        {/* Recursively render subfolders */}
+                                                        {isExpanded && subfolders.map(subfolder => renderFolder(subfolder, depth + 1))}
                                                     </div>
                                                 )}
                                             </div>
                                         );
-                                    })
+                                    };
+                                    
+                                    // Render only root folders, subfolders are handled recursively
+                                    return folders
+                                        .filter(folder => !folder.parentId)
+                                        .map(folder => renderFolder(folder, 0));
+                                })()
                             )}
                         </div>
                         <Button 
