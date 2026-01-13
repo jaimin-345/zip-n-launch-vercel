@@ -3941,12 +3941,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                     console.log(`Trying to fetch pattern image for ID: ${numericId}`);
                                                     const { data: patternDetail, error: patternError } = await supabase
                                                         .from('tbl_pattern_media')
-                                                        .select('pdf_url, file_url, image_url')
+                                                        .select('image_url, file_url, storage_path')
                                                         .eq('pattern_id', numericId)
                                                         .maybeSingle();
                                                     
+                                                    console.log('Pattern media query result:', { patternDetail, patternError });
+                                                    
                                                     if (!patternError && patternDetail) {
-                                                        fileUrl = patternDetail.image_url || patternDetail.pdf_url || patternDetail.file_url;
+                                                        fileUrl = patternDetail.image_url || patternDetail.file_url;
                                                         console.log('Fetched pattern URL from database:', fileUrl);
                                                         if (fileUrl) break; // Found URL, stop trying other IDs
                                                     }
