@@ -4230,7 +4230,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 sensors={sensors}
                 collisionDetection={(args) => {
                     try {
-                        // First try pointerWithin to get the most specific target
+                        // ONLY use pointerWithin - requires pointer to be directly over target
+                        // Do NOT fallback to closestCenter as it causes auto-assignment when not hovering
                         const pointerCollisions = pointerWithin(args);
                         if (pointerCollisions && pointerCollisions.length > 0) {
                             // Sort by depth (more specific/nested items first)
@@ -4258,8 +4259,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     } catch (e) {
                         console.error('Error in collision detection:', e);
                     }
-                    // Fallback to closestCenter
-                    return closestCenter(args);
+                    // Return empty array - no valid drop target if pointer isn't directly over one
+                    return [];
                 }}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
