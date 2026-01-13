@@ -3666,12 +3666,30 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     
     const handleDeleteFolder = async (folderId = null) => {
         const targetFolderId = folderId || folderToDelete;
-        if (!targetFolderId) return;
+        if (!targetFolderId) {
+            console.log('No folder to delete');
+            return;
+        }
+        
+        console.log('Deleting folder:', targetFolderId);
+        
+        // Get all folder IDs to delete (including nested subfolders)
+        const getAllNestedFolderIds = (parentId, allFolders) => {
+            const ids = [parentId];
+            const childFolders = allFolders.filter(f => f.parentId === parentId);
+            childFolders.forEach(child => {
+                ids.push(...getAllNestedFolderIds(child.id, allFolders));
+            });
+            return ids;
+        };
+        
+        const folderIdsToDelete = getAllNestedFolderIds(targetFolderId, folders);
+        console.log('Folders to delete:', folderIdsToDelete);
         
         // If deleting the currently selected folder, navigate back
-        if (targetFolderId === selectedFolderId) {
+        if (folderIdsToDelete.includes(selectedFolderId)) {
             const folder = folders.find(f => f.id === targetFolderId);
-            if (folder?.parentId) {
+            if (folder?.parentId && !folderIdsToDelete.includes(folder.parentId)) {
                 setSelectedFolderId(folder.parentId);
             } else {
                 setSelectedSidebarItem('allItems');
@@ -3679,23 +3697,20 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             }
         }
         
-        // Remove folder and all its items
-        const updatedFolders = folders.filter(folder => folder.id !== targetFolderId);
-        
-        // Also remove items from patterns/scoresheets that were in this folder
-        // (This would require updating the pattern/scoresheet data structure)
+        // Remove folder and all its nested subfolders
+        const updatedFolders = folders.filter(folder => !folderIdsToDelete.includes(folder.id));
+        console.log('Remaining folders:', updatedFolders.length);
         
         setFolders(updatedFolders);
         await saveFoldersToProject(updatedFolders);
         
-        if (!folderId) {
-            setFolderToDelete(null);
-            setDeleteFolderDialogOpen(false);
-        }
+        // Always close dialog and reset state
+        setFolderToDelete(null);
+        setDeleteFolderDialogOpen(false);
         
         toast({
             title: "Folder Deleted",
-            description: "Folder and its contents have been removed"
+            description: `Folder and ${folderIdsToDelete.length > 1 ? 'its subfolders have' : 'its contents have'} been removed`
         });
     };
     
