@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { PlusCircle, Move, Info, Undo2, Sparkles, Check } from 'lucide-react';
+import { PlusCircle, Move, Info, Undo2, Sparkles, Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DndContext, closestCenter, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,6 +18,8 @@ const UNGROUPED_ID = 'ungrouped-list';
 
 export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData, divisionsData }) => {
     const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
+    const [isDuplicateGroupsDialogOpen, setIsDuplicateGroupsDialogOpen] = useState(false);
+    const [selectedSourceDisciplineId, setSelectedSourceDisciplineId] = useState(null);
     const { toast } = useToast();
 
     const sensors = useSensors(
@@ -446,6 +450,154 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         }
     };
 
+    // Get disciplines that have pattern groups (for duplicate groups dialog)
+    const getDisciplinesWithGroups = useMemo(() => {
+        return (formData.disciplines || []).filter(disc => {
+            // Exclude current discipline
+            if (disc.id === pbbDiscipline.id) return false;
+            // Only include disciplines that have pattern groups
+            const groups = disc.patternGroups || [];
+            return groups.length > 0;
+        });
+    }, [formData.disciplines, pbbDiscipline.id]);
+
+    // Handle duplicating groups from source discipline
+    const handleDuplicateGroups = (sourceDisciplineId) => {
+        if (!sourceDisciplineId) {
+            toast({
+                title: 'Error',
+                description: 'Please select a source discipline.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const sourceDiscipline = formData.disciplines?.find(d => d.id === sourceDisciplineId);
+        if (!sourceDiscipline) {
+            toast({
+                title: 'Error',
+                description: 'Source discipline not found.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const sourceGroups = sourceDiscipline.patternGroups || [];
+        if (sourceGroups.length === 0) {
+            toast({
+                title: 'No Groups to Duplicate',
+                description: `"${sourceDiscipline.name}" has no pattern groups to copy.`,
+            });
+            return;
+        }
+
+        // Map source divisions to current discipline divisions by matching division names
+        const createDivisionMapping = () => {
+            const mapping = new Map();
+            
+            // Get all divisions from source discipline
+            const sourceDivisionOrder = sourceDiscipline.divisionOrder || [];
+            const currentDivisionOrder = pbbDiscipline.divisionOrder || [];
+            
+            // Create a map of division names to division IDs for both disciplines
+            const sourceDivisionsMap = new Map();
+            sourceDivisionOrder.forEach(divId => {
+                const [assocId, ...divisionParts] = divId.split('-');
+                const divisionName = divisionParts.join('-');
+                sourceDivisionsMap.set(divisionName, divId);
+            });
+            
+            const currentDivisionsMap = new Map();
+            currentDivisionOrder.forEach(divId => {
+                const [assocId, ...divisionParts] = divId.split('-');
+                const divisionName = divisionParts.join('-');
+                currentDivisionsMap.set(divisionName, divId);
+            });
+            
+            // Map source division IDs to current division IDs by matching names
+            sourceDivisionsMap.forEach((sourceDivId, divisionName) => {
+                if (currentDivisionsMap.has(divisionName)) {
+                    mapping.set(sourceDivId, currentDivisionsMap.get(divisionName));
+                }
+            });
+            
+            return mapping;
+        };
+
+        const divisionMapping = createDivisionMapping();
+
+        setFormData(prev => {
+            // Create a mapping of source group IDs to new group IDs
+            const groupIdMapping = new Map();
+            const newPatternGroups = sourceGroups.map((sourceGroup, index) => {
+                const newGroupId = `pattern-group-${Date.now()}-${index}`;
+                groupIdMapping.set(sourceGroup.id, newGroupId);
+                
+                // Map divisions from source to current discipline
+                const mappedDivisions = (sourceGroup.divisions || []).map(sourceDiv => {
+                    const sourceDivId = typeof sourceDiv === 'string' ? sourceDiv : (sourceDiv?.id || sourceDiv);
+                    const currentDivId = divisionMapping.get(sourceDivId);
+                    
+                    if (currentDivId) {
+                        // Parse current division ID to get assocId and division name
+                        const [assocId, ...divisionParts] = currentDivId.split('-');
+                        const divisionName = divisionParts.join('-');
+                        return {
+                            id: currentDivId,
+                            assocId: assocId,
+                            division: divisionName
+                        };
+                    }
+                    return null;
+                }).filter(Boolean); // Remove null entries
+
+                return {
+                    id: newGroupId,
+                    name: sourceGroup.name || `Group ${index + 1}`,
+                    divisions: mappedDivisions,
+                    rulebookPatternId: sourceGroup.rulebookPatternId || '',
+                };
+            });
+
+            // Copy pattern selections from source discipline
+            const newPatternSelections = { ...(prev.patternSelections || {}) };
+            const sourcePatternSelections = prev.patternSelections?.[sourceDisciplineId] || {};
+            
+            if (Object.keys(sourcePatternSelections).length > 0) {
+                newPatternSelections[pbbDiscipline.id] = {};
+                Object.entries(sourcePatternSelections).forEach(([sourceGroupId, selection]) => {
+                    const newGroupId = groupIdMapping.get(sourceGroupId);
+                    if (newGroupId && selection) {
+                        // Deep copy the selection
+                        newPatternSelections[pbbDiscipline.id][newGroupId] = JSON.parse(JSON.stringify(selection));
+                    }
+                });
+            }
+
+            return {
+                ...prev,
+                disciplines: prev.disciplines.map(disc => {
+                    if (disc.id === pbbDiscipline.id) {
+                        return {
+                            ...disc,
+                            patternGroups: newPatternGroups
+                        };
+                    }
+                    return disc;
+                }),
+                patternSelections: newPatternSelections
+            };
+        });
+
+        toast({
+            title: 'Groups Duplicated',
+            description: `Pattern groups copied from "${sourceDiscipline.name}".`,
+        });
+
+        setIsDuplicateGroupsDialogOpen(false);
+        setSelectedSourceDisciplineId(null);
+    };
+
     const handleAutoGroup = () => {
         if (ungroupedDivisions.length === 0) {
             toast({ title: 'Nothing to group!', description: 'There are no ungrouped divisions.' });
@@ -629,10 +781,22 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                                 </Label>
                                 <p className="text-xs text-muted-foreground">Drag, or select and move divisions.</p>
                             </div>
-                            <Button variant="outline" size="sm" onClick={handleAutoGroup} disabled={ungroupedDivisions.length === 0}>
-                                <Sparkles className="h-4 w-4 mr-2" />
-                                Auto-Group
-                            </Button>
+                            <div className="flex gap-2">
+                                {getDisciplinesWithGroups.length > 0 && (
+                                    <Button 
+                                        variant="secondary" 
+                                        size="sm" 
+                                        onClick={() => setIsDuplicateGroupsDialogOpen(true)}
+                                    >
+                                        <Copy className="h-4 w-4 mr-2" />
+                                        Duplicate Groups
+                                    </Button>
+                                )}
+                                <Button variant="outline" size="sm" onClick={handleAutoGroup} disabled={ungroupedDivisions.length === 0}>
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                    Auto-Group
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between bg-background p-2 rounded-md mb-3">
@@ -710,12 +874,59 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                                 formData={formData}
                                 associationsData={associationsData}
                                 divisionsData={divisionsData}
+                                hasUngroupedDivisions={ungroupedDivisions.length > 0}
                             />
                         ))}
                     </SortableContext>
                     <Button variant="outline" size="sm" className="w-full" onClick={() => handleAddPatternGroup(pbbDiscipline.id)}><PlusCircle className="h-4 w-4 mr-2" />Add Pattern Group</Button>
                 </div>
             </div>
+
+            {/* Duplicate Groups Dialog */}
+            <Dialog open={isDuplicateGroupsDialogOpen} onOpenChange={setIsDuplicateGroupsDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Duplicate Groups From</DialogTitle>
+                        <DialogDescription>
+                            Select a discipline to copy all its pattern groups to "{pbbDiscipline.name}".
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="source-discipline-duplicate">Source Discipline</Label>
+                            <Select
+                                value={selectedSourceDisciplineId || ''}
+                                onValueChange={setSelectedSourceDisciplineId}
+                            >
+                                <SelectTrigger id="source-discipline-duplicate">
+                                    <SelectValue placeholder="Select a discipline..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getDisciplinesWithGroups.map(disc => (
+                                        <SelectItem key={disc.id} value={disc.id}>
+                                            {disc.name} ({disc.patternGroups?.length || 0} groups)
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setIsDuplicateGroupsDialogOpen(false);
+                            setSelectedSourceDisciplineId(null);
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={() => handleDuplicateGroups(selectedSourceDisciplineId)}
+                            disabled={!selectedSourceDisciplineId}
+                        >
+                            Duplicate Groups
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </DndContext>
     );
 };

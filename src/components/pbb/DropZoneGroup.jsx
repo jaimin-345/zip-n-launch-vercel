@@ -473,7 +473,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 };
 
 
-const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, handleRemovePatternGroup, handleAiAssistClick, setFormData, formData, associationsData, divisionsData }) => {
+const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, handleRemovePatternGroup, handleAiAssistClick, setFormData, formData, associationsData, divisionsData, hasUngroupedDivisions = false }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: group.id,
         data: {
@@ -1186,13 +1186,27 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                 value={pattern.id.toString()}
                                                 onMouseEnter={(e) => {
                                                     setHoveredPatternId(pattern.id);
-                                                    // Center the preview in the middle of the screen
-                                                    const screenWidth = window.innerWidth;
-                                                    const screenHeight = window.innerHeight;
-                                                    setHoverPosition({ 
-                                                        x: screenWidth / 2, 
-                                                        y: screenHeight / 2 
-                                                    });
+                                                    // If there are ungrouped divisions, position image to the left side
+                                                    // to avoid covering the dropdown on the right
+                                                    // Otherwise, center it
+                                                    if (hasUngroupedDivisions) {
+                                                        // Position to the left side of the screen
+                                                        const screenWidth = window.innerWidth;
+                                                        const screenHeight = window.innerHeight;
+                                                        // Position at 20% from left, vertically centered
+                                                        setHoverPosition({ 
+                                                            x: screenWidth * 0.20, 
+                                                            y: screenHeight / 2 
+                                                        });
+                                                    } else {
+                                                        // Center the preview in the middle of the screen
+                                                        const screenWidth = window.innerWidth;
+                                                        const screenHeight = window.innerHeight;
+                                                        setHoverPosition({ 
+                                                            x: screenWidth / 2, 
+                                                            y: screenHeight / 2 
+                                                        });
+                                                    }
                                                 }}
                                                 onMouseLeave={(e) => {
                                                     // Don't hide immediately - let the preview handle its own mouse leave
@@ -1232,11 +1246,18 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     )}
                                 </SelectContent>
                             </Select>
-                            {/* Hover Preview - Rendered via portal at body level, centered */}
+                            {/* Hover Preview - Rendered via portal at body level */}
                             {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                 <div
                                     className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
-                                    style={{
+                                    style={hasUngroupedDivisions ? {
+                                        // Position to the left side when ungrouped divisions exist
+                                        // This prevents covering the dropdown on the right
+                                        left: `${hoverPosition.x}px`,
+                                        top: `${hoverPosition.y}px`,
+                                        transform: 'translate(0, -50%)',
+                                    } : {
+                                        // Center when no ungrouped divisions
                                         left: '50%',
                                         top: '50%',
                                         transform: 'translate(-50%, -50%)',

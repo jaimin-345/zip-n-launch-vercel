@@ -181,10 +181,76 @@ export const usePatternBookBuilder = (projectId) => {
     });
   }, [disciplineLibrary]);
 
+  // Helper function to get the next available show number
+  // Starts from 1000 and increments sequentially, filling any gaps
+  const getNextShowNumber = useCallback(async () => {
+    try {
+      // Fetch all pattern book projects
+      const { data: projects, error } = await supabase
+        .from('projects')
+        .select('project_data')
+        .eq('project_type', 'pattern_book');
+
+      if (error) {
+        console.error('Error fetching projects for show number:', error);
+        return '1000'; // Default to 1000 on error
+      }
+
+      // Extract show numbers from project_data
+      // Only consider numbers that are >= 1000 and are simple numeric values
+      const showNumbers = new Set();
+      if (projects && projects.length > 0) {
+        projects.forEach(project => {
+          const showNumber = project.project_data?.showNumber;
+          if (showNumber) {
+            const showNumberStr = showNumber.toString().trim();
+            // Only consider if it's a simple numeric value (not formats like "2024-001")
+            // Check if it's a pure number >= 1000
+            if (/^\d+$/.test(showNumberStr)) {
+              const numericValue = parseInt(showNumberStr, 10);
+              if (!isNaN(numericValue) && numericValue >= 1000) {
+                showNumbers.add(numericValue);
+              }
+            }
+          }
+        });
+      }
+
+      // If no show numbers exist, start from 1000
+      if (showNumbers.size === 0) {
+        return '1000';
+      }
+
+      // Find the next available number sequentially starting from 1000
+      // This fills any gaps in the sequence
+      for (let num = 1000; num <= 9999; num++) {
+        if (!showNumbers.has(num)) {
+          return num.toString();
+        }
+      }
+
+      // If all numbers 1000-9999 are taken, continue from highest + 1
+      const highestNumber = Math.max(...Array.from(showNumbers));
+      return (highestNumber + 1).toString();
+    } catch (error) {
+      console.error('Error generating show number:', error);
+      return '1000'; // Default to 1000 on error
+    }
+  }, []);
+
   const createOrUpdateProject = useCallback(async () => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save a project.', variant: 'destructive' });
       return null;
+    }
+
+    // Auto-generate show number if empty
+    let finalFormData = { ...formData };
+    if (!finalFormData.showNumber || finalFormData.showNumber.trim() === '') {
+      const generatedShowNumber = await getNextShowNumber();
+      finalFormData.showNumber = generatedShowNumber;
+      // Update formData state so it's reflected in the UI
+      setFormData(prev => ({ ...prev, showNumber: generatedShowNumber }));
     }
 
     // Add current step to completedSteps before saving
@@ -202,7 +268,7 @@ export const usePatternBookBuilder = (projectId) => {
     const projectStatus = allStepsComplete ? 'Draft' : 'In progress';
 
     const projectToSave = {
-      ...formData,
+      ...finalFormData,
       currentStep: step,
       completedSteps: Array.from(updatedCompletedSteps),
     };
@@ -248,7 +314,7 @@ export const usePatternBookBuilder = (projectId) => {
       toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
       return newProjectId;
     }
-  }, [formData, step, completedSteps, setCompletedSteps, sanitizedProjectId, toast, navigate, user]);
+  }, [formData, step, completedSteps, setCompletedSteps, sanitizedProjectId, toast, navigate, user, getNextShowNumber]);
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 10));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));

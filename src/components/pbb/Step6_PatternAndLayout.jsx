@@ -679,14 +679,34 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   const handleOpenAssignDialog = (discipline, disciplineIndex) => {
-    // Get all judges from all associations
+    // Get all judges from all associations with their association info
     const associationJudges = [];
     if (formData.associationJudges) {
-      Object.values(formData.associationJudges).forEach(assocData => {
+      Object.entries(formData.associationJudges).forEach(([assocId, assocData]) => {
         const judges = assocData?.judges || [];
+        // Find association details
+        const association = associationsData?.find(a => a.id === assocId);
+        const assocName = association?.abbreviation || association?.name || assocId;
+        
         judges.forEach(judge => {
-          if (judge.name && !associationJudges.find(j => j.name === judge.name)) {
-            associationJudges.push(judge);
+          if (judge.name) {
+            // Check if judge already exists in the list
+            const existingJudge = associationJudges.find(j => j.name === judge.name);
+            if (existingJudge) {
+              // If judge already exists, add association to the list if not already present
+              if (!existingJudge.associations) {
+                existingJudge.associations = [];
+              }
+              if (!existingJudge.associations.includes(assocName)) {
+                existingJudge.associations.push(assocName);
+              }
+            } else {
+              // Add judge with association info
+              associationJudges.push({
+                ...judge,
+                associations: [assocName]
+              });
+            }
           }
         });
       });
@@ -2356,7 +2376,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </Button>
                         )}
 
-                        {/* Assign Staff Button - Only for Custom Pattern disciplines */}
+                        {/* Assign Judge Button - Only for Custom Pattern disciplines */}
                         {(discipline.isCustom || discipline.pattern_type === 'custom') && (
                           <Button
                             variant="outline"
@@ -2364,11 +2384,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             className="h-8 text-xs"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleOpenAssignStaffDialog(discipline, disciplineIndex);
+                              handleOpenAssignDialog(discipline, disciplineIndex);
                             }}
+                            disabled={
+                              formData.staffSelections?.[disciplineIndex] && 
+                              formData.staffSelections[disciplineIndex].trim()
+                            }
                           >
-                            <Users className="h-3 w-3 mr-1" />
-                            Assign Staff
+                            <UserCheck className="h-3 w-3 mr-1" />
+                            Assign Judge
                           </Button>
                         )}
 
@@ -2412,8 +2436,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         )}
 
                         {/* Display assigned labels with values */}
-                        {/* Judge badge - Hide for Custom Pattern disciplines */}
-                        {!(discipline.isCustom || discipline.pattern_type === 'custom') && formData.judgeSelections?.[disciplineIndex] && (
+                        {/* Judge badge - Show for all disciplines when judge is assigned */}
+                        {formData.judgeSelections?.[disciplineIndex] && 
+                         formData.judgeSelections[disciplineIndex].trim() && 
+                         !formData.judgeSelections[disciplineIndex].startsWith('judge-') && (
                           <Badge 
                             variant="secondary" 
                             className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap cursor-pointer hover:bg-blue-500/20 transition-colors"
@@ -2466,6 +2492,29 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           >
                             Staff: {formData.staffSelections[disciplineIndex]}
                           </Badge>
+                        )}
+
+                        {/* Assign Staff Button - Only for Custom Pattern disciplines, positioned on the right */}
+                        {(discipline.isCustom || discipline.pattern_type === 'custom') && (
+                          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenAssignStaffDialog(discipline, disciplineIndex);
+                              }}
+                              disabled={
+                                formData.judgeSelections?.[disciplineIndex] && 
+                                formData.judgeSelections[disciplineIndex].trim() && 
+                                !formData.judgeSelections[disciplineIndex].startsWith('judge-')
+                              }
+                            >
+                              <Users className="h-3 w-3 mr-1" />
+                              Assign Staff
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2932,9 +2981,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       (currentDiscipline?.associationJudges || []).map((judge, idx) => {
                         // Always use judge.name as the value - never use ID
                         const judgeName = judge.name || 'Unnamed Judge';
+                        const associations = judge.associations || [];
                         return (
                           <SelectItem key={idx} value={judgeName}>
-                            {judgeName}
+                            <div className="flex items-center justify-between w-full">
+                              <span>{judgeName}</span>
+                              {associations.length > 0 && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {associations.join(', ')}
+                                </Badge>
+                              )}
+                            </div>
                           </SelectItem>
                         );
                       })
@@ -3470,7 +3527,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <Button 
                 onClick={handleAssignStaff}
                 className="bg-orange-600 hover:bg-orange-700"
-                disabled={!dialogStaffName || !dialogStaffName.trim()}
               >
                 Assign Staff
               </Button>

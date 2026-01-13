@@ -272,7 +272,38 @@ export const JudgesAndStaff = ({ formData, setFormData, selectedAssociationIds, 
     if (isReadOnly) return;
     setFormData(prev => {
       const newJudges = [...((prev.associationJudges && prev.associationJudges[assocId]?.judges) || [])];
-      newJudges[index] = { ...newJudges[index], [field]: value };
+      const currentJudge = newJudges[index] || {};
+      newJudges[index] = { ...currentJudge, [field]: value };
+      
+      // Auto-fill email and phone if name matches a judge in another association (case-sensitive)
+      if (field === 'name' && value && value.trim()) {
+        const enteredName = value.trim();
+        
+        // Search through all other associations for a judge with the same name (case-sensitive match)
+        if (prev.associationJudges) {
+          Object.keys(prev.associationJudges).forEach(otherAssocId => {
+            // Skip the current association
+            if (otherAssocId === assocId) return;
+            
+            const otherJudges = prev.associationJudges[otherAssocId]?.judges || [];
+            const matchingJudge = otherJudges.find(judge => 
+              judge.name && judge.name.trim() === enteredName
+            );
+            
+            // If found a matching judge with email or phone, auto-fill
+            if (matchingJudge && (matchingJudge.email || matchingJudge.phone)) {
+              // Only auto-fill if current judge doesn't already have that info
+              if (!currentJudge.email && matchingJudge.email) {
+                newJudges[index].email = matchingJudge.email;
+              }
+              if (!currentJudge.phone && matchingJudge.phone) {
+                newJudges[index].phone = matchingJudge.phone;
+              }
+            }
+          });
+        }
+      }
+      
       return {
         ...prev,
         associationJudges: {

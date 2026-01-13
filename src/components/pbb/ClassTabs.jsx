@@ -569,7 +569,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                 ...disc,
                                 divisions: newDivisions,
                                 divisionOrder: newDivisionOrder,
-                                customDivisions: newCustomDivisions
+                                customDivisions: newCustomDivisions,
+                                duplicatedFromDisciplineId: sourceDisciplineId // Store source discipline ID for group duplication
                             };
                         }
                         return disc;
