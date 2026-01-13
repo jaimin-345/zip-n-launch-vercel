@@ -4421,9 +4421,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     Download Folder
                                                                 </DropdownMenuItem>
                                                                 <DropdownMenuItem
-                                                                    onClick={() => {
+                                                                    onSelect={(e) => {
+                                                                        e.stopPropagation();
                                                                         setFolderToDelete(folder.id);
-                                                                        setDeleteFolderDialogOpen(true);
+                                                                        // Open after the menu closes to avoid Radix focus conflicts
+                                                                        requestAnimationFrame(() => setDeleteFolderDialogOpen(true));
                                                                     }}
                                                                     className="text-destructive"
                                                                 >
@@ -4560,9 +4562,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                                         Download Folder
                                                                                     </DropdownMenuItem>
                                                                                     <DropdownMenuItem
-                                                                                        onClick={() => {
+                                                                                        onSelect={(e) => {
+                                                                                            e.stopPropagation();
                                                                                             setFolderToDelete(subfolder.id);
-                                                                                            setDeleteFolderDialogOpen(true);
+                                                                                            requestAnimationFrame(() => setDeleteFolderDialogOpen(true));
                                                                                         }}
                                                                                         className="text-destructive"
                                                                                     >
