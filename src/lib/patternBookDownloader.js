@@ -191,36 +191,34 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
 
     if (patternIds.size > 0) {
         try {
-            // Try tbl_pattern_media first
-            const { data: mediaData } = await supabase
+            console.log('Fetching pattern images for IDs:', Array.from(patternIds));
+            
+            // Fetch from tbl_pattern_media using pattern_id
+            const { data: mediaData, error: mediaError } = await supabase
                 .from('tbl_pattern_media')
                 .select('pattern_id, image_url')
                 .in('pattern_id', Array.from(patternIds));
 
-            if (mediaData) {
-                mediaData.forEach(m => patternDataMap.set(m.pattern_id, m.image_url));
+            if (mediaError) {
+                console.error('Error fetching from tbl_pattern_media:', mediaError);
             }
 
-            // Fallback to tbl_patterns for missing ones
-            const missingPatterns = Array.from(patternIds).filter(id => !patternDataMap.has(id));
-            if (missingPatterns.length > 0) {
-                const { data: patternsData } = await supabase
-                    .from('tbl_patterns')
-                    .select('id, image_url, url, pdf_file_name')
-                    .in('id', missingPatterns);
-
-                if (patternsData) {
-                    patternsData.forEach(p => {
-                        patternDataMap.set(p.id, p.image_url || p.url);
-                    });
-                }
+            if (mediaData && mediaData.length > 0) {
+                console.log('Found pattern media data:', mediaData.length, 'records');
+                mediaData.forEach(m => {
+                    if (m.image_url) {
+                        patternDataMap.set(m.pattern_id, m.image_url);
+                    }
+                });
             }
+
+            console.log('Pattern data map after fetch:', Object.fromEntries(patternDataMap));
         } catch (error) {
             console.error('Error fetching pattern data:', error);
         }
     }
 
-    console.log(`Fetched ${patternDataMap.size} pattern images`);
+    console.log(`Fetched ${patternDataMap.size} pattern images for ${patternIds.size} pattern IDs`);
 
     // Process disciplines and create folder structure
     let processedCount = 0;
@@ -260,19 +258,28 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                 : null;
 
             // Add pattern PDF
-            if (patternId && patternDataMap.has(parseInt(patternId))) {
-                const patternUrl = patternDataMap.get(parseInt(patternId));
+            const numericPatternId = patternId ? parseInt(patternId) : null;
+            console.log(`Looking for pattern ID ${numericPatternId} in map. Has it? ${patternDataMap.has(numericPatternId)}`);
+            
+            if (numericPatternId && patternDataMap.has(numericPatternId)) {
+                const patternUrl = patternDataMap.get(numericPatternId);
+                console.log(`Found pattern URL for ${numericPatternId}:`, patternUrl);
                 if (patternUrl) {
                     const patternName = typeof patternSelection === 'object' && patternSelection.patternName
                         ? patternSelection.patternName
                         : `Pattern_${patternId}`;
                     
-                    console.log(`Creating PDF for pattern: ${patternName}`);
+                    console.log(`Creating PDF for pattern: ${patternName} from URL: ${patternUrl}`);
                     const pdfBlob = await createPdfFromImage(patternUrl, patternName);
                     if (pdfBlob) {
                         groupFolder.file(`${sanitizeFilename(patternName)}.pdf`, pdfBlob);
+                        console.log(`✓ Added pattern PDF: ${patternName}`);
+                    } else {
+                        console.error(`✗ Failed to create PDF for pattern: ${patternName}`);
                     }
                 }
+            } else {
+                console.warn(`Pattern ID ${numericPatternId} not found in pattern data map`);
             }
 
             // Get scoresheet using the same priority logic as Step6_Preview
