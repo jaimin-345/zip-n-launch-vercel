@@ -41,21 +41,23 @@ serve(async (req) => {
             role: 'system',
             content: `You are an expert at analyzing form images and detecting input field coordinates.
 
-Your task: Find the PIXEL coordinates of the BLANK INPUT LINE/BOX next to each label on this scoresheet.
+Your task: Find the BLANK INPUT LINE/BOX next to each label on this scoresheet.
 
 Labels to find:
 1. SHOW: - find the horizontal line/box where show name gets written
-2. CLASS: - find the horizontal line/box where class name gets written  
+2. CLASS: - find the horizontal line/box where class name gets written
 3. DATE: - find the horizontal line/box where date gets written
 4. JUDGE: or Judge's Name: - find the line/box where judge name gets written
 
-MEASUREMENT RULES:
-- x = LEFT edge of the blank input area (where text would START, AFTER the colon and any space)
-- y = TOP edge of that input line/row
-- width = horizontal length of the input area (to the right edge or border)
-- height = vertical height of the input line/row
+OUTPUT FORMAT (IMPORTANT):
+- Return NORMALIZED coordinates (fractions), not pixels.
+- x, y, width, height must be numbers between 0 and 1.
+  - x = left edge of blank input area / imageWidth
+  - y = top edge of blank input area / imageHeight
+  - width = input area width / imageWidth
+  - height = input area height / imageHeight
 
-Example: If "SHOW:" label ends at pixel 100, and the input line goes from pixel 105 to pixel 400, then x=105, width=295.
+This avoids guessing image dimensions and keeps results consistent.
 
 Return ONLY the coordinates you can see. If a field's input area is unclear, set found=false.`
           },
@@ -76,16 +78,19 @@ Return ONLY this exact JSON structure (no markdown, no code blocks, no explanati
     "date": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
     "judge": { "x": number, "y": number, "width": number, "height": number, "found": boolean }
   },
-  "imageWidth": number,
-  "imageHeight": number
+  "imageWidth": 1,
+  "imageHeight": 1,
+  "units": "normalized"
 }
 
-Field measurement guide:
-- x = LEFT edge of the input box (where text should START, after the label)
-- y = TOP edge of the input row
-- width = FULL width of the input box
-- height = FULL height of the input row
-- found = false if that label doesn't exist in the image`
+Normalization guide (MUST follow):
+- x, y, width, height are FRACTIONS between 0 and 1
+- x = left edge of input area / full image width
+- y = top edge of input area / full image height
+- width = input width / full image width
+- height = input height / full image height
+
+If a label doesn't exist in the image, set found=false and set x/y/width/height to 0.`
               },
               {
                 type: 'image_url',
