@@ -2403,7 +2403,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                     
                     // Get overlay data from project context
-                    const overlayData = getOverlayDataFromContext(selectedProject, scoresheet);
+                    const overlayData = getOverlayDataFromContext(project, scoresheet);
                     console.log('Overlay data:', overlayData);
                     
                     // Apply text overlay using AI detection
