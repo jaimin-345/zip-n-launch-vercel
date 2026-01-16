@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
  * Cache for field positions by scoresheet template (keyed by image URL hash)
  * Using version suffix to invalidate cache when AI prompt changes
  */
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const fieldPositionCache = new Map();
 
 /**
@@ -84,60 +84,9 @@ const loadImage = (url) => {
 };
 
 /**
- * Small helpers to refine AI boxes into the actual blank input area.
- * We scan the row pixels to find where the label text stops and the empty box starts.
+ * Helpers
  */
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
-
-const findInputStartX = (ctx, imgWidth, yTop, fieldHeight, rightBoundary) => {
-  const safeRight = clamp(Math.floor(rightBoundary), 1, imgWidth);
-  const bandY = Math.floor(yTop + fieldHeight * 0.25);
-  const bandH = Math.max(1, Math.floor(fieldHeight * 0.5));
-
-  if (bandY < 0 || bandY + bandH > ctx.canvas.height) return null;
-
-  let imageData;
-  try {
-    imageData = ctx.getImageData(0, bandY, safeRight, bandH);
-  } catch {
-    return null;
-  }
-
-  const data = imageData.data;
-  const w = safeRight;
-  const h = bandH;
-
-  // Heuristics tuned for black text on white paper with horizontal rules.
-  const sampleStepY = 2;
-  const samplesPerCol = Math.ceil(h / sampleStepY);
-  const darkLumThreshold = 200;
-  const darkRatioThreshold = 0.12;
-  const consecutiveWhiteCols = 16;
-
-  let run = 0;
-  for (let x = 0; x < w; x++) {
-    let darkCount = 0;
-
-    for (let yy = 0; yy < h; yy += sampleStepY) {
-      const idx = (yy * w + x) * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      if (lum < darkLumThreshold) darkCount++;
-    }
-
-    const darkRatio = darkCount / samplesPerCol;
-    if (darkRatio <= darkRatioThreshold) run += 1;
-    else run = 0;
-
-    if (run >= consecutiveWhiteCols) {
-      return x - consecutiveWhiteCols + 1;
-    }
-  }
-
-  return null;
-};
 
 const refineFieldBox = (ctx, img, rawField, scaleX, scaleY) => {
   // AI returns x,y as TOP-LEFT of the input box, width/height as box dimensions
@@ -192,9 +141,18 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
     const fieldPositions = await detectFieldPositions(imageUrl);
 
     if (fieldPositions?.fields) {
-      // Calculate scale factor if image was resized by AI analysis
-      const scaleX = fieldPositions.imageWidth ? img.width / fieldPositions.imageWidth : 1;
-      const scaleY = fieldPositions.imageHeight ? img.height / fieldPositions.imageHeight : 1;
+      // Calculate scale factors.
+      // If the detector returns normalized (0..1) coordinates, we scale by the image dimensions.
+      const isNormalized = fieldPositions.units === 'normalized' ||
+        ((fieldPositions.imageWidth ?? 0) > 0 && (fieldPositions.imageWidth ?? 0) <= 2 &&
+         (fieldPositions.imageHeight ?? 0) > 0 && (fieldPositions.imageHeight ?? 0) <= 2);
+
+      const scaleX = isNormalized
+        ? img.width
+        : (fieldPositions.imageWidth ? img.width / fieldPositions.imageWidth : 1);
+      const scaleY = isNormalized
+        ? img.height
+        : (fieldPositions.imageHeight ? img.height / fieldPositions.imageHeight : 1);
 
       const fields = fieldPositions.fields;
 
@@ -247,7 +205,6 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
 /**
  * Draw text fitted to field dimensions - scales font size to fit width and height
  *
- * IMPORTANT: The AI detector returns `y` as the vertical CENTER of the input area.
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {string} text - Text to draw
  * @param {number} x - X position (left edge of input box)
@@ -258,7 +215,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
 const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
   if (!text) return;
 
-  const horizontalPadding = 4;
+  // Padding needs to scale with the template size; 4px was too small on high-res images.
+  const horizontalPadding = clamp(Math.round(fieldHeight * 0.25), 8, 28);
   const availableWidth = Math.max(0, fieldWidth - horizontalPadding * 2);
   const availableHeight = Math.max(0, fieldHeight - 2);
 
