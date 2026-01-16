@@ -765,24 +765,32 @@ export const generatePatternBookPdf = async (pbbData) => {
         tocPagesNeeded = Math.ceil(estimatedHeight / availableHeightPerPage);
     }
     
-    console.log(`TOC needs ${tocPagesNeeded} page(s)`);
-    
-    // Calculate page offset: if TOC takes 2 pages, content starts on page 3 (displayed as page 2)
-    // Original page numbers stored in toc[] were based on page 2 being TOC
-    // Now we need to adjust for additional TOC pages
-    const tocPageOffset = tocPagesNeeded - 1; // Extra pages beyond the first TOC page
-    
-    // Adjust all TOC page references
-    toc.forEach(item => {
-        item.page = item.page + tocPageOffset;
-    });
-    
+    // If TOC spans multiple pages we must *insert* pages after page 2,
+    // otherwise we would end up drawing TOC page 2 over the first content page.
+    const tocPageOffset = Math.max(0, tocPagesNeeded - 1); // extra pages beyond the first TOC page
+
+    // Insert extra TOC pages right after the TOC start page (page 2), shifting all content forward.
+    if (tocPageOffset > 0) {
+        for (let i = 0; i < tocPageOffset; i++) {
+            // insert BEFORE the page that currently follows the TOC section
+            doc.insertPage(tocStartPage + 1 + i);
+        }
+    }
+
+    // Adjust all TOC page references (they are stored as displayed page numbers: pdfPage - 1)
+    if (tocPageOffset > 0) {
+        toc.forEach(item => {
+            item.page = item.page + tocPageOffset;
+        });
+    }
+
     // Now render the TOC
-    doc.setPage(2);
+    doc.setPage(tocStartPage);
     
     if (selectedLayout === 'layout-b') {
         // LAYOUT B: Specific TOC Population
         yPos = margin + 50;
+        let tocCurrentPage = tocStartPage;
         
         // Group by discipline for Layout B style
         const tocByDiscipline = {};
@@ -811,8 +819,12 @@ export const generatePatternBookPdf = async (pbbData) => {
         
         for (const discipline of sortedDisciplines) {
             if (yPos > pageHeight - margin) {
-                doc.addPage();
-                yPos = margin + 30;
+                // Move to the next pre-inserted TOC page (never addPage here)
+                if (tocCurrentPage < tocStartPage + tocPagesNeeded - 1) {
+                    tocCurrentPage++;
+                    doc.setPage(tocCurrentPage);
+                    yPos = margin + 30;
+                }
             }
             
             const range = tocByDiscipline[discipline];
