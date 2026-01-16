@@ -107,19 +107,14 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       const scaleX = fieldPositions.imageWidth ? img.width / fieldPositions.imageWidth : 1;
       const scaleY = fieldPositions.imageHeight ? img.height / fieldPositions.imageHeight : 1;
       
-      // Set text style
-      ctx.fillStyle = '#000000';
-      ctx.font = 'bold 14px Arial, sans-serif';
-      ctx.textBaseline = 'middle';
-      
       const fields = fieldPositions.fields;
       
       // Draw SHOW value
       if (fields.show?.found && overlayData.showName) {
         const x = fields.show.x * scaleX;
         const y = fields.show.y * scaleY;
-        const maxWidth = (fields.show.width || 150) * scaleX;
-        drawTextWithWrap(ctx, overlayData.showName, x, y, maxWidth);
+        const fieldWidth = (fields.show.width || 150) * scaleX;
+        drawFittedText(ctx, overlayData.showName, x, y, fieldWidth);
         console.log(`Drew SHOW at (${x}, ${y}): ${overlayData.showName}`);
       }
       
@@ -127,8 +122,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       if (fields.class?.found && overlayData.className) {
         const x = fields.class.x * scaleX;
         const y = fields.class.y * scaleY;
-        const maxWidth = (fields.class.width || 150) * scaleX;
-        drawTextWithWrap(ctx, overlayData.className, x, y, maxWidth);
+        const fieldWidth = (fields.class.width || 150) * scaleX;
+        drawFittedText(ctx, overlayData.className, x, y, fieldWidth);
         console.log(`Drew CLASS at (${x}, ${y}): ${overlayData.className}`);
       }
       
@@ -136,8 +131,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       if (fields.date?.found && overlayData.date) {
         const x = fields.date.x * scaleX;
         const y = fields.date.y * scaleY;
-        const maxWidth = (fields.date.width || 150) * scaleX;
-        drawTextWithWrap(ctx, overlayData.date, x, y, maxWidth);
+        const fieldWidth = (fields.date.width || 150) * scaleX;
+        drawFittedText(ctx, overlayData.date, x, y, fieldWidth);
         console.log(`Drew DATE at (${x}, ${y}): ${overlayData.date}`);
       }
       
@@ -145,8 +140,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       if (fields.judge?.found && overlayData.judgeName) {
         const x = fields.judge.x * scaleX;
         const y = fields.judge.y * scaleY;
-        const maxWidth = (fields.judge.width || 150) * scaleX;
-        drawTextWithWrap(ctx, overlayData.judgeName, x, y, maxWidth);
+        const fieldWidth = (fields.judge.width || 150) * scaleX;
+        drawFittedText(ctx, overlayData.judgeName, x, y, fieldWidth);
         console.log(`Drew JUDGE at (${x}, ${y}): ${overlayData.judgeName}`);
       }
     } else {
@@ -173,32 +168,34 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
 };
 
 /**
- * Draw text with word wrapping
+ * Draw text fitted to field width - scales font size to fit
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {string} text - Text to draw
  * @param {number} x - X position
  * @param {number} y - Y position
- * @param {number} maxWidth - Maximum width before wrapping
+ * @param {number} fieldWidth - Width of the field to fit text into
  */
-const drawTextWithWrap = (ctx, text, x, y, maxWidth) => {
-  const words = text.split(' ');
-  let line = '';
-  const lineHeight = 16;
-  let currentY = y;
+const drawFittedText = (ctx, text, x, y, fieldWidth) => {
+  // Start with a reasonable font size and reduce if needed
+  let fontSize = 14;
+  const minFontSize = 8;
   
-  for (let i = 0; i < words.length; i++) {
-    const testLine = line + words[i] + ' ';
-    const metrics = ctx.measureText(testLine);
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'middle';
+  
+  // Find the right font size to fit the text
+  while (fontSize >= minFontSize) {
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    const metrics = ctx.measureText(text);
     
-    if (metrics.width > maxWidth && i > 0) {
-      ctx.fillText(line.trim(), x, currentY);
-      line = words[i] + ' ';
-      currentY += lineHeight;
-    } else {
-      line = testLine;
+    if (metrics.width <= fieldWidth) {
+      break;
     }
+    fontSize -= 1;
   }
-  ctx.fillText(line.trim(), x, currentY);
+  
+  // Draw the text
+  ctx.fillText(text, x, y);
 };
 
 /**
@@ -211,41 +208,80 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
   const projectData = project?.project_data || {};
   
   // Get show name
-  const showName = project?.project_name || '';
+  const showName = project?.project_name || projectData.showName || '';
   
   // Get class/group name
   const className = scoresheet?.groupName || scoresheet?.disciplineName || '';
   
-  // Get date
+  // Get date - check multiple possible locations
   let date = '';
-  if (projectData.showDates) {
-    if (projectData.showDates.startDate && projectData.showDates.endDate) {
-      date = `${projectData.showDates.startDate} - ${projectData.showDates.endDate}`;
-    } else if (projectData.showDates.startDate) {
-      date = projectData.showDates.startDate;
+  if (projectData.startDate && projectData.endDate) {
+    date = `${projectData.startDate} - ${projectData.endDate}`;
+  } else if (projectData.startDate) {
+    date = projectData.startDate;
+  } else if (projectData.showDates?.startDate) {
+    date = projectData.showDates.startDate;
+    if (projectData.showDates.endDate) {
+      date = `${date} - ${projectData.showDates.endDate}`;
+    }
+  }
+  // Check divisionDates from disciplines if no main date found
+  if (!date && projectData.disciplines?.length > 0) {
+    for (const discipline of projectData.disciplines) {
+      if (discipline.divisionDates && Object.keys(discipline.divisionDates).length > 0) {
+        const firstDate = Object.values(discipline.divisionDates)[0];
+        if (firstDate) {
+          date = firstDate;
+          break;
+        }
+      }
     }
   }
   
-  // Get judge name for this discipline
+  // Get judge name - check multiple possible locations
   let judgeName = '';
-  const judges = projectData.officialsAndStaff?.judges || [];
-  const disciplineName = scoresheet?.disciplineName;
   
-  if (disciplineName && judges.length > 0) {
-    // Find judge assigned to this discipline
-    const assignedJudge = judges.find(j => 
-      j.assignedDisciplines?.includes(disciplineName) ||
-      j.disciplines?.includes(disciplineName)
-    );
-    if (assignedJudge) {
-      judgeName = assignedJudge.name || assignedJudge.full_name || '';
+  // Check associationJudges first (has nested structure with judges array)
+  if (projectData.associationJudges && Object.keys(projectData.associationJudges).length > 0) {
+    for (const assocKey of Object.keys(projectData.associationJudges)) {
+      const assocData = projectData.associationJudges[assocKey];
+      // Check if it has judges array
+      if (assocData?.judges?.length > 0) {
+        judgeName = assocData.judges[0].name || assocData.judges[0].full_name || '';
+        break;
+      }
+      // Direct name property
+      if (assocData?.name) {
+        judgeName = assocData.name;
+        break;
+      }
     }
   }
   
-  // If no specific judge found, use first judge
-  if (!judgeName && judges.length > 0) {
-    judgeName = judges[0].name || judges[0].full_name || '';
+  // Check groupJudges
+  if (!judgeName && projectData.groupJudges && Object.keys(projectData.groupJudges).length > 0) {
+    const firstGroupJudge = Object.values(projectData.groupJudges)[0];
+    judgeName = firstGroupJudge?.name || firstGroupJudge?.full_name || '';
   }
+  
+  // Check officials array
+  if (!judgeName && projectData.officials?.length > 0) {
+    const judge = projectData.officials.find(o => o.role === 'judge' || o.type === 'judge');
+    judgeName = judge?.name || judge?.full_name || projectData.officials[0]?.name || '';
+  }
+  
+  // Check staff array
+  if (!judgeName && projectData.staff?.length > 0) {
+    const judge = projectData.staff.find(s => s.role === 'judge' || s.type === 'judge');
+    judgeName = judge?.name || judge?.full_name || '';
+  }
+  
+  // Check officialsAndStaff.judges
+  if (!judgeName && projectData.officialsAndStaff?.judges?.length > 0) {
+    judgeName = projectData.officialsAndStaff.judges[0].name || projectData.officialsAndStaff.judges[0].full_name || '';
+  }
+  
+  console.log('Overlay data extracted:', { showName, className, date, judgeName });
   
   return {
     showName,
