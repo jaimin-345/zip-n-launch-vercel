@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2 } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -44,6 +44,8 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
 import JSZip from 'jszip';
@@ -1987,10 +1989,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
     const [isLoadingScoresheets, setIsLoadingScoresheets] = useState(false);
     const [selectedSidebarItem, setSelectedSidebarItem] = useState('allItems');
-    const [filterDiscipline, setFilterDiscipline] = useState('all');
-    const [filterClass, setFilterClass] = useState('all');
-    const [filterJudge, setFilterJudge] = useState('all');
+    const [filterDisciplines, setFilterDisciplines] = useState(new Set());
+    const [filterClasses, setFilterClasses] = useState(new Set());
+    const [filterJudges, setFilterJudges] = useState(new Set());
     const [sortBy, setSortBy] = useState('newest');
+    // Filter dropdown open states
+    const [disciplineFilterOpen, setDisciplineFilterOpen] = useState(false);
+    const [classFilterOpen, setClassFilterOpen] = useState(false);
+    const [judgeFilterOpen, setJudgeFilterOpen] = useState(false);
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
     const [previewType, setPreviewType] = useState(null); // 'pattern' or 'scoresheet'
     const [previewImage, setPreviewImage] = useState(null); // Image URL for preview
@@ -2528,18 +2534,24 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        if (filterDiscipline !== 'all') {
-            // Normalize both strings for comparison (handle spaces, dashes, case)
+        // Multi-select discipline filter
+        if (filterDisciplines.size > 0) {
             const patternDiscipline = (pattern.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
-            const selectedDiscipline = filterDiscipline.toLowerCase().replace(/[\s-]+/g, '');
-            if (patternDiscipline !== selectedDiscipline) return false;
+            const matchesAny = Array.from(filterDisciplines).some(selected => 
+                patternDiscipline === selected.toLowerCase().replace(/[\s-]+/g, '')
+            );
+            if (!matchesAny) return false;
         }
-        if (filterClass !== 'all' && pattern.groupName !== filterClass) return false;
-        if (filterJudge !== 'all') {
-            // Check both judges array and judgeNames string
-            const hasJudge = (pattern.judges && pattern.judges.includes(filterJudge)) ||
-                             (pattern.judgeNames && pattern.judgeNames.includes(filterJudge));
-            if (!hasJudge) return false;
+        // Multi-select class filter
+        if (filterClasses.size > 0 && !filterClasses.has(pattern.groupName)) return false;
+        // Multi-select judge filter
+        if (filterJudges.size > 0) {
+            const patternJudges = pattern.judges || [];
+            const patternJudgeNames = pattern.judgeNames || '';
+            const hasMatchingJudge = Array.from(filterJudges).some(selectedJudge => 
+                patternJudges.includes(selectedJudge) || patternJudgeNames.includes(selectedJudge)
+            );
+            if (!hasMatchingJudge) return false;
         }
         return true;
     }).sort((a, b) => {
@@ -2566,17 +2578,24 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        if (filterDiscipline !== 'all') {
-            // Normalize both strings for comparison (handle spaces, dashes, case)
+        // Multi-select discipline filter
+        if (filterDisciplines.size > 0) {
             const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
-            const selectedDiscipline = filterDiscipline.toLowerCase().replace(/[\s-]+/g, '');
-            if (scoresheetDiscipline !== selectedDiscipline) return false;
+            const matchesAny = Array.from(filterDisciplines).some(selected => 
+                scoresheetDiscipline === selected.toLowerCase().replace(/[\s-]+/g, '')
+            );
+            if (!matchesAny) return false;
         }
-        if (filterClass !== 'all' && scoresheet.groupName !== filterClass) return false;
-        if (filterJudge !== 'all') {
-            const hasJudge = (scoresheet.judges && scoresheet.judges.includes(filterJudge)) ||
-                             (scoresheet.judgeNames && scoresheet.judgeNames.includes(filterJudge));
-            if (!hasJudge) return false;
+        // Multi-select class filter
+        if (filterClasses.size > 0 && !filterClasses.has(scoresheet.groupName)) return false;
+        // Multi-select judge filter
+        if (filterJudges.size > 0) {
+            const scoresheetJudges = scoresheet.judges || [];
+            const scoresheetJudgeNames = scoresheet.judgeNames || '';
+            const hasMatchingJudge = Array.from(filterJudges).some(selectedJudge => 
+                scoresheetJudges.includes(selectedJudge) || scoresheetJudgeNames.includes(selectedJudge)
+            );
+            if (!hasMatchingJudge) return false;
         }
         return true;
     });
@@ -4595,51 +4614,209 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {/* Filters and Actions - Hide when viewing folder */}
                                 {selectedSidebarItem !== 'folder' && (
                                     <div className="flex items-center gap-4 mb-4 flex-wrap">
-                                        <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
-                                            <SelectTrigger className="w-40">
-                                                <SelectValue>
-                                                    {filterDiscipline === 'all' ? 'All Disciplines' : filterDiscipline}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Disciplines</SelectItem>
-                                                {uniqueDisciplines.map(discipline => (
-                                                    <SelectItem key={discipline} value={discipline}>
-                                                        {discipline}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={filterClass} onValueChange={setFilterClass}>
-                                            <SelectTrigger className="w-40">
-                                                <SelectValue>
-                                                    {filterClass === 'all' ? 'All Classes' : filterClass}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Classes</SelectItem>
-                                                {uniqueClasses.map(className => (
-                                                    <SelectItem key={className} value={className}>
-                                                        {className}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={filterJudge} onValueChange={setFilterJudge}>
-                                            <SelectTrigger className="w-40">
-                                                <SelectValue>
-                                                    {filterJudge === 'all' ? 'Any Judge' : filterJudge}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Any Judge</SelectItem>
-                                                {uniqueJudges.map(judge => (
-                                                    <SelectItem key={judge} value={judge}>
-                                                        {judge}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        {/* Discipline Multi-Select Filter */}
+                                        <Popover open={disciplineFilterOpen} onOpenChange={setDisciplineFilterOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-44 justify-between">
+                                                    <span className="truncate">
+                                                        {filterDisciplines.size === 0 
+                                                            ? 'All Disciplines' 
+                                                            : filterDisciplines.size === 1 
+                                                                ? Array.from(filterDisciplines)[0]
+                                                                : `${filterDisciplines.size} Selected`}
+                                                    </span>
+                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
+                                                <div className="p-2 border-b flex items-center justify-between">
+                                                    <span className="text-sm font-medium">Disciplines</span>
+                                                    {filterDisciplines.size > 0 && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 px-2 text-xs"
+                                                            onClick={() => setFilterDisciplines(new Set())}
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <ScrollArea className="max-h-60">
+                                                    <div className="p-2 space-y-1">
+                                                        {uniqueDisciplines.map(discipline => (
+                                                            <div 
+                                                                key={discipline} 
+                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                onClick={() => {
+                                                                    setFilterDisciplines(prev => {
+                                                                        const newSet = new Set(prev);
+                                                                        if (newSet.has(discipline)) {
+                                                                            newSet.delete(discipline);
+                                                                        } else {
+                                                                            newSet.add(discipline);
+                                                                        }
+                                                                        return newSet;
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Checkbox
+                                                                    checked={filterDisciplines.has(discipline)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setFilterDisciplines(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (checked) {
+                                                                                newSet.add(discipline);
+                                                                            } else {
+                                                                                newSet.delete(discipline);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                                <span className="text-sm">{discipline}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </PopoverContent>
+                                        </Popover>
+
+                                        {/* Class Multi-Select Filter */}
+                                        <Popover open={classFilterOpen} onOpenChange={setClassFilterOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-44 justify-between">
+                                                    <span className="truncate">
+                                                        {filterClasses.size === 0 
+                                                            ? 'All Classes' 
+                                                            : filterClasses.size === 1 
+                                                                ? Array.from(filterClasses)[0]
+                                                                : `${filterClasses.size} Selected`}
+                                                    </span>
+                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
+                                                <div className="p-2 border-b flex items-center justify-between">
+                                                    <span className="text-sm font-medium">Classes</span>
+                                                    {filterClasses.size > 0 && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 px-2 text-xs"
+                                                            onClick={() => setFilterClasses(new Set())}
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <ScrollArea className="max-h-60">
+                                                    <div className="p-2 space-y-1">
+                                                        {uniqueClasses.map(className => (
+                                                            <div 
+                                                                key={className} 
+                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                onClick={() => {
+                                                                    setFilterClasses(prev => {
+                                                                        const newSet = new Set(prev);
+                                                                        if (newSet.has(className)) {
+                                                                            newSet.delete(className);
+                                                                        } else {
+                                                                            newSet.add(className);
+                                                                        }
+                                                                        return newSet;
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Checkbox
+                                                                    checked={filterClasses.has(className)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setFilterClasses(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (checked) {
+                                                                                newSet.add(className);
+                                                                            } else {
+                                                                                newSet.delete(className);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                                <span className="text-sm">{className}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </PopoverContent>
+                                        </Popover>
+
+                                        {/* Judge Multi-Select Filter */}
+                                        <Popover open={judgeFilterOpen} onOpenChange={setJudgeFilterOpen}>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-44 justify-between">
+                                                    <span className="truncate">
+                                                        {filterJudges.size === 0 
+                                                            ? 'Any Judge' 
+                                                            : filterJudges.size === 1 
+                                                                ? Array.from(filterJudges)[0]
+                                                                : `${filterJudges.size} Selected`}
+                                                    </span>
+                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
+                                                <div className="p-2 border-b flex items-center justify-between">
+                                                    <span className="text-sm font-medium">Judges</span>
+                                                    {filterJudges.size > 0 && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 px-2 text-xs"
+                                                            onClick={() => setFilterJudges(new Set())}
+                                                        >
+                                                            Clear
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                                <ScrollArea className="max-h-60">
+                                                    <div className="p-2 space-y-1">
+                                                        {uniqueJudges.map(judge => (
+                                                            <div 
+                                                                key={judge} 
+                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                onClick={() => {
+                                                                    setFilterJudges(prev => {
+                                                                        const newSet = new Set(prev);
+                                                                        if (newSet.has(judge)) {
+                                                                            newSet.delete(judge);
+                                                                        } else {
+                                                                            newSet.add(judge);
+                                                                        }
+                                                                        return newSet;
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <Checkbox
+                                                                    checked={filterJudges.has(judge)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setFilterJudges(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (checked) {
+                                                                                newSet.add(judge);
+                                                                            } else {
+                                                                                newSet.delete(judge);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                />
+                                                                <span className="text-sm">{judge}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </ScrollArea>
+                                            </PopoverContent>
+                                        </Popover>
                                     </div>
                                 )}
                                 
