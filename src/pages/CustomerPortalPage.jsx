@@ -2996,7 +2996,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             groupId: group.id,
                             groupIndex: groupIndex,
                             divisions: extractedDivisions,
-                            divisionNames: extractedDivisions.map(d => d.name).join(', '),
+                            divisionNames: extractedDivisions.map(d => {
+                                // Remove category prefix (e.g., "Open - ", "Amateur - ", "Youth - ")
+                                const name = d.name || '';
+                                const parts = name.split(' - ');
+                                // If there's a " - ", take everything after it; otherwise keep original
+                                return parts.length > 1 ? parts.slice(1).join(' - ') : name;
+                            }).join(', '),
                             judges: judgeNames,
                             judgeNames: judgeNames.join(', '),
                             image_url: patternDetail?.image_url || null, // Pattern image for display
@@ -3362,7 +3368,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             groupIndex: groupIndex,
                             displayName: scoresheetName,
                             divisions: extractedDivisions,
-                            divisionNames: extractedDivisions.map(d => d.name).join(', '),
+                            divisionNames: extractedDivisions.map(d => {
+                                // Remove category prefix (e.g., "Open - ", "Amateur - ", "Youth - ")
+                                const name = d.name || '';
+                                const parts = name.split(' - ');
+                                // If there's a " - ", take everything after it; otherwise keep original
+                                return parts.length > 1 ? parts.slice(1).join(' - ') : name;
+                            }).join(', '),
                             judges: judgeNames,
                             judgeNames: judgeNames.join(', '),
                             image_url: scoresheetData?.image_url || null // Ensure image_url is stored
@@ -3567,16 +3579,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         // Find the item being dragged (pattern or scoresheet)
         const itemId = active.id.toString();
         if (itemId.startsWith('pattern-')) {
-            const patternIndex = parseInt(itemId.replace('pattern-', ''));
-            const pattern = filteredPatterns[patternIndex];
+            // Extract the unique identifier from the ID
+            const uniqueId = itemId.replace('pattern-', '');
+            // Find pattern by matching uniqueKey, id, numericId, or originalPatternId
+            const pattern = filteredPatterns.find(p => 
+                (p.uniqueKey && String(p.uniqueKey) === uniqueId) ||
+                (p.id && String(p.id) === uniqueId) ||
+                (p.numericId && String(p.numericId) === uniqueId) ||
+                (p.originalPatternId && String(p.originalPatternId) === uniqueId)
+            );
             if (pattern) {
-                setDraggedItem({ type: 'pattern', data: pattern, index: patternIndex });
+                const index = filteredPatterns.indexOf(pattern);
+                setDraggedItem({ type: 'pattern', data: pattern, index });
             }
         } else if (itemId.startsWith('scoresheet-')) {
-            const scoresheetIndex = parseInt(itemId.replace('scoresheet-', ''));
-            const scoresheet = filteredScoresheets[scoresheetIndex];
+            // Extract the unique identifier from the ID
+            const uniqueId = itemId.replace('scoresheet-', '');
+            // Find scoresheet by matching uniqueKey, id, numericId, or pattern_id
+            const scoresheet = filteredScoresheets.find(s => 
+                (s.uniqueKey && String(s.uniqueKey) === uniqueId) ||
+                (s.id && String(s.id) === uniqueId) ||
+                (s.numericId && String(s.numericId) === uniqueId) ||
+                (s.pattern_id && String(s.pattern_id) === uniqueId)
+            );
             if (scoresheet) {
-                setDraggedItem({ type: 'scoresheet', data: scoresheet, index: scoresheetIndex });
+                const index = filteredScoresheets.indexOf(scoresheet);
+                setDraggedItem({ type: 'scoresheet', data: scoresheet, index });
             }
         }
     };
@@ -5272,11 +5300,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         )}
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="font-medium truncate">{pattern.patternName || pattern.name}</div>
+                                                            <div className="font-medium truncate">{pattern.discipline || pattern.disciplineName || 'Pattern'}</div>
                                                             <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                                                                <div>
-                                                                    <span className="font-medium">Discipline:</span> {pattern.discipline}
-                                                                </div>
                                                                 {pattern.groupName && (
                                                                     <div>
                                                                         <span className="font-medium">Class:</span> {pattern.groupName}
@@ -5292,6 +5317,59 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                         <span className="font-medium">Judges:</span> {pattern.judgeNames}
                                                                     </div>
                                                                 )}
+                                                                <div>
+                                                                    <span className="font-medium">Pattern No:</span> {
+                                                                        (() => {
+                                                                            // Extract the last 4 digits from patternName or name
+                                                                            // e.g., "VRH&RHCRanchReining0002" -> "0002"
+                                                                            // e.g., "VRH&RHCRanchReining0007" -> "0007"
+                                            
+                                                                            let patternNumStr = null;
+                                                                            
+                                                                            // Try to extract last 4 digits from patternName
+                                                                            if (pattern.patternName) {
+                                                                                const match = pattern.patternName.match(/(\d{4})$/);
+                                                                                if (match) {
+                                                                                    patternNumStr = match[1]; // Keep as string to preserve leading zeros
+                                                                                }
+                                                                                // If no 4 digits, try any digits at the end
+                                                                                else {
+                                                                                    const matchAny = pattern.patternName.match(/(\d+)$/);
+                                                                                    if (matchAny) {
+                                                                                        patternNumStr = matchAny[1].padStart(4, '0');
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            // Try to extract from name
+                                                                            else if (pattern.name) {
+                                                                                const match = pattern.name.match(/(\d{4})$/);
+                                                                                if (match) {
+                                                                                    patternNumStr = match[1];
+                                                                                }
+                                                                                // If no 4 digits, try any digits at the end
+                                                                                else {
+                                                                                    const matchAny = pattern.name.match(/(\d+)$/);
+                                                                                    if (matchAny) {
+                                                                                        patternNumStr = matchAny[1].padStart(4, '0');
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                            
+                                                                            // If we found a pattern number string, return it
+                                                                            if (patternNumStr) {
+                                                                                return patternNumStr;
+                                                                            }
+                                                                            
+                                                                            // Fallback: try numericId and format as 4 digits
+                                                                            if (pattern.numericId) {
+                                                                                return String(pattern.numericId).padStart(4, '0');
+                                                                            }
+                                                                            
+                                                                            // Final fallback
+                                                                            return '0000';
+                                                                        })()
+                                                                    }
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
