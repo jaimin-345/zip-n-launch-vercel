@@ -39,58 +39,55 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You analyze scoresheet/form images and must detect the BLANK INPUT LINE/BOX to the RIGHT of each header label.
+            content: `You are analyzing a horse show scoresheet form. Your job is to find the BLANK INPUT AREAS where text will be written.
 
-CRITICAL:
-- You MUST first read the printed label text on the LEFT, then choose the blank input area that belongs to THAT label on the SAME row.
-- Do NOT guess by row order.
-- Do NOT use the SIGNATURE row for JUDGE.
-- Return NORMALIZED coordinates (fractions), not pixels.
+CRITICAL MATCHING RULES:
+1. Look for these EXACT printed label texts: "SHOW:", "CLASS:", "DATE:", "JUDGE:" (or "Judge's Name:")
+2. For EACH label, find the blank input line/box that is HORIZONTALLY ALIGNED on the SAME ROW
+3. The input area is ALWAYS to the RIGHT of its label text
+4. Do NOT confuse rows - each label has its OWN input area on the SAME horizontal line
+5. "SIGNATURE" is NOT "JUDGE" - ignore signature lines
+6. The JUDGE input is usually near the bottom, separate from SHOW/CLASS/DATE at top
 
-Allowed label types (lowercase): show, class, date, judge, signature
+COORDINATE RULES (normalized 0-1):
+- x = left edge of blank input area / image width
+- y = TOP edge of blank input area / image height  
+- width = input area width / image width
+- height = input area height / image height
 
-For each detected row, return:
-- label: one of the allowed label types
-- box: the blank input area to the right of that label
-
-Coordinates:
-- x, y = TOP-LEFT of the blank input area
-- width, height = full size of the blank input area
-- all numbers must be between 0 and 1
-
-If a label is not present, omit it from lines.
-Return ONLY JSON (no markdown).`
+Return ONLY valid JSON, no markdown.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Analyze this scoresheet image carefully. Find the blank INPUT AREAS (not labels) for each field.
+                text: `Find the blank input areas for SHOW, CLASS, DATE, and JUDGE on this scoresheet.
 
-The scoresheet has a box/table structure. For each field, measure the WHITE INPUT AREA next to the label.
+STEP BY STEP:
+1. Find the text "SHOW:" - look at what's directly to its RIGHT on the same line. That horizontal area is the show input.
+2. Find the text "CLASS:" - look at what's directly to its RIGHT on the same line. That horizontal area is the class input.
+3. Find the text "DATE:" - look at what's directly to its RIGHT on the same line. That horizontal area is the date input.
+4. Find "JUDGE:" or "Judge's Name:" - look at what's directly to its RIGHT. That's the judge input. NOT the signature line.
 
-Return ONLY this exact JSON structure (no markdown, no code blocks, no explanation):
+Return this EXACT JSON structure:
 {
   "fields": {
-    "show": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
-    "class": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
-    "date": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
-    "judge": { "x": number, "y": number, "width": number, "height": number, "found": boolean }
+    "show": { "x": 0.XX, "y": 0.XX, "width": 0.XX, "height": 0.XX, "found": true },
+    "class": { "x": 0.XX, "y": 0.XX, "width": 0.XX, "height": 0.XX, "found": true },
+    "date": { "x": 0.XX, "y": 0.XX, "width": 0.XX, "height": 0.XX, "found": true },
+    "judge": { "x": 0.XX, "y": 0.XX, "width": 0.XX, "height": 0.XX, "found": true }
   },
   "imageWidth": 1,
   "imageHeight": 1,
   "units": "normalized"
 }
 
-Normalization guide (MUST follow):
-- x, y, width, height are FRACTIONS between 0 and 1
-- x = left edge of input area / full image width
-- y = top edge of input area / full image height
-- width = input width / full image width
-- height = input height / full image height
-
-If a label doesn't exist in the image, set found=false and set x/y/width/height to 0.`
+REMEMBER: 
+- y is the TOP edge, not center
+- Each field's y value should match the vertical position of its label
+- SHOW, CLASS, DATE are usually stacked vertically at the top
+- JUDGE is usually lower on the page`
               },
               {
                 type: 'image_url',
