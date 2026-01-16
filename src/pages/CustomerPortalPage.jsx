@@ -4617,7 +4617,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         </Button>
                                                     )}
                                                 </div>
-                                                <ScrollArea className="h-[200px]">
+                                                <div
+                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                    onWheel={(e) => e.stopPropagation()}
+                                                >
                                                     <div className="p-2 space-y-1">
                                                         {disciplineOptions.map(discipline => (
                                                             <div 
@@ -4640,7 +4643,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </ScrollArea>
+                                                </div>
                                             </PopoverContent>
                                         </Popover>
 
@@ -4672,7 +4675,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         </Button>
                                                     )}
                                                 </div>
-                                                <ScrollArea className="max-h-60">
+                                                <div
+                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                    onWheel={(e) => e.stopPropagation()}
+                                                >
                                                     <div className="p-2 space-y-1">
                                                         {uniqueClasses.map(className => (
                                                             <div 
@@ -4695,7 +4701,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </ScrollArea>
+                                                </div>
                                             </PopoverContent>
                                         </Popover>
 
@@ -4727,7 +4733,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         </Button>
                                                     )}
                                                 </div>
-                                                <ScrollArea className="max-h-60">
+                                                <div
+                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                    onWheel={(e) => e.stopPropagation()}
+                                                >
                                                     <div className="p-2 space-y-1">
                                                         {uniqueJudges.map(judge => (
                                                             <div 
@@ -4750,7 +4759,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         ))}
                                                     </div>
-                                                </ScrollArea>
+                                                </div>
                                             </PopoverContent>
                                         </Popover>
                                     </div>
