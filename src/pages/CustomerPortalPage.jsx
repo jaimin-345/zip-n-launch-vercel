@@ -1989,12 +1989,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
     const [isLoadingScoresheets, setIsLoadingScoresheets] = useState(false);
     const [selectedSidebarItem, setSelectedSidebarItem] = useState('allItems');
-    const [filterDisciplines, setFilterDisciplines] = useState(new Set());
+    const [filterDiscipline, setFilterDiscipline] = useState(''); // single-select discipline
     const [filterClasses, setFilterClasses] = useState(new Set());
     const [filterJudges, setFilterJudges] = useState(new Set());
     const [sortBy, setSortBy] = useState('newest');
     // Filter dropdown open states
-    const [disciplineFilterOpen, setDisciplineFilterOpen] = useState(false);
     const [classFilterOpen, setClassFilterOpen] = useState(false);
     const [judgeFilterOpen, setJudgeFilterOpen] = useState(false);
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
@@ -2455,9 +2454,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
     };
     
-    // Get unique disciplines from project_data.disciplines (the source of truth)
-    // This ensures we show all disciplines that exist in the project, not just those with patterns/scoresheets
-    const uniqueDisciplines = [...new Set((projectData.disciplines || []).map(d => d.name))].filter(Boolean).sort();
+    // Discipline options from project_data.disciplines (source of truth)
+    const disciplineOptions = [...new Set((projectData.disciplines || []).map(d => (d?.name || '').trim()))]
+        .filter(Boolean)
+        .sort();
     
     // Get unique classes from both patterns AND scoresheets
     const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
@@ -2534,13 +2534,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        // Multi-select discipline filter - use exact case-insensitive matching
-        if (filterDisciplines.size > 0) {
-            const patternDiscipline = (pattern.discipline || '').trim().toLowerCase();
-            const matchesAny = Array.from(filterDisciplines).some(selected => 
-                patternDiscipline === selected.trim().toLowerCase()
-            );
-            if (!matchesAny) return false;
+        // Discipline filter (single-select)
+        if (filterDiscipline) {
+            const patternDiscipline = (pattern.discipline || '').trim();
+            if (patternDiscipline !== filterDiscipline) return false;
         }
         // Multi-select class filter
         if (filterClasses.size > 0 && !filterClasses.has(pattern.groupName)) return false;
@@ -2578,13 +2575,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        // Multi-select discipline filter - use exact case-insensitive matching
-        if (filterDisciplines.size > 0) {
-            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').trim().toLowerCase();
-            const matchesAny = Array.from(filterDisciplines).some(selected => 
-                scoresheetDiscipline === selected.trim().toLowerCase()
-            );
-            if (!matchesAny) return false;
+        // Discipline filter (single-select)
+        if (filterDiscipline) {
+            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').trim();
+            if (scoresheetDiscipline !== filterDiscipline) return false;
         }
         // Multi-select class filter
         if (filterClasses.size > 0 && !filterClasses.has(scoresheet.groupName)) return false;
@@ -2986,6 +2980,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     // Always add pattern if we have a selection (even if not in database)
                     if (!processedPatterns.has(uniqueKey)) {
                         patternsList.push({
+                            uniqueKey,
                             id: numericPatternId || patternId || `pattern-${disciplineIndex}-${groupIndex}`,
                             numericId: numericPatternId, // Store numeric ID separately for downloads
                             originalPatternId: patternId, // Store original pattern ID
@@ -3358,6 +3353,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     if (!processedScoresheets.has(uniqueKey)) {
                         scoresheetsList.push({
                             ...(scoresheetData || {}),
+                            uniqueKey,
                             id: scoresheetData?.id || `scoresheet-${disciplineIndex}-${groupIndex}`,
                             disciplineName: disciplineName,
                             disciplineIndex: disciplineIndex,
@@ -4612,60 +4608,23 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {/* Filters and Actions - Hide when viewing folder */}
                                 {selectedSidebarItem !== 'folder' && (
                                     <div className="flex items-center gap-4 mb-4 flex-wrap">
-                                        {/* Discipline Multi-Select Filter */}
-                                        <Popover open={disciplineFilterOpen} onOpenChange={setDisciplineFilterOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="w-44 justify-between">
-                                                    <span className="truncate">
-                                                        {filterDisciplines.size === 0 
-                                                            ? 'All Disciplines' 
-                                                            : filterDisciplines.size === 1 
-                                                                ? Array.from(filterDisciplines)[0]
-                                                                : `${filterDisciplines.size} Selected`}
-                                                    </span>
-                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
-                                                <div className="p-2 border-b flex items-center justify-between">
-                                                    <span className="text-sm font-medium">Disciplines</span>
-                                                    {filterDisciplines.size > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setFilterDisciplines(new Set())}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                                <ScrollArea className="max-h-60">
-                                                    <div className="p-2 space-y-1">
-                                                        {uniqueDisciplines.map(discipline => (
-                                                            <div 
-                                                                key={discipline} 
-                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                                                onClick={() => {
-                                                                    setFilterDisciplines(prev => {
-                                                                        const newSet = new Set(prev);
-                                                                        if (newSet.has(discipline)) {
-                                                                            newSet.delete(discipline);
-                                                                        } else {
-                                                                            newSet.add(discipline);
-                                                                        }
-                                                                        return newSet;
-                                                                    });
-                                                                }}
-                                                            >
-                                                                <Checkbox checked={filterDisciplines.has(discipline)} />
-                                                                <span className="text-sm">{discipline}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </ScrollArea>
-                                            </PopoverContent>
-                                        </Popover>
+                                        {/* Discipline Filter (single-select) */}
+                                        <Select
+                                            value={filterDiscipline || 'all'}
+                                            onValueChange={(value) => setFilterDiscipline(value === 'all' ? '' : value)}
+                                        >
+                                            <SelectTrigger className="w-44 justify-between">
+                                                <SelectValue placeholder="All Disciplines" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-popover text-popover-foreground border border-border z-50 max-h-60 overflow-y-auto">
+                                                <SelectItem value="all">All Disciplines</SelectItem>
+                                                {disciplineOptions.map((discipline) => (
+                                                    <SelectItem key={discipline} value={discipline}>
+                                                        {discipline}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
 
                                         {/* Class Multi-Select Filter */}
                                         <Popover open={classFilterOpen} onOpenChange={setClassFilterOpen}>
@@ -5236,7 +5195,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                     {filteredPatterns.map((pattern, index) => {
                                                         const DraggablePattern = () => {
                                                             const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                                id: `pattern-${pattern.id || pattern.numericId || pattern.originalPatternId || index}`,
+                                                                id: `pattern-${pattern.uniqueKey || pattern.id || pattern.numericId || pattern.originalPatternId || index}`,
                                                             });
                                                             
                                                             const style = transform ? {
@@ -5364,7 +5323,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             );
                                                         };
                                                         
-                                                        return <DraggablePattern key={pattern.id || index} />;
+                                                        return <DraggablePattern key={pattern.uniqueKey || pattern.id || index} />;
                                                     })}
                                                     {filteredPatterns.length === 0 && !isLoadingPatterns && (
                                                         <div className="text-center py-12 text-muted-foreground">
@@ -5388,7 +5347,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                     {filteredScoresheets.map((scoresheet, index) => {
                                                         const DraggableScoresheet = () => {
                                                             const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                                id: `scoresheet-${scoresheet.id || scoresheet.numericId || scoresheet.pattern_id || index}`,
+                                                                id: `scoresheet-${scoresheet.uniqueKey || scoresheet.id || scoresheet.numericId || scoresheet.pattern_id || index}`,
                                                             });
                                                         
                                                         const style = transform ? {
@@ -5471,7 +5430,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             );
                                                         };
                                                         
-                                                        return <DraggableScoresheet key={scoresheet.id || index} />;
+                                                        return <DraggableScoresheet key={scoresheet.uniqueKey || scoresheet.id || index} />;
                                                     })}
                                                     {filteredScoresheets.length === 0 && !isLoadingScoresheets && (
                                                     <div className="text-center py-12 text-muted-foreground">
