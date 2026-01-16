@@ -122,7 +122,13 @@ const refineFieldBox = (ctx, img, rawField, scaleX, scaleY) => {
  */
 export const applyTextOverlay = async (imageUrl, overlayData) => {
   try {
-    console.log('Applying text overlay with data:', overlayData);
+    console.log('=== APPLYING TEXT OVERLAY ===');
+    console.log('Image URL:', imageUrl);
+    console.log('Overlay Data:', overlayData);
+    console.log('Show Name:', overlayData?.showName);
+    console.log('Class Name:', overlayData?.className);
+    console.log('Date:', overlayData?.date);
+    console.log('Judge Name:', overlayData?.judgeName);
 
     // Load the image
     const img = await loadImage(imageUrl);
@@ -157,7 +163,15 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       const fields = fieldPositions.fields;
 
       const drawField = (rawField, text, key) => {
-        if (!rawField?.found || !text) return;
+        if (!rawField?.found) {
+          console.warn(`Field ${key} not found by AI`);
+          return;
+        }
+        
+        if (!text) {
+          console.warn(`No text data for field ${key}`);
+          return;
+        }
 
         const refined = refineFieldBox(ctx, img, rawField, scaleX, scaleY);
 
@@ -172,7 +186,19 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         const w = refined.width;
         const h = refined.height;
 
-        console.log(`Overlay ${key}:`, { rawField, refined, scaleX, scaleY, img: { w: img.width, h: img.height } });
+        console.log(`=== Drawing Field: ${key} ===`);
+        console.log(`Text: "${text}"`);
+        console.log(`Raw field from AI:`, rawField);
+        console.log(`Refined box:`, { x, y, width: w, height: h, yCenter: y });
+        console.log(`Image dimensions:`, { width: img.width, height: img.height });
+        console.log(`Scale factors:`, { scaleX, scaleY });
+        console.log(`Field position:`, { 
+          top: refined.yCenter - refined.height / 2,
+          bottom: refined.yCenter + refined.height / 2,
+          left: x,
+          right: x + w
+        });
+        
         drawFittedText(ctx, text, x, y, w, h);
       };
 
@@ -213,33 +239,95 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
  * @param {number} fieldHeight - Height of the input box
  */
 const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
-  if (!text) return;
-
-  // Padding needs to scale with the template size; 4px was too small on high-res images.
-  const horizontalPadding = clamp(Math.round(fieldHeight * 0.25), 8, 28);
-  const availableWidth = Math.max(0, fieldWidth - horizontalPadding * 2);
-  const availableHeight = Math.max(0, fieldHeight - 2);
-
-  // Start with font size based on field height, clamp to sensible range
-  let fontSize = Math.min(Math.floor(availableHeight * 0.9), 18);
-  const minFontSize = 8;
-
-  ctx.fillStyle = '#000000';
-  ctx.textBaseline = 'middle';
-
-  // Find the right font size to fit the text within field width
-  while (fontSize >= minFontSize) {
-    ctx.font = `${fontSize}px Arial, sans-serif`;
-    const metrics = ctx.measureText(text);
-
-    if (metrics.width <= availableWidth) break;
-    fontSize -= 1;
+  if (!text) {
+    console.warn('drawFittedText: No text provided');
+    return;
   }
 
-  ctx.fillText(text, x + horizontalPadding, y);
-  console.log(
-    `Drew "${text}" at (${x + horizontalPadding}, ${y}) with font ${fontSize}px, field: ${fieldWidth}x${fieldHeight}`
-  );
+  // Minimal padding - text should start close to the left edge of the field
+  const horizontalPadding = clamp(Math.round(fieldHeight * 0.05), 2, 8);
+  const verticalPadding = 1;
+  const availableWidth = Math.max(0, fieldWidth - horizontalPadding * 2);
+  const availableHeight = Math.max(0, fieldHeight - verticalPadding * 2);
+
+  // Start with font size based on field height - make it larger for visibility
+  let fontSize = Math.min(Math.floor(availableHeight * 0.75), 24);
+  const minFontSize = 12; // Increased minimum for better visibility
+
+  // Use black color with full opacity for maximum visibility
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'left'; // Left align text
+
+  // Find the right font size to fit the text within field width
+  let finalFontSize = fontSize;
+  while (finalFontSize >= minFontSize) {
+    ctx.font = `bold ${finalFontSize}px Arial, sans-serif`; // Use bold for better visibility
+    const metrics = ctx.measureText(text);
+
+    if (metrics.width <= availableWidth) {
+      break;
+    }
+    finalFontSize -= 0.5;
+  }
+
+  // Calculate text position
+  const fieldTop = y - fieldHeight / 2;
+  const fieldCenterY = y;
+  const fieldBottom = y + fieldHeight / 2;
+  
+  // Calculate text metrics with final font size
+  ctx.font = `bold ${finalFontSize}px Arial, sans-serif`;
+  const textMetrics = ctx.measureText(text);
+  
+  // Position text - minimal left padding
+  const textX = x + horizontalPadding;
+  
+  // Calculate proper Y position to align text with underline
+  // The underline is typically at the bottom 1/3 of the field
+  // We'll use alphabetic baseline and position it so the text sits on the underline
+  const underlineY = fieldTop + (fieldHeight * 0.75); // Underline at 75% from top
+  
+  // Use alphabetic baseline - this aligns the bottom of letters with the baseline
+  // Position the baseline at the underline position
+  ctx.textBaseline = 'alphabetic';
+  const textY = underlineY;
+  
+  // Alternative: Try middle baseline with adjustment if alphabetic doesn't work well
+  // Calculate if we should use middle baseline instead
+  const textHeight = textMetrics.actualBoundingBoxAscent + textMetrics.actualBoundingBoxDescent;
+  const middleBaselineY = fieldCenterY;
+  
+  console.log(`--- Text Drawing Details ---`);
+  console.log(`Text: "${text}"`);
+  console.log(`Field dimensions: ${fieldWidth} x ${fieldHeight}`);
+  console.log(`Available space: ${availableWidth} x ${availableHeight}`);
+  console.log(`Horizontal padding: ${horizontalPadding}`);
+  console.log(`Font size: ${finalFontSize}px`);
+  console.log(`Text width: ${textMetrics.width}px`);
+  console.log(`Text height: ${textHeight}px`);
+  console.log(`Text metrics:`, {
+    width: textMetrics.width,
+    actualBoundingBoxAscent: textMetrics.actualBoundingBoxAscent,
+    actualBoundingBoxDescent: textMetrics.actualBoundingBoxDescent,
+    actualBoundingBoxLeft: textMetrics.actualBoundingBoxLeft,
+    actualBoundingBoxRight: textMetrics.actualBoundingBoxRight
+  });
+  console.log(`Field bounds:`, {
+    left: x,
+    right: x + fieldWidth,
+    top: fieldTop,
+    bottom: fieldBottom,
+    centerY: fieldCenterY,
+    underlineY: underlineY
+  });
+  console.log(`Text position (alphabetic baseline): (${textX}, ${textY})`);
+  console.log(`Text baseline: alphabetic (aligns with underline)`);
+  console.log(`Text align: left`);
+  console.log(`Font weight: bold`);
+  console.log(`Text color: #000000 (black)`);
+
+  // Draw the text using alphabetic baseline to align with underline
+  ctx.fillText(text, textX, textY);
 };
 
 /**
@@ -325,8 +413,39 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
     judgeName = projectData.officialsAndStaff.judges[0].name || projectData.officialsAndStaff.judges[0].full_name || '';
   }
   
-  console.log('Overlay data extracted:', { showName, className, date, judgeName });
-  
+  console.log('=== OVERLAY DATA EXTRACTION ===');
+  console.log('Project:', project?.project_name || 'N/A');
+  console.log('Project Data:', projectData);
+  console.log('Scoresheet:', scoresheet);
+  console.log('Extracted Data:', { 
+    showName, 
+    className, 
+    date, 
+    judgeName 
+  });
+  console.log('Show Name Source:', {
+    project_name: project?.project_name,
+    showName: projectData.showName,
+    final: showName
+  });
+  console.log('Class Name Source:', {
+    groupName: scoresheet?.groupName,
+    disciplineName: scoresheet?.disciplineName,
+    final: className
+  });
+  console.log('Date Source:', {
+    startDate: projectData.startDate,
+    endDate: projectData.endDate,
+    showDates: projectData.showDates,
+    final: date
+  });
+  console.log('Judge Name Source:', {
+    associationJudges: projectData.associationJudges,
+    groupJudges: projectData.groupJudges,
+    officials: projectData.officials,
+    final: judgeName
+  });
+
   return {
     showName,
     className,

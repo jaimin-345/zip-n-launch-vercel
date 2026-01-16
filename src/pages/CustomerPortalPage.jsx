@@ -111,7 +111,6 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, projectName, cur
             const staffRole = staffMember.role || staffMember.delegation?.role || 'Staff';
             
             if (!staffEmail) {
-                console.log("No email found for staff member, skipping notification");
                 return;
             }
 
@@ -129,7 +128,6 @@ const StaffAccessCard = ({ staffMember, projectId, projectData, projectName, cur
             if (response.error) {
                 console.error("Error sending notification email:", response.error);
             } else {
-                console.log("Status notification email sent successfully");
             }
         } catch (error) {
             console.error("Failed to send status notification:", error);
@@ -322,7 +320,6 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                 setCoverDialogOpen(true);
                 break;
             default:
-                console.log('Action:', action, project.id);
         }
     };
 
@@ -2150,7 +2147,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     // Download pattern handler
     const handleDownloadPattern = async (pattern) => {
         try {
-            console.log('Downloading pattern:', pattern);
             
             // If pattern has pdf_url or download_url, download directly (as local file)
             const downloadUrl = pattern.pdf_url || pattern.download_url || pattern.image_url;
@@ -2220,7 +2216,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
             }
             
-            console.log('Extracted numeric pattern ID:', numericPatternId, 'from pattern:', pattern);
             
             // Step 2: If we have numeric ID, fetch image from tbl_pattern_media (same as Step6_Preview.jsx)
             if (numericPatternId) {
@@ -2236,7 +2231,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
                 
                 if (!patternData) {
-                    console.log('Pattern not found in tbl_patterns. ID:', numericPatternId);
                     toast({
                         title: "Download not available",
                         description: `Pattern with ID ${numericPatternId} not found in database`,
@@ -2302,7 +2296,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                 }
             } else {
-                console.log('No valid numeric pattern ID found. Pattern ID:', pattern.id);
                 toast({
                     title: "Download not available",
                     description: "Pattern ID is not valid for download",
@@ -2322,7 +2315,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     // Download scoresheet handler - Same logic as Step6_Preview.jsx
     const handleDownloadScoresheet = async (scoresheet) => {
         try {
-            console.log('Downloading scoresheet:', scoresheet);
             
             // Step 1: Get scoresheet image_url (same as Step6_Preview fetches scoresheet images)
             let imageUrl = scoresheet.image_url || null;
@@ -2620,10 +2612,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const patternsList = [];
             const processedPatterns = new Set();
             
-            console.log('=== FETCHING PATTERNS ===');
-            console.log('Full project_data:', JSON.stringify(projectData, null, 2));
-            console.log('Disciplines:', disciplines);
-            console.log('Pattern selections:', patternSelections);
             
             // Collect numeric pattern IDs for database lookup
             const numericPatternIds = new Set();
@@ -2796,7 +2784,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         });
                     }
                 }
-                console.log('Fetched pattern details from DB:', patternDetailsMap);
             }
             
             // Build patterns list with all details from project_data
@@ -2839,21 +2826,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     
                     if (matchingKey) {
                         disciplineSelections = patternSelections[matchingKey];
-                        console.log(`Found patternSelections for ${disciplineName} using key: ${matchingKey}`);
                     }
                 }
                 
                 if (!disciplineSelections) {
-                    console.log(`No selections for discipline index ${disciplineIndex}: ${disciplineName}`);
-                    console.log('Available patternSelections keys:', Object.keys(patternSelections));
+                   
                     continue;
                 }
                 
                 const groups = discipline.patternGroups || [];
                 const groupJudges = projectData.groupJudges?.[disciplineIndex] || projectData.groupJudges?.[`${disciplineIndex}`] || {};
                 
-                console.log(`Processing discipline ${disciplineIndex}: ${disciplineName} with ${groups.length} groups`);
-                console.log(`Discipline selections keys:`, Object.keys(disciplineSelections));
+
                 
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
@@ -2875,17 +2859,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         
                         if (matchingGroupKey) {
                             patternSelection = disciplineSelections[matchingGroupKey];
-                            console.log(`Found pattern selection for group ${groupName} using key: ${matchingGroupKey}`);
                         }
                     }
                     
                     if (!patternSelection) {
-                        console.log(`No pattern selection for group ${groupIndex} (${groupName}, id: ${groupId}) in discipline ${disciplineIndex}`);
-                        console.log(`Available group keys in disciplineSelections:`, Object.keys(disciplineSelections));
                         continue;
                     }
                     
-                    console.log(`Found pattern selection for group ${groupName}:`, patternSelection);
                     
                     // Get pattern ID - could be numeric or string
                     let patternId = typeof patternSelection === 'object' 
@@ -2910,15 +2890,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         }
                     }
                     
-                    console.log(`Pattern ID: ${patternId}, Numeric ID: ${numericPatternId}, Version: ${patternVersion}`);
                     
                     // Get pattern detail from database if we have numeric ID
                     const patternDetail = numericPatternId ? patternDetailsMap[numericPatternId] : null;
                     
                     if (patternDetail) {
-                        console.log(`Found pattern detail in DB:`, patternDetail);
                     } else if (numericPatternId) {
-                        console.log(`Pattern ${numericPatternId} not found in database`);
                     }
                     
                     // Extract divisions for this group
@@ -3017,16 +2994,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             pdf_url: patternDetail?.pdf_url || patternDetail?.download_url || patternDetail?.url || patternDetail?.image_url || null // URL for download
                         });
                         processedPatterns.add(uniqueKey);
-                        console.log(`✓ Added pattern: ${patternName}`);
-                        console.log(`  - Discipline: ${disciplineName}`);
-                        console.log(`  - Class: ${groupName}`);
-                        console.log(`  - Divisions: ${extractedDivisions.map(d => d.name).join(', ') || 'None'}`);
-                        console.log(`  - Judges: ${judgeNames.join(', ') || 'None'}`);
+                      
                     }
                 }
             }
             
-            console.log('Fetched patterns:', patternsList);
             setPatterns(patternsList);
         } catch (error) {
             console.error('Error fetching patterns:', error);
@@ -3043,9 +3015,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const scoresheetsList = [];
             const processedScoresheets = new Set();
             
-            console.log('=== FETCHING SCORESHEETS ===');
-            console.log('Disciplines:', disciplines.length);
-            console.log('Pattern selections:', patternSelections);
+
             
             // Fetch associations data
             const { data: associationsData } = await supabase
@@ -3094,7 +3064,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                     if (matchingKey) {
                         disciplineSelections = patternSelections[matchingKey];
-                        console.log(`Found patternSelections for ${disciplineName} using key: ${matchingKey}`);
                     }
                 }
                 
@@ -3155,7 +3124,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             }
             
             const uniquePatternIds = [...new Set(selectedPatternIds)].filter(id => !isNaN(id) && isFinite(id));
-            console.log('Pattern IDs for scoresheet lookup:', uniquePatternIds);
             
             // Step 2: Fetch scoresheets by pattern_id (same as Step6_Preview)
             const scoresheetMap = {};
@@ -3255,7 +3223,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                     if (matchingKey) {
                         disciplineSelections = patternSelections[matchingKey];
-                        console.log(`Found patternSelections for scoresheet ${disciplineName} using key: ${matchingKey}`);
                     }
                 }
                 
@@ -3388,17 +3355,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             image_url: scoresheetData?.image_url || null // Ensure image_url is stored
                         });
                         processedScoresheets.add(uniqueKey);
-                        console.log(`✓ Added scoresheet: ${scoresheetName}`);
-                        console.log(`  - Discipline: ${disciplineName}`);
-                        console.log(`  - Class: ${groupName}`);
-                        console.log(`  - Divisions: ${extractedDivisions.map(d => d.name).join(', ') || 'None'}`);
-                        console.log(`  - Judges: ${judgeNames.join(', ') || 'None'}`);
-                        console.log(`  - Image URL: ${scoresheetData?.image_url || 'Not found'}`);
                     }
                 }
             }
             
-            console.log('Total scoresheets fetched:', scoresheetsList.length);
             setScoresheets(scoresheetsList);
         } catch (error) {
             console.error('Error fetching scoresheets:', error);
@@ -3759,12 +3719,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
 
         const folderIdsToDelete = new Set(getAllNestedFolderIds(targetFolderId, folders).map(String));
 
-        console.log('[Folders] delete requested', {
-            rawTargetId,
-            targetFolderId,
-            folderIdsToDelete: [...folderIdsToDelete],
-            allFolderIds: folders.map((f) => String(f.id)),
-        });
+      
 
         // If the current view is inside the folder tree being deleted, navigate out.
         if (selectedFolderId && folderIdsToDelete.has(String(selectedFolderId))) {
@@ -3976,10 +3931,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 // Add items in current folder
                 if (folderData.items && folderData.items.length > 0) {
-                    console.log(`Processing ${folderData.items.length} items in folder "${folderData.name}"`);
                     for (let i = 0; i < folderData.items.length; i++) {
                         const item = folderData.items[i];
-                        console.log(`Processing item ${i + 1}/${folderData.items.length}:`, item);
                         
                         try {
                             let fileUrl = null;
@@ -4004,7 +3957,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 }
                                 
                                 if (patternData) {
-                                    console.log('Found pattern data:', patternData);
                                     // Try multiple URL sources
                                     fileUrl = patternData.pdf_url || 
                                              patternData.download_url || 
@@ -4015,7 +3967,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                               patternData.pdf_file_name ||
                                               `pattern_${item.id}.pdf`;
                                     
-                                    console.log(`Pattern fileUrl: ${fileUrl}, fileName: ${fileName}`);
                                     
                                     // If still no URL, try to fetch from database using pattern ID
                                     // Check multiple ID sources: numericId, originalPatternId, id
@@ -4026,7 +3977,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         patternData.patternId
                                     ].filter(Boolean);
                                     
-                                    console.log('Possible pattern IDs to try:', possibleIds);
                                     
                                     if (!fileUrl && possibleIds.length > 0) {
                                         for (const potentialId of possibleIds) {
@@ -4047,18 +3997,15 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 }
                                                 
                                                 if (numericId && !isNaN(numericId)) {
-                                                    console.log(`Trying to fetch pattern image for ID: ${numericId}`);
                                                     const { data: patternDetail, error: patternError } = await supabase
                                                         .from('tbl_pattern_media')
                                                         .select('image_url, file_url, storage_path')
                                                         .eq('pattern_id', numericId)
                                                         .maybeSingle();
                                                     
-                                                    console.log('Pattern media query result:', { patternDetail, patternError });
                                                     
                                                     if (!patternError && patternDetail) {
                                                         fileUrl = patternDetail.image_url || patternDetail.file_url;
-                                                        console.log('Fetched pattern URL from database:', fileUrl);
                                                         if (fileUrl) break; // Found URL, stop trying other IDs
                                                     }
                                                 }
@@ -4085,7 +4032,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             
                             if (fileUrl) {
                                 try {
-                                    console.log(`Fetching file from URL: ${fileUrl}`);
                                     const response = await fetch(fileUrl);
                                     if (response.ok) {
                                         const blob = await response.blob();
@@ -4093,7 +4039,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         const sanitizedFileName = fileName.replace(/[^a-z0-9._-]/gi, '_');
                                         zipFolder.file(sanitizedFileName, blob);
                                         downloadedCount++;
-                                        console.log(`✓ Added file to ZIP: ${sanitizedFileName}`);
                                     } else {
                                         failedCount++;
                                         failedItems.push({ name: fileName, type: item.type, reason: `HTTP ${response.status}` });
@@ -4117,7 +4062,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 // Add subfolders recursively
                 const subfolders = folders.filter(f => f.parentId === folderData.id);
-                console.log(`Found ${subfolders.length} subfolders in "${folderData.name}"`);
                 for (const subfolder of subfolders) {
                     const subfolderName = subfolder.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'subfolder';
                     const subfolderZip = zipFolder.folder(subfolderName);
@@ -6167,7 +6111,6 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
             const projectName = project.name || projectData.showName || 'Pattern_Book';
             
             await downloadPatternBookFolder(projectData, projectName, (progress) => {
-                console.log(`Download progress: ${progress}%`);
             });
             
             toast({ 
@@ -6212,7 +6155,6 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                 handleDownloadFolder();
                 break;
             default:
-                console.log('Action:', action, project.id);
         }
     };
 
