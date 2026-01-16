@@ -39,28 +39,25 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert image analyzer specialized in detecting form field input areas on horse show scoresheets.
+            content: `You are an expert at analyzing form images and detecting input field coordinates.
 
-Your task: Locate the EXACT pixel bounding box of the INPUT AREA (not the label) for these fields:
-- "SHOW:" or "Show:" - the blank area where show name should be written
-- "CLASS:" or "Class:" - the blank area where class name should be written
-- "DATE:" or "Date:" - the blank area where date should be written
-- "JUDGE:" or "Judge:" or "Judge's Name:" - the blank area where judge name should be written
+Your task: Find the PIXEL coordinates of the BLANK INPUT LINE/BOX next to each label on this scoresheet.
 
-CRITICAL MEASUREMENT INSTRUCTIONS:
-1. These scoresheets have table-like structures with labels on the LEFT and input boxes on the RIGHT
-2. Find where the LABEL TEXT ENDS and where the INPUT BOX BEGINS
-3. x = The LEFT edge of the input box (immediately after the label, NOT the label itself)
-4. y = The TOP edge of the input box row
-5. width = The FULL width of the input box area (from left edge to right border)
-6. height = The FULL height of the input box row
+Labels to find:
+1. SHOW: - find the horizontal line/box where show name gets written
+2. CLASS: - find the horizontal line/box where class name gets written  
+3. DATE: - find the horizontal line/box where date gets written
+4. JUDGE: or Judge's Name: - find the line/box where judge name gets written
 
-IMPORTANT:
-- The input area is the WHITE/BLANK rectangular space to the RIGHT of each label
-- Do NOT include the label text area in your measurements
-- Fields are typically arranged vertically in a column format
-- Each row has: [LABEL: ] [INPUT BOX________]
-- Measure only the [INPUT BOX________] part`
+MEASUREMENT RULES:
+- x = LEFT edge of the blank input area (where text would START, AFTER the colon and any space)
+- y = TOP edge of that input line/row
+- width = horizontal length of the input area (to the right edge or border)
+- height = vertical height of the input line/row
+
+Example: If "SHOW:" label ends at pixel 100, and the input line goes from pixel 105 to pixel 400, then x=105, width=295.
+
+Return ONLY the coordinates you can see. If a field's input area is unclear, set found=false.`
           },
           {
             role: 'user',
