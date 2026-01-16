@@ -39,31 +39,39 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert image analyzer for scoresheet form field detection.
+            content: `You are an expert image analyzer specialized in detecting form field input areas on horse show scoresheets.
 
-Your task: Find the EXACT pixel positions of blank input lines/areas next to these labels:
-- "SHOW:" or "Show:"
-- "CLASS:" or "Class:"  
-- "DATE:" or "Date:"
-- "JUDGE:" or "Judge:" or "Judge's Name:"
+Your task: Locate the EXACT pixel bounding box of the INPUT AREA (not the label) for these fields:
+- "SHOW:" or "Show:" - the blank area where show name should be written
+- "CLASS:" or "Class:" - the blank area where class name should be written
+- "DATE:" or "Date:" - the blank area where date should be written
+- "JUDGE:" or "Judge:" or "Judge's Name:" - the blank area where judge name should be written
 
-CRITICAL INSTRUCTIONS:
-1. Look for horizontal lines or blank rectangular areas next to each label
-2. For X coordinate: Return the LEFT edge where the blank line/area STARTS (immediately after the label text ends)
-3. For Y coordinate: Return the VERTICAL CENTER of the blank line (where text baseline should sit)
-4. For width: Return the FULL width of the blank line/area from start to end
-5. For height: Return the height of the text area (typically 18-25 pixels)
+CRITICAL MEASUREMENT INSTRUCTIONS:
+1. These scoresheets have table-like structures with labels on the LEFT and input boxes on the RIGHT
+2. Find where the LABEL TEXT ENDS and where the INPUT BOX BEGINS
+3. x = The LEFT edge of the input box (immediately after the label, NOT the label itself)
+4. y = The TOP edge of the input box row
+5. width = The FULL width of the input box area (from left edge to right border)
+6. height = The FULL height of the input box row
 
-These are form fields where handwritten or typed values go. The coordinates must be precise for text overlay.`
+IMPORTANT:
+- The input area is the WHITE/BLANK rectangular space to the RIGHT of each label
+- Do NOT include the label text area in your measurements
+- Fields are typically arranged vertically in a column format
+- Each row has: [LABEL: ] [INPUT BOX________]
+- Measure only the [INPUT BOX________] part`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Analyze this scoresheet image. Find the blank input fields/lines next to each label.
+                text: `Analyze this scoresheet image carefully. Find the blank INPUT AREAS (not labels) for each field.
 
-Return ONLY this exact JSON structure (no markdown, no explanation):
+The scoresheet has a box/table structure. For each field, measure the WHITE INPUT AREA next to the label.
+
+Return ONLY this exact JSON structure (no markdown, no code blocks, no explanation):
 {
   "fields": {
     "show": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
@@ -75,12 +83,12 @@ Return ONLY this exact JSON structure (no markdown, no explanation):
   "imageHeight": number
 }
 
-Remember:
-- x = left edge of the blank area (after label text)
-- y = vertical center of the line where text should be written
-- width = full width of the blank input area
-- height = height of the text field area
-- Set found=false if the field label doesn't exist in the image`
+Field measurement guide:
+- x = LEFT edge of the input box (where text should START, after the label)
+- y = TOP edge of the input row
+- width = FULL width of the input box
+- height = FULL height of the input row
+- found = false if that label doesn't exist in the image`
               },
               {
                 type: 'image_url',
