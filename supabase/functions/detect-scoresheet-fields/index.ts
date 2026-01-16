@@ -39,38 +39,48 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an image analyzer that detects form field positions on scoresheet images.
-Analyze the scoresheet image and find the EXACT pixel positions of these field labels:
-- "Show:" or "SHOW:" 
-- "Date:" or "DATE:"
-- "Judge:" or "JUDGE:" or "Judge's Name:" or "JUDGE'S NAME:"
-- "Class:" or "CLASS:" (if present)
+            content: `You are an expert image analyzer for scoresheet form field detection.
 
-For each field found, return the X,Y coordinates of where the VALUE should be placed (to the right of the label).
-Also return the approximate width available for the value text.
+Your task: Find the EXACT pixel positions of blank input lines/areas next to these labels:
+- "SHOW:" or "Show:"
+- "CLASS:" or "Class:"  
+- "DATE:" or "Date:"
+- "JUDGE:" or "Judge:" or "Judge's Name:"
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no explanation. Just the JSON object.`
+CRITICAL INSTRUCTIONS:
+1. Look for horizontal lines or blank rectangular areas next to each label
+2. For X coordinate: Return the LEFT edge where the blank line/area STARTS (immediately after the label text ends)
+3. For Y coordinate: Return the VERTICAL CENTER of the blank line (where text baseline should sit)
+4. For width: Return the FULL width of the blank line/area from start to end
+5. For height: Return the height of the text area (typically 18-25 pixels)
+
+These are form fields where handwritten or typed values go. The coordinates must be precise for text overlay.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Analyze this scoresheet image and return the field positions as JSON with this exact structure:
+                text: `Analyze this scoresheet image. Find the blank input fields/lines next to each label.
+
+Return ONLY this exact JSON structure (no markdown, no explanation):
 {
   "fields": {
-    "show": { "x": number, "y": number, "width": number, "found": boolean },
-    "date": { "x": number, "y": number, "width": number, "found": boolean },
-    "judge": { "x": number, "y": number, "width": number, "found": boolean },
-    "class": { "x": number, "y": number, "width": number, "found": boolean }
+    "show": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
+    "class": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
+    "date": { "x": number, "y": number, "width": number, "height": number, "found": boolean },
+    "judge": { "x": number, "y": number, "width": number, "height": number, "found": boolean }
   },
   "imageWidth": number,
   "imageHeight": number
 }
 
-The x,y coordinates should be where the VALUE text should start (after the label).
-If a field is not found, set found to false.
-Return ONLY the JSON object, nothing else.`
+Remember:
+- x = left edge of the blank area (after label text)
+- y = vertical center of the line where text should be written
+- width = full width of the blank input area
+- height = height of the text field area
+- Set found=false if the field label doesn't exist in the image`
               },
               {
                 type: 'image_url',
