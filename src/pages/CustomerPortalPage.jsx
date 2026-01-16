@@ -2980,8 +2980,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         ? judgesForGroup 
                         : (judgesForGroup ? [judgesForGroup] : []);
                     
-                    // Create unique key
-                    const uniqueKey = `${disciplineIndex}-${groupIndex}-${patternId || numericPatternId || patternsList.length}`;
+                    // Create unique key based on content, not just indices, to prevent duplicates
+                    const uniqueKey = `${disciplineName}-${groupName}-${numericPatternId || patternId || 'no-pattern'}-${patternVersion || 'default'}`;
                     
                     // Always add pattern if we have a selection (even if not in database)
                     if (!processedPatterns.has(uniqueKey)) {
@@ -3352,10 +3352,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         || scoresheetData?.discipline 
                         || `${disciplineName} Scoresheet`;
                     
-                    // Create unique key
-                    const uniqueKey = scoresheetData?.id 
-                        ? `scoresheet-${scoresheetData.id}-${disciplineIndex}-${groupIndex}` 
-                        : `${disciplineIndex}-${groupIndex}-${disciplineName}`;
+                    // Create unique key based on content to prevent duplicates
+                    const uniqueKey = `${disciplineName}-${groupName}-${scoresheetData?.id || 'no-scoresheet'}`;
                     
                     if (!processedScoresheets.has(uniqueKey)) {
                         scoresheetsList.push({
