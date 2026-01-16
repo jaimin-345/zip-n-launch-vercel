@@ -48,6 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
+import { applyTextOverlay, getOverlayDataFromContext } from '@/lib/scoresheetTextOverlay';
 import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, useDraggable, useDroppable } from '@dnd-kit/core';
@@ -2393,13 +2394,20 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
             }
             
-            // Step 3: Download the file as local file (not opening in new tab)
+            // Step 3: Download the file as local file with AI text overlay
             if (imageUrl) {
                 try {
-                    const response = await fetch(imageUrl);
-                    if (!response.ok) throw new Error('Failed to fetch file');
+                    toast({
+                        title: "Processing scoresheet...",
+                        description: "Detecting fields and applying text overlay"
+                    });
                     
-                    const blob = await response.blob();
+                    // Get overlay data from project context
+                    const overlayData = getOverlayDataFromContext(selectedProject, scoresheet);
+                    console.log('Overlay data:', overlayData);
+                    
+                    // Apply text overlay using AI detection
+                    const blob = await applyTextOverlay(imageUrl, overlayData);
                     const blobUrl = window.URL.createObjectURL(blob);
                     
                     // Determine filename from storage_path or file_name
@@ -2427,8 +2435,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     window.URL.revokeObjectURL(blobUrl);
                     
                     toast({
-                        title: "Download started",
-                        description: "Scoresheet download initiated"
+                        title: "Download complete",
+                        description: "Scoresheet with project details downloaded"
                     });
                 } catch (fetchError) {
                     console.error('Error downloading scoresheet file:', fetchError);
