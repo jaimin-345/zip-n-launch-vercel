@@ -717,7 +717,67 @@ export const generatePatternBookPdf = async (pbbData) => {
     }
 
     // --- Finalize: Generate TOC with correct page numbers ---
-    // Insert TOC on page 2
+    // TOC starts on page 2, but may span multiple pages
+    // We need to:
+    // 1. First calculate how many pages TOC will need
+    // 2. Adjust all page references accordingly
+    // 3. Then render the TOC
+    
+    const tocStartPage = 2;
+    let tocPagesNeeded = 1; // Start with 1 page for TOC
+    
+    if (selectedLayout === 'layout-b') {
+        // LAYOUT B: Calculate TOC pages needed
+        const tocByDiscipline = {};
+        toc.forEach(item => {
+            const disciplineName = item.title.split(' - ')[0];
+            if (!tocByDiscipline[disciplineName]) {
+                tocByDiscipline[disciplineName] = { startPage: item.page, endPage: item.page };
+            } else {
+                tocByDiscipline[disciplineName].endPage = Math.max(tocByDiscipline[disciplineName].endPage, item.page);
+            }
+        });
+        
+        // Estimate lines needed for TOC
+        const disciplineCount = Object.keys(tocByDiscipline).length;
+        const linesPerPage = Math.floor((pageHeight - margin * 2 - 50) / 15);
+        tocPagesNeeded = Math.ceil(disciplineCount / linesPerPage);
+        
+    } else {
+        // LAYOUT A: Calculate TOC pages needed
+        const tocByDate = {};
+        toc.forEach(item => {
+            if (!item.date) return;
+            if (!tocByDate[item.date]) tocByDate[item.date] = [];
+            tocByDate[item.date].push(item);
+        });
+        
+        // Estimate space needed: header (80) + each date section (header 30 + table rows ~25 each + spacing 25)
+        let estimatedHeight = 80; // Title
+        Object.keys(tocByDate).forEach(dateStr => {
+            estimatedHeight += 30; // Date header
+            estimatedHeight += 30; // Table header
+            estimatedHeight += tocByDate[dateStr].length * 25; // Table rows
+            estimatedHeight += 25; // Spacing
+        });
+        
+        const availableHeightPerPage = pageHeight - margin * 2;
+        tocPagesNeeded = Math.ceil(estimatedHeight / availableHeightPerPage);
+    }
+    
+    console.log(`TOC needs ${tocPagesNeeded} page(s)`);
+    
+    // Calculate page offset: if TOC takes 2 pages, content starts on page 3 (displayed as page 2)
+    // Original page numbers stored in toc[] were based on page 2 being TOC
+    // Now we need to adjust for additional TOC pages
+    const tocPageOffset = tocPagesNeeded - 1; // Extra pages beyond the first TOC page
+    
+    // Adjust all TOC page references
+    toc.forEach(item => {
+        item.page = item.page + tocPageOffset;
+    });
+    
+    // Now render the TOC
     doc.setPage(2);
     
     if (selectedLayout === 'layout-b') {
@@ -802,10 +862,19 @@ export const generatePatternBookPdf = async (pbbData) => {
         });
     
         const sortedDates = Object.keys(tocByDate).sort();
+        let tocCurrentPage = tocStartPage;
+        
         sortedDates.forEach(dateStr => {
+            // Check if we need a new page - if so, track it
             if (yPos > pageHeight - 150) {
-                doc.addPage();
-                yPos = margin + 30;
+                // Insert a new page after the current TOC page
+                const currentPageCount = doc.internal.getNumberOfPages();
+                if (tocCurrentPage < tocStartPage + tocPagesNeeded - 1) {
+                    // We're still within estimated TOC pages, just move to next page
+                    tocCurrentPage++;
+                    doc.setPage(tocCurrentPage);
+                    yPos = margin + 30;
+                }
             }
             
             doc.setFont('helvetica', 'bold');
@@ -827,15 +896,20 @@ export const generatePatternBookPdf = async (pbbData) => {
                 body: tableData,
                 theme: 'grid',
                 styles: { fontSize: 10, cellPadding: 5, lineColor: [200, 200, 200], lineWidth: 0.5 },
-                headStyles: { fontStyle: 'bold', fillColor: [52, 73, 94], textColor: [255, 255, 255] }, // Dark header with white text
+                headStyles: { fontStyle: 'bold', fillColor: [52, 73, 94], textColor: [255, 255, 255] },
                 columnStyles: { 
                     0: { cellWidth: 60 },
                     2: { cellWidth: 40, halign: 'center' }
                 },
-            margin: { left: margin, right: margin }
+                margin: { left: margin, right: margin },
+                // Handle page breaks within autoTable
+                didDrawPage: function(data) {
+                    // Track if autoTable added a new page
+                    tocCurrentPage = doc.internal.getCurrentPageInfo().pageNumber;
+                }
+            });
+            yPos = doc.autoTable.previous.finalY + 25;
         });
-        yPos = doc.autoTable.previous.finalY + 25;
-    });
     }
     
     
