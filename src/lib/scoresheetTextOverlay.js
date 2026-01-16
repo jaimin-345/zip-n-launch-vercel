@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
  * Cache for field positions by scoresheet template (keyed by image URL hash)
  * Using version suffix to invalidate cache when AI prompt changes
  */
-const CACHE_VERSION = 'v5';
+const CACHE_VERSION = 'v6';
 const fieldPositionCache = new Map();
 
 /**
@@ -140,41 +140,23 @@ const findInputStartX = (ctx, imgWidth, yTop, fieldHeight, rightBoundary) => {
 };
 
 const refineFieldBox = (ctx, img, rawField, scaleX, scaleY) => {
+  // AI returns x,y as TOP-LEFT of the input box, width/height as box dimensions
   const rawX = (rawField?.x ?? 0) * scaleX;
   const rawY = (rawField?.y ?? 0) * scaleY;
+  const rawH = Math.max(14, ((rawField?.height || 20) * scaleY));
+  const rawW = Math.max(40, ((rawField?.width || 150) * scaleX));
 
-  // Defaults keep behavior reasonable even if AI returns 0s
-  const h = Math.max(14, ((rawField?.height || 20) * scaleY));
-  const w = Math.max(40, ((rawField?.width || 150) * scaleX));
-
-  const right = clamp(rawX + w, 0, img.width - 2);
-
-  // Some detector prompts used y as TOP; some older cached results may be CENTER.
-  // Try both and pick the one where we can find a clear blank input area.
-  const yTopCandidates = [rawY, rawY - h / 2];
-
-  let best = {
-    x: clamp(rawX, 0, right - 1),
-    yTop: clamp(rawY, 0, img.height - h - 1),
-  };
-
-  for (const yTopCandidate of yTopCandidates) {
-    const yTop = clamp(yTopCandidate, 0, img.height - h - 1);
-    const scannedX = findInputStartX(ctx, img.width, yTop, h, right);
-
-    // Valid scan must leave space to write text
-    if (scannedX != null && scannedX < right - 30) {
-      // Prefer the *later* start (further right) because it usually means "after the label"
-      if (scannedX > best.x + 4) {
-        best = { x: scannedX, yTop };
-      }
-    }
-  }
+  // Simply use the AI coordinates directly - they should be correct after proper prompting
+  // Just clamp to ensure we stay within image bounds
+  const x = clamp(rawX, 0, img.width - rawW - 1);
+  const yTop = clamp(rawY, 0, img.height - rawH - 1);
+  const w = Math.min(rawW, img.width - x);
+  const h = rawH;
 
   return {
-    x: best.x,
-    yCenter: best.yTop + h / 2,
-    width: Math.max(20, right - best.x),
+    x: x,
+    yCenter: yTop + h / 2,
+    width: w,
     height: h,
   };
 };
