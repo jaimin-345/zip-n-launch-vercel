@@ -2,7 +2,9 @@ import { supabase } from '@/lib/supabaseClient';
 
 /**
  * Cache for field positions by scoresheet template (keyed by image URL hash)
+ * Using version suffix to invalidate cache when AI prompt changes
  */
+const CACHE_VERSION = 'v2';
 const fieldPositionCache = new Map();
 
 /**
@@ -15,7 +17,15 @@ const hashUrl = (url) => {
     hash = ((hash << 5) - hash) + char;
     hash = hash & hash;
   }
-  return hash.toString();
+  return `${hash.toString()}_${CACHE_VERSION}`;
+};
+
+/**
+ * Clear the field position cache (useful for debugging)
+ */
+export const clearFieldPositionCache = () => {
+  fieldPositionCache.clear();
+  console.log('Field position cache cleared');
 };
 
 /**
@@ -114,8 +124,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         const x = fields.show.x * scaleX;
         const y = fields.show.y * scaleY;
         const fieldWidth = (fields.show.width || 150) * scaleX;
-        drawFittedText(ctx, overlayData.showName, x, y, fieldWidth);
-        console.log(`Drew SHOW at (${x}, ${y}): ${overlayData.showName}`);
+        const fieldHeight = (fields.show.height || 20) * scaleY;
+        drawFittedText(ctx, overlayData.showName, x, y, fieldWidth, fieldHeight);
       }
       
       // Draw CLASS value
@@ -123,8 +133,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         const x = fields.class.x * scaleX;
         const y = fields.class.y * scaleY;
         const fieldWidth = (fields.class.width || 150) * scaleX;
-        drawFittedText(ctx, overlayData.className, x, y, fieldWidth);
-        console.log(`Drew CLASS at (${x}, ${y}): ${overlayData.className}`);
+        const fieldHeight = (fields.class.height || 20) * scaleY;
+        drawFittedText(ctx, overlayData.className, x, y, fieldWidth, fieldHeight);
       }
       
       // Draw DATE value
@@ -132,8 +142,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         const x = fields.date.x * scaleX;
         const y = fields.date.y * scaleY;
         const fieldWidth = (fields.date.width || 150) * scaleX;
-        drawFittedText(ctx, overlayData.date, x, y, fieldWidth);
-        console.log(`Drew DATE at (${x}, ${y}): ${overlayData.date}`);
+        const fieldHeight = (fields.date.height || 20) * scaleY;
+        drawFittedText(ctx, overlayData.date, x, y, fieldWidth, fieldHeight);
       }
       
       // Draw JUDGE value
@@ -141,8 +151,8 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         const x = fields.judge.x * scaleX;
         const y = fields.judge.y * scaleY;
         const fieldWidth = (fields.judge.width || 150) * scaleX;
-        drawFittedText(ctx, overlayData.judgeName, x, y, fieldWidth);
-        console.log(`Drew JUDGE at (${x}, ${y}): ${overlayData.judgeName}`);
+        const fieldHeight = (fields.judge.height || 20) * scaleY;
+        drawFittedText(ctx, overlayData.judgeName, x, y, fieldWidth, fieldHeight);
       }
     } else {
       console.warn('No field positions detected, skipping text overlay');
@@ -168,34 +178,38 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
 };
 
 /**
- * Draw text fitted to field width - scales font size to fit
+ * Draw text fitted to field dimensions - scales font size to fit width and height
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {string} text - Text to draw
- * @param {number} x - X position
- * @param {number} y - Y position
+ * @param {number} x - X position (left edge of field)
+ * @param {number} y - Y position (vertical center of field)
  * @param {number} fieldWidth - Width of the field to fit text into
+ * @param {number} fieldHeight - Height of the field (optional, defaults to 20)
  */
-const drawFittedText = (ctx, text, x, y, fieldWidth) => {
-  // Start with a reasonable font size and reduce if needed
-  let fontSize = 14;
+const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
+  if (!text) return;
+  
+  // Start with font size based on field height, max 18px
+  let fontSize = Math.min(Math.floor(fieldHeight * 0.8), 18);
   const minFontSize = 8;
   
   ctx.fillStyle = '#000000';
   ctx.textBaseline = 'middle';
   
-  // Find the right font size to fit the text
+  // Find the right font size to fit the text within field width
   while (fontSize >= minFontSize) {
     ctx.font = `bold ${fontSize}px Arial, sans-serif`;
     const metrics = ctx.measureText(text);
     
-    if (metrics.width <= fieldWidth) {
+    if (metrics.width <= fieldWidth - 4) { // 4px padding
       break;
     }
     fontSize -= 1;
   }
   
-  // Draw the text
-  ctx.fillText(text, x, y);
+  // Draw the text with small left padding
+  ctx.fillText(text, x + 2, y);
+  console.log(`Drew "${text}" at (${x + 2}, ${y}) with font ${fontSize}px, field: ${fieldWidth}x${fieldHeight}`);
 };
 
 /**
