@@ -39,27 +39,27 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert at analyzing form images and detecting input field coordinates.
+            content: `You analyze scoresheet/form images and must detect the BLANK INPUT LINE/BOX to the RIGHT of each header label.
 
-Your task: Find the BLANK INPUT LINE/BOX next to each label on this scoresheet.
-
-Labels to find:
-1. SHOW: - find the horizontal line/box where show name gets written
-2. CLASS: - find the horizontal line/box where class name gets written
-3. DATE: - find the horizontal line/box where date gets written
-4. JUDGE: or Judge's Name: - find the line/box where judge name gets written
-
-OUTPUT FORMAT (IMPORTANT):
+CRITICAL:
+- You MUST first read the printed label text on the LEFT, then choose the blank input area that belongs to THAT label on the SAME row.
+- Do NOT guess by row order.
+- Do NOT use the SIGNATURE row for JUDGE.
 - Return NORMALIZED coordinates (fractions), not pixels.
-- x, y, width, height must be numbers between 0 and 1.
-  - x = left edge of blank input area / imageWidth
-  - y = top edge of blank input area / imageHeight
-  - width = input area width / imageWidth
-  - height = input area height / imageHeight
 
-This avoids guessing image dimensions and keeps results consistent.
+Allowed label types (lowercase): show, class, date, judge, signature
 
-Return ONLY the coordinates you can see. If a field's input area is unclear, set found=false.`
+For each detected row, return:
+- label: one of the allowed label types
+- box: the blank input area to the right of that label
+
+Coordinates:
+- x, y = TOP-LEFT of the blank input area
+- width, height = full size of the blank input area
+- all numbers must be between 0 and 1
+
+If a label is not present, omit it from lines.
+Return ONLY JSON (no markdown).`
           },
           {
             role: 'user',
@@ -145,7 +145,43 @@ If a label doesn't exist in the image, set found=false and set x/y/width/height 
       }
       cleanContent = cleanContent.trim();
       
-      fieldPositions = JSON.parse(cleanContent);
+       const parsed = JSON.parse(cleanContent);
+
+       // Normalize new "lines[]" format into legacy "fields" format expected by the frontend
+       if (parsed?.lines && Array.isArray(parsed.lines)) {
+         const blank = { x: 0, y: 0, width: 0, height: 0, found: false };
+         const fields: Record<string, any> = {
+           show: { ...blank },
+           class: { ...blank },
+           date: { ...blank },
+           judge: { ...blank },
+         };
+
+         for (const item of parsed.lines) {
+           const label = String(item?.label || '').toLowerCase().trim();
+           const box = item?.box;
+           if (!box) continue;
+           if (label === 'show' || label === 'class' || label === 'date' || label === 'judge') {
+             fields[label] = {
+               x: Number(box.x) || 0,
+               y: Number(box.y) || 0,
+               width: Number(box.width) || 0,
+               height: Number(box.height) || 0,
+               found: Boolean(box.found),
+             };
+           }
+         }
+
+         fieldPositions = {
+           fields,
+           imageWidth: 1,
+           imageHeight: 1,
+           units: 'normalized',
+           debug: { lines: parsed.lines },
+         };
+       } else {
+         fieldPositions = parsed;
+       }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       // Return default positions if parsing fails
