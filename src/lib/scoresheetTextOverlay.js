@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
  * Cache for field positions by scoresheet template (keyed by image URL hash)
  * Using version suffix to invalidate cache when AI prompt changes
  */
-const CACHE_VERSION = 'v9';
+const CACHE_VERSION = 'v10';
 const fieldPositionCache = new Map();
 
 /**
