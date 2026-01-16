@@ -4617,7 +4617,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         </Button>
                                                     )}
                                                 </div>
-                                                <ScrollArea className="max-h-60">
+                                                <ScrollArea className="h-[200px]">
                                                     <div className="p-2 space-y-1">
                                                         {disciplineOptions.map(discipline => (
                                                             <div 
