@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
  * Cache for field positions by scoresheet template (keyed by image URL hash)
  * Using version suffix to invalidate cache when AI prompt changes
  */
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const fieldPositionCache = new Map();
 
 /**
@@ -122,36 +122,39 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
       // Draw SHOW value
       if (fields.show?.found && overlayData.showName) {
         const x = fields.show.x * scaleX;
-        const y = fields.show.y * scaleY;
         const fieldWidth = (fields.show.width || 150) * scaleX;
         const fieldHeight = (fields.show.height || 20) * scaleY;
+
+        // AI may return y as TOP edge (newer prompt) or CENTER (older prompt).
+        // Normalize to CENTER for drawFittedText.
+        const y = (fields.show.y * scaleY) + (fieldHeight / 2);
         drawFittedText(ctx, overlayData.showName, x, y, fieldWidth, fieldHeight);
       }
-      
+
       // Draw CLASS value
       if (fields.class?.found && overlayData.className) {
         const x = fields.class.x * scaleX;
-        const y = fields.class.y * scaleY;
         const fieldWidth = (fields.class.width || 150) * scaleX;
         const fieldHeight = (fields.class.height || 20) * scaleY;
+        const y = (fields.class.y * scaleY) + (fieldHeight / 2);
         drawFittedText(ctx, overlayData.className, x, y, fieldWidth, fieldHeight);
       }
-      
+
       // Draw DATE value
       if (fields.date?.found && overlayData.date) {
         const x = fields.date.x * scaleX;
-        const y = fields.date.y * scaleY;
         const fieldWidth = (fields.date.width || 150) * scaleX;
         const fieldHeight = (fields.date.height || 20) * scaleY;
+        const y = (fields.date.y * scaleY) + (fieldHeight / 2);
         drawFittedText(ctx, overlayData.date, x, y, fieldWidth, fieldHeight);
       }
-      
+
       // Draw JUDGE value
       if (fields.judge?.found && overlayData.judgeName) {
         const x = fields.judge.x * scaleX;
-        const y = fields.judge.y * scaleY;
         const fieldWidth = (fields.judge.width || 150) * scaleX;
         const fieldHeight = (fields.judge.height || 20) * scaleY;
+        const y = (fields.judge.y * scaleY) + (fieldHeight / 2);
         drawFittedText(ctx, overlayData.judgeName, x, y, fieldWidth, fieldHeight);
       }
     } else {
@@ -179,43 +182,42 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
 
 /**
  * Draw text fitted to field dimensions - scales font size to fit width and height
+ *
+ * IMPORTANT: The AI detector returns `y` as the vertical CENTER of the input area.
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  * @param {string} text - Text to draw
  * @param {number} x - X position (left edge of input box)
- * @param {number} y - Y position (TOP edge of input box)
+ * @param {number} y - Y position (VERTICAL CENTER of input box)
  * @param {number} fieldWidth - Width of the input box
  * @param {number} fieldHeight - Height of the input box
  */
 const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
   if (!text) return;
-  
-  // Calculate optimal font size based on field height (70% of height, max 16px, min 8px)
-  let fontSize = Math.min(Math.floor(fieldHeight * 0.65), 16);
-  const minFontSize = 8;
+
   const horizontalPadding = 4;
-  const verticalPadding = 2;
-  
+  const availableWidth = Math.max(0, fieldWidth - horizontalPadding * 2);
+  const availableHeight = Math.max(0, fieldHeight - 2);
+
+  // Start with font size based on field height, clamp to sensible range
+  let fontSize = Math.min(Math.floor(availableHeight * 0.9), 18);
+  const minFontSize = 8;
+
   ctx.fillStyle = '#000000';
-  ctx.textBaseline = 'top';
-  
+  ctx.textBaseline = 'middle';
+
   // Find the right font size to fit the text within field width
   while (fontSize >= minFontSize) {
     ctx.font = `${fontSize}px Arial, sans-serif`;
     const metrics = ctx.measureText(text);
-    
-    if (metrics.width <= fieldWidth - (horizontalPadding * 2)) {
-      break;
-    }
+
+    if (metrics.width <= availableWidth) break;
     fontSize -= 1;
   }
-  
-  // Calculate vertical center position
-  // textBaseline is 'top', so we need to offset by (fieldHeight - fontSize) / 2
-  const verticalCenter = y + (fieldHeight - fontSize) / 2 + verticalPadding;
-  
-  // Draw the text with padding from left edge
-  ctx.fillText(text, x + horizontalPadding, verticalCenter);
-  console.log(`Drew "${text}" at (${x + horizontalPadding}, ${verticalCenter}) with font ${fontSize}px, field: ${fieldWidth}x${fieldHeight}`);
+
+  ctx.fillText(text, x + horizontalPadding, y);
+  console.log(
+    `Drew "${text}" at (${x + horizontalPadding}, ${y}) with font ${fontSize}px, field: ${fieldWidth}x${fieldHeight}`
+  );
 };
 
 /**
