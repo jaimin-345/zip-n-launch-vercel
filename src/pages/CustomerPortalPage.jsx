@@ -4658,20 +4658,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     });
                                                                 }}
                                                             >
-                                                                <Checkbox
-                                                                    checked={filterDisciplines.has(discipline)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        setFilterDisciplines(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            if (checked) {
-                                                                                newSet.add(discipline);
-                                                                            } else {
-                                                                                newSet.delete(discipline);
-                                                                            }
-                                                                            return newSet;
-                                                                        });
-                                                                    }}
-                                                                />
+                                                                <Checkbox checked={filterDisciplines.has(discipline)} />
                                                                 <span className="text-sm">{discipline}</span>
                                                             </div>
                                                         ))}
@@ -4726,20 +4713,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     });
                                                                 }}
                                                             >
-                                                                <Checkbox
-                                                                    checked={filterClasses.has(className)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        setFilterClasses(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            if (checked) {
-                                                                                newSet.add(className);
-                                                                            } else {
-                                                                                newSet.delete(className);
-                                                                            }
-                                                                            return newSet;
-                                                                        });
-                                                                    }}
-                                                                />
+                                                                <Checkbox checked={filterClasses.has(className)} />
                                                                 <span className="text-sm">{className}</span>
                                                             </div>
                                                         ))}
@@ -4794,20 +4768,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     });
                                                                 }}
                                                             >
-                                                                <Checkbox
-                                                                    checked={filterJudges.has(judge)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        setFilterJudges(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            if (checked) {
-                                                                                newSet.add(judge);
-                                                                            } else {
-                                                                                newSet.delete(judge);
-                                                                            }
-                                                                            return newSet;
-                                                                        });
-                                                                    }}
-                                                                />
+                                                                <Checkbox checked={filterJudges.has(judge)} />
                                                                 <span className="text-sm">{judge}</span>
                                                             </div>
                                                         ))}
@@ -5275,7 +5236,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                     {filteredPatterns.map((pattern, index) => {
                                                         const DraggablePattern = () => {
                                                             const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                                id: `pattern-${index}`,
+                                                                id: `pattern-${pattern.id || pattern.numericId || pattern.originalPatternId || index}`,
                                                             });
                                                             
                                                             const style = transform ? {
@@ -5424,11 +5385,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </div>
                                         ) : (
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                {filteredScoresheets.map((scoresheet, index) => {
-                                                    const DraggableScoresheet = () => {
-                                                        const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                            id: `scoresheet-${index}`,
-                                                        });
+                                                    {filteredScoresheets.map((scoresheet, index) => {
+                                                        const DraggableScoresheet = () => {
+                                                            const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+                                                                id: `scoresheet-${scoresheet.id || scoresheet.numericId || scoresheet.pattern_id || index}`,
+                                                            });
                                                         
                                                         const style = transform ? {
                                                             transform: CSS.Translate.toString(transform),
