@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabaseClient';
  * Cache for field positions by scoresheet template (keyed by image URL hash)
  * Using version suffix to invalidate cache when AI prompt changes
  */
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const fieldPositionCache = new Map();
 
 /**
@@ -84,6 +84,102 @@ const loadImage = (url) => {
 };
 
 /**
+ * Small helpers to refine AI boxes into the actual blank input area.
+ * We scan the row pixels to find where the label text stops and the empty box starts.
+ */
+const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+
+const findInputStartX = (ctx, imgWidth, yTop, fieldHeight, rightBoundary) => {
+  const safeRight = clamp(Math.floor(rightBoundary), 1, imgWidth);
+  const bandY = Math.floor(yTop + fieldHeight * 0.25);
+  const bandH = Math.max(1, Math.floor(fieldHeight * 0.5));
+
+  if (bandY < 0 || bandY + bandH > ctx.canvas.height) return null;
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, bandY, safeRight, bandH);
+  } catch {
+    return null;
+  }
+
+  const data = imageData.data;
+  const w = safeRight;
+  const h = bandH;
+
+  // Heuristics tuned for black text on white paper with horizontal rules.
+  const sampleStepY = 2;
+  const samplesPerCol = Math.ceil(h / sampleStepY);
+  const darkLumThreshold = 200;
+  const darkRatioThreshold = 0.12;
+  const consecutiveWhiteCols = 16;
+
+  let run = 0;
+  for (let x = 0; x < w; x++) {
+    let darkCount = 0;
+
+    for (let yy = 0; yy < h; yy += sampleStepY) {
+      const idx = (yy * w + x) * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      if (lum < darkLumThreshold) darkCount++;
+    }
+
+    const darkRatio = darkCount / samplesPerCol;
+    if (darkRatio <= darkRatioThreshold) run += 1;
+    else run = 0;
+
+    if (run >= consecutiveWhiteCols) {
+      return x - consecutiveWhiteCols + 1;
+    }
+  }
+
+  return null;
+};
+
+const refineFieldBox = (ctx, img, rawField, scaleX, scaleY) => {
+  const rawX = (rawField?.x ?? 0) * scaleX;
+  const rawY = (rawField?.y ?? 0) * scaleY;
+
+  // Defaults keep behavior reasonable even if AI returns 0s
+  const h = Math.max(14, ((rawField?.height || 20) * scaleY));
+  const w = Math.max(40, ((rawField?.width || 150) * scaleX));
+
+  const right = clamp(rawX + w, 0, img.width - 2);
+
+  // Some detector prompts used y as TOP; some older cached results may be CENTER.
+  // Try both and pick the one where we can find a clear blank input area.
+  const yTopCandidates = [rawY, rawY - h / 2];
+
+  let best = {
+    x: clamp(rawX, 0, right - 1),
+    yTop: clamp(rawY, 0, img.height - h - 1),
+  };
+
+  for (const yTopCandidate of yTopCandidates) {
+    const yTop = clamp(yTopCandidate, 0, img.height - h - 1);
+    const scannedX = findInputStartX(ctx, img.width, yTop, h, right);
+
+    // Valid scan must leave space to write text
+    if (scannedX != null && scannedX < right - 30) {
+      // Prefer the *later* start (further right) because it usually means "after the label"
+      if (scannedX > best.x + 4) {
+        best = { x: scannedX, yTop };
+      }
+    }
+  }
+
+  return {
+    x: best.x,
+    yCenter: best.yTop + h / 2,
+    width: Math.max(20, right - best.x),
+    height: h,
+  };
+};
+
+/**
  * Apply text overlays to a scoresheet image at detected field positions
  * @param {string} imageUrl - URL of the scoresheet image
  * @param {Object} overlayData - Data to overlay
@@ -96,71 +192,58 @@ const loadImage = (url) => {
 export const applyTextOverlay = async (imageUrl, overlayData) => {
   try {
     console.log('Applying text overlay with data:', overlayData);
-    
+
     // Load the image
     const img = await loadImage(imageUrl);
-    
+
     // Create canvas
     const canvas = document.createElement('canvas');
     canvas.width = img.width;
     canvas.height = img.height;
     const ctx = canvas.getContext('2d');
-    
+    if (!ctx) throw new Error('Failed to create canvas context');
+
     // Draw the original image
     ctx.drawImage(img, 0, 0);
-    
+
     // Detect field positions using AI
     const fieldPositions = await detectFieldPositions(imageUrl);
-    
-    if (fieldPositions && fieldPositions.fields) {
+
+    if (fieldPositions?.fields) {
       // Calculate scale factor if image was resized by AI analysis
       const scaleX = fieldPositions.imageWidth ? img.width / fieldPositions.imageWidth : 1;
       const scaleY = fieldPositions.imageHeight ? img.height / fieldPositions.imageHeight : 1;
-      
+
       const fields = fieldPositions.fields;
-      
-      // Draw SHOW value
-      if (fields.show?.found && overlayData.showName) {
-        const x = fields.show.x * scaleX;
-        const fieldWidth = (fields.show.width || 150) * scaleX;
-        const fieldHeight = (fields.show.height || 20) * scaleY;
 
-        // AI may return y as TOP edge (newer prompt) or CENTER (older prompt).
-        // Normalize to CENTER for drawFittedText.
-        const y = (fields.show.y * scaleY) + (fieldHeight / 2);
-        drawFittedText(ctx, overlayData.showName, x, y, fieldWidth, fieldHeight);
-      }
+      const drawField = (rawField, text, key) => {
+        if (!rawField?.found || !text) return;
 
-      // Draw CLASS value
-      if (fields.class?.found && overlayData.className) {
-        const x = fields.class.x * scaleX;
-        const fieldWidth = (fields.class.width || 150) * scaleX;
-        const fieldHeight = (fields.class.height || 20) * scaleY;
-        const y = (fields.class.y * scaleY) + (fieldHeight / 2);
-        drawFittedText(ctx, overlayData.className, x, y, fieldWidth, fieldHeight);
-      }
+        const refined = refineFieldBox(ctx, img, rawField, scaleX, scaleY);
 
-      // Draw DATE value
-      if (fields.date?.found && overlayData.date) {
-        const x = fields.date.x * scaleX;
-        const fieldWidth = (fields.date.width || 150) * scaleX;
-        const fieldHeight = (fields.date.height || 20) * scaleY;
-        const y = (fields.date.y * scaleY) + (fieldHeight / 2);
-        drawFittedText(ctx, overlayData.date, x, y, fieldWidth, fieldHeight);
-      }
+        if (refined.width < 40 || refined.height < 12) {
+          console.warn(`Skipping ${key}: refined box too small`, refined);
+          return;
+        }
 
-      // Draw JUDGE value
-      if (fields.judge?.found && overlayData.judgeName) {
-        const x = fields.judge.x * scaleX;
-        const fieldWidth = (fields.judge.width || 150) * scaleX;
-        const fieldHeight = (fields.judge.height || 20) * scaleY;
-        const y = (fields.judge.y * scaleY) + (fieldHeight / 2);
-        drawFittedText(ctx, overlayData.judgeName, x, y, fieldWidth, fieldHeight);
-      }
+        // Optional: small safety padding so text doesn't touch the border
+        const x = refined.x;
+        const y = refined.yCenter;
+        const w = refined.width;
+        const h = refined.height;
+
+        console.log(`Overlay ${key}:`, { rawField, refined, scaleX, scaleY, img: { w: img.width, h: img.height } });
+        drawFittedText(ctx, text, x, y, w, h);
+      };
+
+      drawField(fields.show, overlayData.showName, 'show');
+      drawField(fields.class, overlayData.className, 'class');
+      drawField(fields.date, overlayData.date, 'date');
+      drawField(fields.judge, overlayData.judgeName, 'judge');
     } else {
       console.warn('No field positions detected, skipping text overlay');
     }
-    
+
     // Convert canvas to blob
     return new Promise((resolve, reject) => {
       canvas.toBlob((blob) => {
@@ -171,7 +254,6 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         }
       }, 'image/png', 1.0);
     });
-    
   } catch (error) {
     console.error('Error applying text overlay:', error);
     // If overlay fails, return the original image
