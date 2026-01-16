@@ -2534,11 +2534,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        // Multi-select discipline filter
+        // Multi-select discipline filter - use exact case-insensitive matching
         if (filterDisciplines.size > 0) {
-            const patternDiscipline = (pattern.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
+            const patternDiscipline = (pattern.discipline || '').trim().toLowerCase();
             const matchesAny = Array.from(filterDisciplines).some(selected => 
-                patternDiscipline === selected.toLowerCase().replace(/[\s-]+/g, '')
+                patternDiscipline === selected.trim().toLowerCase()
             );
             if (!matchesAny) return false;
         }
@@ -2578,11 +2578,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             // TODO: Implement assigned to me filter
         }
         
-        // Multi-select discipline filter
+        // Multi-select discipline filter - use exact case-insensitive matching
         if (filterDisciplines.size > 0) {
-            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').toLowerCase().replace(/[\s-]+/g, '');
+            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').trim().toLowerCase();
             const matchesAny = Array.from(filterDisciplines).some(selected => 
-                scoresheetDiscipline === selected.toLowerCase().replace(/[\s-]+/g, '')
+                scoresheetDiscipline === selected.trim().toLowerCase()
             );
             if (!matchesAny) return false;
         }
