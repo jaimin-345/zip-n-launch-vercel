@@ -574,7 +574,9 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
     };
 
     const sortedSelectedAssociations = useMemo(() => {
-        return [...selectedAssociations].sort((a, b) => {
+        // Deduplicate associations first, then sort
+        const uniqueAssociations = [...new Set(selectedAssociations)];
+        return uniqueAssociations.sort((a, b) => {
             const aIsPrimary = primaryAffiliates.includes(a);
             const bIsPrimary = primaryAffiliates.includes(b);
             if (aIsPrimary && !bIsPrimary) return -1;
@@ -586,7 +588,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
     const hasPrimary = primaryAffiliates.length > 0;
     const primaryAssocId = hasPrimary ? primaryAffiliates[0] : null;
     
-    // Use effective associations - default if none selected
+    // Use effective associations - default if none selected (already deduplicated)
     const effectiveAssociations = sortedSelectedAssociations.length > 0 ? sortedSelectedAssociations : ['default'];
 
     return (
