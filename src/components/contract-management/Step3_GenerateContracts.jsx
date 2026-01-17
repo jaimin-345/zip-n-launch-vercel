@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, FileSignature, Shield, DollarSign, Clock, FileCheck, Users, AlertCircle, Settings, Upload, X, CheckCircle, File } from 'lucide-react';
+import { FileText, FileSignature, Shield, DollarSign, Clock, FileCheck, Users, Settings, Upload, X, CheckCircle, File, Info } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 
 const documentTypes = [
@@ -64,7 +64,7 @@ const documentTypes = [
   },
 ];
 
-const uploadableDocuments = [
+export const uploadableDocuments = [
   { id: 'signed_contract', name: 'Signed Employment Contract', required: true },
   { id: 'w9_form', name: 'W-9 Form (Tax Information)', required: true },
   { id: 'id_verification', name: 'ID Verification Document', required: true },
@@ -141,40 +141,6 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
     return acc;
   }, {});
 
-  if (selectedPersonnel.length === 0) {
-    return (
-      <motion.div
-        key="step3"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -50 }}
-      >
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="flex items-center gap-2">
-            <FileSignature className="h-5 w-5 text-primary" />
-            Step 3: Generate Contracts
-          </CardTitle>
-          <CardDescription>Configure and generate contracts for selected officials and staff.</CardDescription>
-        </CardHeader>
-        <CardContent className="px-0">
-          <Card className="p-6 border-dashed">
-            <div className="flex flex-col items-center justify-center text-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                <AlertCircle className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">No Personnel Selected</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Please go back to Step 2 and select at least one official or staff member to generate contracts for.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </CardContent>
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       key="step3"
@@ -193,17 +159,31 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
       </CardHeader>
       <CardContent className="px-0 space-y-6">
         {/* Personnel Summary */}
-        <Card className="p-4 bg-primary/5 border-primary/20">
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-primary" />
-            <div>
-              <p className="font-medium">{selectedPersonnel.length} Personnel Selected</p>
-              <p className="text-sm text-muted-foreground">
-                Contracts will be generated for each selected person
-              </p>
+        {selectedPersonnel.length > 0 ? (
+          <Card className="p-4 bg-primary/5 border-primary/20">
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-medium">{selectedPersonnel.length} Personnel Selected</p>
+                <p className="text-sm text-muted-foreground">
+                  Contracts will be generated for each selected person
+                </p>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        ) : (
+          <Card className="p-4 bg-amber-500/10 border-amber-500/30">
+            <div className="flex items-center gap-3">
+              <Info className="h-5 w-5 text-amber-500" />
+              <div>
+                <p className="font-medium text-amber-600">No Personnel Selected</p>
+                <p className="text-sm text-muted-foreground">
+                  Go back to Step 2 to select personnel, or continue to upload documents
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Document Upload Checklist */}
         <Card className="p-5 space-y-4">

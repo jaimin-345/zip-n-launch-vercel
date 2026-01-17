@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, FileText, Download, User, Clock, AlertCircle, Send, Printer, Users, FileSignature, Mail, Edit, RefreshCw, Shield } from 'lucide-react';
+import { Eye, FileText, Download, User, Clock, Send, Printer, Users, FileSignature, Mail, Edit, RefreshCw, Shield, CheckCircle, Upload, File } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { uploadableDocuments } from './Step3_GenerateContracts';
 
 const documentTypes = {
   employment_contract: 'Employment Contract',
@@ -23,7 +24,7 @@ const documentTypes = {
 };
 
 export const Step4_Preview = ({ formData, setFormData }) => {
-  const { selectedPersonnel = [], selectedDocuments = [], associationJudges = {}, officials = [], contractSettings = {} } = formData;
+  const { selectedPersonnel = [], selectedDocuments = [], associationJudges = {}, officials = [], contractSettings = {}, uploadedDocuments = {} } = formData;
   const [reviewSettings, setReviewSettings] = useState({
     sendReminders: true,
     requireSignature: true,
@@ -53,44 +54,11 @@ export const Step4_Preview = ({ formData, setFormData }) => {
 
   const selectedPersonnelDetails = allPersonnel.filter(p => selectedPersonnel.includes(p.id));
   const totalContracts = selectedPersonnelDetails.length * selectedDocuments.length;
+  const uploadedDocsCount = Object.keys(uploadedDocuments).length;
 
   const handleReviewSettingChange = (field, value) => {
     setReviewSettings(prev => ({ ...prev, [field]: value }));
   };
-
-  if (selectedPersonnel.length === 0 || selectedDocuments.length === 0) {
-    return (
-      <motion.div
-        key="step4"
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -50 }}
-      >
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="flex items-center gap-2">
-            <Eye className="h-5 w-5 text-primary" />
-            Step 4: Preview & Review
-          </CardTitle>
-          <CardDescription>Review all documents before generating and sending.</CardDescription>
-        </CardHeader>
-        <CardContent className="px-0">
-          <Card className="p-6 border-dashed">
-            <div className="flex flex-col items-center justify-center text-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                <AlertCircle className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="font-medium">Missing Selections</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Please select personnel in Step 2 and document types in Step 3 to preview documents.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </CardContent>
-      </motion.div>
-    );
-  }
 
   return (
     <motion.div
@@ -105,7 +73,7 @@ export const Step4_Preview = ({ formData, setFormData }) => {
           Step 4: Preview & Review
         </CardTitle>
         <CardDescription>
-          Review all generated contracts and configure delivery settings before sending.
+          Review all generated contracts, uploaded documents, and configure delivery settings.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
@@ -136,11 +104,11 @@ export const Step4_Preview = ({ formData, setFormData }) => {
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center">
-                <FileSignature className="h-5 w-5 text-green-500" />
+                <Upload className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{totalContracts}</p>
-                <p className="text-xs text-muted-foreground">Total Contracts</p>
+                <p className="text-2xl font-bold">{uploadedDocsCount}</p>
+                <p className="text-xs text-muted-foreground">Uploaded Docs</p>
               </div>
             </div>
           </Card>
@@ -151,11 +119,59 @@ export const Step4_Preview = ({ formData, setFormData }) => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{totalContracts}</p>
-                <p className="text-xs text-muted-foreground">Awaiting Signature</p>
+                <p className="text-xs text-muted-foreground">Total Contracts</p>
               </div>
             </div>
           </Card>
         </div>
+
+        {/* Uploaded Documents Preview */}
+        {uploadedDocsCount > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Upload className="h-4 w-4 text-primary" />
+              <h4 className="font-semibold">Uploaded Documents</h4>
+              <Badge variant="secondary" className="ml-auto">{uploadedDocsCount} files</Badge>
+            </div>
+            <div className="space-y-2">
+              {uploadableDocuments.map((doc) => {
+                const uploadedFile = uploadedDocuments[doc.id];
+                if (!uploadedFile) return null;
+
+                return (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-green-500/5 border-green-500/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{doc.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-green-600 border-green-600/30 bg-green-500/10">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Uploaded
+                      </Badge>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Contract Settings Summary */}
         {contractSettings && Object.keys(contractSettings).length > 0 && (
@@ -202,6 +218,12 @@ export const Step4_Preview = ({ formData, setFormData }) => {
                 </div>
               )}
             </div>
+            {contractSettings.additionalTerms && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-muted-foreground text-sm mb-1">Additional Terms</p>
+                <p className="text-sm">{contractSettings.additionalTerms}</p>
+              </div>
+            )}
           </Card>
         )}
 
@@ -280,66 +302,68 @@ export const Step4_Preview = ({ formData, setFormData }) => {
         </Card>
 
         {/* Personnel Documents Accordion */}
-        <div className="space-y-3">
-          <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-            Documents by Personnel
-          </h4>
-          <Accordion type="multiple" className="w-full space-y-2">
-            {selectedPersonnelDetails.map((person) => (
-              <AccordionItem key={person.id} value={person.id} className="border rounded-lg px-4">
-                <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <div className="text-left">
-                      <span className="font-medium">{person.name || 'Unnamed'}</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Badge variant="secondary" className="text-xs">{person.role || 'Staff'}</Badge>
-                        <span className="text-xs text-muted-foreground">{selectedDocuments.length} contracts</span>
+        {selectedPersonnelDetails.length > 0 && selectedDocuments.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+              Documents by Personnel
+            </h4>
+            <Accordion type="multiple" className="w-full space-y-2">
+              {selectedPersonnelDetails.map((person) => (
+                <AccordionItem key={person.id} value={person.id} className="border rounded-lg px-4">
+                  <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="text-left">
+                        <span className="font-medium">{person.name || 'Unnamed'}</span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <Badge variant="secondary" className="text-xs">{person.role || 'Staff'}</Badge>
+                          <span className="text-xs text-muted-foreground">{selectedDocuments.length} contracts</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <div className="space-y-2">
-                    {selectedDocuments.map((docId) => (
-                      <div
-                        key={docId}
-                        className="flex items-center justify-between p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-4 w-4 text-primary" />
-                          <div>
-                            <p className="font-medium text-sm">{documentTypes[docId] || docId}</p>
-                            <p className="text-xs text-muted-foreground">
-                              For: {person.name || 'Unnamed'}
-                            </p>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-4">
+                    <div className="space-y-2">
+                      {selectedDocuments.map((docId) => (
+                        <div
+                          key={docId}
+                          className="flex items-center justify-between p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <div>
+                              <p className="font-medium text-sm">{documentTypes[docId] || docId}</p>
+                              <p className="text-xs text-muted-foreground">
+                                For: {person.name || 'Unnamed'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-amber-600 border-amber-600/30 bg-amber-500/10">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Ready
+                            </Badge>
+                            <Button variant="ghost" size="sm" className="h-8">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8">
+                              <Download className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-amber-600 border-amber-600/30 bg-amber-500/10">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Ready
-                          </Badge>
-                          <Button variant="ghost" size="sm" className="h-8">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-8">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-8">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <Card className="p-4 bg-muted/30">
