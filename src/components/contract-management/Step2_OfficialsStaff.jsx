@@ -350,8 +350,9 @@ const StaffRoleSection = ({ roleId, staff, onAdd, onUpdate, onRemove, associatio
 
 
 export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
-    const { selectedAssociations = [], showDetails = {}, customAssociations = [], primaryAffiliates = [] } = formData;
-    const { officials = {} } = showDetails;
+    const { selectedAssociations = [], showDetails, customAssociations = [], primaryAffiliates = [] } = formData;
+    const safeShowDetails = showDetails || {};
+    const { officials = {} } = safeShowDetails;
     const { toast } = useToast();
     const [associationsData, setAssociationsData] = useState([]);
 
