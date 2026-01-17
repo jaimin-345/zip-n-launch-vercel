@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, FileText, Download, User, CheckCircle, Clock, AlertCircle, Send, Printer, Users, FileSignature } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Eye, FileText, Download, User, Clock, AlertCircle, Send, Printer, Users, FileSignature, Mail, Edit, RefreshCw, Shield } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const documentTypes = {
@@ -18,7 +23,15 @@ const documentTypes = {
 };
 
 export const Step4_Preview = ({ formData, setFormData }) => {
-  const { selectedPersonnel = [], selectedDocuments = [], associationJudges = {}, officials = [] } = formData;
+  const { selectedPersonnel = [], selectedDocuments = [], associationJudges = {}, officials = [], contractSettings = {} } = formData;
+  const [reviewSettings, setReviewSettings] = useState({
+    sendReminders: true,
+    requireSignature: true,
+    notifyOnComplete: true,
+    emailSubject: 'Contract Documents Ready for Review',
+    emailMessage: '',
+    deliveryMethod: 'email',
+  });
 
   // Get all personnel details from Step 2 data
   const allJudges = Object.entries(associationJudges).flatMap(([assocId, data]) => {
@@ -40,6 +53,10 @@ export const Step4_Preview = ({ formData, setFormData }) => {
 
   const selectedPersonnelDetails = allPersonnel.filter(p => selectedPersonnel.includes(p.id));
   const totalContracts = selectedPersonnelDetails.length * selectedDocuments.length;
+
+  const handleReviewSettingChange = (field, value) => {
+    setReviewSettings(prev => ({ ...prev, [field]: value }));
+  };
 
   if (selectedPersonnel.length === 0 || selectedDocuments.length === 0) {
     return (
@@ -88,7 +105,7 @@ export const Step4_Preview = ({ formData, setFormData }) => {
           Step 4: Preview & Review
         </CardTitle>
         <CardDescription>
-          Review all documents that will be generated for your officials and staff.
+          Review all generated contracts and configure delivery settings before sending.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
@@ -123,7 +140,7 @@ export const Step4_Preview = ({ formData, setFormData }) => {
               </div>
               <div>
                 <p className="text-2xl font-bold">{totalContracts}</p>
-                <p className="text-xs text-muted-foreground">Total Documents</p>
+                <p className="text-xs text-muted-foreground">Total Contracts</p>
               </div>
             </div>
           </Card>
@@ -133,12 +150,134 @@ export const Step4_Preview = ({ formData, setFormData }) => {
                 <Clock className="h-5 w-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">0</p>
-                <p className="text-xs text-muted-foreground">Pending Signature</p>
+                <p className="text-2xl font-bold">{totalContracts}</p>
+                <p className="text-xs text-muted-foreground">Awaiting Signature</p>
               </div>
             </div>
           </Card>
         </div>
+
+        {/* Contract Settings Summary */}
+        {contractSettings && Object.keys(contractSettings).length > 0 && (
+          <Card className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-4 w-4 text-primary" />
+              <h4 className="font-semibold">Contract Configuration Summary</h4>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              {contractSettings.template && (
+                <div>
+                  <p className="text-muted-foreground">Template</p>
+                  <p className="font-medium capitalize">{contractSettings.template.replace('_', ' ')}</p>
+                </div>
+              )}
+              {contractSettings.effectiveDate && (
+                <div>
+                  <p className="text-muted-foreground">Effective Date</p>
+                  <p className="font-medium">{contractSettings.effectiveDate}</p>
+                </div>
+              )}
+              {contractSettings.expirationDate && (
+                <div>
+                  <p className="text-muted-foreground">Expiration Date</p>
+                  <p className="font-medium">{contractSettings.expirationDate}</p>
+                </div>
+              )}
+              {contractSettings.jurisdiction && (
+                <div>
+                  <p className="text-muted-foreground">Jurisdiction</p>
+                  <p className="font-medium capitalize">{contractSettings.jurisdiction}</p>
+                </div>
+              )}
+              {contractSettings.signingDeadline && (
+                <div>
+                  <p className="text-muted-foreground">Signing Deadline</p>
+                  <p className="font-medium">{contractSettings.signingDeadline}</p>
+                </div>
+              )}
+              {contractSettings.paymentMethod && (
+                <div>
+                  <p className="text-muted-foreground">Payment Method</p>
+                  <p className="font-medium capitalize">{contractSettings.paymentMethod.replace('_', ' ')}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Delivery & Notification Settings */}
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Mail className="h-4 w-4 text-primary" />
+            <h4 className="font-semibold">Delivery & Notification Settings</h4>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="deliveryMethod">Delivery Method</Label>
+              <Select 
+                value={reviewSettings.deliveryMethod}
+                onValueChange={(value) => handleReviewSettingChange('deliveryMethod', value)}
+              >
+                <SelectTrigger id="deliveryMethod">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="portal">Secure Portal Link</SelectItem>
+                  <SelectItem value="both">Email + Portal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="emailSubject">Email Subject Line</Label>
+              <Input
+                id="emailSubject"
+                value={reviewSettings.emailSubject}
+                onChange={(e) => handleReviewSettingChange('emailSubject', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="emailMessage">Custom Email Message (Optional)</Label>
+            <Textarea
+              id="emailMessage"
+              placeholder="Add a personalized message to include in the email..."
+              value={reviewSettings.emailMessage}
+              onChange={(e) => handleReviewSettingChange('emailMessage', e.target.value)}
+              className="min-h-[80px]"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-6 pt-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="sendReminders"
+                checked={reviewSettings.sendReminders}
+                onCheckedChange={(checked) => handleReviewSettingChange('sendReminders', checked)}
+              />
+              <Label htmlFor="sendReminders" className="text-sm cursor-pointer">Send automatic reminders</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="requireSignature"
+                checked={reviewSettings.requireSignature}
+                onCheckedChange={(checked) => handleReviewSettingChange('requireSignature', checked)}
+              />
+              <Label htmlFor="requireSignature" className="text-sm cursor-pointer">Require e-signature</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="notifyOnComplete"
+                checked={reviewSettings.notifyOnComplete}
+                onCheckedChange={(checked) => handleReviewSettingChange('notifyOnComplete', checked)}
+              />
+              <Label htmlFor="notifyOnComplete" className="text-sm cursor-pointer">Notify when signed</Label>
+            </div>
+          </div>
+        </Card>
 
         {/* Personnel Documents Accordion */}
         <div className="space-y-3">
@@ -157,7 +296,7 @@ export const Step4_Preview = ({ formData, setFormData }) => {
                       <span className="font-medium">{person.name || 'Unnamed'}</span>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant="secondary" className="text-xs">{person.role || 'Staff'}</Badge>
-                        <span className="text-xs text-muted-foreground">{selectedDocuments.length} documents</span>
+                        <span className="text-xs text-muted-foreground">{selectedDocuments.length} contracts</span>
                       </div>
                     </div>
                   </div>
@@ -181,10 +320,13 @@ export const Step4_Preview = ({ formData, setFormData }) => {
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-amber-600 border-amber-600/30 bg-amber-500/10">
                             <Clock className="h-3 w-3 mr-1" />
-                            Draft
+                            Ready
                           </Badge>
                           <Button variant="ghost" size="sm" className="h-8">
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8">
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8">
                             <Download className="h-4 w-4" />
@@ -203,12 +345,16 @@ export const Step4_Preview = ({ formData, setFormData }) => {
         <Card className="p-4 bg-muted/30">
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" className="flex-1">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Regenerate All
+            </Button>
+            <Button variant="outline" className="flex-1">
               <Printer className="h-4 w-4 mr-2" />
               Print All
             </Button>
             <Button variant="outline" className="flex-1">
               <Download className="h-4 w-4 mr-2" />
-              Download as ZIP
+              Download ZIP
             </Button>
             <Button className="flex-1 bg-primary">
               <Send className="h-4 w-4 mr-2" />
