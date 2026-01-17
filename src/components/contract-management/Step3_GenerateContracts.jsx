@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Card } from '@/components/ui/card';
@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, FileSignature, Shield, DollarSign, Clock, FileCheck, Users, AlertCircle, Settings } from 'lucide-react';
+import { FileText, FileSignature, Shield, DollarSign, Clock, FileCheck, Users, AlertCircle, Settings, Upload, X, CheckCircle, File } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
 
 const documentTypes = [
   {
@@ -62,10 +64,20 @@ const documentTypes = [
   },
 ];
 
+const uploadableDocuments = [
+  { id: 'signed_contract', name: 'Signed Employment Contract', required: true },
+  { id: 'w9_form', name: 'W-9 Form (Tax Information)', required: true },
+  { id: 'id_verification', name: 'ID Verification Document', required: true },
+  { id: 'insurance_certificate', name: 'Insurance Certificate', required: false },
+  { id: 'certification_proof', name: 'Professional Certifications', required: false },
+  { id: 'emergency_contacts', name: 'Emergency Contact Form', required: false },
+];
+
 export const Step3_GenerateContracts = ({ formData, setFormData }) => {
   const selectedDocuments = formData.selectedDocuments || [];
   const selectedPersonnel = formData.selectedPersonnel || [];
   const contractSettings = formData.contractSettings || {};
+  const uploadedDocuments = formData.uploadedDocuments || {};
 
   const handleToggleDocument = (docId) => {
     setFormData(prev => {
@@ -94,6 +106,32 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
         [field]: value,
       },
     }));
+  };
+
+  const handleFileUpload = (docId, files) => {
+    if (files && files.length > 0) {
+      const file = files[0];
+      setFormData(prev => ({
+        ...prev,
+        uploadedDocuments: {
+          ...prev.uploadedDocuments,
+          [docId]: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            uploadedAt: new Date().toISOString(),
+          },
+        },
+      }));
+    }
+  };
+
+  const handleRemoveFile = (docId) => {
+    setFormData(prev => {
+      const updated = { ...prev.uploadedDocuments };
+      delete updated[docId];
+      return { ...prev, uploadedDocuments: updated };
+    });
   };
 
   // Group documents by category
@@ -150,7 +188,7 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
           Step 3: Generate Contracts
         </CardTitle>
         <CardDescription>
-          Configure contract settings and select document types to generate for your officials and staff.
+          Configure contract settings, upload documents, and select document types to generate.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
@@ -163,6 +201,94 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
               <p className="text-sm text-muted-foreground">
                 Contracts will be generated for each selected person
               </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Document Upload Checklist */}
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Upload className="h-4 w-4 text-primary" />
+            <h4 className="font-semibold">Upload Contract Documents</h4>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-2">
+            Upload your contract templates and required documents for the selected personnel.
+          </p>
+
+          <div className="space-y-3">
+            {uploadableDocuments.map((doc) => {
+              const uploadedFile = uploadedDocuments[doc.id];
+              const isUploaded = !!uploadedFile;
+
+              return (
+                <div
+                  key={doc.id}
+                  className={`p-4 border rounded-lg transition-all ${
+                    isUploaded
+                      ? 'border-green-500/50 bg-green-500/5'
+                      : 'border-border hover:border-primary/50 hover:bg-muted/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
+                        isUploaded ? 'bg-green-500/20' : 'bg-muted'
+                      }`}>
+                        {isUploaded ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <File className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm">{doc.name}</span>
+                          {doc.required && (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-600/30">
+                              Required
+                            </Badge>
+                          )}
+                        </div>
+                        {isUploaded && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {uploadedFile.name} • {(uploadedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isUploaded ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveFile(doc.id)}
+                          className="h-8 text-destructive hover:text-destructive"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      ) : (
+                        <DocumentUploadButton
+                          docId={doc.id}
+                          onUpload={handleFileUpload}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {Object.keys(uploadedDocuments).length} of {uploadableDocuments.length} documents uploaded
+              </span>
+              <span className="text-muted-foreground">
+                {uploadableDocuments.filter(d => d.required && uploadedDocuments[d.id]).length} / {uploadableDocuments.filter(d => d.required).length} required
+              </span>
             </div>
           </div>
         </Card>
@@ -280,7 +406,7 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
-              <h4 className="font-semibold">Select Document Types</h4>
+              <h4 className="font-semibold">Select Document Types to Generate</h4>
               <Badge variant="secondary">{selectedDocuments.length} selected</Badge>
             </div>
             <button
@@ -354,5 +480,38 @@ export const Step3_GenerateContracts = ({ formData, setFormData }) => {
         </Card>
       </CardContent>
     </motion.div>
+  );
+};
+
+// Separate component for file upload button with dropzone
+const DocumentUploadButton = ({ docId, onUpload }) => {
+  const onDrop = useCallback((acceptedFiles) => {
+    onUpload(docId, acceptedFiles);
+  }, [docId, onUpload]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'image/*': ['.png', '.jpg', '.jpeg'],
+    },
+    maxFiles: 1,
+    multiple: false,
+  });
+
+  return (
+    <div {...getRootProps()}>
+      <input {...getInputProps()} />
+      <Button
+        variant="outline"
+        size="sm"
+        className={`h-8 ${isDragActive ? 'border-primary bg-primary/10' : ''}`}
+      >
+        <Upload className="h-4 w-4 mr-1" />
+        Upload
+      </Button>
+    </div>
   );
 };
