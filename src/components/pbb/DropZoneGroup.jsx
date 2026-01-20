@@ -1069,7 +1069,6 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             value={group.name}
                             onChange={(e) => handleGroupFieldChange(pbbDiscipline.id, group.id, 'name', e.target.value)}
                             className="font-semibold h-9"
-                            disabled={hasPattern}
                         />
                     </div>
                 </div>
