@@ -48,8 +48,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
-import { jsPDF } from 'jspdf';
-import { fetchImageAsBase64 } from '@/lib/pdfHelpers';
 import { applyTextOverlay, getOverlayDataFromContext } from '@/lib/scoresheetTextOverlay';
 import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
@@ -2146,145 +2144,37 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
     };
     
-    // Helper function to create PDF from image and open in new tab
-    const createAndOpenPdfFromImage = async (imageUrl, patternData) => {
-        try {
-            const base64 = await fetchImageAsBase64(imageUrl);
-            if (!base64) {
-                throw new Error('Failed to fetch image');
-            }
-
-            const doc = new jsPDF('p', 'pt', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 40;
-
-            let currentY = margin;
-
-            // Get project info (available in component scope)
-            const showName = project.name || project.project_data?.showName || '';
-            const projectData = project.project_data || {};
-            const startDate = projectData.startDate || '';
-            const endDate = projectData.endDate || '';
-
-            // Show Name (main title)
-            if (showName) {
-                doc.setFontSize(18);
-                doc.setFont('helvetica', 'bold');
-                doc.text(showName, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 22;
-            }
-
-            // Show Dates
-            if (startDate) {
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                let showDatesText = '';
-                if (endDate && startDate !== endDate) {
-                    showDatesText = `Show dates: ${format(new Date(startDate), 'MMM d')} - ${format(new Date(endDate), 'MMM d, yyyy')}`;
-                } else {
-                    showDatesText = `Show dates: ${format(new Date(startDate), 'MMM d, yyyy')}`;
-                }
-                doc.text(showDatesText, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 18;
-            }
-
-            // Add pattern details header
-            const discipline = patternData.discipline || patternData.disciplineName || '';
-            const groupName = patternData.groupName || '';
-            const divisionNames = patternData.divisionNames || '';
-            const patternNo = patternData.patternNo || patternData.pattern_no || '';
-
-            // Discipline
-            if (discipline) {
-                doc.setFontSize(14);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`Discipline: ${discipline}`, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 18;
-            }
-
-            // Class
-            if (groupName) {
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`Class: ${groupName}`, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 15;
-            }
-
-            // Divisions
-            if (divisionNames) {
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`Divisions: (${divisionNames})`, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 15;
-            }
-
-            // Pattern No
-            if (patternNo) {
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'normal');
-                doc.text(`Pattern No: ${patternNo}`, pageWidth / 2, currentY, { align: 'center' });
-                currentY += 15;
-            }
-
-            currentY += 10; // Add some spacing before the image
-
-            // Create image to get dimensions
-            const img = new Image();
-            img.src = base64;
-
-            await new Promise((resolve) => {
-                img.onload = resolve;
-                img.onerror = resolve;
-            });
-
-            let imgWidth = img.width || 500;
-            let imgHeight = img.height || 700;
-
-            // Scale image to fit remaining space
-            const imgMaxWidth = pageWidth - margin * 2;
-            const imgMaxHeight = pageHeight - currentY - margin;
-            const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
-            imgWidth *= scale;
-            imgHeight *= scale;
-
-            const x = (pageWidth - imgWidth) / 2;
-
-            const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(base64, imageType, x, currentY, imgWidth, imgHeight);
-
-            // Open PDF in new tab
-            const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            window.open(pdfUrl, '_blank');
-
-            return true;
-        } catch (error) {
-            console.error('Error creating PDF from image:', error);
-            return false;
-        }
-    };
-
-    // View pattern PDF handler - opens PDF in new tab
+    // Download pattern handler
     const handleDownloadPattern = async (pattern) => {
         try {
-
-            // If pattern has pdf_url or download_url, open in new tab
+            
+            // If pattern has pdf_url or download_url, download directly (as local file)
             const downloadUrl = pattern.pdf_url || pattern.download_url || pattern.image_url;
             if (downloadUrl) {
                 try {
-                    // Check if it's already a PDF
-                    if (downloadUrl.toLowerCase().endsWith('.pdf')) {
-                        window.open(downloadUrl, '_blank');
-                        return;
-                    }
-
-                    // It's an image - convert to PDF and open with pattern details
-                    const success = await createAndOpenPdfFromImage(downloadUrl, pattern);
-                    if (success) return;
-                    // If failed, continue to try database fetch
+                    const response = await fetch(downloadUrl);
+                    if (!response.ok) throw new Error('Failed to fetch file');
+                    
+                    const blob = await response.blob();
+                    const blobUrl = window.URL.createObjectURL(blob);
+                    
+                    const fileName = pattern.patternName || pattern.name || 'pattern.pdf';
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    window.URL.revokeObjectURL(blobUrl);
+                    
+                    toast({
+                        title: "Download started",
+                        description: "Pattern download initiated"
+                    });
+                    return;
                 } catch (fetchError) {
-                    console.error('Error opening pattern file:', fetchError);
+                    console.error('Error downloading pattern file:', fetchError);
                     // Continue to try database fetch
                 }
             }
@@ -2363,16 +2253,41 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 const imageUrl = imageData?.image_url || null;
                 
                 if (imageUrl) {
-                    // Convert image to PDF and open in new tab with pattern details
-                    const success = await createAndOpenPdfFromImage(imageUrl, pattern);
-                    if (success) return;
-
-                    toast({
-                        title: "PDF generation failed",
-                        description: "Failed to create PDF from pattern image",
-                        variant: "destructive"
-                    });
-                    return;
+                    // Fetch the file and create a blob for proper local download (not opening in new tab)
+                    try {
+                        const response = await fetch(imageUrl);
+                        if (!response.ok) throw new Error('Failed to fetch file');
+                        
+                        const blob = await response.blob();
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        
+                        // Determine filename
+                        const fileName = patternData.pdf_file_name || pattern.patternName || pattern.name || 'pattern.pdf';
+                        
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = fileName;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Clean up blob URL
+                        window.URL.revokeObjectURL(blobUrl);
+                        
+                        toast({
+                            title: "Download started",
+                            description: "Pattern download initiated"
+                        });
+                        return;
+                    } catch (fetchError) {
+                        console.error('Error downloading pattern file:', fetchError);
+                        toast({
+                            title: "Download failed",
+                            description: "Failed to download pattern file",
+                            variant: "destructive"
+                        });
+                        return;
+                    }
                 } else {
                     toast({
                         title: "Download not available",

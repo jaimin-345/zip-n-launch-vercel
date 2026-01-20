@@ -370,20 +370,11 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
     }
   }
   
-  // PRIORITY 1: Get judge name directly from the scoresheet object (assigned per-scoresheet)
+  // Get judge name - check multiple possible locations
   let judgeName = '';
   
-  // Check scoresheet-specific judge name first (highest priority)
-  if (scoresheet?.judgeName) {
-    judgeName = scoresheet.judgeName;
-  } else if (scoresheet?.judge) {
-    judgeName = scoresheet.judge;
-  } else if (scoresheet?.assignedJudge) {
-    judgeName = scoresheet.assignedJudge;
-  }
-  
-  // PRIORITY 2: Check associationJudges if no scoresheet-specific judge
-  if (!judgeName && projectData.associationJudges && Object.keys(projectData.associationJudges).length > 0) {
+  // Check associationJudges first (has nested structure with judges array)
+  if (projectData.associationJudges && Object.keys(projectData.associationJudges).length > 0) {
     for (const assocKey of Object.keys(projectData.associationJudges)) {
       const assocData = projectData.associationJudges[assocKey];
       // Check if it has judges array
@@ -399,37 +390,60 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
     }
   }
   
-  // PRIORITY 3: Check groupJudges
+  // Check groupJudges
   if (!judgeName && projectData.groupJudges && Object.keys(projectData.groupJudges).length > 0) {
     const firstGroupJudge = Object.values(projectData.groupJudges)[0];
     judgeName = firstGroupJudge?.name || firstGroupJudge?.full_name || '';
   }
   
-  // PRIORITY 4: Check officials array
+  // Check officials array
   if (!judgeName && projectData.officials?.length > 0) {
     const judge = projectData.officials.find(o => o.role === 'judge' || o.type === 'judge');
     judgeName = judge?.name || judge?.full_name || projectData.officials[0]?.name || '';
   }
   
-  // PRIORITY 5: Check staff array
+  // Check staff array
   if (!judgeName && projectData.staff?.length > 0) {
     const judge = projectData.staff.find(s => s.role === 'judge' || s.type === 'judge');
     judgeName = judge?.name || judge?.full_name || '';
   }
   
-  // PRIORITY 6: Check officialsAndStaff.judges
+  // Check officialsAndStaff.judges
   if (!judgeName && projectData.officialsAndStaff?.judges?.length > 0) {
     judgeName = projectData.officialsAndStaff.judges[0].name || projectData.officialsAndStaff.judges[0].full_name || '';
   }
   
   console.log('=== OVERLAY DATA EXTRACTION ===');
   console.log('Project:', project?.project_name || 'N/A');
-  console.log('Scoresheet Judge (direct):', scoresheet?.judgeName || scoresheet?.judge || 'N/A');
+  console.log('Project Data:', projectData);
+  console.log('Scoresheet:', scoresheet);
   console.log('Extracted Data:', { 
     showName, 
     className, 
     date, 
     judgeName 
+  });
+  console.log('Show Name Source:', {
+    project_name: project?.project_name,
+    showName: projectData.showName,
+    final: showName
+  });
+  console.log('Class Name Source:', {
+    groupName: scoresheet?.groupName,
+    disciplineName: scoresheet?.disciplineName,
+    final: className
+  });
+  console.log('Date Source:', {
+    startDate: projectData.startDate,
+    endDate: projectData.endDate,
+    showDates: projectData.showDates,
+    final: date
+  });
+  console.log('Judge Name Source:', {
+    associationJudges: projectData.associationJudges,
+    groupJudges: projectData.groupJudges,
+    officials: projectData.officials,
+    final: judgeName
   });
 
   return {
