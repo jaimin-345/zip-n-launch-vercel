@@ -73,10 +73,11 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                     </Badge>
                 )}
                 
-                 {division.date && (
-                     <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
+                 {division.finalsDate && (
+                     <Badge variant="outline" className="flex items-center gap-1 border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(parseLocalDate(division.date), 'EEE, MMM d')}
+                        <span className="font-medium">Finals:</span>
+                        {format(parseLocalDate(division.finalsDate), 'EEE, MMM d')}
                     </Badge>
                  )}
                 

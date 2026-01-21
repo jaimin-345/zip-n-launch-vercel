@@ -288,8 +288,8 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
             ...prev,
             disciplines: prev.disciplines.map(disc => {
                 if (disc.id === pbbDiscipline.id) {
-                    const newDates = { ...(disc.divisionDates || {}), [division.id]: format(date, 'yyyy-MM-dd') };
-                    return { ...disc, divisionDates: newDates };
+                    const newDates = { ...(disc.divisionFinalsDates || {}), [division.id]: format(date, 'yyyy-MM-dd') };
+                    return { ...disc, divisionFinalsDates: newDates };
                 }
                 return disc;
             })
@@ -303,9 +303,9 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
             ...prev,
             disciplines: prev.disciplines.map(disc => {
                 if (disc.id === pbbDiscipline.id) {
-                    const newDates = { ...(disc.divisionDates || {}) };
+                    const newDates = { ...(disc.divisionFinalsDates || {}) };
                     delete newDates[division.id];
-                    return { ...disc, divisionDates: newDates };
+                    return { ...disc, divisionFinalsDates: newDates };
                 }
                 return disc;
             })
@@ -418,27 +418,28 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                 )}
 
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    {division.date ? (
+                    {division.finalsDate ? (
                         <div className="flex items-center gap-1">
                             <PopoverTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex items-center gap-1 border border-info bg-info/10 text-info-foreground text-xs px-2 py-1 h-auto font-normal cursor-pointer hover:bg-info/20 transition-colors rounded-md"
+                                    className="flex items-center gap-1 border border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 text-xs px-2 py-1 h-auto font-normal cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors rounded-md"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                     }}
                                 >
                                     <CalendarIcon className="h-3 w-3" />
-                                    {format(parseLocalDate(division.date), 'EEE, MMM d')}
+                                    <span className="font-medium">Finals:</span>
+                                    {format(parseLocalDate(division.finalsDate), 'EEE, MMM d')}
                                 </button>
                             </PopoverTrigger>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveDate(e);
-                                }} 
-                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                }}
+                                className="rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/40 p-0.5"
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -460,7 +461,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     <PopoverContent className="w-auto p-0" onClick={(e) => e.stopPropagation()}>
                         <Calendar
                             mode="single"
-                            selected={division.date ? parseLocalDate(division.date) : null}
+                            selected={division.finalsDate ? parseLocalDate(division.finalsDate) : null}
                             onSelect={handleDateSelect}
                             initialFocus
                         />
@@ -1007,9 +1008,9 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const divisionsWithDetails = group.divisions.map(div => {
         const id = div.id || `${div.assocId}-${div.division}`;
-        const date = (pbbDiscipline.divisionDates && pbbDiscipline.divisionDates[id]) || null;
+        const finalsDate = (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[id]) || null;
         const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[id]) || null;
-        return { ...div, id, date, customTitle };
+        return { ...div, id, finalsDate, customTitle };
     });
 
     const handlePatternSelect = (patternId) => {

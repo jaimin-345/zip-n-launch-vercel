@@ -732,9 +732,9 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         return (pbbDiscipline.divisionOrder || []).map(divId => {
             const [assocId, ...divisionParts] = divId.split('-');
             const divisionName = divisionParts.join('-');
-            const date = (pbbDiscipline.divisionDates && pbbDiscipline.divisionDates[divId]) || null;
+            const finalsDate = (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[divId]) || null;
             const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || null;
-            return { id: divId, assocId, division: divisionName, date, customTitle };
+            return { id: divId, assocId, division: divisionName, finalsDate, customTitle };
         });
     }, [pbbDiscipline]);
 

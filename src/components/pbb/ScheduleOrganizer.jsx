@@ -14,11 +14,12 @@ import React, { useState, useMemo } from 'react';
     import { format } from 'date-fns';
     import { parseLocalDate } from '@/lib/utils';
 
-    const SortableDivisionItem = ({ 
-        divisionIdentifier, 
-        onSelectionChange, 
-        isSelected, 
-        date, 
+    const SortableDivisionItem = ({
+        divisionIdentifier,
+        onSelectionChange,
+        isSelected,
+        prelimsDate,
+        finalsDate,
         customTitle,
         onTitleChange,
         onDateClear,
@@ -87,11 +88,22 @@ import React, { useState, useMemo } from 'react';
                 {divisionTag}
             </Badge>
         )}
-                {date && (
-                    <Badge variant="outline" className="flex items-center gap-1 border-info bg-info/10 text-info-foreground">
+                {prelimsDate && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
                         <CalendarIcon className="h-3 w-3" />
-                        {format(parseLocalDate(date), 'EEE, MMM d')}
-                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1" onClick={() => onDateClear(divisionIdentifier)}>
+                        <span className="font-medium">Prelims:</span>
+                        {format(parseLocalDate(prelimsDate), 'EEE, MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-amber-100 dark:hover:bg-amber-900/40" onClick={() => onDateClear(divisionIdentifier, 'prelims')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </Badge>
+                )}
+                {finalsDate && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                        <CalendarIcon className="h-3 w-3" />
+                        <span className="font-medium">Finals:</span>
+                        {format(parseLocalDate(finalsDate), 'EEE, MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40" onClick={() => onDateClear(divisionIdentifier, 'finals')}>
                             <X className="h-3 w-3" />
                         </Button>
                     </Badge>
@@ -106,20 +118,23 @@ import React, { useState, useMemo } from 'react';
     export const ScheduleOrganizer = ({ pbbDiscipline, setFormData, formData, associationsData }) => {
         const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
         const [selectedDivisions, setSelectedDivisions] = useState([]);
-        const [dateForPopover, setDateForPopover] = useState(null);
+        const [prelimsDateForPopover, setPrelimsDateForPopover] = useState(null);
+        const [finalsDateForPopover, setFinalsDateForPopover] = useState(null);
 
         const divisionsWithData = useMemo(() => {
             if (!pbbDiscipline) return [];
             return (pbbDiscipline.divisionOrder || []).map(divId => ({
                 id: divId,
-                date: (pbbDiscipline.divisionDates && pbbDiscipline.divisionDates[divId]) || null,
+                prelimsDate: (pbbDiscipline.divisionPrelimsDates && pbbDiscipline.divisionPrelimsDates[divId]) || null,
+                finalsDate: (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[divId]) || null,
                 customTitle: (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || ''
             }));
         }, [pbbDiscipline]);
 
         const groupedDivisions = useMemo(() => {
             const groups = divisionsWithData.reduce((acc, division) => {
-                const dateKey = division.date || 'Unscheduled';
+                // Use prelims date as primary grouping, or finals if no prelims, or 'Unscheduled'
+                const dateKey = division.prelimsDate || division.finalsDate || 'Unscheduled';
                 if (!acc[dateKey]) {
                     acc[dateKey] = [];
                 }
@@ -165,19 +180,19 @@ import React, { useState, useMemo } from 'react';
         const handleSelectionChange = (divisionId, isChecked) => {
             setSelectedDivisions(prev => isChecked ? [...prev, divisionId] : prev.filter(id => id !== divisionId));
         };
-        
-        const handleApplyDateToSelected = (date) => {
+
+        const handleApplyPrelimsDate = (date) => {
             if (!date || selectedDivisions.length === 0) return;
-            const dateString = format(date, 'yyyy-MM-dd'); // Ensure consistent date format
+            const dateString = format(date, 'yyyy-MM-dd');
 
             setFormData(prev => {
                 const newDisciplines = prev.disciplines.map(disc => {
                     if (disc.id === pbbDiscipline.id) {
-                        const newDivisionDates = { ...(disc.divisionDates || {}) };
+                        const newDivisionPrelimsDates = { ...(disc.divisionPrelimsDates || {}) };
                         selectedDivisions.forEach(divId => {
-                            newDivisionDates[divId] = dateString;
+                            newDivisionPrelimsDates[divId] = dateString;
                         });
-                        return { ...disc, divisionDates: newDivisionDates };
+                        return { ...disc, divisionPrelimsDates: newDivisionPrelimsDates };
                     }
                     return disc;
                 });
@@ -185,15 +200,41 @@ import React, { useState, useMemo } from 'react';
             });
             setSelectedDivisions([]);
         };
-        
-        const handleDateClear = (divisionId) => {
+
+        const handleApplyFinalsDate = (date) => {
+            if (!date || selectedDivisions.length === 0) return;
+            const dateString = format(date, 'yyyy-MM-dd');
+
+            setFormData(prev => {
+                const newDisciplines = prev.disciplines.map(disc => {
+                    if (disc.id === pbbDiscipline.id) {
+                        const newDivisionFinalsDates = { ...(disc.divisionFinalsDates || {}) };
+                        selectedDivisions.forEach(divId => {
+                            newDivisionFinalsDates[divId] = dateString;
+                        });
+                        return { ...disc, divisionFinalsDates: newDivisionFinalsDates };
+                    }
+                    return disc;
+                });
+                return { ...prev, disciplines: newDisciplines };
+            });
+            setSelectedDivisions([]);
+        };
+
+        const handleDateClear = (divisionId, dateType) => {
             setFormData(prev => ({
                 ...prev,
                 disciplines: prev.disciplines.map(disc => {
                     if (disc.id === pbbDiscipline.id) {
-                        const newDivisionDates = { ...(disc.divisionDates || {}) };
-                        delete newDivisionDates[divisionId];
-                        return { ...disc, divisionDates: newDivisionDates };
+                        if (dateType === 'prelims') {
+                            const newDivisionPrelimsDates = { ...(disc.divisionPrelimsDates || {}) };
+                            delete newDivisionPrelimsDates[divisionId];
+                            return { ...disc, divisionPrelimsDates: newDivisionPrelimsDates };
+                        } else {
+                            const newDivisionFinalsDates = { ...(disc.divisionFinalsDates || {}) };
+                            delete newDivisionFinalsDates[divisionId];
+                            return { ...disc, divisionFinalsDates: newDivisionFinalsDates };
+                        }
                     }
                     return disc;
                 })
@@ -249,32 +290,59 @@ import React, { useState, useMemo } from 'react';
                         <div className="flex items-center gap-2">
                             <div className="flex items-center space-x-2">
                                 <Checkbox id={`select-all-${pbbDiscipline.id}`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
-                                <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All Dates</Label>
+                                <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
                             </div>
                             <Popover onOpenChange={(open) => {
                                 if (open && selectedDivisions.length > 0) {
-                                    // When popover opens, set the calendar to show the first selected division's date
                                     const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
-                                    if (firstSelectedDiv?.date) {
-                                        setDateForPopover(new Date(firstSelectedDiv.date));
+                                    if (firstSelectedDiv?.prelimsDate) {
+                                        setPrelimsDateForPopover(new Date(firstSelectedDiv.prelimsDate));
                                     } else {
-                                        setDateForPopover(null);
+                                        setPrelimsDateForPopover(null);
                                     }
                                 }
                             }}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        Apply Date to Selected ({selectedDivisions.length})
+                                        Prelims ({selectedDivisions.length})
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={dateForPopover}
+                                        selected={prelimsDateForPopover}
                                         onSelect={(newDate) => {
-                                            setDateForPopover(newDate);
-                                            handleApplyDateToSelected(newDate);
+                                            setPrelimsDateForPopover(newDate);
+                                            handleApplyPrelimsDate(newDate);
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            <Popover onOpenChange={(open) => {
+                                if (open && selectedDivisions.length > 0) {
+                                    const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
+                                    if (firstSelectedDiv?.finalsDate) {
+                                        setFinalsDateForPopover(new Date(firstSelectedDiv.finalsDate));
+                                    } else {
+                                        setFinalsDateForPopover(null);
+                                    }
+                                }
+                            }}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        Finals ({selectedDivisions.length})
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={finalsDateForPopover}
+                                        onSelect={(newDate) => {
+                                            setFinalsDateForPopover(newDate);
+                                            handleApplyFinalsDate(newDate);
                                         }}
                                         initialFocus
                                     />
@@ -298,13 +366,14 @@ import React, { useState, useMemo } from 'react';
                                                 {dateKey === 'Unscheduled' ? 'Unscheduled' : format(parseLocalDate(dateKey), 'EEEE, MMMM d, yyyy')}
                                             </h4>
                                             <div className="space-y-1.5">
-                                                {divisions.map(({ id, date, customTitle }) => (
+                                                {divisions.map(({ id, prelimsDate, finalsDate, customTitle }) => (
                                                     <SortableDivisionItem
                                                         key={id}
                                                         divisionIdentifier={id}
                                                         isSelected={selectedDivisions.includes(id)}
                                                         onSelectionChange={handleSelectionChange}
-                                                        date={date}
+                                                        prelimsDate={prelimsDate}
+                                                        finalsDate={finalsDate}
                                                         customTitle={customTitle}
                                                         onTitleChange={handlePrintTitleChange}
                                                         onDateClear={handleDateClear}
