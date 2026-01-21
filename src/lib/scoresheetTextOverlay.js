@@ -370,33 +370,11 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
     }
   }
   
-  // Get judge name - PRIORITY: scoresheet-specific judges first, then fallback to project-level
+  // Get judge name - check multiple possible locations
   let judgeName = '';
   
-  // FIRST: Check scoresheet-specific judges (already resolved per group)
-  if (scoresheet?.judgeNames) {
-    // judgeNames is a comma-separated string of judge names
-    judgeName = scoresheet.judgeNames;
-  } else if (scoresheet?.judges?.length > 0) {
-    // judges is an array of judge names
-    judgeName = scoresheet.judges.join(', ');
-  }
-  
-  // FALLBACK: Check groupJudges for this specific discipline/group
-  if (!judgeName && projectData.groupJudges && scoresheet?.disciplineIndex !== undefined) {
-    const disciplineIndex = scoresheet.disciplineIndex;
-    const groupIndex = scoresheet.groupIndex ?? 0;
-    const groupJudges = projectData.groupJudges?.[disciplineIndex] || projectData.groupJudges?.[`${disciplineIndex}`] || {};
-    const judgesForGroup = groupJudges[groupIndex] || groupJudges[`${groupIndex}`];
-    if (Array.isArray(judgesForGroup) && judgesForGroup.length > 0) {
-      judgeName = judgesForGroup.join(', ');
-    } else if (judgesForGroup) {
-      judgeName = String(judgesForGroup);
-    }
-  }
-  
-  // FALLBACK: Check associationJudges (has nested structure with judges array)
-  if (!judgeName && projectData.associationJudges && Object.keys(projectData.associationJudges).length > 0) {
+  // Check associationJudges first (has nested structure with judges array)
+  if (projectData.associationJudges && Object.keys(projectData.associationJudges).length > 0) {
     for (const assocKey of Object.keys(projectData.associationJudges)) {
       const assocData = projectData.associationJudges[assocKey];
       // Check if it has judges array
@@ -412,32 +390,25 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
     }
   }
   
-  // FALLBACK: Check first available groupJudges (any discipline)
+  // Check groupJudges
   if (!judgeName && projectData.groupJudges && Object.keys(projectData.groupJudges).length > 0) {
     const firstGroupJudge = Object.values(projectData.groupJudges)[0];
-    if (typeof firstGroupJudge === 'object' && firstGroupJudge !== null) {
-      const firstJudgeValue = Object.values(firstGroupJudge)[0];
-      if (Array.isArray(firstJudgeValue) && firstJudgeValue.length > 0) {
-        judgeName = firstJudgeValue.join(', ');
-      } else if (firstJudgeValue?.name || firstJudgeValue?.full_name) {
-        judgeName = firstJudgeValue.name || firstJudgeValue.full_name || '';
-      }
-    }
+    judgeName = firstGroupJudge?.name || firstGroupJudge?.full_name || '';
   }
   
-  // FALLBACK: Check officials array
+  // Check officials array
   if (!judgeName && projectData.officials?.length > 0) {
     const judge = projectData.officials.find(o => o.role === 'judge' || o.type === 'judge');
     judgeName = judge?.name || judge?.full_name || projectData.officials[0]?.name || '';
   }
   
-  // FALLBACK: Check staff array
+  // Check staff array
   if (!judgeName && projectData.staff?.length > 0) {
     const judge = projectData.staff.find(s => s.role === 'judge' || s.type === 'judge');
     judgeName = judge?.name || judge?.full_name || '';
   }
   
-  // FALLBACK: Check officialsAndStaff.judges
+  // Check officialsAndStaff.judges
   if (!judgeName && projectData.officialsAndStaff?.judges?.length > 0) {
     judgeName = projectData.officialsAndStaff.judges[0].name || projectData.officialsAndStaff.judges[0].full_name || '';
   }
