@@ -70,6 +70,16 @@ export const generatePatternBookPdf = async (pbbData) => {
         return cleaned || name;
     };
 
+    // Helper function to format division name with Go label if applicable
+    const formatDivisionWithGo = (division) => {
+        const baseName = removeFirstWord(division.division || '');
+        // Only add Go label if this division has a goNumber (meaning it's part of a two-go class)
+        if (division.goNumber === 1 || division.goNumber === 2) {
+            return `${baseName} (Go ${division.goNumber})`;
+        }
+        return baseName;
+    };
+
     const addImageToPage = async (base64, x, y, width, height) => {
         if (!base64) return;
         try {
@@ -389,7 +399,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                     yPos = margin + 30;
                 }
                 
-                const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(', ');
+                const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(', ');
                 // Extract pattern ID - handle both object format and direct ID
                 const patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
                 let patternId = null;
@@ -500,7 +510,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             
             // Add to TOC with sequential numbering
             sequentialClassNumber++;
-            const className = `${discipline.name} - ${group.divisions.map(d => removeFirstWord(d.division || '')).join('/')}`;
+            const className = `${discipline.name} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
             toc.push({ 
                 title: className,
                 page: doc.internal.getNumberOfPages() - 1,
@@ -535,7 +545,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
             
             // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
-            const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(' / ') || '';
+            const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
             if (divisions) {
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
@@ -620,7 +630,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                 yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
                 
                 // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
-                const divisions = group.divisions?.map(d => removeFirstWord(d.division || '')).join(' / ') || '';
+                const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
                 if (divisions) {
                     doc.setFontSize(10);
                     doc.setFont('times', 'normal');

@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
     import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
     import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
     import { CSS } from '@dnd-kit/utilities';
-    import { GripVertical, Calendar as CalendarIcon, X } from 'lucide-react';
+    import { GripVertical, Calendar as CalendarIcon, X, Plus, Check } from 'lucide-react';
     import { Button } from '@/components/ui/button';
     import { Input } from '@/components/ui/input';
     import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,13 @@ import React, { useState, useMemo } from 'react';
         divisionIdentifier,
         onSelectionChange,
         isSelected,
-        prelimsDate,
-        finalsDate,
+        go1Date,
+        go2Date,
+        hasGo2,
         customTitle,
         onTitleChange,
         onDateClear,
+        onRemoveGo2,
         formData,
         pbbDiscipline,
         associationsData,
@@ -44,10 +46,10 @@ import React, { useState, useMemo } from 'react';
     };
 
     const { tag: divisionTag, name: divisionName } = parseDivisionDisplay(originalDivisionName);
-    
+
     const getAssociationBadges = () => {
         if (!pbbDiscipline || !formData) return [];
-        
+
         const badges = [];
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
 
@@ -55,11 +57,11 @@ import React, { useState, useMemo } from 'react';
         if (pbbDiscipline.name) {
             badges.push(<Badge key="discipline-badge" variant="outline" className="text-xs bg-gray-100 dark:bg-gray-800">{pbbDiscipline.name}</Badge>);
         }
-        
+
         const assoc = associationsData.find(a => a.id === assocId);
         if (assoc) {
             badges.push(<Badge key={assocId} variant={assoc?.color || 'secondary'} className="text-xs">{assoc.abbreviation || assoc.name}</Badge>);
-            
+
             if (pbbDiscipline.isDualApproved && nsbaDualApprovedWith.includes(assocId)) {
                 badges.push(<Badge key={`${assocId}-da`} variant="dualApproved" className="text-xs">NSBA Dual-Approved</Badge>);
             }
@@ -88,22 +90,33 @@ import React, { useState, useMemo } from 'react';
                 {divisionTag}
             </Badge>
         )}
-                {prelimsDate && (
-                    <Badge variant="outline" className="flex items-center gap-1 border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                {/* Go 1 Date Badge - only show label if class has Go 2 */}
+                {go1Date && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
                         <CalendarIcon className="h-3 w-3" />
-                        <span className="font-medium">Prelims:</span>
-                        {format(parseLocalDate(prelimsDate), 'EEE, MMM d')}
-                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-amber-100 dark:hover:bg-amber-900/40" onClick={() => onDateClear(divisionIdentifier, 'prelims')}>
+                        {hasGo2 && <span className="font-medium">Go 1:</span>}
+                        {format(parseLocalDate(go1Date), 'EEE, MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-blue-100 dark:hover:bg-blue-900/40" onClick={() => onDateClear(divisionIdentifier, 'go1')}>
                             <X className="h-3 w-3" />
                         </Button>
                     </Badge>
                 )}
-                {finalsDate && (
-                    <Badge variant="outline" className="flex items-center gap-1 border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
+                {/* Go 2 Date Badge */}
+                {hasGo2 && go2Date && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400">
                         <CalendarIcon className="h-3 w-3" />
-                        <span className="font-medium">Finals:</span>
-                        {format(parseLocalDate(finalsDate), 'EEE, MMM d')}
-                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40" onClick={() => onDateClear(divisionIdentifier, 'finals')}>
+                        <span className="font-medium">Go 2:</span>
+                        {format(parseLocalDate(go2Date), 'EEE, MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40" onClick={() => onDateClear(divisionIdentifier, 'go2')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </Badge>
+                )}
+                {/* Go 2 indicator (no date assigned yet) */}
+                {hasGo2 && !go2Date && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-indigo-300 bg-indigo-50/50 text-indigo-600 dark:bg-indigo-900/10 dark:text-indigo-400">
+                        <span className="font-medium">Go 2</span>
+                        <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-indigo-100 dark:hover:bg-indigo-900/40" onClick={() => onRemoveGo2(divisionIdentifier)}>
                             <X className="h-3 w-3" />
                         </Button>
                     </Badge>
@@ -118,23 +131,45 @@ import React, { useState, useMemo } from 'react';
     export const ScheduleOrganizer = ({ pbbDiscipline, setFormData, formData, associationsData }) => {
         const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
         const [selectedDivisions, setSelectedDivisions] = useState([]);
-        const [prelimsDateForPopover, setPrelimsDateForPopover] = useState(null);
-        const [finalsDateForPopover, setFinalsDateForPopover] = useState(null);
+        const [go1DateForPopover, setGo1DateForPopover] = useState(null);
+        const [go2DateForPopover, setGo2DateForPopover] = useState(null);
 
         const divisionsWithData = useMemo(() => {
             if (!pbbDiscipline) return [];
-            return (pbbDiscipline.divisionOrder || []).map(divId => ({
-                id: divId,
-                prelimsDate: (pbbDiscipline.divisionPrelimsDates && pbbDiscipline.divisionPrelimsDates[divId]) || null,
-                finalsDate: (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[divId]) || null,
-                customTitle: (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || ''
-            }));
+            return (pbbDiscipline.divisionOrder || []).map(divId => {
+                const goInfo = pbbDiscipline.divisionGos?.[divId] || {};
+                return {
+                    id: divId,
+                    go1Date: goInfo.go1Date || null,
+                    go2Date: goInfo.go2Date || null,
+                    hasGo2: goInfo.hasGo2 || false,
+                    customTitle: (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || ''
+                };
+            });
         }, [pbbDiscipline]);
+
+        // Check if any selected division has Go 2 enabled
+        const selectedHaveGo2 = useMemo(() => {
+            if (selectedDivisions.length === 0) return false;
+            return selectedDivisions.some(divId => {
+                const goInfo = pbbDiscipline?.divisionGos?.[divId];
+                return goInfo?.hasGo2;
+            });
+        }, [selectedDivisions, pbbDiscipline]);
+
+        // Check if all selected divisions have Go 2 enabled
+        const allSelectedHaveGo2 = useMemo(() => {
+            if (selectedDivisions.length === 0) return false;
+            return selectedDivisions.every(divId => {
+                const goInfo = pbbDiscipline?.divisionGos?.[divId];
+                return goInfo?.hasGo2;
+            });
+        }, [selectedDivisions, pbbDiscipline]);
 
         const groupedDivisions = useMemo(() => {
             const groups = divisionsWithData.reduce((acc, division) => {
-                // Use prelims date as primary grouping, or finals if no prelims, or 'Unscheduled'
-                const dateKey = division.prelimsDate || division.finalsDate || 'Unscheduled';
+                // Use Go 1 date as primary grouping, or Go 2 if no Go 1, or 'Unscheduled'
+                const dateKey = division.go1Date || division.go2Date || 'Unscheduled';
                 if (!acc[dateKey]) {
                     acc[dateKey] = [];
                 }
@@ -181,18 +216,22 @@ import React, { useState, useMemo } from 'react';
             setSelectedDivisions(prev => isChecked ? [...prev, divisionId] : prev.filter(id => id !== divisionId));
         };
 
-        const handleApplyPrelimsDate = (date) => {
+        // Apply Go 1 date to selected divisions
+        const handleApplyGo1Date = (date) => {
             if (!date || selectedDivisions.length === 0) return;
             const dateString = format(date, 'yyyy-MM-dd');
 
             setFormData(prev => {
                 const newDisciplines = prev.disciplines.map(disc => {
                     if (disc.id === pbbDiscipline.id) {
-                        const newDivisionPrelimsDates = { ...(disc.divisionPrelimsDates || {}) };
+                        const newDivisionGos = { ...(disc.divisionGos || {}) };
                         selectedDivisions.forEach(divId => {
-                            newDivisionPrelimsDates[divId] = dateString;
+                            newDivisionGos[divId] = {
+                                ...(newDivisionGos[divId] || { hasGo2: false, go2Date: null }),
+                                go1Date: dateString
+                            };
                         });
-                        return { ...disc, divisionPrelimsDates: newDivisionPrelimsDates };
+                        return { ...disc, divisionGos: newDivisionGos };
                     }
                     return disc;
                 });
@@ -201,24 +240,78 @@ import React, { useState, useMemo } from 'react';
             setSelectedDivisions([]);
         };
 
-        const handleApplyFinalsDate = (date) => {
+        // Apply Go 2 date to selected divisions (only those with Go 2 enabled)
+        const handleApplyGo2Date = (date) => {
             if (!date || selectedDivisions.length === 0) return;
             const dateString = format(date, 'yyyy-MM-dd');
 
             setFormData(prev => {
                 const newDisciplines = prev.disciplines.map(disc => {
                     if (disc.id === pbbDiscipline.id) {
-                        const newDivisionFinalsDates = { ...(disc.divisionFinalsDates || {}) };
+                        const newDivisionGos = { ...(disc.divisionGos || {}) };
                         selectedDivisions.forEach(divId => {
-                            newDivisionFinalsDates[divId] = dateString;
+                            // Only apply Go 2 date if Go 2 is enabled for this division
+                            if (newDivisionGos[divId]?.hasGo2) {
+                                newDivisionGos[divId] = {
+                                    ...newDivisionGos[divId],
+                                    go2Date: dateString
+                                };
+                            }
                         });
-                        return { ...disc, divisionFinalsDates: newDivisionFinalsDates };
+                        return { ...disc, divisionGos: newDivisionGos };
                     }
                     return disc;
                 });
                 return { ...prev, disciplines: newDisciplines };
             });
             setSelectedDivisions([]);
+        };
+
+        // Toggle Go 2 for selected divisions
+        const handleToggleGo2 = () => {
+            if (selectedDivisions.length === 0) return;
+
+            setFormData(prev => {
+                const newDisciplines = prev.disciplines.map(disc => {
+                    if (disc.id === pbbDiscipline.id) {
+                        const newDivisionGos = { ...(disc.divisionGos || {}) };
+                        selectedDivisions.forEach(divId => {
+                            const currentGoInfo = newDivisionGos[divId] || { go1Date: null, go2Date: null, hasGo2: false };
+                            // Toggle: if all selected have Go 2, remove it; otherwise add it
+                            newDivisionGos[divId] = {
+                                ...currentGoInfo,
+                                hasGo2: !allSelectedHaveGo2,
+                                // Clear Go 2 date if removing Go 2
+                                go2Date: allSelectedHaveGo2 ? null : currentGoInfo.go2Date
+                            };
+                        });
+                        return { ...disc, divisionGos: newDivisionGos };
+                    }
+                    return disc;
+                });
+                return { ...prev, disciplines: newDisciplines };
+            });
+        };
+
+        // Remove Go 2 from a single division
+        const handleRemoveGo2 = (divisionId) => {
+            setFormData(prev => ({
+                ...prev,
+                disciplines: prev.disciplines.map(disc => {
+                    if (disc.id === pbbDiscipline.id) {
+                        const newDivisionGos = { ...(disc.divisionGos || {}) };
+                        if (newDivisionGos[divisionId]) {
+                            newDivisionGos[divisionId] = {
+                                ...newDivisionGos[divisionId],
+                                hasGo2: false,
+                                go2Date: null
+                            };
+                        }
+                        return { ...disc, divisionGos: newDivisionGos };
+                    }
+                    return disc;
+                })
+            }));
         };
 
         const handleDateClear = (divisionId, dateType) => {
@@ -226,15 +319,21 @@ import React, { useState, useMemo } from 'react';
                 ...prev,
                 disciplines: prev.disciplines.map(disc => {
                     if (disc.id === pbbDiscipline.id) {
-                        if (dateType === 'prelims') {
-                            const newDivisionPrelimsDates = { ...(disc.divisionPrelimsDates || {}) };
-                            delete newDivisionPrelimsDates[divisionId];
-                            return { ...disc, divisionPrelimsDates: newDivisionPrelimsDates };
-                        } else {
-                            const newDivisionFinalsDates = { ...(disc.divisionFinalsDates || {}) };
-                            delete newDivisionFinalsDates[divisionId];
-                            return { ...disc, divisionFinalsDates: newDivisionFinalsDates };
+                        const newDivisionGos = { ...(disc.divisionGos || {}) };
+                        if (newDivisionGos[divisionId]) {
+                            if (dateType === 'go1') {
+                                newDivisionGos[divisionId] = {
+                                    ...newDivisionGos[divisionId],
+                                    go1Date: null
+                                };
+                            } else if (dateType === 'go2') {
+                                newDivisionGos[divisionId] = {
+                                    ...newDivisionGos[divisionId],
+                                    go2Date: null
+                                };
+                            }
                         }
+                        return { ...disc, divisionGos: newDivisionGos };
                     }
                     return disc;
                 })
@@ -258,12 +357,12 @@ import React, { useState, useMemo } from 'react';
                 })
             }));
         };
-        
+
         const handleOverallPrintTitleChange = (e) => {
             const newTitle = e.target.value;
             setFormData(prev => ({
                 ...prev,
-                disciplines: prev.disciplines.map(disc => 
+                disciplines: prev.disciplines.map(disc =>
                     disc.id === pbbDiscipline.id ? { ...disc, printTitle: newTitle } : disc
                 )
             }));
@@ -282,7 +381,7 @@ import React, { useState, useMemo } from 'react';
         return (
             <div className="space-y-2">
                 <p className="text-xs text-muted-foreground">
-                    Organize the general class schedule. Drag to reorder. Select classes to apply a date.
+                    Organize the general class schedule. Drag to reorder. Select classes to apply a date or add Go 2.
                 </p>
 
                 <div className="p-3 border rounded-lg bg-background space-y-2">
@@ -292,62 +391,80 @@ import React, { useState, useMemo } from 'react';
                                 <Checkbox id={`select-all-${pbbDiscipline.id}`} checked={areAllSelected} onCheckedChange={toggleSelectAll} />
                                 <Label htmlFor={`select-all-${pbbDiscipline.id}`} className="text-sm font-medium">Select All</Label>
                             </div>
+                            {/* Go 1 Date Picker */}
                             <Popover onOpenChange={(open) => {
                                 if (open && selectedDivisions.length > 0) {
                                     const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
-                                    if (firstSelectedDiv?.prelimsDate) {
-                                        setPrelimsDateForPopover(new Date(firstSelectedDiv.prelimsDate));
+                                    if (firstSelectedDiv?.go1Date) {
+                                        setGo1DateForPopover(new Date(firstSelectedDiv.go1Date));
                                     } else {
-                                        setPrelimsDateForPopover(null);
+                                        setGo1DateForPopover(null);
                                     }
                                 }
                             }}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        Prelims ({selectedDivisions.length})
+                                        {selectedHaveGo2 ? 'Go 1 Date' : 'Assign Date'} ({selectedDivisions.length})
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
                                         mode="single"
-                                        selected={prelimsDateForPopover}
+                                        selected={go1DateForPopover}
                                         onSelect={(newDate) => {
-                                            setPrelimsDateForPopover(newDate);
-                                            handleApplyPrelimsDate(newDate);
+                                            setGo1DateForPopover(newDate);
+                                            handleApplyGo1Date(newDate);
                                         }}
                                         initialFocus
                                     />
                                 </PopoverContent>
                             </Popover>
-                            <Popover onOpenChange={(open) => {
-                                if (open && selectedDivisions.length > 0) {
-                                    const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
-                                    if (firstSelectedDiv?.finalsDate) {
-                                        setFinalsDateForPopover(new Date(firstSelectedDiv.finalsDate));
-                                    } else {
-                                        setFinalsDateForPopover(null);
+                            {/* Add/Remove Go 2 Toggle */}
+                            <Button
+                                variant={allSelectedHaveGo2 ? "default" : "outline"}
+                                size="sm"
+                                disabled={selectedDivisions.length === 0}
+                                onClick={handleToggleGo2}
+                            >
+                                {allSelectedHaveGo2 ? (
+                                    <Check className="mr-2 h-4 w-4" />
+                                ) : (
+                                    <Plus className="mr-2 h-4 w-4" />
+                                )}
+                                Go 2 ({selectedDivisions.length})
+                            </Button>
+                            {/* Go 2 Date Picker - only show when some selected divisions have Go 2 */}
+                            {selectedHaveGo2 && (
+                                <Popover onOpenChange={(open) => {
+                                    if (open && selectedDivisions.length > 0) {
+                                        const firstSelectedDiv = divisionsWithData.find(d => d.id === selectedDivisions[0]);
+                                        if (firstSelectedDiv?.go2Date) {
+                                            setGo2DateForPopover(new Date(firstSelectedDiv.go2Date));
+                                        } else {
+                                            setGo2DateForPopover(null);
+                                        }
                                     }
-                                }
-                            }}>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        Finals ({selectedDivisions.length})
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={finalsDateForPopover}
-                                        onSelect={(newDate) => {
-                                            setFinalsDateForPopover(newDate);
-                                            handleApplyFinalsDate(newDate);
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                                }}>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" size="sm" disabled={selectedDivisions.length === 0}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            Go 2 Date
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={go2DateForPopover}
+                                            onSelect={(newDate) => {
+                                                setGo2DateForPopover(newDate);
+                                                handleApplyGo2Date(newDate);
+                                            }}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            )}
                         </div>
                         {formData?.showName && (
                             <div className="text-xs font-medium text-muted-foreground">
@@ -366,17 +483,19 @@ import React, { useState, useMemo } from 'react';
                                                 {dateKey === 'Unscheduled' ? 'Unscheduled' : format(parseLocalDate(dateKey), 'EEEE, MMMM d, yyyy')}
                                             </h4>
                                             <div className="space-y-1.5">
-                                                {divisions.map(({ id, prelimsDate, finalsDate, customTitle }) => (
+                                                {divisions.map(({ id, go1Date, go2Date, hasGo2, customTitle }) => (
                                                     <SortableDivisionItem
                                                         key={id}
                                                         divisionIdentifier={id}
                                                         isSelected={selectedDivisions.includes(id)}
                                                         onSelectionChange={handleSelectionChange}
-                                                        prelimsDate={prelimsDate}
-                                                        finalsDate={finalsDate}
+                                                        go1Date={go1Date}
+                                                        go2Date={go2Date}
+                                                        hasGo2={hasGo2}
                                                         customTitle={customTitle}
                                                         onTitleChange={handlePrintTitleChange}
                                                         onDateClear={handleDateClear}
+                                                        onRemoveGo2={handleRemoveGo2}
                                                         formData={formData}
                                                         pbbDiscipline={pbbDiscipline}
                                                         associationsData={associationsData}

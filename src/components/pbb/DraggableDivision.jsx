@@ -6,7 +6,7 @@ import { Calendar as CalendarIcon, GripVertical } from 'lucide-react';
 import { format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 
-const DraggableDivision = ({ division, id, pbbDiscipline, formData, associationsData }) => {
+const DraggableDivision = ({ division, id, pbbDiscipline, formData, associationsData, goNumber, hasGo2 }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: id,
         data: {
@@ -72,15 +72,29 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
                         {divisionTag}
                     </Badge>
                 )}
-                
-                 {division.finalsDate && (
-                     <Badge variant="outline" className="flex items-center gap-1 border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
-                        <CalendarIcon className="h-3 w-3" />
-                        <span className="font-medium">Finals:</span>
-                        {format(parseLocalDate(division.finalsDate), 'EEE, MMM d')}
+
+                {/* Go 1 badge - only show if class has Go 2 */}
+                {goNumber === 1 && hasGo2 && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 text-xs px-2 py-1 h-auto font-medium whitespace-nowrap">
+                        Go 1
                     </Badge>
-                 )}
-                
+                )}
+
+                {/* Go 2 badge */}
+                {goNumber === 2 && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 text-xs px-2 py-1 h-auto font-medium whitespace-nowrap">
+                        Go 2
+                    </Badge>
+                )}
+
+                {/* Date badge (for division date if available) */}
+                {division.date && (
+                    <Badge variant="outline" className="flex items-center gap-1 border-gray-300 bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400 text-xs px-2 py-1 h-auto font-normal whitespace-nowrap">
+                        <CalendarIcon className="h-3 w-3" />
+                        {format(parseLocalDate(division.date), 'EEE, MMM d')}
+                    </Badge>
+                )}
+
                 {getAssociationBadges()}
             </div>
         </div>

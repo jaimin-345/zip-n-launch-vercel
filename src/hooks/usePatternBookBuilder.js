@@ -37,6 +37,58 @@ const initialFormData = {
   disciplineDueDates: {},
 };
 
+// Migration function: Convert old Prelims/Finals format to new Go 1/Go 2 format
+const migrateToGoFormat = (projectData) => {
+  if (!projectData || !projectData.disciplines) return projectData;
+
+  const migratedDisciplines = projectData.disciplines.map(discipline => {
+    // Skip if already migrated (has divisionGos)
+    if (discipline.divisionGos && Object.keys(discipline.divisionGos).length > 0) {
+      return discipline;
+    }
+
+    const divisionPrelimsDates = discipline.divisionPrelimsDates || {};
+    const divisionFinalsDates = discipline.divisionFinalsDates || {};
+
+    // If no old date fields, nothing to migrate
+    if (Object.keys(divisionPrelimsDates).length === 0 && Object.keys(divisionFinalsDates).length === 0) {
+      return { ...discipline, divisionGos: {} };
+    }
+
+    const divisionGos = {};
+
+    // Divisions with Finals date = two-go class
+    Object.keys(divisionFinalsDates).forEach(divId => {
+      divisionGos[divId] = {
+        hasGo2: true,
+        go1Date: divisionPrelimsDates[divId] || null,
+        go2Date: divisionFinalsDates[divId]
+      };
+    });
+
+    // Divisions with only Prelims date = single-go class with date
+    Object.keys(divisionPrelimsDates).forEach(divId => {
+      if (!divisionGos[divId]) {
+        divisionGos[divId] = {
+          hasGo2: false,
+          go1Date: divisionPrelimsDates[divId],
+          go2Date: null
+        };
+      }
+    });
+
+    return {
+      ...discipline,
+      divisionGos,
+      // Keep old fields for reference but they're now deprecated
+      _migrated_divisionPrelimsDates: divisionPrelimsDates,
+      _migrated_divisionFinalsDates: divisionFinalsDates
+    };
+  });
+
+  return { ...projectData, disciplines: migratedDisciplines };
+};
+
 export const usePatternBookBuilder = (projectId) => {
   // Sanitize projectId - treat "undefined" string as null
   const sanitizedProjectId = projectId && projectId !== 'undefined' ? projectId : null;
@@ -119,9 +171,11 @@ export const usePatternBookBuilder = (projectId) => {
 
           if (projectError) throw projectError;
           if (projectData && projectData.project_data) {
-            setFormData(prev => ({ ...initialFormData, ...projectData.project_data, id: sanitizedProjectId }));
-            const savedStep = projectData.project_data.currentStep || 1;
-            const savedCompleted = projectData.project_data.completedSteps || [];
+            // Migrate old Prelims/Finals format to new Go 1/Go 2 format
+            const migratedData = migrateToGoFormat(projectData.project_data);
+            setFormData(prev => ({ ...initialFormData, ...migratedData, id: sanitizedProjectId }));
+            const savedStep = migratedData.currentStep || 1;
+            const savedCompleted = migratedData.completedSteps || [];
             setStep(savedStep);
             setCompletedSteps(new Set(savedCompleted));
           }
@@ -352,6 +406,7 @@ export const usePatternBookBuilder = (projectId) => {
               divisionOrder: [],
               divisionDates: {},
               divisionPrintTitles: {},
+              divisionGos: {},  // Go 1/Go 2 configuration
               patternGroups: [{ id: `pg-${Date.now()}`, name: 'Group 1', divisions: [], competitionDate: null }],
             })),
             // Also reset Step 5 data that depends on class configuration

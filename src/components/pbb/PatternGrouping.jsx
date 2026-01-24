@@ -243,6 +243,23 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                     }
                 }
 
+                // Go 1/Go 2 Constraint: Go 1 and Go 2 of the same class cannot be in the same pattern group
+                if (divisionToMove.baseId && divisionToMove.goNumber) {
+                    const hasSameBaseWithDifferentGo = targetGroup.divisions.some(d =>
+                        d.baseId === divisionToMove.baseId &&
+                        d.goNumber !== divisionToMove.goNumber &&
+                        d.goNumber !== null
+                    );
+                    if (hasSameBaseWithDifferentGo) {
+                        toast({
+                            variant: 'destructive',
+                            title: 'Invalid Grouping',
+                            description: 'Go 1 and Go 2 of the same class cannot be in the same pattern group.',
+                        });
+                        return;
+                    }
+                }
+
                 // Primary Association Validation: If 2+ associations exist AND 2+ are Primary, prevent mixing
                 const allAssociations = getAllAssociationsForDiscipline();
                 const primaryAssociations = getPrimaryAssociationsForDiscipline();
@@ -327,8 +344,11 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                         if (!newDivisions.some((d) => d.id === divisionToMove.id)) {
                             newDivisions.push({
                                 id: divisionToMove.id,
+                                baseId: divisionToMove.baseId,
                                 assocId: divisionToMove.assocId,
                                 division: divisionToMove.division,
+                                goNumber: divisionToMove.goNumber,
+                                hasGo2: divisionToMove.hasGo2,
                             });
                         }
 
@@ -345,7 +365,13 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         if (selectedForBulkMove.length === 0 || !pbbDiscipline) return;
 
         const divisionsToMove = ungroupedDivisions.filter(d => selectedForBulkMove.includes(d.id));
-        const simpleDivs = divisionsToMove.map(d => ({ id: d.id, assocId: d.assocId, division: d.division }));
+        const simpleDivs = divisionsToMove.map(d => ({
+            id: d.id,
+            baseId: d.baseId,
+            assocId: d.assocId,
+            division: d.division,
+            goNumber: d.goNumber
+        }));
 
         const targetGroup = pbbDiscipline.patternGroups.find(g => g.id === targetGroupId);
 
@@ -368,6 +394,26 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                     variant: 'destructive',
                     title: 'Invalid Grouping',
                     description: 'Walk-Trot divisions can only be grouped with other Walk-Trot divisions or Youth divisions.',
+                });
+                return;
+            }
+
+            // Go 1/Go 2 Constraint: Go 1 and Go 2 of the same class cannot be in the same pattern group
+            const allDivsForGoCheck = [...simpleDivs, ...targetGroup.divisions];
+            const goConflict = allDivsForGoCheck.some((div, index) => {
+                if (!div.baseId || div.goNumber === null) return false;
+                return allDivsForGoCheck.some((other, otherIndex) =>
+                    index !== otherIndex &&
+                    other.baseId === div.baseId &&
+                    other.goNumber !== div.goNumber &&
+                    other.goNumber !== null
+                );
+            });
+            if (goConflict) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Grouping',
+                    description: 'Go 1 and Go 2 of the same class cannot be in the same pattern group.',
                 });
                 return;
             }
@@ -598,6 +644,16 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         setSelectedSourceDisciplineId(null);
     };
 
+    // Helper to map division to full object with Go fields
+    const mapDivisionToGroupObject = (d) => ({
+        id: d.id,
+        baseId: d.baseId,
+        assocId: d.assocId,
+        division: d.division,
+        goNumber: d.goNumber,
+        hasGo2: d.hasGo2
+    });
+
     const handleAutoGroup = () => {
         if (ungroupedDivisions.length === 0) {
             toast({ title: 'Nothing to group!', description: 'There are no ungrouped divisions.' });
@@ -609,6 +665,10 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         const hasMultipleAssociations = ungroupedAssocIds.length >= 2;
         const isWtAffected = AFFECTED_CLASSES_FOR_WT_RULE.includes(pbbDiscipline.name);
 
+        // Separate Go 1 and Go 2 divisions
+        const go1Divisions = ungroupedDivisions.filter(d => d.goNumber === 1 || d.goNumber === null);
+        const go2Divisions = ungroupedDivisions.filter(d => d.goNumber === 2);
+
         setFormData(prev => {
             const newDisciplines = prev.disciplines.map(disc => {
                 if (disc.id !== pbbDiscipline.id) return disc;
@@ -616,108 +676,118 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                 let newPatternGroups = [...(disc.patternGroups || [])].filter(g => g.divisions.length > 0);
                 let nextPatternNum = newPatternGroups.length + 1;
 
-                if (hasMultipleAssociations) {
-                    // Multiple associations: Create separate groups per association
-                    ungroupedAssocIds.forEach(assocId => {
-                        const assocDivisions = ungroupedDivisions.filter(d => d.assocId === assocId);
-                        if (assocDivisions.length === 0) return;
+                // Helper to create groups from a set of divisions
+                const createGroupsFromDivisions = (divisions, suffix = '') => {
+                    if (divisions.length === 0) return;
 
-                        // Separate WT and non-WT for each association
-                        const wtDivisions = isWtAffected 
-                            ? assocDivisions.filter(d => isWalkTrotDivision(d.division)) 
-                            : [];
-                        const nonWtDivisions = isWtAffected 
-                            ? assocDivisions.filter(d => !isWalkTrotDivision(d.division)) 
-                            : assocDivisions;
+                    if (hasMultipleAssociations) {
+                        // Multiple associations: Create separate groups per association
+                        ungroupedAssocIds.forEach(assocId => {
+                            const assocDivisions = divisions.filter(d => d.assocId === assocId);
+                            if (assocDivisions.length === 0) return;
 
-                        if (nonWtDivisions.length > 0) {
+                            // Separate WT and non-WT for each association
+                            const wtDivisions = isWtAffected
+                                ? assocDivisions.filter(d => isWalkTrotDivision(d.division))
+                                : [];
+                            const nonWtDivisions = isWtAffected
+                                ? assocDivisions.filter(d => !isWalkTrotDivision(d.division))
+                                : assocDivisions;
+
+                            if (nonWtDivisions.length > 0) {
+                                newPatternGroups.push({
+                                    id: `pattern-group-${Date.now()}-${assocId}-nonwt${suffix}`,
+                                    name: `Group ${nextPatternNum++}`,
+                                    divisions: nonWtDivisions.map(mapDivisionToGroupObject),
+                                    rulebookPatternId: '',
+                                });
+                            }
+
+                            if (wtDivisions.length > 0) {
+                                newPatternGroups.push({
+                                    id: `pattern-group-${Date.now()}-${assocId}-wt${suffix}`,
+                                    name: `Group ${nextPatternNum++}`,
+                                    divisions: wtDivisions.map(mapDivisionToGroupObject),
+                                    rulebookPatternId: '',
+                                });
+                            }
+                        });
+                    } else {
+                        // Single association: Group divisions with additional separation conditions
+                        const isLevel1Division = (divisionName) => {
+                            const name = divisionName?.toLowerCase() || '';
+                            return name.includes('level 1') || name.includes('level1') || name.includes('l1');
+                        };
+
+                        const isWalkTrotOrSmallFry = (divisionName) => {
+                            const name = divisionName?.toLowerCase() || '';
+                            return name.includes('walk-trot') || name.includes('walktrot') || name.includes('walk trot') || name.includes('small fry');
+                        };
+
+                        const isGreenHorseOrNoviceAmateur = (divisionName) => {
+                            const name = divisionName?.toLowerCase() || '';
+                            return name.includes('green horse') || name.includes('novice amateur');
+                        };
+
+                        // Categorize divisions
+                        const wtSmallFryDivisions = divisions.filter(d => isWalkTrotOrSmallFry(d.division));
+                        const greenHorseNoviceDivisions = divisions.filter(d =>
+                            !isWalkTrotOrSmallFry(d.division) && isGreenHorseOrNoviceAmateur(d.division)
+                        );
+                        const level1Divisions = divisions.filter(d =>
+                            !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && isLevel1Division(d.division)
+                        );
+                        const regularDivisions = divisions.filter(d =>
+                            !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && !isLevel1Division(d.division)
+                        );
+
+                        // Group 1: Regular divisions
+                        if (regularDivisions.length > 0) {
                             newPatternGroups.push({
-                                id: `pattern-group-${Date.now()}-${assocId}-nonwt`,
+                                id: `pattern-group-${Date.now()}${suffix}`,
                                 name: `Group ${nextPatternNum++}`,
-                                divisions: nonWtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                                divisions: regularDivisions.map(mapDivisionToGroupObject),
                                 rulebookPatternId: '',
                             });
                         }
 
-                        if (wtDivisions.length > 0) {
+                        // Group 2: Level 1 divisions
+                        if (level1Divisions.length > 0) {
                             newPatternGroups.push({
-                                id: `pattern-group-${Date.now()}-${assocId}-wt`,
+                                id: `pattern-group-${Date.now() + 1}${suffix}`,
                                 name: `Group ${nextPatternNum++}`,
-                                divisions: wtDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
+                                divisions: level1Divisions.map(mapDivisionToGroupObject),
                                 rulebookPatternId: '',
                             });
                         }
-                    });
-                } else {
-                    // Single association: Group divisions with additional separation conditions
-                    // Helper functions for division categorization
-                    const isLevel1Division = (divisionName) => {
-                        const name = divisionName?.toLowerCase() || '';
-                        return name.includes('level 1') || name.includes('level1') || name.includes('l1');
-                    };
 
-                    const isWalkTrotOrSmallFry = (divisionName) => {
-                        const name = divisionName?.toLowerCase() || '';
-                        return name.includes('walk-trot') || name.includes('walktrot') || name.includes('walk trot') || name.includes('small fry');
-                    };
+                        // Group 3: Green Horse / Novice Amateur divisions
+                        if (greenHorseNoviceDivisions.length > 0) {
+                            newPatternGroups.push({
+                                id: `pattern-group-${Date.now() + 2}${suffix}`,
+                                name: `Group ${nextPatternNum++}`,
+                                divisions: greenHorseNoviceDivisions.map(mapDivisionToGroupObject),
+                                rulebookPatternId: '',
+                            });
+                        }
 
-                    const isGreenHorseOrNoviceAmateur = (divisionName) => {
-                        const name = divisionName?.toLowerCase() || '';
-                        return name.includes('green horse') || name.includes('novice amateur');
-                    };
-
-                    // Categorize divisions
-                    const wtSmallFryDivisions = ungroupedDivisions.filter(d => isWalkTrotOrSmallFry(d.division));
-                    const greenHorseNoviceDivisions = ungroupedDivisions.filter(d => 
-                        !isWalkTrotOrSmallFry(d.division) && isGreenHorseOrNoviceAmateur(d.division)
-                    );
-                    const level1Divisions = ungroupedDivisions.filter(d => 
-                        !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && isLevel1Division(d.division)
-                    );
-                    const regularDivisions = ungroupedDivisions.filter(d => 
-                        !isWalkTrotOrSmallFry(d.division) && !isGreenHorseOrNoviceAmateur(d.division) && !isLevel1Division(d.division)
-                    );
-
-                    // Group 1: Regular divisions
-                    if (regularDivisions.length > 0) {
-                        newPatternGroups.push({
-                            id: `pattern-group-${Date.now()}`,
-                            name: `Group ${nextPatternNum++}`,
-                            divisions: regularDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
-                            rulebookPatternId: '',
-                        });
+                        // Group 4: Walk-Trot / Small Fry divisions
+                        if (wtSmallFryDivisions.length > 0) {
+                            newPatternGroups.push({
+                                id: `pattern-group-${Date.now() + 3}${suffix}`,
+                                name: `Group ${nextPatternNum++}`,
+                                divisions: wtSmallFryDivisions.map(mapDivisionToGroupObject),
+                                rulebookPatternId: '',
+                            });
+                        }
                     }
+                };
 
-                    // Group 2: Level 1 divisions
-                    if (level1Divisions.length > 0) {
-                        newPatternGroups.push({
-                            id: `pattern-group-${Date.now() + 1}`,
-                            name: `Group ${nextPatternNum++}`,
-                            divisions: level1Divisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
-                            rulebookPatternId: '',
-                        });
-                    }
+                // First, group Go 1 divisions (and single-go divisions)
+                createGroupsFromDivisions(go1Divisions, '-go1');
 
-                    // Group 3: Green Horse / Novice Amateur divisions
-                    if (greenHorseNoviceDivisions.length > 0) {
-                        newPatternGroups.push({
-                            id: `pattern-group-${Date.now() + 2}`,
-                            name: `Group ${nextPatternNum++}`,
-                            divisions: greenHorseNoviceDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
-                            rulebookPatternId: '',
-                        });
-                    }
-
-                    // Group 4: Walk-Trot / Small Fry divisions
-                    if (wtSmallFryDivisions.length > 0) {
-                        newPatternGroups.push({
-                            id: `pattern-group-${Date.now() + 3}`,
-                            name: `Group ${nextPatternNum++}`,
-                            divisions: wtSmallFryDivisions.map(d => ({ id: d.id, assocId: d.assocId, division: d.division })),
-                            rulebookPatternId: '',
-                        });
-                    }
-                }
+                // Then, group Go 2 divisions separately
+                createGroupsFromDivisions(go2Divisions, '-go2');
 
                 return { ...disc, patternGroups: newPatternGroups };
             });
@@ -729,13 +799,50 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
 
     const allDivisions = useMemo(() => {
         if (!pbbDiscipline?.divisionOrder) return [];
-        return (pbbDiscipline.divisionOrder || []).map(divId => {
+        const result = [];
+        (pbbDiscipline.divisionOrder || []).forEach(divId => {
+            const goInfo = pbbDiscipline.divisionGos?.[divId] || {};
             const [assocId, ...divisionParts] = divId.split('-');
             const divisionName = divisionParts.join('-');
-            const finalsDate = (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[divId]) || null;
             const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || null;
-            return { id: divId, assocId, division: divisionName, finalsDate, customTitle };
+
+            if (goInfo.hasGo2) {
+                // Two-go class: create separate entries for Go 1 and Go 2
+                result.push({
+                    id: `${divId}-go1`,
+                    baseId: divId,
+                    assocId,
+                    division: divisionName,
+                    goNumber: 1,
+                    hasGo2: true,
+                    date: goInfo.go1Date || null,
+                    customTitle
+                });
+                result.push({
+                    id: `${divId}-go2`,
+                    baseId: divId,
+                    assocId,
+                    division: divisionName,
+                    goNumber: 2,
+                    hasGo2: true,
+                    date: goInfo.go2Date || null,
+                    customTitle
+                });
+            } else {
+                // Single-go class: one entry, no go label needed
+                result.push({
+                    id: divId,
+                    baseId: divId,
+                    assocId,
+                    division: divisionName,
+                    goNumber: null,
+                    hasGo2: false,
+                    date: goInfo.go1Date || null,
+                    customTitle
+                });
+            }
         });
+        return result;
     }, [pbbDiscipline]);
 
     const groupedDivisionsSet = new Set((pbbDiscipline?.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
@@ -845,6 +952,8 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                                                 pbbDiscipline={pbbDiscipline}
                                                 formData={formData}
                                                 associationsData={associationsData}
+                                                goNumber={div.goNumber}
+                                                hasGo2={div.hasGo2}
                                             />
                                         </div>
                                     </div>

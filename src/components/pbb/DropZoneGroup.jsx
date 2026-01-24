@@ -284,12 +284,21 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
     };
 
     const handleDateSelect = (date) => {
+        const baseId = division.baseId || division.id;
+        const dateString = format(date, 'yyyy-MM-dd');
         setFormData(prev => ({
             ...prev,
             disciplines: prev.disciplines.map(disc => {
                 if (disc.id === pbbDiscipline.id) {
-                    const newDates = { ...(disc.divisionFinalsDates || {}), [division.id]: format(date, 'yyyy-MM-dd') };
-                    return { ...disc, divisionFinalsDates: newDates };
+                    const newDivisionGos = { ...(disc.divisionGos || {}) };
+                    const currentGoInfo = newDivisionGos[baseId] || { hasGo2: false, go1Date: null, go2Date: null };
+                    // Update the appropriate date based on go number
+                    if (division.goNumber === 2) {
+                        newDivisionGos[baseId] = { ...currentGoInfo, go2Date: dateString };
+                    } else {
+                        newDivisionGos[baseId] = { ...currentGoInfo, go1Date: dateString };
+                    }
+                    return { ...disc, divisionGos: newDivisionGos };
                 }
                 return disc;
             })
@@ -299,13 +308,21 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
 
     const handleRemoveDate = (e) => {
         e.stopPropagation();
+        const baseId = division.baseId || division.id;
         setFormData(prev => ({
             ...prev,
             disciplines: prev.disciplines.map(disc => {
                 if (disc.id === pbbDiscipline.id) {
-                    const newDates = { ...(disc.divisionFinalsDates || {}) };
-                    delete newDates[division.id];
-                    return { ...disc, divisionFinalsDates: newDates };
+                    const newDivisionGos = { ...(disc.divisionGos || {}) };
+                    if (newDivisionGos[baseId]) {
+                        // Clear the appropriate date based on go number
+                        if (division.goNumber === 2) {
+                            newDivisionGos[baseId] = { ...newDivisionGos[baseId], go2Date: null };
+                        } else {
+                            newDivisionGos[baseId] = { ...newDivisionGos[baseId], go1Date: null };
+                        }
+                    }
+                    return { ...disc, divisionGos: newDivisionGos };
                 }
                 return disc;
             })
@@ -417,20 +434,37 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     </Badge>
                 )}
 
+                {/* Go badge - only show if class has Go 2 */}
+                {division.hasGo2 && division.goNumber && (
+                    <Badge
+                        variant="outline"
+                        className={`text-xs font-medium ${
+                            division.goNumber === 2
+                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400'
+                                : 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400'
+                        }`}
+                    >
+                        Go {division.goNumber}
+                    </Badge>
+                )}
+
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                    {division.finalsDate ? (
+                    {division.date ? (
                         <div className="flex items-center gap-1">
                             <PopoverTrigger asChild>
                                 <button
                                     type="button"
-                                    className="flex items-center gap-1 border border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 text-xs px-2 py-1 h-auto font-normal cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors rounded-md"
+                                    className={`flex items-center gap-1 border text-xs px-2 py-1 h-auto font-normal cursor-pointer transition-colors rounded-md ${
+                                        division.goNumber === 2
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
+                                            : 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                    }`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                     }}
                                 >
                                     <CalendarIcon className="h-3 w-3" />
-                                    <span className="font-medium">Finals:</span>
-                                    {format(parseLocalDate(division.finalsDate), 'EEE, MMM d')}
+                                    {format(parseLocalDate(division.date), 'EEE, MMM d')}
                                 </button>
                             </PopoverTrigger>
                             <button
@@ -439,7 +473,11 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                                     e.stopPropagation();
                                     handleRemoveDate(e);
                                 }}
-                                className="rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/40 p-0.5"
+                                className={`rounded-full p-0.5 ${
+                                    division.goNumber === 2
+                                        ? 'hover:bg-indigo-100 dark:hover:bg-indigo-900/40'
+                                        : 'hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                                }`}
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -461,7 +499,7 @@ const SortableDivisionItem = ({ division, pbbDiscipline, setFormData, formData, 
                     <PopoverContent className="w-auto p-0" onClick={(e) => e.stopPropagation()}>
                         <Calendar
                             mode="single"
-                            selected={division.finalsDate ? parseLocalDate(division.finalsDate) : null}
+                            selected={division.date ? parseLocalDate(division.date) : null}
                             onSelect={handleDateSelect}
                             initialFocus
                         />
@@ -1008,9 +1046,20 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
 
     const divisionsWithDetails = group.divisions.map(div => {
         const id = div.id || `${div.assocId}-${div.division}`;
-        const finalsDate = (pbbDiscipline.divisionFinalsDates && pbbDiscipline.divisionFinalsDates[id]) || null;
-        const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[id]) || null;
-        return { ...div, id, finalsDate, customTitle };
+        const baseId = div.baseId || id;
+        const goInfo = pbbDiscipline.divisionGos?.[baseId] || {};
+        // Get the appropriate date based on go number
+        const date = div.goNumber === 2 ? goInfo.go2Date : goInfo.go1Date;
+        const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[baseId]) || null;
+        return {
+            ...div,
+            id,
+            baseId,
+            date,
+            goNumber: div.goNumber,
+            hasGo2: div.hasGo2,
+            customTitle
+        };
     });
 
     const handlePatternSelect = (patternId) => {
