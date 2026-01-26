@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -49,10 +49,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
 import { applyTextOverlay, getOverlayDataFromContext } from '@/lib/scoresheetTextOverlay';
+import { fetchImageAsBase64 } from '@/lib/pdfHelpers';
 import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, useDraggable, useDroppable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { jsPDF } from 'jspdf';
+// Removed drag-and-drop imports - no longer needed
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -1988,13 +1989,17 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isLoadingScoresheets, setIsLoadingScoresheets] = useState(false);
     const [selectedSidebarItem, setSelectedSidebarItem] = useState('allItems');
     const [filterDisciplines, setFilterDisciplines] = useState(new Set()); // multi-select discipline
-    const [filterClasses, setFilterClasses] = useState(new Set());
-    const [filterJudges, setFilterJudges] = useState(new Set());
+    const [filterDivisions, setFilterDivisions] = useState(new Set()); // multi-select division (renamed from filterClasses)
+    const [filterJudges, setFilterJudges] = useState(new Set()); // multi-select judge
     const [sortBy, setSortBy] = useState('newest');
     // Filter dropdown open states
     const [disciplineFilterOpen, setDisciplineFilterOpen] = useState(false);
-    const [classFilterOpen, setClassFilterOpen] = useState(false);
+    const [divisionFilterOpen, setDivisionFilterOpen] = useState(false);
     const [judgeFilterOpen, setJudgeFilterOpen] = useState(false);
+    const [disciplineSearch, setDisciplineSearch] = useState('');
+    const [divisionSearch, setDivisionSearch] = useState('');
+    const [judgeSearch, setJudgeSearch] = useState('');
+
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
     const [previewType, setPreviewType] = useState(null); // 'pattern' or 'scoresheet'
     const [previewImage, setPreviewImage] = useState(null); // Image URL for preview
@@ -2023,18 +2028,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [editingFolderName, setEditingFolderName] = useState(''); // For inline rename
     const [renamingFolderId, setRenamingFolderId] = useState(null); // For inline rename
     
-    // Drag and drop state
-    const [activeId, setActiveId] = useState(null);
-    const [draggedItem, setDraggedItem] = useState(null);
-    
-    // Drag and drop sensors
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        })
-    );
+    // Move to Folder dialog state
+    const [moveToFolderDialogOpen, setMoveToFolderDialogOpen] = useState(false);
+    const [itemToMove, setItemToMove] = useState(null); // { type: 'pattern' | 'scoresheet', data: pattern/scoresheet }
     
     const projectData = project.project_data || {};
     const { toast } = useToast();
@@ -2144,43 +2140,291 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
     };
     
-    // Download pattern handler
-    const handleDownloadPattern = async (pattern) => {
-        try {
+    // Helper function to format association name (same as bookGenerator.js)
+    const formatAssociationName = (assocId) => {
+        const assocNames = {
+            'aqha': 'AMERICAN QUARTER HORSE ASSOCIATION',
+            'aha': 'ARABIAN HORSE ASSOCIATION',
+            'apha': 'AMERICAN PAINT HORSE ASSOCIATION',
+            'aphc': 'APPALOOSA HORSE CLUB',
+            'nsba': 'NATIONAL SNAFFLE BIT ASSOCIATION',
+            'phba': 'PINTO HORSE ASSOCIATION',
+            'abra': 'AMERICAN BUCKSKIN REGISTRY ASSOCIATION',
+            'ptha': 'PALOMINO HORSE BREEDERS OF AMERICA'
+        };
+        return assocNames[assocId?.toLowerCase()] || assocId?.toUpperCase() || 'HORSE ASSOCIATION';
+    };
+    
+    // Helper function to remove first word from division names (same as bookGenerator.js)
+    const removeFirstWord = (name) => {
+        if (!name) return name;
+        let cleaned = name;
+        
+        // Remove first word and any separator (dash, hyphen, etc.)
+        cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+        
+        // Remove "Pro" or "Non-Pro" at the start
+        cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+        
+        // If no separator found and still original, try removing just the first word
+        if (cleaned === name) {
+            const parts = name.split(/\s+/);
+            // Skip first word if it's not "Pro" or "Non-Pro"
+            if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
+                cleaned = parts.slice(1).join(' ');
+            } else if (parts.length > 1) {
+                // If first word is "Pro" or "Non-Pro", remove it and separator if present
+                cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
+            }
+        }
+        
+        return cleaned || name;
+    };
+    
+    // Helper function to format division with Go label (same as bookGenerator.js)
+    const formatDivisionWithGo = (division) => {
+        const baseName = removeFirstWord(typeof division === 'string' ? division : (division.division || division.name || ''));
+        // Only add Go label if this division has a goNumber (meaning it's part of a two-go class)
+        if (division && typeof division === 'object' && (division.goNumber === 1 || division.goNumber === 2)) {
+            return `${baseName} (Go ${division.goNumber})`;
+        }
+        return baseName;
+    };
+    
+    // Helper function to find discipline and group for a pattern
+    const findPatternDisciplineAndGroup = (patternId) => {
+        const disciplines = projectData.disciplines || [];
+        const patternSelections = projectData.patternSelections || {};
+        
+        // Try to find by numeric ID
+        const numericId = typeof patternId === 'number' ? patternId : parseInt(patternId);
+        if (isNaN(numericId)) return null;
+        
+        for (let disciplineIndex = 0; disciplineIndex < disciplines.length; disciplineIndex++) {
+            const discipline = disciplines[disciplineIndex];
+            const groups = discipline.patternGroups || [];
+            const disciplineName = discipline.name || 'Unknown Discipline';
+            const associationId = discipline.association_id || 
+                (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null);
             
-            // If pattern has pdf_url or download_url, download directly (as local file)
-            const downloadUrl = pattern.pdf_url || pattern.download_url || pattern.image_url;
-            if (downloadUrl) {
-                try {
-                    const response = await fetch(downloadUrl);
-                    if (!response.ok) throw new Error('Failed to fetch file');
-                    
-                    const blob = await response.blob();
-                    const blobUrl = window.URL.createObjectURL(blob);
-                    
-                    const fileName = pattern.patternName || pattern.name || 'pattern.pdf';
-                    const link = document.createElement('a');
-                    link.href = blobUrl;
-                    link.download = fileName;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    window.URL.revokeObjectURL(blobUrl);
-                    
-                    toast({
-                        title: "Download started",
-                        description: "Pattern download initiated"
-                    });
-                    return;
-                } catch (fetchError) {
-                    console.error('Error downloading pattern file:', fetchError);
-                    // Continue to try database fetch
+            // Try multiple ways to find discipline selections (same as pattern loading logic)
+            let disciplineSelections = patternSelections[discipline.id];
+            if (!disciplineSelections) {
+                disciplineSelections = patternSelections[disciplineIndex] 
+                    || patternSelections[`${disciplineIndex}`]
+                    || patternSelections[discipline.name];
+            }
+            
+            // If not found, try to find by matching key format
+            if (!disciplineSelections && disciplineName && associationId) {
+                const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
+                const matchingKey = Object.keys(patternSelections).find(key => {
+                    if (!isNaN(parseInt(key))) return false;
+                    const keyNormalized = key.toLowerCase();
+                    const disciplineNormalized = disciplineNameNormalized.toLowerCase();
+                    return keyNormalized.includes(disciplineNormalized) && keyNormalized.includes(associationId.toLowerCase());
+                });
+                if (matchingKey) {
+                    disciplineSelections = patternSelections[matchingKey];
                 }
             }
             
+            if (!disciplineSelections) continue;
+            
+            for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                const group = groups[groupIndex];
+                const groupId = group.id || `pattern-group-${groupIndex}`;
+                
+                // Try multiple ways to find pattern selection (same as pattern loading logic)
+                let patternSelection = disciplineSelections[groupIndex]
+                    || disciplineSelections[`${groupIndex}`]
+                    || disciplineSelections[groupId]
+                    || disciplineSelections[group.id]
+                    || (Array.isArray(disciplineSelections) ? disciplineSelections[groupIndex] : null);
+                
+                // If not found, try to find by group ID pattern
+                if (!patternSelection && groupId) {
+                    const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
+                        return key === groupId || key.includes('pattern-group') || key === `group-${groupIndex}`;
+                    });
+                    if (matchingGroupKey) {
+                        patternSelection = disciplineSelections[matchingGroupKey];
+                    }
+                }
+                
+                if (!patternSelection) continue;
+                
+                // Get pattern ID from selection
+                let selectedPatternId = null;
+                if (typeof patternSelection === 'object' && patternSelection !== null) {
+                    selectedPatternId = patternSelection.patternId || patternSelection.id || patternSelection.pattern_id;
+                } else {
+                    selectedPatternId = patternSelection;
+                }
+                
+                // Extract numeric ID if possible
+                let selectedNumericId = null;
+                if (selectedPatternId) {
+                    if (typeof selectedPatternId === 'string' && selectedPatternId.includes('-')) {
+                        const match = selectedPatternId.match(/\d+/);
+                        if (match) {
+                            selectedNumericId = parseInt(match[0]);
+                        }
+                    } else if (!isNaN(parseInt(selectedPatternId))) {
+                        selectedNumericId = parseInt(selectedPatternId);
+                    } else if (typeof selectedPatternId === 'number') {
+                        selectedNumericId = selectedPatternId;
+                    }
+                }
+                
+                if (selectedNumericId === numericId) {
+                    return { discipline, group };
+                }
+            }
+        }
+        
+        return null;
+    };
+    
+    // Helper function to create PDF from image with full header (for Published/Approved/Locked states)
+    const createPdfWithFullHeader = async (imageUrl, patternTitle, headerInfo) => {
+        try {
+            const base64 = await fetchImageAsBase64(imageUrl);
+            if (!base64) return null;
+
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 40;
+            let yPos = margin;
+
+            // Add header information (same format as Pattern Book, with show name and dates)
+            if (headerInfo) {
+                // Show name (heading) - centered at top
+                if (headerInfo.showName) {
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(18);
+                    const showNameLines = doc.splitTextToSize(headerInfo.showName.toUpperCase(), pageWidth - margin * 2);
+                    doc.text(showNameLines, pageWidth / 2, yPos, { align: 'center' });
+                    yPos += (showNameLines.length * 20) + 8;
+                }
+                
+                // Show dates - centered below show name
+                if (headerInfo.showDates) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(headerInfo.showDates, pageWidth / 2, yPos, { align: 'center' });
+                    yPos += 20;
+                }
+                
+                // Top left: Association name
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.text(headerInfo.associationName.toUpperCase(), margin, yPos);
+                yPos += 18;
+                
+                // Discipline name and competition date (left side) - wrap if needed
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                const dateStr = headerInfo.competitionDate ? format(parseLocalDate(headerInfo.competitionDate), 'MM-dd-yyyy') : '';
+                const disciplineText = `${headerInfo.disciplineName.toUpperCase()}${dateStr ? ` - ${dateStr}` : ''}`;
+                const disciplineMaxWidth = pageWidth - margin * 2;
+                const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
+                doc.text(disciplineLines, margin, yPos);
+                yPos += (disciplineLines.length * 14) + 4;
+                
+                // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
+                if (headerInfo.divisions && headerInfo.divisions.length > 0) {
+                    const divisions = headerInfo.divisions.map(d => formatDivisionWithGo(d)).join(' / ');
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    const maxWidth = pageWidth - margin * 2;
+                    const divisionLines = doc.splitTextToSize(divisions, maxWidth);
+                    const linesToDisplay = divisionLines.slice(0, 2);
+                    doc.text(linesToDisplay, margin, yPos);
+                    yPos += (linesToDisplay.length * 12) + 15; // Space before image
+                } else {
+                    yPos += 15; // Space before image if no divisions
+                }
+            } else {
+                // Fallback: Add pattern title at the top (for non-Published states)
+                let formattedTitle = (patternTitle || 'Pattern')
+                    .replace(/\.pdf$/i, '')
+                    .replace(/_/g, ' ')
+                    .trim();
+                
+                formattedTitle = formattedTitle
+                    .split(' ')
+                    .map(word => {
+                        if (word.length <= 4 && word === word.toUpperCase()) {
+                            return word;
+                        }
+                        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                    })
+                    .join(' ');
+
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text(formattedTitle, pageWidth / 2, margin, { align: 'center' });
+                yPos = margin + 30;
+            }
+
+            // Add image centered on page
+            const imgMaxWidth = pageWidth - margin * 2;
+            const imgMaxHeight = pageHeight - yPos - 40; // Space for footer
+
+            // Create image to get dimensions
+            const img = new Image();
+            img.src = base64;
+            
+            await new Promise((resolve) => {
+                img.onload = resolve;
+                img.onerror = resolve;
+            });
+
+            let imgWidth = img.width || 500;
+            let imgHeight = img.height || 700;
+
+            // Scale image to fit
+            const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
+            imgWidth *= scale;
+            imgHeight *= scale;
+
+            const x = (pageWidth - imgWidth) / 2;
+            const y = yPos;
+
+            const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
+            doc.addImage(base64, imageType, x, y, imgWidth, imgHeight);
+
+            return doc.output('blob');
+        } catch (error) {
+            console.error("Error creating PDF from image:", error);
+            return null;
+        }
+    };
+    
+    // Helper function to create PDF from image with title (for Draft/other states)
+    const createPdfFromImageWithTitle = async (imageUrl, title) => {
+        return createPdfWithFullHeader(imageUrl, title, null);
+    };
+    
+    // Download pattern handler
+    const handleDownloadPattern = async (pattern) => {
+        try {
+            // Check if project is in Published/Approved/Locked state
+            const status = (projectStatus || project.status || '').toString().trim();
+            const statusLower = status.toLowerCase();
+            const isPublishedState = statusLower === 'published' || 
+                                   statusLower === 'approved' || 
+                                   statusLower === 'lock & approve mode' ||
+                                   statusLower.includes('approved') ||
+                                   statusLower.includes('locked');
+            
+            console.log('Pattern download - Status:', status, 'isPublishedState:', isPublishedState);
+            
             // Extract numeric pattern ID from various formats
-            // First check if we stored numericId directly
             let numericPatternId = pattern.numericId || null;
             
             // If not, try to extract from pattern.id
@@ -2216,10 +2460,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
             }
             
+            // Get image URL - try multiple sources
+            let imageUrl = pattern.pdf_url || pattern.download_url || pattern.image_url || null;
+            let patternDataFromDb = null;
             
-            // Step 2: If we have numeric ID, fetch image from tbl_pattern_media (same as Step6_Preview.jsx)
-            if (numericPatternId) {
-                // First, verify pattern exists in tbl_patterns (same as Step6_Preview)
+            // If we have numeric ID but no image URL, fetch from database
+            if (!imageUrl && numericPatternId) {
+                // First, verify pattern exists in tbl_patterns
                 const { data: patternData, error: patternError } = await supabase
                     .from('tbl_patterns')
                     .select('id, pdf_file_name')
@@ -2239,7 +2486,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     return;
                 }
                 
-                // Step 3: Fetch image from tbl_pattern_media using pattern_id (exactly like Step6_Preview.jsx)
+                patternDataFromDb = patternData;
+                
+                // Fetch image from tbl_pattern_media
                 const { data: imageData, error: imageError } = await supabase
                     .from('tbl_pattern_media')
                     .select('image_url')
@@ -2250,58 +2499,182 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     console.error('Error fetching pattern image:', imageError);
                 }
                 
-                const imageUrl = imageData?.image_url || null;
-                
-                if (imageUrl) {
-                    // Fetch the file and create a blob for proper local download (not opening in new tab)
-                    try {
-                        const response = await fetch(imageUrl);
-                        if (!response.ok) throw new Error('Failed to fetch file');
-                        
-                        const blob = await response.blob();
-                        const blobUrl = window.URL.createObjectURL(blob);
-                        
-                        // Determine filename
-                        const fileName = patternData.pdf_file_name || pattern.patternName || pattern.name || 'pattern.pdf';
-                        
-                        const link = document.createElement('a');
-                        link.href = blobUrl;
-                        link.download = fileName;
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        
-                        // Clean up blob URL
-                        window.URL.revokeObjectURL(blobUrl);
-                        
-                        toast({
-                            title: "Download started",
-                            description: "Pattern download initiated"
-                        });
-                        return;
-                    } catch (fetchError) {
-                        console.error('Error downloading pattern file:', fetchError);
-                        toast({
-                            title: "Download failed",
-                            description: "Failed to download pattern file",
-                            variant: "destructive"
-                        });
-                        return;
-                    }
-                } else {
-                    toast({
-                        title: "Download not available",
-                        description: "Pattern image not found in database",
-                        variant: "destructive"
-                    });
-                }
-            } else {
+                imageUrl = imageData?.image_url || null;
+            }
+            
+            if (!imageUrl) {
                 toast({
                     title: "Download not available",
-                    description: "Pattern ID is not valid for download",
+                    description: "Pattern image not found",
                     variant: "destructive"
                 });
+                return;
             }
+            
+            // Get pattern title
+            let patternTitle = patternDataFromDb?.pdf_file_name || 
+                             pattern.patternName || 
+                             pattern.name || 
+                             pattern.discipline || 
+                             'Pattern';
+            
+            // Prepare header information - always include if we have project data
+            let headerInfo = null;
+            
+            // Always include show name and dates from project
+            const showName = project.project_name || projectData.showName || 'Pattern Book';
+            const showDates = projectData.startDate && projectData.endDate 
+                ? `${format(parseLocalDate(projectData.startDate), 'MM-dd-yyyy')} - ${format(parseLocalDate(projectData.endDate), 'MM-dd-yyyy')}`
+                : (projectData.startDate ? format(parseLocalDate(projectData.startDate), 'MM-dd-yyyy') : '');
+            
+            // Get association ID - try from pattern, discipline, or project
+            let assocId = pattern.associationId || 
+                         Object.keys(projectData.associations || {})[0];
+            
+            if (numericPatternId) {
+                // Try to find discipline and group for this pattern from project data
+                const patternContext = findPatternDisciplineAndGroup(numericPatternId);
+                console.log('Pattern context found:', patternContext, 'for pattern ID:', numericPatternId);
+                
+                if (patternContext) {
+                    const { discipline, group } = patternContext;
+                    
+                    // Get association name from discipline
+                    assocId = discipline.association_id || 
+                              (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
+                              assocId;
+                    const associationName = formatAssociationName(assocId);
+                    
+                    // Get competition date - same logic as Pattern Book
+                    let competitionDate = projectData.startDate;
+                    
+                    // Try to get date from divisionDates (set in Step 3, tab 2)
+                    if (group.divisions && group.divisions.length > 0) {
+                        const divisionDates = group.divisions
+                            .map(div => {
+                                const divId = typeof div === 'object' ? (div.id || div.division) : div;
+                                return discipline.divisionDates?.[divId];
+                            })
+                            .filter(Boolean);
+                        
+                        if (divisionDates.length > 0) {
+                            competitionDate = divisionDates[0];
+                        }
+                    }
+                    
+                    // Fallback to groupDueDates if no divisionDates found
+                    if (!competitionDate || competitionDate === projectData.startDate) {
+                        const discIndex = (projectData.disciplines || []).indexOf(discipline);
+                        const groupIndex = (discipline.patternGroups || []).indexOf(group);
+                        competitionDate = projectData.groupDueDates?.[discIndex]?.[groupIndex] || projectData.startDate;
+                    }
+                    
+                    // Get divisions from group
+                    const divisions = group.divisions || [];
+                    
+                    headerInfo = {
+                        showName: showName,
+                        showDates: showDates,
+                        associationName: associationName,
+                        disciplineName: discipline.name || '',
+                        competitionDate: competitionDate,
+                        divisions: divisions,
+                        classGrouping: group.name || `Group ${(discipline.patternGroups || []).indexOf(group) + 1}`
+                    };
+                    console.log('Header info created from pattern context:', headerInfo);
+                } else {
+                    // Pattern context not found, use pattern object properties
+                    console.warn('Pattern context not found for pattern ID:', numericPatternId, 'Using pattern object properties');
+                    
+                    // Parse divisions from pattern.divisions (array) or pattern.divisionNames (string)
+                    let divisions = [];
+                    if (pattern.divisions && Array.isArray(pattern.divisions)) {
+                        // Use divisions array directly
+                        divisions = pattern.divisions;
+                    } else if (pattern.divisionNames) {
+                        // Parse division names string into array of objects
+                        const divNames = pattern.divisionNames.split(',').map(d => d.trim()).filter(Boolean);
+                        divisions = divNames.map(name => ({ division: name, name: name }));
+                    }
+                    
+                    // Use pattern's associationId if available
+                    const patternAssocId = pattern.associationId || assocId;
+                    
+                    headerInfo = {
+                        showName: showName,
+                        showDates: showDates,
+                        associationName: formatAssociationName(patternAssocId),
+                        disciplineName: pattern.disciplineName || pattern.discipline || '',
+                        competitionDate: projectData.startDate,
+                        divisions: divisions,
+                        classGrouping: pattern.groupName || (pattern.groupIndex !== undefined ? `Group ${pattern.groupIndex + 1}` : '')
+                    };
+                    console.log('Header info (from pattern object):', headerInfo);
+                }
+            } else {
+                // No numeric ID, use pattern object properties
+                console.log('No numeric ID, using pattern object properties');
+                
+                // Parse divisions from pattern.divisions (array) or pattern.divisionNames (string)
+                let divisions = [];
+                if (pattern.divisions && Array.isArray(pattern.divisions)) {
+                    // Use divisions array directly
+                    divisions = pattern.divisions;
+                } else if (pattern.divisionNames) {
+                    // Parse division names string into array of objects
+                    const divNames = pattern.divisionNames.split(',').map(d => d.trim()).filter(Boolean);
+                    divisions = divNames.map(name => ({ division: name, name: name }));
+                }
+                
+                // Use pattern's associationId if available
+                const patternAssocId = pattern.associationId || assocId;
+                
+                headerInfo = {
+                    showName: showName,
+                    showDates: showDates,
+                    associationName: formatAssociationName(patternAssocId),
+                    disciplineName: pattern.disciplineName || pattern.discipline || '',
+                    competitionDate: projectData.startDate,
+                    divisions: divisions,
+                    classGrouping: pattern.groupName || (pattern.groupIndex !== undefined ? `Group ${pattern.groupIndex + 1}` : '')
+                };
+                console.log('Header info (no numeric ID, from pattern object):', headerInfo);
+            }
+            
+            // Create PDF with full header if in Published state, otherwise with simple title
+            const pdfBlob = await createPdfWithFullHeader(imageUrl, patternTitle, headerInfo);
+            
+            if (!pdfBlob) {
+                throw new Error('Failed to create PDF');
+            }
+            
+            // Format filename
+            let fileName = patternTitle
+                .replace(/\.pdf$/i, '')
+                .replace(/[<>:"/\\|?*]/g, '-')
+                .replace(/\s+/g, '_')
+                .trim();
+            
+            if (!fileName) fileName = 'Pattern';
+            fileName = fileName + '.pdf';
+            
+            const blobUrl = window.URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            window.URL.revokeObjectURL(blobUrl);
+            
+            toast({
+                title: "Download started",
+                description: isPublishedState && headerInfo 
+                    ? "Pattern PDF with full header downloaded" 
+                    : "Pattern PDF with title downloaded"
+            });
+            
         } catch (error) {
             console.error('Error downloading pattern:', error);
             toast({
@@ -2460,10 +2833,31 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         .filter(Boolean)
         .sort();
     
-    // Get unique classes from both patterns AND scoresheets
+    // Get unique classes (group names) from both patterns AND scoresheets
     const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
     const allClassesFromScoresheets = [...new Set(scoresheets.map(s => s.groupName))];
     const uniqueClasses = [...new Set([...allClassesFromPatterns, ...allClassesFromScoresheets])].filter(Boolean).sort();
+
+    // Get unique division names from both patterns AND scoresheets
+    const allDivisionNamesFromPatterns = patterns.flatMap(p => {
+        if (p.divisionNames) {
+            return p.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
+        }
+        if (p.divisions && Array.isArray(p.divisions)) {
+            return p.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
+        }
+        return [];
+    });
+    const allDivisionNamesFromScoresheets = scoresheets.flatMap(s => {
+        if (s.divisionNames) {
+            return s.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
+        }
+        if (s.divisions && Array.isArray(s.divisions)) {
+            return s.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
+        }
+        return [];
+    });
+    const uniqueDivisions = [...new Set([...allDivisionNamesFromPatterns, ...allDivisionNamesFromScoresheets])].filter(Boolean).sort();
     
     // Get unique judges from patterns, scoresheets, and project data (associationJudges)
     const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
@@ -2540,16 +2934,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const patternDiscipline = (pattern.discipline || '').trim();
             if (!filterDisciplines.has(patternDiscipline)) return false;
         }
-        // Multi-select class filter
-        if (filterClasses.size > 0 && !filterClasses.has(pattern.groupName)) return false;
-        // Multi-select judge filter
-        if (filterJudges.size > 0) {
-            const patternJudges = pattern.judges || [];
-            const patternJudgeNames = pattern.judgeNames || '';
-            const hasMatchingJudge = Array.from(filterJudges).some(selectedJudge => 
-                patternJudges.includes(selectedJudge) || patternJudgeNames.includes(selectedJudge)
+        // Multi-select division filter (match against actual division names)
+        if (filterDivisions.size > 0) {
+            // Extract individual division names from the pattern
+            let patternDivNames = [];
+            if (pattern.divisionNames) {
+                patternDivNames = pattern.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
+            } else if (pattern.divisions && Array.isArray(pattern.divisions)) {
+                patternDivNames = pattern.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
+            }
+            const hasMatchingDivision = patternDivNames.some(divName =>
+                Array.from(filterDivisions).some(selected =>
+                    divName.toLowerCase() === selected.toLowerCase()
+                )
             );
-            if (!hasMatchingJudge) return false;
+            if (!hasMatchingDivision) return false;
         }
         return true;
     }).sort((a, b) => {
@@ -2581,14 +2980,28 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').trim();
             if (!filterDisciplines.has(scoresheetDiscipline)) return false;
         }
-        // Multi-select class filter
-        if (filterClasses.size > 0 && !filterClasses.has(scoresheet.groupName)) return false;
-        // Multi-select judge filter
+        // Multi-select division filter (match against actual division names)
+        if (filterDivisions.size > 0) {
+            let scoresheetDivNames = [];
+            if (scoresheet.divisionNames) {
+                scoresheetDivNames = scoresheet.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
+            } else if (scoresheet.divisions && Array.isArray(scoresheet.divisions)) {
+                scoresheetDivNames = scoresheet.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
+            }
+            const hasMatchingDivision = scoresheetDivNames.some(divName =>
+                Array.from(filterDivisions).some(selected =>
+                    divName.toLowerCase() === selected.toLowerCase()
+                )
+            );
+            if (!hasMatchingDivision) return false;
+        }
+        // Judge filter (Score Sheets only)
         if (filterJudges.size > 0) {
-            const scoresheetJudges = scoresheet.judges || [];
-            const scoresheetJudgeNames = scoresheet.judgeNames || '';
-            const hasMatchingJudge = Array.from(filterJudges).some(selectedJudge => 
-                scoresheetJudges.includes(selectedJudge) || scoresheetJudgeNames.includes(selectedJudge)
+            const scoresheetJudges = (scoresheet.judges || []).map(j => (typeof j === 'string' ? j : j?.name || '').trim()).filter(Boolean);
+            const hasMatchingJudge = scoresheetJudges.some(judgeName =>
+                Array.from(filterJudges).some(selected =>
+                    judgeName.toLowerCase() === selected.toLowerCase()
+                )
             );
             if (!hasMatchingJudge) return false;
         }
@@ -3539,120 +3952,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         setEditingFolderName(currentName);
     };
     
-    // Drag and drop handlers
-    const handleDragStart = (event) => {
-        const { active } = event;
-        setActiveId(active.id);
-        
-        // Find the item being dragged (pattern or scoresheet)
-        const itemId = active.id.toString();
-        if (itemId.startsWith('pattern-')) {
-            // Extract the unique identifier from the ID
-            const uniqueId = itemId.replace('pattern-', '');
-            // Find pattern by matching uniqueKey, id, numericId, or originalPatternId
-            const pattern = filteredPatterns.find(p => 
-                (p.uniqueKey && String(p.uniqueKey) === uniqueId) ||
-                (p.id && String(p.id) === uniqueId) ||
-                (p.numericId && String(p.numericId) === uniqueId) ||
-                (p.originalPatternId && String(p.originalPatternId) === uniqueId)
-            );
-            if (pattern) {
-                const index = filteredPatterns.indexOf(pattern);
-                setDraggedItem({ type: 'pattern', data: pattern, index });
-            }
-        } else if (itemId.startsWith('scoresheet-')) {
-            // Extract the unique identifier from the ID
-            const uniqueId = itemId.replace('scoresheet-', '');
-            // Find scoresheet by matching uniqueKey, id, numericId, or pattern_id
-            const scoresheet = filteredScoresheets.find(s => 
-                (s.uniqueKey && String(s.uniqueKey) === uniqueId) ||
-                (s.id && String(s.id) === uniqueId) ||
-                (s.numericId && String(s.numericId) === uniqueId) ||
-                (s.pattern_id && String(s.pattern_id) === uniqueId)
-            );
-            if (scoresheet) {
-                const index = filteredScoresheets.indexOf(scoresheet);
-                setDraggedItem({ type: 'scoresheet', data: scoresheet, index });
-            }
-        }
+    // Handle opening Move to Folder dialog
+    const handleOpenMoveToFolder = (itemType, itemData) => {
+        setItemToMove({ type: itemType, data: itemData });
+        setMoveToFolderDialogOpen(true);
     };
     
-    const handleDragEnd = async (event) => {
-        const { active, over } = event;
+    // Handle moving item to folder from dialog
+    const handleMoveToFolderConfirm = async (folderId) => {
+        if (!itemToMove || !folderId) return;
         
-        if (!over || !draggedItem) {
-            setActiveId(null);
-            setDraggedItem(null);
-            return;
-        }
+        const itemId = itemToMove.data.id || itemToMove.data.numericId || `${itemToMove.type}-${Date.now()}`;
+        await handleAddToFolder(itemId, itemToMove.type, folderId, itemToMove.data);
         
-        const overId = over.id.toString();
-        
-        // Check if dropped on a folder
-        if (overId.startsWith('folder-')) {
-            const folderId = overId.replace('folder-', '');
-            const folder = folders.find(f => f.id === folderId);
-            
-            if (folder) {
-                // Get unique identifier for the item
-                const itemId = draggedItem.data.id || 
-                              draggedItem.data.numericId || 
-                              `${draggedItem.type}-${draggedItem.index}`;
-                
-                // Check if item already exists in folder
-                const itemExists = folder.items.some(item => 
-                    item.id === itemId && item.type === draggedItem.type
-                );
-                
-                if (!itemExists) {
-                    // Copy item to folder (don't remove from original list)
-                    const updatedFolders = folders.map(f => {
-                        if (f.id === folderId) {
-                            return {
-                                ...f,
-                                items: [...f.items, { 
-                                    id: itemId, 
-                                    type: draggedItem.type,
-                                    data: draggedItem.data, // Store full data for reference
-                                    storedAt: new Date().toISOString() // Store timestamp when added
-                                }]
-                            };
-                        }
-                        return f;
-                    });
-                    
-                    setFolders(updatedFolders);
-                    await saveFoldersToProject(updatedFolders);
-                    
-                    // Auto-expand folder if collapsed
-                    setExpandedFolders(prev => new Set([...prev, folderId]));
-                    
-                    toast({
-                        title: "Item Added to Folder",
-                        description: `${draggedItem.type === 'pattern' ? 'Pattern' : 'Scoresheet'} copied to "${folder.name}"`
-                    });
-                } else {
-                    toast({
-                        title: "Already in Folder",
-                        description: "This item is already in the selected folder",
-                        variant: "default"
-                    });
-                }
-            }
-        }
-        
-        setActiveId(null);
-        setDraggedItem(null);
-    };
-    
-    const handleDragOver = (event) => {
-        // This helps ensure proper collision detection for nested droppables
-        // The custom collision detection function handles the logic
-    };
-    
-    const handleDragCancel = () => {
-        setActiveId(null);
-        setDraggedItem(null);
+        setMoveToFolderDialogOpen(false);
+        setItemToMove(null);
     };
     
     const handleRenameFolder = async () => {
@@ -4220,47 +4534,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             </div>
             
             {/* Main Content */}
-            <DndContext
-                sensors={sensors}
-                collisionDetection={(args) => {
-                    try {
-                        // ONLY use pointerWithin - requires pointer to be directly over target
-                        // Do NOT fallback to closestCenter as it causes auto-assignment when not hovering
-                        const pointerCollisions = pointerWithin(args);
-                        if (pointerCollisions && pointerCollisions.length > 0) {
-                            // Sort by depth (more specific/nested items first)
-                            const sorted = [...pointerCollisions].sort((a, b) => {
-                                try {
-                                    const aId = a.id?.toString() || '';
-                                    const bId = b.id?.toString() || '';
-                                    // Prioritize folders that are deeper in hierarchy
-                                    if (aId.startsWith('folder-') && bId.startsWith('folder-')) {
-                                        const aFolderId = aId.replace('folder-', '');
-                                        const bFolderId = bId.replace('folder-', '');
-                                        const aFolder = folders?.find(f => f.id === aFolderId);
-                                        const bFolder = folders?.find(f => f.id === bFolderId);
-                                        // If one is a child of the other, prioritize the child
-                                        if (aFolder?.parentId === bFolder?.id) return -1;
-                                        if (bFolder?.parentId === aFolder?.id) return 1;
-                                    }
-                                } catch (e) {
-                                    console.error('Error in collision detection sort:', e);
-                                }
-                                return 0;
-                            });
-                            return sorted;
-                        }
-                    } catch (e) {
-                        console.error('Error in collision detection:', e);
-                    }
-                    // Return empty array - no valid drop target if pointer isn't directly over one
-                    return [];
-                }}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
-            >
                 <div className="flex flex-1 overflow-hidden">
                     {/* Left Sidebar */}
                     <div className="w-64 border-r bg-muted/30 p-4 flex flex-col">
@@ -4378,25 +4651,20 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         />
                                                     </div>
                                                 ) : (() => {
-                                                    const DroppableFolder = () => {
-                                                        const { setNodeRef, isOver } = useDroppable({
-                                                            id: `folder-${folder.id}`,
-                                                        });
+                                                    const FolderItem = () => {
                                                         
                                                         return (
                                                             <div 
-                                                                ref={setNodeRef}
                                                                 className={cn(
                                                                     "flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors relative",
-                                                                    selectedFolderId === folder.id ? "bg-primary text-white" : "hover:bg-muted",
-                                                                    isOver && "bg-primary/20 border-2 border-primary border-dashed z-50"
+                                                                    selectedFolderId === folder.id ? "bg-primary text-white" : "hover:bg-muted"
                                                                 )}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setSelectedSidebarItem('folder');
                                                                     setSelectedFolderId(folder.id);
                                                                 }}
-                                                                style={{ zIndex: isOver ? 50 : 10, marginLeft }}
+                                                                style={{ marginLeft }}
                                                             >
                                                                 <button
                                                                     onClick={(e) => {
@@ -4465,7 +4733,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         );
                                                     };
                                                     
-                                                    return <DroppableFolder key={folder.id} />;
+                                                    return <FolderItem key={folder.id} />;
                                                 })()}
                                                 
                                                 {/* Show subfolder creation input and subfolders when expanded */}
@@ -4589,182 +4857,221 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {/* Filters and Actions - Hide when viewing folder */}
                                 {selectedSidebarItem !== 'folder' && (
                                     <div className="flex items-center gap-4 mb-4 flex-wrap">
-                                        {/* Discipline Multi-Select Filter */}
-                                        <Popover open={disciplineFilterOpen} onOpenChange={setDisciplineFilterOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="w-44 justify-between">
-                                                    <span className="truncate">
-                                                        {filterDisciplines.size === 0 
-                                                            ? 'All Disciplines' 
-                                                            : filterDisciplines.size === 1 
-                                                                ? Array.from(filterDisciplines)[0]
-                                                                : `${filterDisciplines.size} Selected`}
-                                                    </span>
-                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
-                                                <div className="p-2 border-b flex items-center justify-between">
-                                                    <span className="text-sm font-medium">Disciplines</span>
-                                                    {filterDisciplines.size > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setFilterDisciplines(new Set())}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                                <div
-                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
-                                                    onWheel={(e) => e.stopPropagation()}
-                                                >
-                                                    <div className="p-2 space-y-1">
-                                                        {disciplineOptions.map(discipline => (
-                                                            <div 
-                                                                key={discipline} 
-                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                                                onClick={() => {
-                                                                    setFilterDisciplines(prev => {
-                                                                        const newSet = new Set(prev);
-                                                                        if (newSet.has(discipline)) {
-                                                                            newSet.delete(discipline);
-                                                                        } else {
-                                                                            newSet.add(discipline);
-                                                                        }
-                                                                        return newSet;
-                                                                    });
-                                                                }}
+                                        {/* Discipline Filter - Show for Patterns and Score Sheets tabs */}
+                                        {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
+                                            <Popover open={disciplineFilterOpen} onOpenChange={(open) => { setDisciplineFilterOpen(open); if (!open) setDisciplineSearch(''); }}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterDisciplines.size === 0
+                                                                ? 'All Disciplines'
+                                                                : filterDisciplines.size === 1
+                                                                    ? Array.from(filterDisciplines)[0]
+                                                                    : `${filterDisciplines.size} Selected`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Disciplines</span>
+                                                        {filterDisciplines.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setFilterDisciplines(new Set())}
                                                             >
-                                                                <Checkbox checked={filterDisciplines.has(discipline)} />
-                                                                <span className="text-sm">{discipline}</span>
-                                                            </div>
-                                                        ))}
+                                                                Clear
+                                                            </Button>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                                    <div className="p-2 border-b">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search disciplines..."
+                                                            value={disciplineSearch}
+                                                            onChange={(e) => setDisciplineSearch(e.target.value)}
+                                                            className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {disciplineOptions
+                                                                .filter(discipline => discipline.toLowerCase().includes(disciplineSearch.toLowerCase()))
+                                                                .map(discipline => (
+                                                                <div
+                                                                    key={discipline}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterDisciplines(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(discipline)) {
+                                                                                newSet.delete(discipline);
+                                                                            } else {
+                                                                                newSet.add(discipline);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterDisciplines.has(discipline)} />
+                                                                    <span className="text-sm">{discipline}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
 
-                                        {/* Class Multi-Select Filter */}
-                                        <Popover open={classFilterOpen} onOpenChange={setClassFilterOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="w-44 justify-between">
-                                                    <span className="truncate">
-                                                        {filterClasses.size === 0 
-                                                            ? 'All Classes' 
-                                                            : filterClasses.size === 1 
-                                                                ? Array.from(filterClasses)[0]
-                                                                : `${filterClasses.size} Selected`}
-                                                    </span>
-                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
-                                                <div className="p-2 border-b flex items-center justify-between">
-                                                    <span className="text-sm font-medium">Classes</span>
-                                                    {filterClasses.size > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setFilterClasses(new Set())}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                                <div
-                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
-                                                    onWheel={(e) => e.stopPropagation()}
-                                                >
-                                                    <div className="p-2 space-y-1">
-                                                        {uniqueClasses.map(className => (
-                                                            <div 
-                                                                key={className} 
-                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                                                onClick={() => {
-                                                                    setFilterClasses(prev => {
-                                                                        const newSet = new Set(prev);
-                                                                        if (newSet.has(className)) {
-                                                                            newSet.delete(className);
-                                                                        } else {
-                                                                            newSet.add(className);
-                                                                        }
-                                                                        return newSet;
-                                                                    });
-                                                                }}
+                                        {/* Division Filter - Show for Patterns and Score Sheets tabs */}
+                                        {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
+                                            <Popover open={divisionFilterOpen} onOpenChange={(open) => { setDivisionFilterOpen(open); if (!open) setDivisionSearch(''); }}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterDivisions.size === 0
+                                                                ? 'All Divisions'
+                                                                : filterDivisions.size === 1
+                                                                    ? Array.from(filterDivisions)[0]
+                                                                    : `${filterDivisions.size} Selected`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-background border" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Divisions</span>
+                                                        {filterDivisions.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setFilterDivisions(new Set())}
                                                             >
-                                                                <Checkbox checked={filterClasses.has(className)} />
-                                                                <span className="text-sm">{className}</span>
-                                                            </div>
-                                                        ))}
+                                                                Clear
+                                                            </Button>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                                    <div className="p-2 border-b">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search divisions..."
+                                                            value={divisionSearch}
+                                                            onChange={(e) => setDivisionSearch(e.target.value)}
+                                                            className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {uniqueDivisions
+                                                                .filter(divisionName => divisionName.toLowerCase().includes(divisionSearch.toLowerCase()))
+                                                                .map(divisionName => (
+                                                                <div
+                                                                    key={divisionName}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterDivisions(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(divisionName)) {
+                                                                                newSet.delete(divisionName);
+                                                                            } else {
+                                                                                newSet.add(divisionName);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterDivisions.has(divisionName)} />
+                                                                    <span className="text-sm">{divisionName}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
 
-                                        {/* Judge Multi-Select Filter */}
-                                        <Popover open={judgeFilterOpen} onOpenChange={setJudgeFilterOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="w-44 justify-between">
-                                                    <span className="truncate">
-                                                        {filterJudges.size === 0 
-                                                            ? 'Any Judge' 
-                                                            : filterJudges.size === 1 
-                                                                ? Array.from(filterJudges)[0]
-                                                                : `${filterJudges.size} Selected`}
-                                                    </span>
-                                                    <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-0 bg-background border" align="start">
-                                                <div className="p-2 border-b flex items-center justify-between">
-                                                    <span className="text-sm font-medium">Judges</span>
-                                                    {filterJudges.size > 0 && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() => setFilterJudges(new Set())}
-                                                        >
-                                                            Clear
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                                <div
-                                                    className="max-h-[240px] overflow-y-auto overscroll-contain"
-                                                    onWheel={(e) => e.stopPropagation()}
-                                                >
-                                                    <div className="p-2 space-y-1">
-                                                        {uniqueJudges.map(judge => (
-                                                            <div 
-                                                                key={judge} 
-                                                                className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                                                onClick={() => {
-                                                                    setFilterJudges(prev => {
-                                                                        const newSet = new Set(prev);
-                                                                        if (newSet.has(judge)) {
-                                                                            newSet.delete(judge);
-                                                                        } else {
-                                                                            newSet.add(judge);
-                                                                        }
-                                                                        return newSet;
-                                                                    });
-                                                                }}
+                                        {/* Judge Filter - Show only for Score Sheets tab */}
+                                        {activeSubTab === 'scoreSheets' && (
+                                            <Popover open={judgeFilterOpen} onOpenChange={(open) => { setJudgeFilterOpen(open); if (!open) setJudgeSearch(''); }}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterJudges.size === 0
+                                                                ? 'All Judges'
+                                                                : filterJudges.size === 1
+                                                                    ? Array.from(filterJudges)[0]
+                                                                    : `${filterJudges.size} Selected`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Judges</span>
+                                                        {filterJudges.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setFilterJudges(new Set())}
                                                             >
-                                                                <Checkbox checked={filterJudges.has(judge)} />
-                                                                <span className="text-sm">{judge}</span>
-                                                            </div>
-                                                        ))}
+                                                                Clear
+                                                            </Button>
+                                                        )}
                                                     </div>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
+                                                    <div className="p-2 border-b">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Search judges..."
+                                                            value={judgeSearch}
+                                                            onChange={(e) => setJudgeSearch(e.target.value)}
+                                                            className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {uniqueJudges
+                                                                .filter(judge => judge.toLowerCase().includes(judgeSearch.toLowerCase()))
+                                                                .map(judge => (
+                                                                <div
+                                                                    key={judge}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterJudges(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(judge)) {
+                                                                                newSet.delete(judge);
+                                                                            } else {
+                                                                                newSet.add(judge);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterJudges.has(judge)} />
+                                                                    <span className="text-sm">{judge}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
                                     </div>
                                 )}
-                                
+
                                 {/* My Folders View - Show all root folders */}
                                 {selectedSidebarItem === 'folder' && !selectedFolderId && (() => {
                                     // Get all root-level folders (folders without parentId)
@@ -5219,27 +5526,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                    {filteredPatterns.map((pattern, index) => {
-                                                        const DraggablePattern = () => {
-                                                            const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                                id: `pattern-${pattern.uniqueKey || pattern.id || pattern.numericId || pattern.originalPatternId || index}`,
-                                                            });
-                                                            
-                                                            const style = transform ? {
-                                                                transform: CSS.Translate.toString(transform),
-                                                            } : undefined;
-                                                            
-                                                            return (
-                                                                <div
-                                                                    ref={setNodeRef}
-                                                                    style={style}
-                                                                    {...listeners}
-                                                                    {...attributes}
-                                                                    className={cn(
-                                                                        "flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing",
-                                                                        isDragging && "opacity-50"
-                                                                    )}
-                                                                >
+                                                    {filteredPatterns.map((pattern, index) => (
+                                                        <div
+                                                            key={pattern.uniqueKey || pattern.id || index}
+                                                            className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50"
+                                                        >
                                                         {/* Pattern Image or Icon - Similar to Step 3 */}
                                                         {pattern.image_url ? (
                                                             <div className="w-16 h-16 rounded-md overflow-hidden border bg-muted/20 shrink-0 flex items-center justify-center">
@@ -5334,8 +5625,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
-                                                            <Button 
-                                                                variant="ghost" 
+                                                            <Button
+                                                                variant="ghost"
                                                                 size="icon"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -5345,8 +5636,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             >
                                                                 <Download className="h-4 w-4" />
                                                             </Button>
-                                                            <Button 
-                                                                variant="ghost" 
+                                                            <Button
+                                                                variant="ghost"
                                                                 size="icon"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -5359,8 +5650,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             {folders.length > 0 && (
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
-                                                                        <Button 
-                                                                            variant="ghost" 
+                                                                        <Button
+                                                                            variant="ghost"
                                                                             size="icon"
                                                                             onClick={(e) => e.stopPropagation()}
                                                                             title="Add to Folder"
@@ -5384,24 +5675,52 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     </DropdownMenuContent>
                                                                 </DropdownMenu>
                                                             )}
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    // Handle more options
-                                                                }}
-                                                                title="More options"
-                                                            >
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        title="More options"
+                                                                    >
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const patternUrl = pattern.image_url || pattern.pdf_url || pattern.download_url;
+                                                                            if (patternUrl) {
+                                                                                navigator.clipboard.writeText(patternUrl).then(() => {
+                                                                                    toast({
+                                                                                        title: "Link copied",
+                                                                                        description: "Pattern link copied to clipboard"
+                                                                                    });
+                                                                                }).catch(() => {
+                                                                                    toast({
+                                                                                        title: "Share failed",
+                                                                                        description: "Could not copy link to clipboard",
+                                                                                        variant: "destructive"
+                                                                                    });
+                                                                                });
+                                                                            } else {
+                                                                                toast({
+                                                                                    title: "Share not available",
+                                                                                    description: "No shareable link available for this pattern",
+                                                                                    variant: "destructive"
+                                                                                });
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Share2 className="h-4 w-4 mr-2" />
+                                                                        Share
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
-                                                                </div>
-                                                            );
-                                                        };
-                                                        
-                                                        return <DraggablePattern key={pattern.uniqueKey || pattern.id || index} />;
-                                                    })}
+                                                    </div>
+                                                    ))}
                                                     {filteredPatterns.length === 0 && !isLoadingPatterns && (
                                                         <div className="text-center py-12 text-muted-foreground">
                                                             {patterns.length === 0 ? 'No patterns found' : 'No patterns match the selected filters'}
@@ -5421,27 +5740,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </div>
                                         ) : (
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                    {filteredScoresheets.map((scoresheet, index) => {
-                                                        const DraggableScoresheet = () => {
-                                                            const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-                                                                id: `scoresheet-${scoresheet.uniqueKey || scoresheet.id || scoresheet.numericId || scoresheet.pattern_id || index}`,
-                                                            });
-                                                        
-                                                        const style = transform ? {
-                                                            transform: CSS.Translate.toString(transform),
-                                                        } : undefined;
-                                                        
-                                                        return (
-                                                            <div
-                                                                ref={setNodeRef}
-                                                                style={style}
-                                                                {...listeners}
-                                                                {...attributes}
-                                                                className={cn(
-                                                                    "flex items-center gap-4 p-3 border rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing",
-                                                                    isDragging && "opacity-50"
-                                                                )}
-                                                            >
+                                                    {filteredScoresheets.map((scoresheet, index) => (
+                                                        <div
+                                                            key={scoresheet.uniqueKey || scoresheet.id || index}
+                                                            className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50"
+                                                        >
                                                         <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center shrink-0">
                                                             <FileText className="h-4 w-4 text-primary" />
                                                         </div>
@@ -5469,9 +5772,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
                                                                 title="Download Scoresheet"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -5480,9 +5783,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             >
                                                                 <Download className="h-4 w-4" />
                                                             </Button>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
                                                                 title="View Scoresheet Image"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -5491,24 +5794,80 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             >
                                                                 <FileText className="h-4 w-4" />
                                                             </Button>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
-                                                                title="More options"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    // Handle more options
-                                                                }}
-                                                            >
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </Button>
+                                                            {folders.length > 0 && (
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            title="Add to Folder"
+                                                                        >
+                                                                            <Folder className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent>
+                                                                        {folders.map(folder => (
+                                                                            <DropdownMenuItem
+                                                                                key={folder.id}
+                                                                                onClick={() => {
+                                                                                    const itemId = scoresheet.id || scoresheet.numericId || `scoresheet-${index}`;
+                                                                                    handleAddToFolder(itemId, 'scoresheet', folder.id, scoresheet);
+                                                                                }}
+                                                                            >
+                                                                                <Folder className="h-4 w-4 mr-2" />
+                                                                                {folder.name}
+                                                                            </DropdownMenuItem>
+                                                                        ))}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            )}
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        title="More options"
+                                                                    >
+                                                                        <MoreVertical className="h-4 w-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const scoresheetUrl = scoresheet.image_url || scoresheet.storage_path;
+                                                                            if (scoresheetUrl) {
+                                                                                navigator.clipboard.writeText(scoresheetUrl).then(() => {
+                                                                                    toast({
+                                                                                        title: "Link copied",
+                                                                                        description: "Scoresheet link copied to clipboard"
+                                                                                    });
+                                                                                }).catch(() => {
+                                                                                    toast({
+                                                                                        title: "Share failed",
+                                                                                        description: "Could not copy link to clipboard",
+                                                                                        variant: "destructive"
+                                                                                    });
+                                                                                });
+                                                                            } else {
+                                                                                toast({
+                                                                                    title: "Share not available",
+                                                                                    description: "No shareable link available for this scoresheet",
+                                                                                    variant: "destructive"
+                                                                                });
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Share2 className="h-4 w-4 mr-2" />
+                                                                        Share
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </div>
-                                                                </div>
-                                                            );
-                                                        };
-                                                        
-                                                        return <DraggableScoresheet key={scoresheet.uniqueKey || scoresheet.id || index} />;
-                                                    })}
+                                                    </div>
+                                                    ))}
                                                     {filteredScoresheets.length === 0 && !isLoadingScoresheets && (
                                                     <div className="text-center py-12 text-muted-foreground">
                                                         {scoresheets.length === 0 ? 'No scoresheets found' : 'No scoresheets match the selected filters'}
@@ -5586,20 +5945,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     </div>
                 )}
                 </div>
-                <DragOverlay>
-                    {activeId && draggedItem ? (
-                        <div className="flex items-center gap-4 p-3 border rounded bg-background shadow-lg opacity-90">
-                            <Folder className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">
-                                {draggedItem.type === 'pattern' 
-                                    ? (draggedItem.data.patternName || draggedItem.data.name || 'Pattern')
-                                    : (draggedItem.data.displayName || draggedItem.data.name || 'Scoresheet')
-                                }
-                            </span>
-                        </div>
-                    ) : null}
-                </DragOverlay>
-            </DndContext>
             
             {/* Pattern/Scoresheet Preview Modal */}
             <Dialog open={!!previewItem} onOpenChange={() => {
@@ -5651,6 +5996,43 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         {previewItem.divisionNames && <div><span className="font-medium">Divisions:</span> {previewItem.divisionNames}</div>}
                                     </>
                                 )}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+            
+            {/* Move to Folder Dialog */}
+            <Dialog open={moveToFolderDialogOpen} onOpenChange={setMoveToFolderDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move to Folder</DialogTitle>
+                        <DialogDescription>
+                            Select a folder to move this {itemToMove?.type === 'pattern' ? 'pattern' : 'scoresheet'} to.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        {folders.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                No folders available. Create a folder first to organize your items.
+                            </p>
+                        ) : (
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                                {folders.map(folder => (
+                                    <div
+                                        key={folder.id}
+                                        className="flex items-center gap-2 p-3 border rounded hover:bg-muted cursor-pointer"
+                                        onClick={() => handleMoveToFolderConfirm(folder.id)}
+                                    >
+                                        <Folder className="h-4 w-4 text-yellow-500" />
+                                        <span className="flex-1">{folder.name}</span>
+                                        {folder.items && folder.items.length > 0 && (
+                                            <Badge variant="secondary" className="text-xs">
+                                                {folder.items.length}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         )}
                     </div>
