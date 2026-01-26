@@ -431,9 +431,14 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
             );
         });
 
-        // Check if this is a scoresheet-only discipline
+        // Check if this is a scoresheet-only or rulebook discipline (Tab 3 should be disabled for both)
         const isScoresheetOnly = allDisciplines.some(disc => 
             disc && (disc.pattern_type === 'scoresheet_only' || (!disc.pattern && disc.scoresheet))
+        );
+        
+        // Check if this is a rulebook pattern discipline (uses pre-defined patterns, no custom grouping needed)
+        const isRulebookPattern = allDisciplines.some(disc => 
+            disc && disc.pattern_type === 'rulebook'
         );
 
         // Get dual-approved settings for NSBA, NRHA, and NRCHA
@@ -845,16 +850,16 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                     <TabsTrigger 
                         ref={groupingTabRef}
                         value="grouping" 
-                        disabled={isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled}
+                        disabled={isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled}
                         className={cn(
                             nextStepHighlight === 'grouping' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
                             activeTab === 'grouping' && "bg-primary text-primary-foreground",
-                            (isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled) && "opacity-50"
+                            (isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled) && "opacity-50"
                         )}
                     >
                         3. Sort Classes by Pattern Level
                         {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
-                        {(isScoresheetOnly || !pbbDiscipline.pattern || !hasScheduled) && <AlertCircle className="ml-2 w-4 h-4" />}
+                        {(isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled) && <AlertCircle className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
