@@ -816,7 +816,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                 isActive={activeTab === 'grouping'}
                                 isNext={currentStep === 2 && step2Complete && !step3Complete}
                                 onClick={() => setActiveTab('grouping')}
-                                disabled={false}
+                                disabled={!hasScheduled}
                             />
                         )}
                     </div>
@@ -850,16 +850,16 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                     <TabsTrigger 
                         ref={groupingTabRef}
                         value="grouping" 
-                        disabled={isScoresheetOnly || !pbbDiscipline.pattern}
+                        disabled={isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled}
                         className={cn(
                             nextStepHighlight === 'grouping' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
                             activeTab === 'grouping' && "bg-primary text-primary-foreground",
-                            (isScoresheetOnly || !pbbDiscipline.pattern) && "opacity-50"
+                            (isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled) && "opacity-50"
                         )}
                     >
                         3. Sort Classes by Pattern Level
                         {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
-                        {(isScoresheetOnly || !pbbDiscipline.pattern) && <AlertCircle className="ml-2 w-4 h-4" />}
+                        {(isScoresheetOnly || isRulebookPattern || !pbbDiscipline.pattern || !hasScheduled) && <AlertCircle className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">

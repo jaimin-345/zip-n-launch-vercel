@@ -91,7 +91,18 @@ export const generatePatternBookPdf = async (pbbData) => {
     };
 
     const formatAssociationName = (assocId) => {
-        return assocId?.toUpperCase() || 'HORSE ASSOCIATION';
+        const assocNames = {
+            'aqha': 'AMERICAN QUARTER HORSE ASSOCIATION',
+            'aha': 'ARABIAN HORSE ASSOCIATION',
+            'apha': 'AMERICAN PAINT HORSE ASSOCIATION',
+            'aphc': 'APPALOOSA HORSE CLUB',
+            'nsba': 'NATIONAL SNAFFLE BIT ASSOCIATION',
+            'phba': 'PINTO HORSE ASSOCIATION',
+            'abra': 'AMERICAN BUCKSKIN REGISTRY ASSOCIATION',
+            'ptha': 'PALOMINO HORSE BREEDERS OF AMERICA'
+        };
+        console.log('assocId', assocId);
+        return assocNames[assocId?.toLowerCase()] || assocId?.toUpperCase() || 'HORSE ASSOCIATION';
     };
     
     // --- Fetch Assets ---
@@ -493,7 +504,6 @@ export const generatePatternBookPdf = async (pbbData) => {
             
             // Get association info from discipline
             const assocId = discipline.association_id || Object.keys(pbbData.associations || {})[0];
-            console.log('DEBUG assocId:', assocId, 'discipline.association_id:', discipline.association_id, 'discipline:', JSON.stringify(discipline, null, 2));
             const assocName = formatAssociationName(assocId);
             
             addNewPage();
