@@ -41,7 +41,7 @@
     "date-fns": "^2.30.0",
     "embla-carousel-react": "^7.1.0",
     "framer-motion": "^10.16.4",
-    "jspdf": "^2.5.1",
+    "jspdf": "^4.0.0",
     "jspdf-autotable": "^3.8.2",
     "jszip": "^3.10.1",
     "lovable-tagger": "^1.1.11",
