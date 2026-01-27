@@ -258,7 +258,7 @@ const detectGroupType = (divisions) => {
     });
   };
       
-      const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern);
+      const patternDisciplines = (formData.disciplines || []).filter(d => d.pattern && (d.patternGroups || []).length > 0);
 
       // Format date range
       const dateRange = formData.startDate && formData.endDate 
