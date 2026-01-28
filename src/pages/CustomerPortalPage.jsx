@@ -2000,6 +2000,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [divisionSearch, setDivisionSearch] = useState('');
     const [judgeSearch, setJudgeSearch] = useState('');
 
+    // Score sheet generation state (user-controlled, not auto-fetched)
+    const [generatedScoresheets, setGeneratedScoresheets] = useState([]);
+    const [isGeneratingScoresheets, setIsGeneratingScoresheets] = useState(false);
+    const [selectedScoresheetIds, setSelectedScoresheetIds] = useState(new Set());
+    const [scoresheetSortBy, setScoresheetSortBy] = useState('division');
+
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
     const [previewType, setPreviewType] = useState(null); // 'pattern' or 'scoresheet'
     const [previewImage, setPreviewImage] = useState(null); // Image URL for preview
@@ -2767,17 +2773,45 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         description: "Detecting fields and applying text overlay"
                     });
                     
-                    // Get overlay data from project context
-                    const overlayData = getOverlayDataFromContext(project, scoresheet);
+                    // Get overlay data - use per-scoresheet division/judge if available (generated scoresheets)
+                    let overlayData;
+                    if (scoresheet.divisionName && scoresheet.judgeName) {
+                        // Generated scoresheet: use specific division and judge
+                        const projectDataLocal = project?.project_data || {};
+                        let date = '';
+                        if (projectDataLocal.startDate && projectDataLocal.endDate) {
+                            date = `${projectDataLocal.startDate} - ${projectDataLocal.endDate}`;
+                        } else if (projectDataLocal.startDate) {
+                            date = projectDataLocal.startDate;
+                        } else if (projectDataLocal.showDates?.startDate) {
+                            date = projectDataLocal.showDates.startDate;
+                            if (projectDataLocal.showDates.endDate) {
+                                date = `${date} - ${projectDataLocal.showDates.endDate}`;
+                            }
+                        }
+                        overlayData = {
+                            showName: project?.project_name || projectDataLocal.showName || '',
+                            className: scoresheet.divisionName,
+                            date,
+                            judgeName: scoresheet.judgeName,
+                        };
+                    } else {
+                        // Fallback to original context extraction
+                        overlayData = getOverlayDataFromContext(project, scoresheet);
+                    }
                     console.log('Overlay data:', overlayData);
-                    
+
                     // Apply text overlay using AI detection
                     const blob = await applyTextOverlay(imageUrl, overlayData);
                     const blobUrl = window.URL.createObjectURL(blob);
-                    
-                    // Determine filename from storage_path or file_name
+
+                    // Determine filename
                     let fileName = 'scoresheet.png';
-                    if (scoresheet.storage_path) {
+                    if (scoresheet.divisionName && scoresheet.judgeName) {
+                        // Generated scoresheet: use descriptive filename
+                        fileName = `${scoresheet.disciplineName || 'Scoresheet'}_${scoresheet.divisionName}_${scoresheet.judgeName}.png`
+                            .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                    } else if (scoresheet.storage_path) {
                         fileName = scoresheet.storage_path.split('/').pop() || fileName;
                     } else if (scoresheet.file_name) {
                         fileName = scoresheet.file_name;
@@ -2827,18 +2861,46 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             });
         }
     };
-    
+
+    // Bulk download selected scoresheets
+    const handleBulkDownloadScoresheets = async () => {
+        const selected = displayedScoresheets.filter(s => selectedScoresheetIds.has(s.uniqueKey));
+        if (selected.length === 0) return;
+
+        toast({ title: `Downloading ${selected.length} scoresheet(s)...` });
+
+        for (const scoresheet of selected) {
+            await handleDownloadScoresheet(scoresheet);
+            // Small delay between downloads to prevent browser blocking
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        setSelectedScoresheetIds(new Set());
+    };
+
+    // Bulk move selected scoresheets to folder
+    const handleBulkMoveToFolder = async (folderId) => {
+        const selected = displayedScoresheets.filter(s => selectedScoresheetIds.has(s.uniqueKey));
+        if (selected.length === 0) return;
+
+        for (const scoresheet of selected) {
+            handleAddToFolder(scoresheet.uniqueKey, 'scoresheet', folderId, scoresheet);
+        }
+
+        toast({ title: `Moved ${selected.length} scoresheet(s) to folder` });
+        setSelectedScoresheetIds(new Set());
+    };
+
     // Discipline options from project_data.disciplines (source of truth)
     const disciplineOptions = [...new Set((projectData.disciplines || []).map(d => (d?.name || '').trim()))]
         .filter(Boolean)
         .sort();
-    
-    // Get unique classes (group names) from both patterns AND scoresheets
-    const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
-    const allClassesFromScoresheets = [...new Set(scoresheets.map(s => s.groupName))];
-    const uniqueClasses = [...new Set([...allClassesFromPatterns, ...allClassesFromScoresheets])].filter(Boolean).sort();
 
-    // Get unique division names from both patterns AND scoresheets
+    // Get unique classes (group names) from patterns
+    const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
+    const uniqueClasses = [...new Set([...allClassesFromPatterns])].filter(Boolean).sort();
+
+    // Get unique division names from patterns AND project data disciplines
     const allDivisionNamesFromPatterns = patterns.flatMap(p => {
         if (p.divisionNames) {
             return p.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
@@ -2848,24 +2910,50 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
         return [];
     });
-    const allDivisionNamesFromScoresheets = scoresheets.flatMap(s => {
-        if (s.divisionNames) {
-            return s.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
-        }
-        if (s.divisions && Array.isArray(s.divisions)) {
-            return s.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
-        }
-        return [];
-    });
-    const uniqueDivisions = [...new Set([...allDivisionNamesFromPatterns, ...allDivisionNamesFromScoresheets])].filter(Boolean).sort();
-    
-    // Get unique judges from patterns, scoresheets, and project data (associationJudges)
+    // Derive all available divisions from project data (for scoresheet generation controls)
+    const allDivisionNamesFromProjectData = useMemo(() => {
+        const divs = new Set();
+        (projectData.disciplines || []).forEach(discipline => {
+            (discipline.patternGroups || []).forEach(group => {
+                (group.divisions || []).forEach(div => {
+                    const name = typeof div === 'string' ? div
+                        : div?.name || div?.divisionName || div?.division || div?.title || '';
+                    if (name.trim()) divs.add(name.trim());
+                });
+            });
+        });
+        return [...divs];
+    }, [projectData]);
+    const uniqueDivisions = [...new Set([...allDivisionNamesFromPatterns, ...allDivisionNamesFromProjectData])].filter(Boolean).sort();
+
+    // Get unique judges from patterns and project data (associationJudges, officials, groupJudges)
     const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
-    const allJudgesFromScoresheets = scoresheets.flatMap(s => s.judges || []);
-    const allJudgesFromProjectData = Object.values(projectData.associationJudges || {}).flatMap(assoc => 
-        (assoc?.judges || []).map(j => j?.name).filter(Boolean)
-    );
-    const uniqueJudges = [...new Set([...allJudgesFromPatterns, ...allJudgesFromScoresheets, ...allJudgesFromProjectData])].filter(Boolean).sort();
+    const allJudgesFromProjectData = useMemo(() => {
+        const judges = new Set();
+        // From associationJudges
+        Object.values(projectData.associationJudges || {}).forEach(assocData => {
+            (assocData?.judges || []).forEach(j => {
+                if (j?.name) judges.add(j.name.trim());
+            });
+        });
+        // From officials
+        (projectData.officials || []).forEach(o => {
+            if (o?.role === 'judge' && o?.name) judges.add(o.name.trim());
+        });
+        // From groupJudges
+        Object.values(projectData.groupJudges || {}).forEach(disciplineGroups => {
+            if (typeof disciplineGroups === 'object' && !Array.isArray(disciplineGroups)) {
+                Object.values(disciplineGroups).forEach(val => {
+                    if (typeof val === 'string' && val.trim()) judges.add(val.trim());
+                    if (Array.isArray(val)) val.forEach(j => { if (typeof j === 'string' && j.trim()) judges.add(j.trim()); });
+                });
+            } else if (Array.isArray(disciplineGroups)) {
+                disciplineGroups.forEach(j => { if (typeof j === 'string' && j.trim()) judges.add(j.trim()); });
+            }
+        });
+        return [...judges];
+    }, [projectData]);
+    const uniqueJudges = [...new Set([...allJudgesFromPatterns, ...allJudgesFromProjectData])].filter(Boolean).sort();
     
     // Get folder items as patterns/scoresheets when folder is selected
     const folderItemsAsPatterns = useMemo(() => {
@@ -2899,13 +2987,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 return folder.items
                     .filter(item => item.type === 'scoresheet')
                     .map(item => {
-                        // Use stored data if available, otherwise try to find in scoresheets array
+                        // Use stored data if available, otherwise try to find in generated scoresheets
                         if (item.data) {
                             return item.data;
                         }
-                        // Try to find scoresheet in main array by ID
-                        const foundScoresheet = scoresheets.find(s => {
-                            const sId = s.id || s.numericId;
+                        // Try to find scoresheet in generated array by ID or uniqueKey
+                        const foundScoresheet = generatedScoresheets.find(s => {
+                            const sId = s.id || s.numericId || s.uniqueKey;
                             return (item.id === sId || item.id === String(sId));
                         });
                         return foundScoresheet;
@@ -2914,8 +3002,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             }
         }
         return [];
-    }, [selectedSidebarItem, selectedFolderId, folders, scoresheets]);
-    
+    }, [selectedSidebarItem, selectedFolderId, folders, generatedScoresheets]);
+
     // Filter patterns based on selected filters
     const filteredPatterns = (selectedSidebarItem === 'folder' && selectedFolderId ? folderItemsAsPatterns : patterns).filter(pattern => {
         // Filter by folder if one is selected - already handled by folderItemsAsPatterns
@@ -2962,61 +3050,38 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return 0;
     });
     
-    // Filter scoresheets based on selected filters (same filters)
-    const filteredScoresheets = (selectedSidebarItem === 'folder' && selectedFolderId ? folderItemsAsScoresheets : scoresheets).filter(scoresheet => {
-        // Filter by folder if one is selected - already handled by folderItemsAsScoresheets
-        if (selectedSidebarItem === 'folder' && selectedFolderId) {
-            // Items are already filtered, just apply other filters
-        } else if (selectedSidebarItem === 'allItems') {
-            // Show all items when "All Items" is selected
-        } else if (selectedSidebarItem === 'recentlyViewed') {
-            // TODO: Implement recently viewed filter
-        } else if (selectedSidebarItem === 'assignedToMe') {
-            // TODO: Implement assigned to me filter
-        }
-        
-        // Multi-select discipline filter
-        if (filterDisciplines.size > 0) {
-            const scoresheetDiscipline = (scoresheet.disciplineName || scoresheet.discipline || '').trim();
-            if (!filterDisciplines.has(scoresheetDiscipline)) return false;
-        }
-        // Multi-select division filter (match against actual division names)
-        if (filterDivisions.size > 0) {
-            let scoresheetDivNames = [];
-            if (scoresheet.divisionNames) {
-                scoresheetDivNames = scoresheet.divisionNames.replace(/^\(|\)$/g, '').split(',').map(d => d.trim()).filter(Boolean);
-            } else if (scoresheet.divisions && Array.isArray(scoresheet.divisions)) {
-                scoresheetDivNames = scoresheet.divisions.map(d => d.name || d.divisionName || d.division || '').filter(Boolean);
-            }
-            const hasMatchingDivision = scoresheetDivNames.some(divName =>
-                Array.from(filterDivisions).some(selected =>
-                    divName.toLowerCase() === selected.toLowerCase()
-                )
-            );
-            if (!hasMatchingDivision) return false;
-        }
-        // Judge filter (Score Sheets only)
-        if (filterJudges.size > 0) {
-            const scoresheetJudges = (scoresheet.judges || []).map(j => (typeof j === 'string' ? j : j?.name || '').trim()).filter(Boolean);
-            const hasMatchingJudge = scoresheetJudges.some(judgeName =>
-                Array.from(filterJudges).some(selected =>
-                    judgeName.toLowerCase() === selected.toLowerCase()
-                )
-            );
-            if (!hasMatchingJudge) return false;
-        }
-        return true;
-    });
+    // Display scoresheets: use generated list (already filtered at generation time), with sorting
+    const displayedScoresheets = useMemo(() => {
+        const list = selectedSidebarItem === 'folder' && selectedFolderId
+            ? folderItemsAsScoresheets
+            : generatedScoresheets;
+
+        return [...list].sort((a, b) => {
+            if (scoresheetSortBy === 'division') return (a.divisionName || '').localeCompare(b.divisionName || '');
+            if (scoresheetSortBy === 'judge') return (a.judgeName || '').localeCompare(b.judgeName || '');
+            if (scoresheetSortBy === 'discipline') return (a.disciplineName || '').localeCompare(b.disciplineName || '');
+            if (scoresheetSortBy === 'name') return (a.displayName || '').localeCompare(b.displayName || '');
+            return 0;
+        });
+    }, [generatedScoresheets, folderItemsAsScoresheets, selectedSidebarItem, selectedFolderId, scoresheetSortBy]);
     
     // Fetch data when dialog opens or tabs change
     useEffect(() => {
         if (activeTab === 'patternBook' && activeSubTab === 'patterns') {
             fetchPatterns();
-        } else if (activeTab === 'patternBook' && activeSubTab === 'scoreSheets') {
-            fetchScoresheets();
+        } else if (activeTab === 'patternBook' && activeSubTab === 'scoreSheets' && generatedScoresheets.length === 0 && !isGeneratingScoresheets) {
+            // Auto-generate all score sheets on first tab visit
+            generateScoresheets();
         }
     }, [activeTab, activeSubTab]);
-    
+
+    // Auto-regenerate score sheets when filters change
+    useEffect(() => {
+        if (activeTab === 'patternBook' && activeSubTab === 'scoreSheets') {
+            generateScoresheets();
+        }
+    }, [filterDisciplines, filterDivisions, filterJudges]);
+
     const fetchPatterns = async () => {
         setIsLoadingPatterns(true);
         try {
@@ -3779,7 +3844,196 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             setIsLoadingScoresheets(false);
         }
     };
-    
+
+    // Generate scoresheets: Division x Judge cross-product (user-controlled)
+    const generateScoresheets = async () => {
+        setIsGeneratingScoresheets(true);
+        setSelectedScoresheetIds(new Set());
+        try {
+            const disciplines = projectData.disciplines || [];
+            const patternSelections = projectData.patternSelections || {};
+            const result = [];
+
+            // Fetch associations data
+            const { data: assocData } = await supabase
+                .from('associations')
+                .select('id, abbreviation, name');
+            const associationsMap = {};
+            (assocData || []).forEach(a => {
+                associationsMap[a.id] = a;
+                associationsMap[a.abbreviation] = a;
+            });
+
+            // Determine selected disciplines (empty = all)
+            const selectedDisciplines = filterDisciplines.size > 0
+                ? disciplines.filter(d => filterDisciplines.has((d.name || '').trim()))
+                : disciplines;
+
+            // Determine selected divisions (empty = all available)
+            const selectedDivisionsList = filterDivisions.size > 0
+                ? [...filterDivisions]
+                : allDivisionNamesFromProjectData;
+
+            // Determine selected judges (empty = all available)
+            const selectedJudgesList = filterJudges.size > 0
+                ? [...filterJudges]
+                : allJudgesFromProjectData;
+
+            // For each discipline, look up the base scoresheet image and cross-product
+            for (const discipline of selectedDisciplines) {
+                const hasScoresheet = discipline.scoresheet || discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                if (!hasScoresheet) continue;
+
+                const disciplineName = (discipline.name || 'Unknown Discipline').trim();
+                const associationId = discipline.association_id ||
+                    (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
+                    (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
+
+                // Lookup base scoresheet: try pattern_id first, then fallback by association+discipline
+                let baseScoresheetData = null;
+
+                // Try to find pattern selection for this discipline to get pattern_id
+                let disciplineSelections = patternSelections[discipline.id];
+                if (!disciplineSelections) {
+                    const dIdx = disciplines.indexOf(discipline);
+                    disciplineSelections = patternSelections[dIdx]
+                        || patternSelections[`${dIdx}`]
+                        || patternSelections[discipline.name];
+                }
+                if (!disciplineSelections && disciplineName && associationId) {
+                    const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
+                    const matchingKey = Object.keys(patternSelections).find(key => {
+                        if (!isNaN(parseInt(key))) return false;
+                        return key.toLowerCase().includes(disciplineNameNormalized.toLowerCase()) &&
+                               key.toLowerCase().includes((associationId || '').toLowerCase());
+                    });
+                    if (matchingKey) disciplineSelections = patternSelections[matchingKey];
+                }
+
+                // Collect pattern IDs from all groups in this discipline
+                const groups = discipline.patternGroups || [];
+                let firstPatternId = null;
+                for (const group of groups) {
+                    const groupId = group.id || `pattern-group-${groups.indexOf(group)}`;
+                    const gIdx = groups.indexOf(group);
+                    let patternSelection = disciplineSelections?.[gIdx]
+                        || disciplineSelections?.[`${gIdx}`]
+                        || disciplineSelections?.[groupId]
+                        || disciplineSelections?.[group.id];
+                    if (!patternSelection && disciplineSelections && groupId) {
+                        const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
+                            return key === groupId || key.includes('pattern-group');
+                        });
+                        if (matchingGroupKey) patternSelection = disciplineSelections[matchingGroupKey];
+                    }
+                    if (patternSelection) {
+                        const patternId = typeof patternSelection === 'object'
+                            ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id)
+                            : patternSelection;
+                        if (patternId) {
+                            let numericId = null;
+                            if (typeof patternId === 'string' && patternId.includes('-')) {
+                                const match = patternId.match(/\d+/);
+                                if (match) numericId = parseInt(match[0]);
+                            } else if (!isNaN(parseInt(patternId))) {
+                                numericId = parseInt(patternId);
+                            }
+                            if (numericId) { firstPatternId = numericId; break; }
+                        }
+                    }
+                }
+
+                // Fetch base scoresheet by pattern_id
+                if (firstPatternId) {
+                    try {
+                        const { data: ssData } = await supabase
+                            .from('tbl_scoresheet')
+                            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                            .eq('pattern_id', firstPatternId)
+                            .limit(1)
+                            .maybeSingle();
+                        if (ssData) baseScoresheetData = ssData;
+                    } catch (err) {
+                        console.error('Error fetching scoresheet by pattern_id:', err);
+                    }
+                }
+
+                // Fallback: fetch by association abbreviation + discipline name
+                if (!baseScoresheetData) {
+                    const association = associationsMap[associationId];
+                    const abbrev = association?.abbreviation;
+                    if (abbrev && disciplineName) {
+                        try {
+                            const { data: ssData } = await supabase
+                                .from('tbl_scoresheet')
+                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                                .eq('association_abbrev', abbrev)
+                                .ilike('discipline', `%${disciplineName}%`)
+                                .limit(1)
+                                .maybeSingle();
+                            if (ssData) baseScoresheetData = ssData;
+                        } catch (err) {
+                            console.error(`Error fetching scoresheet for ${disciplineName}:`, err);
+                        }
+                    }
+                }
+
+                // Collect all divisions within this discipline's groups
+                const disciplineDivisions = [];
+                for (const group of groups) {
+                    (group.divisions || []).forEach(div => {
+                        const divName = typeof div === 'string' ? div : div?.name || div?.divisionName || div?.division || div?.title || '';
+                        if (divName.trim()) disciplineDivisions.push(divName.trim());
+                    });
+                }
+                const uniqueDisciplineDivisions = [...new Set(disciplineDivisions)];
+
+                // Intersect with user-selected divisions
+                const matchingDivisions = uniqueDisciplineDivisions.filter(d =>
+                    selectedDivisionsList.some(sel => sel.toLowerCase() === d.toLowerCase())
+                );
+
+                // Cross-product: division x judge
+                for (const divisionName of matchingDivisions) {
+                    for (const judgeName of selectedJudgesList) {
+                        const uniqueKey = `${disciplineName}-${divisionName}-${judgeName}`;
+                        result.push({
+                            ...(baseScoresheetData || {}),
+                            uniqueKey,
+                            id: baseScoresheetData?.id || `gen-${uniqueKey}`,
+                            numericId: baseScoresheetData?.id || null,
+                            disciplineName,
+                            disciplineIndex: disciplines.indexOf(discipline),
+                            divisionName,
+                            judgeName,
+                            displayName: `${disciplineName} Scoresheet`,
+                            image_url: baseScoresheetData?.image_url || null,
+                            generatedAt: new Date().toISOString(),
+                        });
+                    }
+                }
+            }
+
+            setGeneratedScoresheets(result);
+
+            toast({
+                title: `Generated ${result.length} Score Sheet(s)`,
+                description: result.length > 0
+                    ? `${new Set(result.map(r => r.divisionName)).size} division(s) x ${new Set(result.map(r => r.judgeName)).size} judge(s)`
+                    : 'No matching combinations found. Check your filter selections.'
+            });
+        } catch (error) {
+            console.error('Error generating scoresheets:', error);
+            toast({
+                title: "Generation failed",
+                description: error.message || "Failed to generate scoresheets",
+                variant: "destructive"
+            });
+        } finally {
+            setIsGeneratingScoresheets(false);
+        }
+    };
+
     // Get people data
     const getPeopleData = () => {
         const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
@@ -4098,8 +4352,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     return (itemId === pId || itemId === String(pId));
                 });
             } else if (itemType === 'scoresheet') {
-                foundItemData = scoresheets.find(s => {
-                    const sId = s.id || s.numericId;
+                foundItemData = generatedScoresheets.find(s => {
+                    const sId = s.id || s.numericId || s.uniqueKey;
                     return (itemId === sId || itemId === String(sId));
                 });
             }
@@ -4333,8 +4587,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 }
                             } else if (item.type === 'scoresheet') {
                                 // Use stored data if available
-                                const scoresheetData = item.data || scoresheets.find(s => {
-                                    const sId = s.id || s.numericId;
+                                const scoresheetData = item.data || generatedScoresheets.find(s => {
+                                    const sId = s.id || s.numericId || s.uniqueKey;
                                     return (item.id === sId || item.id === String(sId));
                                 });
                                 
@@ -5069,6 +5323,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 </PopoverContent>
                                             </Popover>
                                         )}
+
                                     </div>
                                 )}
 
@@ -5230,8 +5485,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             });
                                             return found ? { ...found, itemType: 'pattern', storedAt: item.storedAt || selectedFolder.createdAt } : null;
                                         } else if (item.type === 'scoresheet') {
-                                            const found = scoresheets.find(s => {
-                                                const sId = s.id || s.numericId;
+                                            const found = generatedScoresheets.find(s => {
+                                                const sId = s.id || s.numericId || s.uniqueKey;
                                                 return (item.id === sId || item.id === String(sId));
                                             });
                                             return found ? { ...found, itemType: 'scoresheet', storedAt: item.storedAt || selectedFolder.createdAt } : null;
@@ -5734,41 +5989,104 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {selectedSidebarItem !== 'folder' && activeSubTab === 'scoreSheets' && (
                                     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                                         {/* Score Sheets List */}
-                                        {isLoadingScoresheets ? (
+                                        {isGeneratingScoresheets ? (
                                             <div className="flex items-center justify-center py-12">
                                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                <span className="ml-3 text-muted-foreground">Generating score sheets...</span>
                                             </div>
-                                        ) : (
+                                        ) : displayedScoresheets.length > 0 ? (
                                             <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                    {filteredScoresheets.map((scoresheet, index) => (
-                                                        <div
-                                                            key={scoresheet.uniqueKey || scoresheet.id || index}
-                                                            className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50"
-                                                        >
+                                                {/* Bulk selection toolbar */}
+                                                <div className="flex items-center justify-between bg-muted/30 p-2 rounded-md mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Checkbox
+                                                            id="select-all-scoresheets"
+                                                            checked={selectedScoresheetIds.size === displayedScoresheets.length && displayedScoresheets.length > 0}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) {
+                                                                    setSelectedScoresheetIds(new Set(displayedScoresheets.map(s => s.uniqueKey)));
+                                                                } else {
+                                                                    setSelectedScoresheetIds(new Set());
+                                                                }
+                                                            }}
+                                                        />
+                                                        <Label htmlFor="select-all-scoresheets" className="text-xs font-normal cursor-pointer">
+                                                            {selectedScoresheetIds.size > 0 ? `${selectedScoresheetIds.size} selected` : 'Select All'}
+                                                        </Label>
+                                                        {selectedScoresheetIds.size > 0 && (
+                                                            <div className="flex items-center gap-2 ml-2">
+                                                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkDownloadScoresheets}>
+                                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                                    Download ({selectedScoresheetIds.size})
+                                                                </Button>
+                                                                {folders.length > 0 && (
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button variant="outline" size="sm" className="h-7 text-xs">
+                                                                                <Folder className="h-3.5 w-3.5 mr-1.5" />
+                                                                                Move to Folder
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent>
+                                                                            {folders.map(folder => (
+                                                                                <DropdownMenuItem key={folder.id} onClick={() => handleBulkMoveToFolder(folder.id)}>
+                                                                                    <Folder className="h-4 w-4 mr-2" />
+                                                                                    {folder.name}
+                                                                                </DropdownMenuItem>
+                                                                            ))}
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {/* Sort dropdown */}
+                                                    <Select value={scoresheetSortBy} onValueChange={setScoresheetSortBy}>
+                                                        <SelectTrigger className="h-7 w-32 text-xs">
+                                                            <SelectValue placeholder="Sort by" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="division">By Division</SelectItem>
+                                                            <SelectItem value="judge">By Judge</SelectItem>
+                                                            <SelectItem value="discipline">By Discipline</SelectItem>
+                                                            <SelectItem value="name">By Name</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+
+                                                {/* Scoresheet cards */}
+                                                {displayedScoresheets.map((scoresheet, index) => (
+                                                    <div
+                                                        key={scoresheet.uniqueKey || scoresheet.id || index}
+                                                        className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50"
+                                                    >
+                                                        {/* Bulk selection checkbox */}
+                                                        <Checkbox
+                                                            checked={selectedScoresheetIds.has(scoresheet.uniqueKey)}
+                                                            onCheckedChange={(checked) => {
+                                                                setSelectedScoresheetIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (checked) next.add(scoresheet.uniqueKey);
+                                                                    else next.delete(scoresheet.uniqueKey);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
                                                         <div className="w-8 h-8 bg-primary/10 rounded flex items-center justify-center shrink-0">
                                                             <FileText className="h-4 w-4 text-primary" />
                                                         </div>
                                                         <div className="flex-1 min-w-0">
-                                                            <div className="font-medium truncate">{scoresheet.displayName || scoresheet.file_name || scoresheet.disciplineName || 'Scoresheet'}</div>
-                                                            <div className="text-sm text-muted-foreground space-y-1">
+                                                            <div className="font-medium truncate">{scoresheet.displayName || scoresheet.disciplineName || 'Scoresheet'}</div>
+                                                            <div className="text-sm text-muted-foreground space-y-0.5">
                                                                 <div>
-                                                                    <span className="font-medium">Discipline:</span> {scoresheet.disciplineName || scoresheet.discipline}
+                                                                    <span className="font-medium">Discipline:</span> {scoresheet.disciplineName}
                                                                 </div>
-                                                                {scoresheet.groupName && (
-                                                                    <div>
-                                                                        <span className="font-medium">Class:</span> {scoresheet.groupName}
-                                                                    </div>
-                                                                )}
-                                                                {scoresheet.divisionNames && (
-                                                                    <div>
-                                                                        <span className="font-medium">Divisions:</span> <span className="text-xs">({scoresheet.divisionNames})</span>
-                                                                    </div>
-                                                                )}
-                                                                {scoresheet.judgeNames && (
-                                                                    <div>
-                                                                        <span className="font-medium">Judges:</span> {scoresheet.judgeNames}
-                                                                    </div>
-                                                                )}
+                                                                <div>
+                                                                    <span className="font-medium">Division (Class):</span> {scoresheet.divisionName}
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-medium">Judge:</span> {scoresheet.judgeName}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">
@@ -5811,8 +6129,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                             <DropdownMenuItem
                                                                                 key={folder.id}
                                                                                 onClick={() => {
-                                                                                    const itemId = scoresheet.id || scoresheet.numericId || `scoresheet-${index}`;
-                                                                                    handleAddToFolder(itemId, 'scoresheet', folder.id, scoresheet);
+                                                                                    handleAddToFolder(scoresheet.uniqueKey, 'scoresheet', folder.id, scoresheet);
                                                                                 }}
                                                                             >
                                                                                 <Folder className="h-4 w-4 mr-2" />
@@ -5867,11 +6184,22 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </DropdownMenu>
                                                         </div>
                                                     </div>
-                                                    ))}
-                                                    {filteredScoresheets.length === 0 && !isLoadingScoresheets && (
-                                                    <div className="text-center py-12 text-muted-foreground">
-                                                        {scoresheets.length === 0 ? 'No scoresheets found' : 'No scoresheets match the selected filters'}
-                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            /* Empty state */
+                                            <div className="text-center py-12 text-muted-foreground">
+                                                {isGeneratingScoresheets ? (
+                                                    <>
+                                                        <Loader2 className="h-12 w-12 mx-auto mb-4 opacity-30 animate-spin" />
+                                                        <p className="text-lg font-medium mb-2">Loading Score Sheets...</p>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                                                        <p className="text-lg font-medium mb-2">No Score Sheets Available</p>
+                                                        <p className="text-sm">Try adjusting your Discipline, Division, or Judge filters above.</p>
+                                                    </>
                                                 )}
                                             </div>
                                         )}
