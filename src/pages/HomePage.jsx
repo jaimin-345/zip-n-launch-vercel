@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Video, BookOpen, Calendar, ShieldCheck, Zap, ArrowRight, UserCheck, BarChart, CheckCircle, FileText } from 'lucide-react';
+import { Video, BookOpen, Calendar, ShieldCheck, Zap, ArrowRight, UploadCloud, Star, CheckCircle, FileText } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import Footer from '@/components/Footer';
@@ -52,33 +52,6 @@ const HomePage = () => {
       description: "🚧 Live pattern book feature is not yet implemented."
     });
   };
-  const sponsors = [{
-    name: 'Equine Excellence Feed',
-    logo: 'Equine Excellence Feed company logo with a horse silhouette'
-  }, {
-    name: 'Wellington Tack Shop',
-    logo: 'Wellington Tack Shop logo featuring horse tack'
-  }, {
-    name: 'Champion Trailers',
-    logo: 'Champion Trailers logo with a horse trailer graphic'
-  }, {
-    name: 'ProStride Supplements',
-    logo: 'ProStride Supplements logo with a dynamic icon'
-  }, {
-    name: 'SaddleUp Apparel',
-    logo: 'SaddleUp Apparel logo with a stylized saddle'
-  }];
-  const testimonials = [{
-    name: 'John D., Show Organizer',
-    quote: "EquiPatterns revolutionized how we manage our shows. The automated pattern books and QR codes save us hours of work."
-  }, {
-    name: 'Jane S., Judge',
-    quote: "The AI-generated score sheets are incredibly accurate and consistent. It's a game-changer for judging."
-  }, {
-    name: 'Emily R., Trainer',
-    quote: "My students love the live pattern books. They can follow along in real-time, which is a fantastic learning tool."
-  }];
-
   const backgroundImageUrl = mediaConfig.home_page?.url;
   
   return (
@@ -103,9 +76,9 @@ const HomePage = () => {
                     <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Pattern Book Builder</h2>
                     <p className="text-lg text-muted-foreground">Stop Formatting. Start Showing. Generate a pattern book in minutes.</p>
                     <ul className="space-y-4">
-                        <li className="flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Automated pattern generation </span></li>
+                        <li className="flex items-start gap-3"><ShieldCheck className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Automated pattern generation</span></li>
                         <li className="flex items-start gap-3"><Zap className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Build better shows, faster</span></li>
-                        <li className="flex items-start gap-3"><FileText className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Score sheets populated </span></li>
+                        <li className="flex items-start gap-3"><FileText className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Score sheets populated</span></li>
                     </ul>
                     <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90">
                         <Link to="/pattern-book-builder">Pattern Book Builder <ArrowRight className="ml-2 h-5 w-5" /></Link>
@@ -114,13 +87,14 @@ const HomePage = () => {
                 </Link>
                 <div className="space-y-6">
                 <Badge variant="outline" className="text-primary border-primary">For Designers</Badge>
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Monetize your abilities and share your creativity with the industry.</h2>
-                <p className="text-lg text-muted-foreground">License your patterns, and start to earn now.</p>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Earn Creator Benefits & Share Your Expertise</h2>
+                <p className="text-lg text-muted-foreground">License your patterns now and earn valuable rewards.</p>
                 <ul className="space-y-4">
-                    <li className="flex items-start gap-3"><UserCheck className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Simple upload and licensing process.</span></li>
-                    <li className="flex items-start gap-3"><BarChart className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Transparent revenue sharing and analytics.</span></li>
-                    <li className="flex items-start gap-3"><CheckCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Reach thousands of show organizers and riders.</span></li>
+                    <li className="flex items-start gap-3"><UploadCloud className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Upload original patterns and earn <strong className="text-foreground">platform credits</strong>.</span></li>
+                    <li className="flex items-start gap-3"><Star className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Earn <strong className="text-foreground">exclusive</strong> perks as a <strong className="text-foreground">valued creator</strong>.</span></li>
+                    <li className="flex items-start gap-3"><CheckCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Reach <strong className="text-foreground">thousands</strong> of show <strong className="text-foreground">organizers</strong> and <strong className="text-foreground">riders</strong>.</span></li>
                 </ul>
+                <p className="text-sm text-muted-foreground">EquiPatterns reserves the <em>right</em> to review, approve, reject, or remove submissions at its discretion.</p>
                 <Button asChild size="lg" variant="outline">
                     <Link to="/contributor-portal">License Your Patterns <ArrowRight className="ml-2 h-5 w-5" /></Link>
                 </Button>
@@ -130,59 +104,17 @@ const HomePage = () => {
         </section>
 
         <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-secondary/80">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-                Trusted by the Best in the Sport
-              </h2>
-              <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-                Top riders, organizers, and judges rely on EquiPatterns for their events.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {testimonials.map((testimonial, index) => <Card key={index} className="bg-card/90 border-border">
-                  <CardContent className="pt-6">
-                    <blockquote className="text-muted-foreground">
-                      "{testimonial.quote}"
-                    </blockquote>
-                  </CardContent>
-                  <CardFooter>
-                    <p className="font-semibold text-foreground">{testimonial.name}</p>
-                  </CardFooter>
-                </Card>)}
-            </div>
-            <div className="mt-12 text-center">
-              <Button variant="link" asChild>
-                <Link to="#">Read Our Case Studies <ArrowRight className="ml-2 h-4 w-4" /></Link>
-              </Button>
-            </div>
+          <div className="max-w-7xl mx-auto text-center">
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+              Trusted by the Best in the Sport
+            </h2>
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+              Top riders, organizers, and judges rely on EquiPatterns for their events.
+            </p>
           </div>
         </section>
 
         <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto text-center">
-            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">
-              Support the Brands That Support the Sport
-            </h2>
-             <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-              Partner with us to reach riders, trainers, and fans — in the arena and online.
-            </p>
-            <div className="mt-8 flow-root">
-              <div className="-mt-4 -ml-8 flex flex-wrap justify-center">
-                {sponsors.map(sponsor => <div key={sponsor.name} className="mt-4 ml-8 flex flex-grow flex-shrink-0 items-center justify-center lg:flex-grow-0">
-                    <div className="h-12 w-32 bg-muted rounded-lg flex items-center justify-center text-xs text-muted-foreground">{sponsor.name}</div>
-                  </div>)}
-              </div>
-            </div>
-            <div className="mt-12">
-              <Button asChild size="lg">
-                <Link to="/sponsorship">Become a Sponsor</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-secondary/80">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
@@ -227,6 +159,27 @@ const HomePage = () => {
                     </CardFooter>
                   </Card>
                 </motion.div>)}
+            </div>
+          </div>
+        </section>
+
+        <section className="py-16 sm:py-24 px-4 sm:px-6 lg:px-8 bg-secondary/80">
+          <div className="max-w-7xl mx-auto text-center">
+            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">
+              Advertise with EquiPatterns
+            </h2>
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+              Reach riders, trainers, and fans — in the arena and online.
+            </p>
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 1</div>
+              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 2</div>
+              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 3</div>
+            </div>
+            <div className="mt-12">
+              <Button asChild size="lg">
+                <Link to="/advertisement">Become an Advertiser</Link>
+              </Button>
             </div>
           </div>
         </section>

@@ -32,7 +32,7 @@ const Footer = () => {
           <div>
             <p className="font-semibold text-foreground">Quick Links</p>
             <ul className="mt-4 space-y-2">
-              <li><Link to="/pattern-hub" className="text-muted-foreground hover:text-primary text-sm">Pattern Selector</Link></li>
+              <li><Link to="/pattern-hub" className="text-muted-foreground hover:text-primary text-sm">Choose A Pattern</Link></li>
               <li><Link to="/pattern-book-builder" className="text-muted-foreground hover:text-primary text-sm">Pattern Book Builder</Link></li>
               <li><Link to="/events" className="text-muted-foreground hover:text-primary text-sm">Events</Link></li>
               <li><Link to="/events/past" className="text-muted-foreground hover:text-primary text-sm">Past Events</Link></li>
@@ -43,9 +43,8 @@ const Footer = () => {
             <p className="font-semibold text-foreground">Resources</p>
             <ul className="mt-4 space-y-2">
               <li><Link to="/contributor-portal" className="text-muted-foreground hover:text-primary text-sm">Contributor Portal</Link></li>
-              <li><Link to="/score-sheets" className="text-muted-foreground hover:text-primary text-sm">AI Score Sheets</Link></li>
               <li><Link to="/social-media" className="text-muted-foreground hover:text-primary text-sm">Social Feed</Link></li>
-              <li><Link to="/sponsorship" className="text-muted-foreground hover:text-primary text-sm">Sponsorship</Link></li>
+              <li><Link to="/advertisement" className="text-muted-foreground hover:text-primary text-sm">Advertisement</Link></li>
               <li><Link to="/database-schema" className="text-muted-foreground hover:text-primary text-sm">Database Schema</Link></li>
             </ul>
           </div>

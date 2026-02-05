@@ -30,10 +30,8 @@ const Navigation = () => {
         { name: 'Pattern Book Builder', path: '/pattern-book-builder', show: 'always' },
         { name: 'Horse Show Manager', path: '/horse-show-manager', show: 'always' },
         { name: 'Events', path: '/events', show: 'always' },
-        { name: 'Sponsorship', path: '/sponsorship', show: 'always' },
-        { name: 'Upload Pattern', path: '/upload-patterns/new', highlight: true, show: 'always' },
+        { name: 'Upload Pattern', path: '/upload-patterns/new', show: 'always' },
         { name: 'Admin Portal', path: '/admin', show: 'admin' },
-        { name: 'Dashboard', path: '/dashboard', show: 'loggedIn' },
     ];
 
     const getVisibleNavItems = () => {

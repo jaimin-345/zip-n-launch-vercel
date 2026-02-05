@@ -109,6 +109,7 @@ function App() {
                   <Route path="/score-sheets" element={<ScoreSheetsPage />} />
                   <Route path="/qr/:code" element={<QRCodePage />} />
                   <Route path="/sponsorship" element={<SponsorshipPage />} />
+                  <Route path="/advertisement" element={<SponsorshipPage />} />
                   <Route path="/database-schema" element={<DatabaseSchemaPage />} />
                   <Route path="/not-authorized" element={<NotAuthorizedPage />} />
                   <Route path="/show/:showId" element={<PublicShowPage />} />

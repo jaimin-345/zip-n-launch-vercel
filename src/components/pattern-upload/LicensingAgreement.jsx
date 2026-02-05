@@ -13,7 +13,11 @@ const LicensingAgreement = ({
       </CardHeader>
       <CardContent>
         <div className="bg-background/50 border p-4 rounded-lg text-xs text-muted-foreground max-h-40 overflow-y-auto mb-4">
-          <p>By submitting, you grant EquiPatterns a non-exclusive, worldwide license to display, sell, and distribute your patterns. You will receive a royalty on each sale. You confirm that you are the original creator of this content and have the right to grant this license. EquiPatterns reserves the right to review and reject any submission.</p>
+          <p>By submitting content, you confirm that you are the original creator of the submitted materials ("Creator Content") and that you have the legal right to grant this license. You retain ownership of your Creator Content.</p>
+          <p className="mt-2">You grant EquiPatterns a non-exclusive, worldwide license to host, display, distribute, and incorporate your Creator Content within the EquiPatterns platform, including use in pattern books, events, and platform tools, subject to applicable policies.</p>
+          <p className="mt-2">Creators may be eligible for Creator Benefits, which may include platform credits, membership discounts, promotional placement, analytics access, early feature access, or other non-monetary incentives, as described in the Creator Content & Benefits Policy.</p>
+          <p className="mt-2">Submission of Creator Content does not guarantee financial compensation. Any future revenue participation or royalty programs, if offered, will apply only to paid transactions and will be governed by separate terms.</p>
+          <p className="mt-2">EquiPatterns reserves the right to review, approve, reject, or remove submissions at its discretion.</p>
         </div>
         <div className="flex items-center space-x-2">
           <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={setAgreedToTerms} />
