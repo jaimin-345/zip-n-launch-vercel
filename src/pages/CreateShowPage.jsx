@@ -47,7 +47,7 @@ const CreateShowPage = () => {
         { id: 2, name: 'Select Disciplines', component: Step2_ShowClasses },
         { id: 3, name: 'Configure Classes', component: Step3_ConfigureDivisions },
         { id: 4, name: 'Details & Staff', component: Step4_ShowDetails },
-        { id: 5, name: 'Build Schedule', component: Step5_Schedule },
+        { id: 5, name: 'Show Bill', component: Step5_Schedule },
         { id: 6, name: 'Preview & Finalize', component: Step6_Preview },
     ];
 

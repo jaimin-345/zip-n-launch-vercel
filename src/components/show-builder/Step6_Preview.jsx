@@ -5,28 +5,38 @@ import React from 'react';
     import { Button } from '@/components/ui/button';
     import { useToast } from '@/components/ui/use-toast';
     import { parseLocalDate } from '@/lib/utils';
+    import { FileText } from 'lucide-react';
+    import { getAllClassItems } from '@/lib/showBillUtils';
+    import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
 
-    export const Step6_Preview = ({ formData, setFormData }) => {
+    export const Step6_Preview = ({ formData, setFormData, associationsData }) => {
         const { toast } = useToast();
 
         const handleFeatureRequest = () => {
             toast({
-                title: '🚧 Feature Not Implemented',
-                description: "This feature isn't implemented yet—but don't worry! You can request it in your next prompt! 🚀",
+                title: 'Coming Soon',
+                description: "This feature isn't implemented yet — it will be available in a future update.",
             });
         };
-        
-        const allClassItems = React.useMemo(() => {
-            return (formData.disciplines || []).flatMap(discipline => 
-                (discipline.divisionOrder || []).map(divisionId => {
-                    const [assocId, ...divisionParts] = divisionId.split('-');
-                    const divisionName = divisionParts.join('-');
-                    const customTitle = discipline.divisionPrintTitles?.[divisionId];
-                    const name = customTitle || (divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName);
-                    return { id: divisionId, name };
-                })
-            );
-        }, [formData.disciplines]);
+
+        const allClassItems = React.useMemo(() => getAllClassItems(formData), [formData]);
+
+        const handleGenerateShowBill = async () => {
+            if (!formData.showBill) {
+                toast({
+                    title: 'No Show Bill Data',
+                    description: 'Please build your show bill in Step 5 before generating a PDF.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+            try {
+                await generateShowBillPdf(formData.showBill, allClassItems, associationsData);
+                toast({ title: 'PDF Generated', description: 'Your show bill PDF has been downloaded.' });
+            } catch (err) {
+                toast({ title: 'PDF Error', description: err.message, variant: 'destructive' });
+            }
+        };
 
         return (
             <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -45,7 +55,7 @@ import React from 'react';
                     <div className="p-4 border rounded-lg">
                         <h3 className="text-lg font-semibold mb-2">Associations</h3>
                         <div className="flex flex-wrap gap-2">
-                            {Object.keys(formData.associations).map(assocId => (
+                            {Object.keys(formData.associations || {}).map(assocId => (
                                 <Badge key={assocId} variant="secondary">{assocId}</Badge>
                             ))}
                         </div>
@@ -61,14 +71,32 @@ import React from 'react';
                     <div className="p-4 border rounded-lg">
                         <h3 className="text-lg font-semibold mb-2">Judges</h3>
                          <div className="flex flex-wrap gap-2">
-                            {(formData.judges || []).map((judge, index) => (
-                                <Badge key={judge.id || index} variant="outline">{judge.name}</Badge>
-                            ))}
+                            {Object.entries(formData.associationJudges || {}).flatMap(([assocId, info]) =>
+                                (info.judges || []).filter(j => j?.name).map((judge, index) => (
+                                    <Badge key={`${assocId}-${index}`} variant="outline">{judge.name} ({assocId})</Badge>
+                                ))
+                            )}
+                            {Object.keys(formData.associationJudges || {}).length === 0 && (
+                                <p className="text-sm text-muted-foreground">No judges assigned yet.</p>
+                            )}
                         </div>
                     </div>
 
+                    {formData.showBill && (
+                        <div className="p-4 border rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2">Show Bill Summary</h3>
+                            <p className="text-sm text-muted-foreground">
+                                {formData.showBill.days?.length || 0} day(s), {' '}
+                                {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.length, 0) || 0} arena(s), {' '}
+                                {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.reduce((s, a) => s + a.items.filter(i => i.type === 'classBox').length, 0), 0) || 0} class box(es) scheduled
+                            </p>
+                        </div>
+                    )}
+
                     <div className="mt-8 flex justify-end gap-4">
-                        <Button variant="outline" onClick={handleFeatureRequest}>Generate Show Bill</Button>
+                        <Button variant="outline" onClick={handleGenerateShowBill}>
+                            <FileText className="h-4 w-4 mr-2" />Generate Show Bill
+                        </Button>
                         <Button onClick={handleFeatureRequest}>Finalize & Pay</Button>
                     </div>
                 </CardContent>

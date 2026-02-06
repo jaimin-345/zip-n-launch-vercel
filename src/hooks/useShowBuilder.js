@@ -24,6 +24,7 @@ const initialFormData = {
   officials: [],
   staff: [],
   schedule: [],
+  showBill: null,
 };
 
 export const useShowBuilder = (showId) => {
