@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Menu, X, ShoppingCart, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel, Briefcase } from 'lucide-react';
+import logoImage from '@/assets/logo.png';
 import { useCart } from '@/hooks/useCart';
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import {
@@ -171,8 +172,7 @@ const Navigation = () => {
                 <div className="flex items-center justify-between h-20">
                     <Link to="/" className="flex-shrink-0">
                         <motion.div whileHover={{ scale: 1.05 }} className="flex items-center">
-                            <img className="h-8 w-auto" alt="EquiPatterns Logo" src="https://images.unsplash.com/photo-1683366307475-9fc8df85c514" />
-                            <span className="ml-3 text-xl font-bold text-foreground">EquiPatterns</span>
+                            <img className="h-10 w-auto" alt="EquiPatterns Logo" src={logoImage} />
                         </motion.div>
                     </Link>
 
