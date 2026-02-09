@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Twitter, Facebook, Instagram } from 'lucide-react';
+import logoImage from '@/assets/logo.png';
 
 const Footer = () => {
   const associations = [
@@ -16,9 +17,8 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
           <div className="space-y-4 md:col-span-2 lg:col-span-1">
-            <Link to="/" className="flex items-center space-x-2 text-foreground">
-              <img src="https://images.unsplash.com/photo-1683366307475-9fc8df85c514" alt="EquiPatterns Logo" className="h-8 w-auto" />
-              <span className="text-xl font-bold">EquiPatterns</span>
+            <Link to="/" className="flex items-center text-foreground">
+              <img src={logoImage} alt="EquiPatterns Logo" className="h-12 w-auto" />
             </Link>
             <p className="text-muted-foreground text-sm">
               The Professional Platform for Horse Show Patterns and Event Management.
