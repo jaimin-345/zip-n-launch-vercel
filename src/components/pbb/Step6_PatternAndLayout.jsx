@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Users, UserCheck, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, Check, ChevronsUpDown, X, ZoomIn, ZoomOut, RotateCcw, Loader2, Info, ChevronRight, Pencil } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, X, ZoomIn, ZoomOut, RotateCcw, Loader2, ChevronRight } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,12 +15,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import PatternPagePreview from './PatternPagePreview';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { flushSync } from 'react-dom';
 
 // Pattern Badge with Hover Functionality Component
 const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
@@ -226,38 +224,12 @@ const PATTERN_VERSIONS = [
   { id: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-800', dotColor: 'bg-pink-500' },
 ];
 
-export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false, isClinicMode = false }) => {
   const { toast } = useToast();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [currentDiscipline, setCurrentDiscipline] = useState(null);
-  const [dialogDueDate, setDialogDueDate] = useState('');
-  const [dialogJudge, setDialogJudge] = useState('');
-  const [dialogStaff, setDialogStaff] = useState('');
-  const [assignStaffDialogOpen, setAssignStaffDialogOpen] = useState(false);
-  const [currentDisciplineForStaff, setCurrentDisciplineForStaff] = useState(null);
-  const [dialogStaffName, setDialogStaffName] = useState('');
-  const [dialogStaffDueDate, setDialogStaffDueDate] = useState('');
-  const [selectedDisciplines, setSelectedDisciplines] = useState(new Set());
-  const [bulkAssignDialogOpen, setBulkAssignDialogOpen] = useState(false);
-  const [bulkAssignJudge, setBulkAssignJudge] = useState('');
-  const [bulkAssignDueDate, setBulkAssignDueDate] = useState('');
   const disciplineRefs = useRef({});
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  
-  // Edit dialog states for Staff and Judges
-  const [editStaffDialogOpen, setEditStaffDialogOpen] = useState(false);
-  const [editJudgeDialogOpen, setEditJudgeDialogOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState(null);
-  const [editingJudge, setEditingJudge] = useState(null);
-  const [editedStaffContact, setEditedStaffContact] = useState({ name: '', email: '', phone: '' });
-  const [editedJudgeContact, setEditedJudgeContact] = useState({ name: '', email: '', phone: '' });
-  const [isCheckingUser, setIsCheckingUser] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [existingUser, setExistingUser] = useState(null);
-  
-  const { signUp } = useAuth();
   
   // Database-driven pattern state
   const [dbPatterns, setDbPatterns] = useState({});
@@ -282,6 +254,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [showAllDisciplines, setShowAllDisciplines] = useState(false);
   const [isDisciplineFoldersOpen, setIsDisciplineFoldersOpen] = useState(true);
   const [isDisciplineConfigOpen, setIsDisciplineConfigOpen] = useState(true);
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [dialogJudge, setDialogJudge] = useState('');
+  const [dialogDueDate, setDialogDueDate] = useState('');
+  const [currentDiscipline, setCurrentDiscipline] = useState(null);
 
   // Sync maneuversRangeMap from formData.patternSelections on mount
   useEffect(() => {
@@ -531,6 +507,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     });
   };
 
+  // Handle assign pattern dialog confirmation
+  const handleAssignPattern = () => {
+    // TODO: implement pattern assignment logic
+    setAssignDialogOpen(false);
+    setDialogJudge('');
+    setDialogDueDate('');
+  };
+
   // Get available maneuvers ranges for a discipline
   const getManeuversRanges = (disciplineId) => {
     const patterns = dbPatterns[disciplineId] || [];
@@ -636,1036 +620,34 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const isDisciplineComplete = (discipline, disciplineIndex) => {
     const groups = discipline.patternGroups || [];
     if (groups.length === 0) return false;
-    
+
     // Check if this is a scoresheet-only discipline
     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
-    
-    // For scoresheet-only disciplines: complete if they have groups with divisions (no judge or pattern selection needed)
+
+    // For scoresheet-only disciplines: complete if they have groups with divisions
     if (isScoresheetOnly) {
       return groups.every(group => group.divisions && group.divisions.length > 0);
     }
-    
-    // Check if this is a Custom Pattern discipline
-    const isCustomPattern = discipline.isCustom || discipline.pattern_type === 'custom';
-    
-    // For Custom Pattern disciplines: check if staff is assigned
-    if (isCustomPattern) {
-      const staffAssigned = formData.staffSelections?.[disciplineIndex] && 
-                            formData.staffSelections[disciplineIndex].trim();
-      
-      // Check if any pattern is assigned to any group
-      const hasPatternAssigned = groups.some(group => {
-        const selection = getPatternSelection(discipline.id, group.id);
-        return selection?.patternId;
-      });
-      
-      // Complete if staff is assigned OR pattern is assigned
-      return staffAssigned || hasPatternAssigned;
-    }
-    
-    // For regular pattern disciplines: check if judge is assigned
-    const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
-                          formData.judgeSelections[disciplineIndex].trim() && 
-                          !formData.judgeSelections[disciplineIndex].startsWith('judge-');
-    
+
     // Check if any pattern is assigned to any group
     const hasPatternAssigned = groups.some(group => {
       const selection = getPatternSelection(discipline.id, group.id);
       return selection?.patternId;
     });
-    
-    // Complete if judge is assigned OR pattern is assigned
-    return judgeAssigned || hasPatternAssigned;
+
+    return hasPatternAssigned;
   };
 
-  const handleOpenAssignDialog = (discipline, disciplineIndex) => {
-    // Get all judges from all associations with their association info
-    const associationJudges = [];
-    if (formData.associationJudges) {
-      Object.entries(formData.associationJudges).forEach(([assocId, assocData]) => {
-        const judges = assocData?.judges || [];
-        // Find association details
-        const association = associationsData?.find(a => a.id === assocId);
-        const assocName = association?.abbreviation || association?.name || assocId;
-        
-        judges.forEach(judge => {
-          if (judge.name) {
-            // Check if judge already exists in the list
-            const existingJudge = associationJudges.find(j => j.name === judge.name);
-            if (existingJudge) {
-              // If judge already exists, add association to the list if not already present
-              if (!existingJudge.associations) {
-                existingJudge.associations = [];
-              }
-              if (!existingJudge.associations.includes(assocName)) {
-                existingJudge.associations.push(assocName);
-              }
-            } else {
-              // Add judge with association info
-              associationJudges.push({
-                ...judge,
-                associations: [assocName]
-              });
-            }
-          }
-        });
-      });
-    }
-    
-    setCurrentDiscipline({ ...discipline, disciplineIndex, associationJudges });
+  // (Judge/staff assignment functions removed)
 
-    // Prefill from any existing discipline-level selections first
-    // Convert judge ID to name if needed
-    let existingJudge = formData.judgeSelections?.[disciplineIndex] || '';
-    
-    // If not found in judgeSelections, check groupJudges (from Step 5 or Step 6)
-    // Check all groups to find any assigned judge
-    if (!existingJudge && formData.groupJudges?.[disciplineIndex]) {
-      // Get the first non-empty judge value from any group
-      const groupJudges = formData.groupJudges[disciplineIndex];
-      const judgeValues = Object.values(groupJudges).filter(Boolean);
-      if (judgeValues.length > 0) {
-        // Use the first judge found (they should all be the same if assigned via dialog)
-        existingJudge = judgeValues[0];
-      }
-    }
-    
-    // If existingJudge is an ID (like "judge-0" or "judge-1"), convert it to judge name
-    if (existingJudge && (existingJudge.startsWith('judge-') || /^judge-\d+$/.test(existingJudge))) {
-      // Try to find judge by matching ID pattern in all association judges
-      const allJudges = [];
-      if (formData.associationJudges) {
-        Object.values(formData.associationJudges).forEach(assocData => {
-          const judges = assocData?.judges || [];
-          judges.forEach((judge, idx) => {
-            if (judge.name) {
-              // Check if this judge matches the ID pattern
-              const judgeId = judge.id || `judge-${idx}`;
-              if (judgeId === existingJudge || `judge-${idx}` === existingJudge) {
-                allJudges.push({ ...judge, matchedId: judgeId, matchedIdx: idx });
-              }
-            }
-          });
-        });
-      }
-      
-      // Also check in associationJudges passed to dialog
-      if (allJudges.length === 0 && associationJudges.length > 0) {
-        const judgeIndex = parseInt(existingJudge.replace('judge-', ''), 10);
-        if (!isNaN(judgeIndex) && associationJudges[judgeIndex]) {
-          existingJudge = associationJudges[judgeIndex].name;
-        }
-      } else if (allJudges.length > 0) {
-        // Use the first matching judge's name
-        existingJudge = allJudges[0].name;
-      }
-    }
-    
-    const existingStaff = formData.staffSelections?.[disciplineIndex]
-      || formData.groupStaff?.[disciplineIndex]?.[0]
-      || '';
-    const existingDueDate = formData.dueDateSelections?.[disciplineIndex]
-      || formData.disciplineDueDates?.[disciplineIndex]
-      || '';
-
-    // Find the exact judge name from available judges to ensure Select component matches
-    // This handles case sensitivity and whitespace differences
-    let matchedJudgeName = existingJudge;
-    if (existingJudge && existingJudge.trim() && !existingJudge.startsWith('judge-')) {
-      // Try to find exact match first
-      const exactMatch = associationJudges.find(j => j.name === existingJudge);
-      if (exactMatch) {
-        matchedJudgeName = exactMatch.name;
-      } else {
-        // Try case-insensitive match
-        const caseInsensitiveMatch = associationJudges.find(j => 
-          j.name && j.name.toLowerCase().trim() === existingJudge.toLowerCase().trim()
-        );
-        if (caseInsensitiveMatch) {
-          matchedJudgeName = caseInsensitiveMatch.name;
-        } else {
-          // If no match found, keep the original value (might be from a different association)
-          matchedJudgeName = existingJudge.trim();
-        }
-      }
-    }
-
-    setDialogJudge(matchedJudgeName);
-    setDialogStaff(existingStaff);
-    setDialogDueDate(existingDueDate);
-    setAssignDialogOpen(true);
-  };
-
-  const handleAssignPattern = () => {
-    if (!currentDiscipline || isReadOnly) return;
-    
-    const { disciplineIndex } = currentDiscipline;
-    const groups = currentDiscipline.patternGroups || [];
-    // Get selected pattern from new state
-    const selection = disciplineSelections[currentDiscipline.id];
-    const selectedPattern = selection?.patternId;
-
-    setFormData(prev => {
-      const newSelections = { ...(prev.patternSelections || {}) };
-      const newJudges = { ...(prev.groupJudges || {}) };
-      const newStaff = { ...(prev.groupStaff || {}) };
-      const newDueDates = { ...(prev.disciplineDueDates || {}) };
-
-      // Discipline-level summary values used for row display
-      const judgeSelections = [...(prev.judgeSelections || [])];
-      const staffSelections = [...(prev.staffSelections || [])];
-      const dueDateSelections = [...(prev.dueDateSelections || [])];
-
-      // Initialize discipline entries
-      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
-      if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
-      if (!newStaff[disciplineIndex]) newStaff[disciplineIndex] = {};
-
-      // Apply judge and staff to all groups (don't overwrite existing pattern selections)
-      // Ensure we're saving judge name, not ID - ALWAYS save the name
-      let judgeNameToSave = dialogJudge;
-      if (dialogJudge && dialogJudge.trim()) {
-        // If dialogJudge is an ID (like "judge-0" or "judge-1"), convert it to judge name
-        if (dialogJudge.startsWith('judge-') || /^judge-\d+$/.test(dialogJudge)) {
-          // First try to find in currentDiscipline.associationJudges
-          const judgeIndex = parseInt(dialogJudge.replace('judge-', ''), 10);
-          if (!isNaN(judgeIndex) && currentDiscipline.associationJudges && currentDiscipline.associationJudges[judgeIndex]) {
-            judgeNameToSave = currentDiscipline.associationJudges[judgeIndex].name;
-          } else {
-            // Try to find judge by ID in all association judges
-            const allJudges = [];
-            if (formData.associationJudges) {
-              Object.values(formData.associationJudges).forEach(assocData => {
-                const judges = assocData?.judges || [];
-                judges.forEach((judge, idx) => {
-                  if (judge.name) {
-                    const judgeId = judge.id || `judge-${idx}`;
-                    // Check if this judge matches the ID
-                    if (judgeId === dialogJudge || `judge-${idx}` === dialogJudge) {
-                      allJudges.push(judge);
-                    }
-                  }
-                });
-              });
-            }
-            if (allJudges.length > 0) {
-              judgeNameToSave = allJudges[0].name;
-            } else {
-              // If we can't find the judge, don't save anything
-              judgeNameToSave = null;
-            }
-          }
-        }
-        // If dialogJudge is already a name (not an ID), use it directly
-        // This ensures we always save the name, never an ID
-      } else {
-        judgeNameToSave = null;
-      }
-      
-      // Store judge name - optimize to avoid duplicates when same judge for all groups
-      // If judge is assigned via dialog, it applies to all groups in the discipline
-      if (judgeNameToSave && judgeNameToSave.trim()) {
-        const judgeName = judgeNameToSave.trim();
-        
-        // Optimization: When assigning via dialog (same judge for all groups),
-        // only store for the first group to avoid duplicates
-        // Step 5 will read from groupJudges[disciplineIndex][0] or fall back to judgeSelections
-        if (groups.length > 0) {
-          // Store only for first group (index 0) to avoid duplicates
-          newJudges[disciplineIndex][0] = judgeName;
-          
-          // Clear any existing judge assignments for other groups since we're assigning to all
-          for (let i = 1; i < groups.length; i++) {
-            if (newJudges[disciplineIndex][i]) {
-              delete newJudges[disciplineIndex][i];
-            }
-          }
-        }
-        
-        // Handle patterns for all groups
-        groups.forEach((group) => {
-          // Only set pattern if no existing selection for this group
-          if (selectedPattern) {
-            // Apply pattern directly to the group
-            const selectedPatternData = (dbPatterns[currentDiscipline.id] || []).find(p => p.id.toString() === selectedPattern.toString());
-            if (selectedPatternData) {
-              const patternManeuversRange = selectedPatternData?.maneuvers_range || '';
-              handleGroupPatternSelect(currentDiscipline.id, group.id, selectedPattern.toString(), patternManeuversRange);
-            }
-          }
-        });
-      } else {
-        // No judge assigned - clear judge data for all groups in this discipline
-        if (newJudges[disciplineIndex]) {
-          // Clear all judge assignments for this discipline's groups
-          groups.forEach((group, groupIndex) => {
-            if (newJudges[disciplineIndex][groupIndex]) {
-              delete newJudges[disciplineIndex][groupIndex];
-            }
-          });
-          // If no groups have judges, remove the discipline entry entirely
-          if (Object.keys(newJudges[disciplineIndex]).length === 0) {
-            delete newJudges[disciplineIndex];
-          }
-        }
-        // Handle patterns
-        groups.forEach((group, groupIndex) => {
-          if (selectedPattern && !newSelections[disciplineIndex][groupIndex]) {
-            // Apply pattern directly to the group
-            const selectedPatternData = (dbPatterns[currentDiscipline.id] || []).find(p => p.id.toString() === selectedPattern.toString());
-            if (selectedPatternData) {
-              const patternManeuversRange = selectedPatternData?.maneuvers_range || '';
-              handleGroupPatternSelect(currentDiscipline.id, group.id, selectedPattern.toString(), patternManeuversRange);
-            }
-          }
-        });
-      }
-
-      // Set due date at discipline level
-      if (dialogDueDate && dialogDueDate.trim()) {
-        newDueDates[disciplineIndex] = dialogDueDate.trim();
-      } else {
-        // Clear due date if removed
-        delete newDueDates[disciplineIndex];
-      }
-
-      // Store discipline-level selections for display on the row (only if selected)
-      // Save judge name, not ID - ALWAYS save the name
-      if (judgeNameToSave && judgeNameToSave.trim()) {
-        judgeSelections[disciplineIndex] = judgeNameToSave.trim();
-      } else {
-        // Clear if no valid judge name
-        judgeSelections[disciplineIndex] = null;
-      }
-      // Store due date selection
-      if (dialogDueDate && dialogDueDate.trim()) {
-        dueDateSelections[disciplineIndex] = dialogDueDate.trim();
-      } else {
-        // Clear due date selection if removed
-        dueDateSelections[disciplineIndex] = null;
-      }
-
-      return {
-        ...prev,
-        patternSelections: newSelections,
-        groupJudges: newJudges,
-        disciplineDueDates: newDueDates,
-        judgeSelections,
-        dueDateSelections,
-      };
-    });
-
-    setAssignDialogOpen(false);
-  };
-
-  // Handle opening assign staff dialog for Custom Pattern disciplines
-  const handleOpenAssignStaffDialog = (discipline, disciplineIndex) => {
-    setCurrentDisciplineForStaff({ ...discipline, disciplineIndex });
-    
-    // Get existing staff selection
-    const existingStaff = formData.staffSelections?.[disciplineIndex] || '';
-    const existingDueDate = formData.dueDateSelections?.[disciplineIndex] || '';
-    setDialogStaffName(existingStaff);
-    setDialogStaffDueDate(existingDueDate);
-    setAssignStaffDialogOpen(true);
-  };
-
-  // Get available staff members for dropdown
-  const getAvailableStaff = () => {
-    const staffList = formData.officials || [];
-    return staffList
-      .filter(staff => staff.name && staff.name.trim())
-      .map(staff => ({
-        id: staff.id || staff.name,
-        name: staff.name,
-        role: staff.role || ''
-      }));
-  };
-
-  // Handle saving staff assignment for Custom Pattern disciplines
-  const handleAssignStaff = () => {
-    if (!currentDisciplineForStaff || isReadOnly) return;
-    
-    const { disciplineIndex } = currentDisciplineForStaff;
-    const staffName = dialogStaffName && dialogStaffName.trim() ? dialogStaffName.trim() : null;
-    const dueDate = dialogStaffDueDate && dialogStaffDueDate.trim() ? dialogStaffDueDate.trim() : null;
-    
-    setFormData(prev => {
-      const staffSelections = [...(prev.staffSelections || [])];
-      const dueDateSelections = [...(prev.dueDateSelections || [])];
-      
-      if (staffName) {
-        staffSelections[disciplineIndex] = staffName;
-      } else {
-        // Clear staff selection if empty
-        staffSelections[disciplineIndex] = null;
-      }
-      
-      if (dueDate) {
-        dueDateSelections[disciplineIndex] = dueDate;
-      } else {
-        // Clear due date if empty
-        dueDateSelections[disciplineIndex] = null;
-      }
-      
-      return { ...prev, staffSelections, dueDateSelections };
-    });
-    
-    setAssignStaffDialogOpen(false);
-    setDialogStaffName('');
-    setDialogStaffDueDate('');
-    
-    const successMessages = [];
-    if (staffName) successMessages.push(`Staff "${staffName}"`);
-    if (dueDate) successMessages.push(`Due date "${format(parseLocalDate(dueDate), 'MMM d, yyyy')}"`);
-    
-    if (successMessages.length > 0) {
-      toast({
-        title: "Success",
-        description: `${successMessages.join(' and ')} assigned to ${currentDisciplineForStaff.name}.`,
-      });
-    }
-  };
-
-  // Handler for bulk judge assignment
-  const handleBulkAssignJudge = () => {
-    if (isReadOnly) return;
-    if (selectedDisciplines.size === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one discipline.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const judgeName = bulkAssignJudge && bulkAssignJudge.trim() ? bulkAssignJudge.trim() : null;
-    const dueDate = bulkAssignDueDate && bulkAssignDueDate.trim() ? bulkAssignDueDate.trim() : null;
-    
-    if (!judgeName && !dueDate) {
-      toast({
-        title: "Error",
-        description: "Please select a judge or date to assign.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setFormData(prev => {
-      const newJudges = { ...(prev.groupJudges || {}) };
-      const judgeSelections = { ...(prev.judgeSelections || {}) };
-      const newDueDates = { ...(prev.disciplineDueDates || {}) };
-      const dueDateSelections = { ...(prev.dueDateSelections || {}) };
-
-      // Assign judge and/or date to all selected disciplines
-      selectedDisciplines.forEach(disciplineId => {
-        const disciplineIndex = (prev.disciplines || []).findIndex(d => d.id === disciplineId);
-        if (disciplineIndex === -1) return;
-
-        const discipline = prev.disciplines[disciplineIndex];
-        const groups = discipline.patternGroups || [];
-
-        // Assign judge if provided
-        if (judgeName) {
-          // Store judge for the first group (index 0) to avoid duplicates
-          if (groups.length > 0) {
-            if (!newJudges[disciplineIndex]) newJudges[disciplineIndex] = {};
-            newJudges[disciplineIndex][0] = judgeName;
-
-            // Clear any existing judge assignments for other groups
-            for (let i = 1; i < groups.length; i++) {
-              if (newJudges[disciplineIndex][i]) {
-                delete newJudges[disciplineIndex][i];
-              }
-            }
-          }
-
-          // Also store in judgeSelections for discipline-level access
-          judgeSelections[disciplineIndex] = judgeName;
-        }
-
-        // Assign due date if provided
-        if (dueDate) {
-          newDueDates[disciplineIndex] = dueDate;
-          dueDateSelections[disciplineIndex] = dueDate;
-        }
-      });
-
-      return {
-        ...prev,
-        groupJudges: newJudges,
-        judgeSelections,
-        disciplineDueDates: newDueDates,
-        dueDateSelections,
-      };
-    });
-
-    const successMessages = [];
-    if (judgeName) successMessages.push(`Judge "${judgeName}"`);
-    if (dueDate) successMessages.push(`Due date "${format(parseLocalDate(dueDate), 'MMM d, yyyy')}"`);
-    
-    toast({
-      title: "Success",
-      description: `${successMessages.join(' and ')} assigned to ${selectedDisciplines.size} discipline(s).`,
-    });
-
-    setBulkAssignDialogOpen(false);
-    setBulkAssignJudge('');
-    setBulkAssignDueDate('');
-    setSelectedDisciplines(new Set());
-  };
 
   const dateRange = formData.startDate && formData.endDate
     ? `${format(parseLocalDate(formData.startDate), 'MMM d')} - ${format(parseLocalDate(formData.endDate), 'MMM d, yyyy')}`
     : 'Dates not set';
 
-  // Judges with associated associations - include email and phone from Step 3
-  const judgesWithAssociations = [];
-  if (formData.associationJudges) {
-    Object.keys(formData.associationJudges).forEach(assocId => {
-      const assocJudges = formData.associationJudges[assocId]?.judges || [];
-      assocJudges.forEach(judge => {
-        if (judge?.name) {
-          // Find association display name (prefer abbreviation)
-          const association = (associationsData || []).find(a => a.id === assocId) || selectedAssociations.find(a => a.id === assocId);
-          const assocName = association?.abbreviation || association?.name || assocId;
 
-          const existing = judgesWithAssociations.find(j => j.name === judge.name);
-          if (existing) {
-            if (!existing.associations.includes(assocName)) {
-              existing.associations.push(assocName);
-            }
-            // Update email and phone if they exist in the judge object (preserve existing or update with new)
-            if (judge.email && !existing.email) {
-              existing.email = judge.email;
-            }
-            if (judge.phone && !existing.phone) {
-              existing.phone = judge.phone;
-            }
-          } else {
-            judgesWithAssociations.push({
-              name: judge.name,
-              email: judge.email || '',
-              phone: judge.phone || '',
-              associations: [assocName],
-            });
-          }
-        }
-      });
-    });
-  }
 
-  const showStaff = formData.officials || [];
 
-  // Helper function to check if user exists (similar to Step 8)
-  const checkUserExists = async (emailValue) => {
-    if (!emailValue || !emailValue.includes('@')) return;
-    
-    setIsCheckingUser(true);
-    try {
-      const { data: customerData, error: customerError } = await supabase
-        .from('customers')
-        .select('id, user_id, email, full_name')
-        .ilike('email', emailValue.trim().toLowerCase())
-        .maybeSingle();
-
-      if (customerData && !customerError && customerData.user_id) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, full_name, role')
-          .eq('id', customerData.user_id)
-          .maybeSingle();
-
-        if (profileData && !profileError) {
-          setExistingUser({
-            ...profileData,
-            email: customerData.email
-          });
-          toast({
-            title: 'User Found',
-            description: `Found existing user: ${customerData.full_name || profileData.full_name}`,
-          });
-        } else {
-          setExistingUser(null);
-        }
-      } else {
-        setExistingUser(null);
-      }
-    } catch (error) {
-      setExistingUser(null);
-    } finally {
-      setIsCheckingUser(false);
-    }
-  };
-
-  // Handle opening edit dialog for staff
-  const handleOpenEditStaff = (staff, index) => {
-    // Always read from formData.officials to get the most up-to-date data including email and phone from Step 3
-    let actualStaff = staff;
-    
-    // Try to find by id first
-    if (staff.id) {
-      const foundById = (formData.officials || []).find(s => s.id === staff.id);
-      if (foundById) {
-        actualStaff = foundById;
-      }
-    }
-    
-    // If not found by id, try by index
-    if (index !== undefined && (formData.officials || [])[index]) {
-      const foundByIndex = (formData.officials || [])[index];
-      // Use foundByIndex if it has more complete data (email/phone) or if we didn't find by id
-      if (!actualStaff.email && !actualStaff.phone && (foundByIndex.email || foundByIndex.phone)) {
-        actualStaff = foundByIndex;
-      } else if (foundByIndex.id === staff.id || (!staff.id && foundByIndex.role === staff.role && foundByIndex.name === staff.name)) {
-        actualStaff = foundByIndex;
-      }
-    }
-    
-    // If still not found, try by role and name match
-    if ((!actualStaff.email && !actualStaff.phone) || (!actualStaff.id && staff.id)) {
-      const foundByRoleName = (formData.officials || []).find(s => 
-        s.role === staff.role && s.name === staff.name
-      );
-      if (foundByRoleName && (foundByRoleName.email || foundByRoleName.phone)) {
-        actualStaff = foundByRoleName;
-      }
-    }
-    
-    setEditingStaff({ ...actualStaff, index });
-    setEditedStaffContact({
-      name: actualStaff.name || '',
-      email: actualStaff.email || '',
-      phone: actualStaff.phone || ''
-    });
-    setExistingUser(null);
-    setEditStaffDialogOpen(true);
-  };
-
-  // Handle opening edit dialog for judge
-  const handleOpenEditJudge = (judge) => {
-    // Always read from formData.associationJudges to get the most up-to-date data including email and phone from Step 3
-    // Search through all associations to find the judge with the most complete data
-    let actualJudge = { ...judge };
-    let bestMatch = null;
-    
-    if (formData.associationJudges) {
-      Object.keys(formData.associationJudges).forEach(assocId => {
-        const assocJudges = formData.associationJudges[assocId]?.judges || [];
-        const foundJudge = assocJudges.find(j => 
-          j.name && judge.name && j.name.toLowerCase().trim() === judge.name.toLowerCase().trim()
-        );
-        if (foundJudge) {
-          // Prioritize judge with both email and phone, then email only, then phone only
-          if (!bestMatch) {
-            bestMatch = foundJudge;
-          } else {
-            // If current foundJudge has more complete data, use it
-            const bestHasBoth = bestMatch.email && bestMatch.phone;
-            const foundHasBoth = foundJudge.email && foundJudge.phone;
-            const bestHasEmail = bestMatch.email;
-            const foundHasEmail = foundJudge.email;
-            const bestHasPhone = bestMatch.phone;
-            const foundHasPhone = foundJudge.phone;
-            
-            if (foundHasBoth && !bestHasBoth) {
-              bestMatch = foundJudge;
-            } else if (foundHasEmail && !bestHasEmail) {
-              bestMatch = foundJudge;
-            } else if (foundHasPhone && !bestHasPhone) {
-              bestMatch = foundJudge;
-            }
-          }
-        }
-      });
-    }
-    
-    // Use bestMatch if found, otherwise use the passed judge
-    if (bestMatch) {
-      actualJudge = {
-        ...actualJudge,
-        ...bestMatch,
-        // Ensure we use the best match's email and phone
-        email: bestMatch.email || actualJudge.email || '',
-        phone: bestMatch.phone || actualJudge.phone || ''
-      };
-    }
-    
-    setEditingJudge(actualJudge);
-    setEditedJudgeContact({
-      name: actualJudge.name || '',
-      email: actualJudge.email || '',
-      phone: actualJudge.phone || ''
-    });
-    setExistingUser(null);
-    setEditJudgeDialogOpen(true);
-  };
-
-  // Handle saving staff contact info
-  const handleSaveStaffContact = async () => {
-    if (!editingStaff || isReadOnly) return;
-    
-    flushSync(() => {
-      setIsSaving(true);
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const currentName = editedStaffContact.name;
-    const currentEmail = editedStaffContact.email;
-    const currentPhone = editedStaffContact.phone;
-    
-    try {
-      let userExistsInCustomers = false;
-      
-      if (currentEmail && currentEmail.includes('@')) {
-        const normalizedEmail = currentEmail.trim().toLowerCase();
-        const trimmedEmail = currentEmail.trim();
-        
-        const { data: customerData, error: errorIlike } = await supabase
-          .from('customers')
-          .select('id, user_id, email, full_name')
-          .ilike('email', normalizedEmail)
-          .maybeSingle();
-        
-        if (customerData && !errorIlike) {
-          userExistsInCustomers = true;
-          if (customerData.user_id) {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('id, full_name, role')
-              .eq('id', customerData.user_id)
-              .maybeSingle();
-            if (profileData) {
-              setExistingUser({
-                ...profileData,
-                email: customerData.email
-              });
-            }
-          }
-        }
-      }
-
-      if (!userExistsInCustomers && currentEmail && currentEmail.includes('@')) {
-        const nameParts = currentName.trim().split(/\s+/);
-        const firstName = nameParts[0] || currentName;
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        const metadata = {
-          firstName: firstName,
-          lastName: lastName,
-          mobile: currentPhone || '',
-        };
-        
-        const defaultPassword = '123456';
-        const { data, error } = await signUp(currentEmail, defaultPassword, metadata);
-
-        if (error) {
-          toast({
-            title: 'Error',
-            description: `Failed to create user account: ${error.message || 'Unknown error'}`,
-            variant: 'destructive'
-          });
-        } else if (data?.user) {
-          if (data.user.id) {
-            let profileExists = false;
-            let retries = 0;
-            const maxRetries = 5;
-            
-            while (!profileExists && retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              const { data: profileCheck } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('id', data.user.id)
-                .maybeSingle();
-              
-              if (profileCheck) {
-                profileExists = true;
-              }
-              retries++;
-            }
-            
-            const { error: profileUpdateError } = await supabase
-              .from('profiles')
-              .update({ 
-                full_name: currentName,
-                role: editingStaff.role 
-              })
-              .eq('id', data.user.id);
-            
-            if (profileUpdateError) {
-              const { error: profileInsertError } = await supabase
-                .from('profiles')
-                .insert({
-                  id: data.user.id,
-                  full_name: currentName,
-                  role: editingStaff.role
-                });
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            const { data: existingCustomer } = await supabase
-              .from('customers')
-              .select('id')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-            
-            if (!existingCustomer) {
-              await supabase
-                .from('customers')
-                .insert({
-                  id: crypto.randomUUID(),
-                  user_id: data.user.id,
-                  email: currentEmail,
-                  full_name: currentName,
-                  last_name: lastName,
-                  created_at: new Date().toISOString()
-                });
-            }
-          }
-          
-          toast({
-            title: 'User Created',
-            description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
-          });
-        }
-      } else if (userExistsInCustomers) {
-        toast({
-          title: 'Contact Info Saved',
-          description: `Contact information saved for existing user ${currentName}.`,
-        });
-      }
-      
-      // Update formData - sync with Step 3 by matching staff ID
-      setFormData(prev => {
-        const newOfficials = (prev.officials || []).map(official => {
-          // Match by id if available, otherwise match by index and role
-          if (editingStaff.id && official.id === editingStaff.id) {
-            return {
-              ...official,
-              name: currentName,
-              email: currentEmail,
-              phone: currentPhone
-            };
-          }
-          // Fallback: match by index if id doesn't match
-          if (editingStaff.index !== undefined && prev.officials?.[editingStaff.index]?.id === official.id) {
-            return {
-              ...official,
-              name: currentName,
-              email: currentEmail,
-              phone: currentPhone
-            };
-          }
-          // Fallback: match by role and name if no id
-          if (!editingStaff.id && official.role === editingStaff.role && official.name === editingStaff.name) {
-            return {
-              ...official,
-              name: currentName,
-              email: currentEmail,
-              phone: currentPhone
-            };
-          }
-          return official;
-        });
-        return { ...prev, officials: newOfficials };
-      });
-      
-      setEditStaffDialogOpen(false);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save contact information. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Handle saving judge contact info
-  const handleSaveJudgeContact = async () => {
-    if (!editingJudge || isReadOnly) return;
-    
-    flushSync(() => {
-      setIsSaving(true);
-    });
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const currentName = editedJudgeContact.name;
-    const currentEmail = editedJudgeContact.email;
-    const currentPhone = editedJudgeContact.phone;
-    
-    try {
-      let userExistsInCustomers = false;
-      
-      if (currentEmail && currentEmail.includes('@')) {
-        const normalizedEmail = currentEmail.trim().toLowerCase();
-        
-        const { data: customerData, error: errorIlike } = await supabase
-          .from('customers')
-          .select('id, user_id, email, full_name')
-          .ilike('email', normalizedEmail)
-          .maybeSingle();
-        
-        if (customerData && !errorIlike) {
-          userExistsInCustomers = true;
-          if (customerData.user_id) {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('id, full_name, role')
-              .eq('id', customerData.user_id)
-              .maybeSingle();
-            if (profileData) {
-              setExistingUser({
-                ...profileData,
-                email: customerData.email
-              });
-            }
-          }
-        }
-      }
-
-      if (!userExistsInCustomers && currentEmail && currentEmail.includes('@')) {
-        const nameParts = currentName.trim().split(/\s+/);
-        const firstName = nameParts[0] || currentName;
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        const metadata = {
-          firstName: firstName,
-          lastName: lastName,
-          mobile: currentPhone || '',
-        };
-        
-        const defaultPassword = '123456';
-        const { data, error } = await signUp(currentEmail, defaultPassword, metadata);
-
-        if (error) {
-          toast({
-            title: 'Error',
-            description: `Failed to create user account: ${error.message || 'Unknown error'}`,
-            variant: 'destructive'
-          });
-        } else if (data?.user) {
-          if (data.user.id) {
-            let profileExists = false;
-            let retries = 0;
-            const maxRetries = 5;
-            
-            while (!profileExists && retries < maxRetries) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              const { data: profileCheck } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('id', data.user.id)
-                .maybeSingle();
-              
-              if (profileCheck) {
-                profileExists = true;
-              }
-              retries++;
-            }
-            
-            await supabase
-              .from('profiles')
-              .update({ 
-                full_name: currentName,
-                role: 'Judge'
-              })
-              .eq('id', data.user.id);
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            const { data: existingCustomer } = await supabase
-              .from('customers')
-              .select('id')
-              .eq('user_id', data.user.id)
-              .maybeSingle();
-            
-            if (!existingCustomer) {
-              await supabase
-                .from('customers')
-                .insert({
-                  id: crypto.randomUUID(),
-                  user_id: data.user.id,
-                  email: currentEmail,
-                  full_name: currentName,
-                  last_name: lastName,
-                  created_at: new Date().toISOString()
-                });
-            }
-          }
-          
-          toast({
-            title: 'User Created',
-            description: `New user account created for ${currentName}. Login credentials sent to ${currentEmail}.`,
-          });
-        }
-      } else if (userExistsInCustomers) {
-        toast({
-          title: 'Contact Info Saved',
-          description: `Contact information saved for existing user ${currentName}.`,
-        });
-      }
-      
-      // Update formData - find judge in associationJudges and update in all associations where it appears
-      // This syncs with Step 3 data structure (JudgesAndStaff component)
-      setFormData(prev => {
-        const newAssociationJudges = { ...(prev.associationJudges || {}) };
-        
-        // Find which associations this judge belongs to (judge can appear in multiple associations)
-        Object.keys(newAssociationJudges).forEach(assocId => {
-          const assocData = newAssociationJudges[assocId];
-          if (assocData?.judges) {
-            // Update all instances of this judge in this association (case-insensitive match)
-            const originalJudgeName = editingJudge.name;
-            const updatedJudges = assocData.judges.map((judge) => {
-              // Match by name (case-insensitive) to handle variations
-              if (judge.name && judge.name.toLowerCase().trim() === originalJudgeName.toLowerCase().trim()) {
-                // Preserve all existing properties (id, etc.) and update contact info
-                return { 
-                  ...judge, 
-                  name: currentName, 
-                  email: currentEmail, 
-                  phone: currentPhone 
-                };
-              }
-              return judge;
-            });
-            
-            // Only update if we found matches to avoid unnecessary state updates
-            const hasChanges = updatedJudges.some((judge, idx) => 
-              judge.name !== assocData.judges[idx]?.name ||
-              judge.email !== assocData.judges[idx]?.email ||
-              judge.phone !== assocData.judges[idx]?.phone
-            );
-            
-            if (hasChanges) {
-              newAssociationJudges[assocId] = {
-                ...assocData,
-                judges: updatedJudges
-              };
-            }
-          }
-        });
-        
-        return { ...prev, associationJudges: newAssociationJudges };
-      });
-      
-      setEditJudgeDialogOpen(false);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to save contact information. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   // Scroll to discipline and expand it
   const scrollToDiscipline = (disciplineId) => {
@@ -1746,70 +728,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 </div>
               </div>
 
-              {/* Right Column - Staff & Judges */}
-              <div className="space-y-4">
-                {/* Show Staff Section */}
-                <div className="border rounded-lg p-3">
-                  <h3 className="text-lg font-semibold mb-3">Show Staff</h3>
-                  <div className="space-y-2">
-                    {showStaff.length > 0 ? (
-                      showStaff.map((staff, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            {!isReadOnly && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleOpenEditStaff(staff, idx)}
-                              title="Edit Contact Info"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            )}
-                            <span className="text-blue-600 font-medium">{staff.role}:</span>
-                          </div>
-                          <span className="font-semibold uppercase">{staff.name || 'Not assigned'}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground text-sm">No staff assigned</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Judges Section */}
-                <div className="border rounded-lg p-3">
-                  <h3 className="text-lg font-semibold mb-3">Show Judges</h3>
-                  <div className="space-y-2">
-                    {judgesWithAssociations.length > 0 ? (
-                      judgesWithAssociations.map((judge, idx) => (
-                        <div key={idx} className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {!isReadOnly && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleOpenEditJudge(judge)}
-                              title="Edit Contact Info"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            )}
-                            <span className="font-medium uppercase text-sm">{judge.name}</span>
-                          </div>
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-200 text-xs">
-                            - {judge.associations.join(', ')}
-                          </Badge>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-muted-foreground text-sm">No judges assigned</span>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* Second Row - Discipline Folders (Full Width) */}
@@ -1968,17 +886,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     const isComplete = isDisciplineComplete(discipline, disciplineIndex);
                     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
                     
-                    // Check if judge is assigned
-                    const judgeAssigned = formData.judgeSelections?.[disciplineIndex] && 
-                                          formData.judgeSelections[disciplineIndex].trim() && 
-                                          !formData.judgeSelections[disciplineIndex].startsWith('judge-');
+                    // Check if judge is assigned (skip for clinic mode)
+                    const judgeAssigned = isClinicMode || (formData.judgeSelections?.[disciplineIndex] &&
+                                          formData.judgeSelections[disciplineIndex].trim() &&
+                                          !formData.judgeSelections[disciplineIndex].startsWith('judge-'));
                     
-                    // Get judge name and number
+                    // Get judge name and number (skip for clinic mode)
                     let judgeName = null;
                     let judgeNumber = null;
-                    if (judgeAssigned) {
-                      judgeName = formData.judgeSelections[disciplineIndex];
-                      const match = judgeName.match(/(\d+)/);
+                    if (!isClinicMode && judgeAssigned) {
+                      judgeName = formData.judgeSelections?.[disciplineIndex];
+                      const match = judgeName?.match(/(\d+)/);
                       judgeNumber = match ? match[1] : null;
                     }
                     
@@ -2026,7 +944,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     
                     const handleDisciplineClick = () => {
                       scrollToDiscipline(discipline.id);
-                      if (!isScoresheetOnly && !judgeAssigned) {
+                      if (!isClinicMode && !isScoresheetOnly && !judgeAssigned) {
                         toast({
                           title: "Judge Required",
                           description: "First assign this discipline judge before proceeding.",
@@ -2111,17 +1029,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 <ChevronDown className={cn("w-4 h-4 transition-transform", isDisciplineConfigOpen ? "rotate-0" : "-rotate-90")} />
                 <h3 className="text-lg font-semibold">Discipline Configuration</h3>
               </div>
-              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setBulkAssignDialogOpen(true)}
-                >
-                  <UserCheck className="h-3 w-3 mr-1" />
-                  Assign Judge to Multiple Disciplines
-                </Button>
-              </div>
             </div>
             
             {isDisciplineConfigOpen && (
@@ -2134,16 +1041,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 // Check if this is a scoresheet-only discipline
                 const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
                 
-                // Filter judges by this discipline's association
-                const disciplineJudges = [];
-                if (discipline.association_id && formData.associationJudges) {
-                  const assocJudges = formData.associationJudges[discipline.association_id]?.judges || [];
-                  assocJudges.forEach(judge => {
-                    if (judge.name) {
-                      disciplineJudges.push(judge);
-                    }
-                  });
-                }
 
                 return (
                   <div 
@@ -2360,42 +1257,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </Select>
                         </div>
 
-                        {/* Assign Judge & Date Button - Hide for Custom Pattern disciplines */}
-                        {!(discipline.isCustom || discipline.pattern_type === 'custom') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenAssignDialog(discipline, disciplineIndex);
-                            }}
-                          >
-                            <UserCheck className="h-3 w-3 mr-1" />
-                            Assign Judge
-                          </Button>
-                        )}
-
-                        {/* Assign Judge Button - Only for Custom Pattern disciplines */}
-                        {(discipline.isCustom || discipline.pattern_type === 'custom') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenAssignDialog(discipline, disciplineIndex);
-                            }}
-                            disabled={
-                              formData.staffSelections?.[disciplineIndex] && 
-                              formData.staffSelections[disciplineIndex].trim()
-                            }
-                          >
-                            <UserCheck className="h-3 w-3 mr-1" />
-                            Assign Judge
-                          </Button>
-                        )}
-
                         {/* Display pattern badges from Step 3 selections */}
                         {(() => {
                           const groupSelections = groups.map((group) => {
@@ -2435,87 +1296,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </>
                         )}
 
-                        {/* Display assigned labels with values */}
-                        {/* Judge badge - Show for all disciplines when judge is assigned */}
-                        {formData.judgeSelections?.[disciplineIndex] && 
-                         formData.judgeSelections[disciplineIndex].trim() && 
-                         !formData.judgeSelections[disciplineIndex].startsWith('judge-') && (
-                          <Badge 
-                            variant="secondary" 
-                            className="bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 border border-blue-500/20 whitespace-nowrap cursor-pointer hover:bg-blue-500/20 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenAssignDialog(discipline, disciplineIndex);
-                            }}
-                          >
-                            Judge:{' '}
-                            {(() => {
-                              // judgeSelections now stores judge names directly
-                              const judgeValue = formData.judgeSelections[disciplineIndex];
-                              // If it's still an ID (legacy data), try to convert it
-                              if (judgeValue && judgeValue.startsWith('judge-')) {
-                                const judge = disciplineJudges.find((j, idx) => (j.id || `judge-${idx}`) === judgeValue);
-                                return judge?.name || judgeValue;
-                              }
-                              // Otherwise, it's already a name, just return it
-                              return judgeValue;
-                            })()}
-                          </Badge>
-                        )}
-                        {/* Due date badge - Show for all disciplines */}
-                        {formData.dueDateSelections?.[disciplineIndex] && (
-                          <Badge 
-                            variant="secondary" 
-                            className="bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap cursor-pointer hover:bg-purple-500/20 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Open appropriate dialog based on discipline type
-                              if (discipline.isCustom || discipline.pattern_type === 'custom') {
-                                handleOpenAssignStaffDialog(discipline, disciplineIndex);
-                              } else {
-                                handleOpenAssignDialog(discipline, disciplineIndex);
-                              }
-                            }}
-                          >
-                            Due Date: {format(new Date(formData.dueDateSelections[disciplineIndex]), 'MM/dd/yy')}
-                          </Badge>
-                        )}
-                        {/* Display assigned staff for Custom Pattern disciplines */}
-                        {(discipline.isCustom || discipline.pattern_type === 'custom') && formData.staffSelections?.[disciplineIndex] && (
-                          <Badge 
-                            variant="secondary" 
-                            className="bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400 border border-orange-500/20 whitespace-nowrap cursor-pointer hover:bg-orange-500/20 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenAssignStaffDialog(discipline, disciplineIndex);
-                            }}
-                          >
-                            Staff: {formData.staffSelections[disciplineIndex]}
-                          </Badge>
-                        )}
-
-                        {/* Assign Staff Button - Only for Custom Pattern disciplines, positioned on the right */}
-                        {(discipline.isCustom || discipline.pattern_type === 'custom') && (
-                          <div className="ml-auto" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenAssignStaffDialog(discipline, disciplineIndex);
-                              }}
-                              disabled={
-                                formData.judgeSelections?.[disciplineIndex] && 
-                                formData.judgeSelections[disciplineIndex].trim() && 
-                                !formData.judgeSelections[disciplineIndex].startsWith('judge-')
-                              }
-                            >
-                              <Users className="h-3 w-3 mr-1" />
-                              Assign Staff
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     </div>
 
@@ -2949,6 +1729,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <DialogTitle>Assign Pattern</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+              {!isClinicMode && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="dialog-judge" className="text-sm">Assign Judge</Label>
@@ -2965,8 +1746,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     </Button>
                   )}
                 </div>
-                <Select 
-                  value={dialogJudge && !dialogJudge.startsWith('judge-') ? dialogJudge : ''} 
+                <Select
+                  value={dialogJudge && !dialogJudge.startsWith('judge-') ? dialogJudge : ''}
                   onValueChange={(value) => {
                     // Ensure we always set the judge name, never an ID
                     // The SelectItem value is already judge.name, so value will be the name
@@ -3001,7 +1782,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   </SelectContent>
                 </Select>
               </div>
-
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -3059,151 +1840,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           </DialogContent>
         </Dialog>
 
-        {/* Bulk Assign Judge Dialog */}
-        <Dialog open={bulkAssignDialogOpen} onOpenChange={setBulkAssignDialogOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Assign Judge & Date to Disciplines</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm mb-2 block">Select Disciplines ({selectedDisciplines.size} selected)</Label>
-                <div className="max-h-48 overflow-y-auto border rounded-md p-3 space-y-2">
-                  {patternDisciplines.map(discipline => (
-                    <div key={discipline.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`bulk-discipline-${discipline.id}`}
-                        checked={selectedDisciplines.has(discipline.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedDisciplines(prev => {
-                            const newSet = new Set(prev);
-                            if (checked) {
-                              newSet.add(discipline.id);
-                            } else {
-                              newSet.delete(discipline.id);
-                            }
-                            return newSet;
-                          });
-                        }}
-                      />
-                      <Label 
-                        htmlFor={`bulk-discipline-${discipline.id}`}
-                        className="text-sm font-normal cursor-pointer flex-1"
-                      >
-                        {discipline.name}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="bulk-dialog-judge" className="text-sm">Select Judge (Optional)</Label>
-                  {bulkAssignJudge && bulkAssignJudge.trim() && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setBulkAssignJudge('')}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <Select 
-                  value={bulkAssignJudge && !bulkAssignJudge.startsWith('judge-') ? bulkAssignJudge : ''} 
-                  onValueChange={(value) => {
-                    setBulkAssignJudge(value);
-                  }}
-                >
-                  <SelectTrigger id="bulk-dialog-judge" className="bg-background">
-                    <SelectValue placeholder="Select a judge..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {judgesWithAssociations.length > 0 ? (
-                      judgesWithAssociations.map((judge, idx) => {
-                        const judgeName = judge.name || 'Unnamed Judge';
-                        return (
-                          <SelectItem key={idx} value={judgeName}>
-                            {judgeName}
-                            {judge.associations.length > 0 && (
-                              <span className="text-xs text-muted-foreground ml-2">
-                                ({judge.associations.join(', ')})
-                              </span>
-                            )}
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem value="no-judges" disabled>No judges available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="bulk-dialog-due-date" className="text-sm">Due Date (Optional)</Label>
-                  {bulkAssignDueDate && bulkAssignDueDate.trim() && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setBulkAssignDueDate('')}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !bulkAssignDueDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {bulkAssignDueDate ? format(parseLocalDate(bulkAssignDueDate), 'EEE, MMM d, yyyy') : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={bulkAssignDueDate ? parseLocalDate(bulkAssignDueDate) : undefined}
-                      onSelect={(date) => setBulkAssignDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2 mt-4">
-              <Button variant="outline" onClick={() => {
-                setBulkAssignDialogOpen(false);
-                setBulkAssignJudge('');
-                setBulkAssignDueDate('');
-              }}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleBulkAssignJudge}
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={selectedDisciplines.size === 0 || (!bulkAssignJudge?.trim() && !bulkAssignDueDate?.trim())}
-              >
-                Assign to {selectedDisciplines.size} Discipline{selectedDisciplines.size !== 1 ? 's' : ''}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      </CardContent>
 
         {/* Pattern Preview Modal */}
         <PatternPagePreview
@@ -3223,317 +1860,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           associationsData={associationsData}
         />
 
-        {/* Edit Staff Contact Dialog */}
-        <Dialog open={editStaffDialogOpen} onOpenChange={setEditStaffDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Edit Contact Info</DialogTitle>
-              <DialogDescription>
-                Add or update the contact details for this staff member. System will check if they're an existing user.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="staff-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="staff-name"
-                  value={editedStaffContact.name}
-                  onChange={(e) => setEditedStaffContact(prev => ({ ...prev, name: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Full Name"
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="staff-email" className="text-right">
-                  Email
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      id="staff-email"
-                      type="email"
-                      value={editedStaffContact.email}
-                      onChange={(e) => setEditedStaffContact(prev => ({ ...prev, email: e.target.value }))}
-                      onBlur={() => {
-                        if (editedStaffContact.email !== (editingStaff?.email || '')) {
-                          checkUserExists(editedStaffContact.email);
-                        }
-                      }}
-                      className="flex-1"
-                      placeholder="name@example.com"
-                    />
-                    {isCheckingUser && <Loader2 className="w-4 h-4 animate-spin mt-2" />}
-                  </div>
-                  {existingUser && (
-                    <Badge variant="outline" className="text-xs">
-                      ✓ Existing user found
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="staff-phone" className="text-right">
-                  Phone
-                </Label>
-                <Input
-                  id="staff-phone"
-                  value={editedStaffContact.phone}
-                  onChange={(e) => setEditedStaffContact(prev => ({ ...prev, phone: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              {existingUser && existingUser.role && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs text-muted-foreground">
-                    Current Role
-                  </Label>
-                  <div className="col-span-3">
-                    <Badge variant="secondary">{existingUser.role}</Badge>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button 
-                type="button"
-                onClick={handleSaveStaffContact} 
-                disabled={isCheckingUser || isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : isCheckingUser ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking...
-                  </>
-                ) : 'Save Changes'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Edit Judge Contact Dialog */}
-        <Dialog open={editJudgeDialogOpen} onOpenChange={setEditJudgeDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Edit Contact Info</DialogTitle>
-              <DialogDescription>
-                Add or update the contact details for this judge. System will check if they're an existing user.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="judge-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="judge-name"
-                  value={editedJudgeContact.name}
-                  onChange={(e) => setEditedJudgeContact(prev => ({ ...prev, name: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="Full Name"
-                />
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="judge-email" className="text-right">
-                  Email
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      id="judge-email"
-                      type="email"
-                      value={editedJudgeContact.email}
-                      onChange={(e) => setEditedJudgeContact(prev => ({ ...prev, email: e.target.value }))}
-                      onBlur={() => {
-                        if (editedJudgeContact.email !== (editingJudge?.email || '')) {
-                          checkUserExists(editedJudgeContact.email);
-                        }
-                      }}
-                      className="flex-1"
-                      placeholder="name@example.com"
-                    />
-                    {isCheckingUser && <Loader2 className="w-4 h-4 animate-spin mt-2" />}
-                  </div>
-                  {existingUser && (
-                    <Badge variant="outline" className="text-xs">
-                      ✓ Existing user found
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="judge-phone" className="text-right">
-                  Phone
-                </Label>
-                <Input
-                  id="judge-phone"
-                  value={editedJudgeContact.phone}
-                  onChange={(e) => setEditedJudgeContact(prev => ({ ...prev, phone: e.target.value }))}
-                  className="col-span-3"
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-
-              {existingUser && existingUser.role && (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right text-xs text-muted-foreground">
-                    Current Role
-                  </Label>
-                  <div className="col-span-3">
-                    <Badge variant="secondary">{existingUser.role}</Badge>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button 
-                type="button"
-                onClick={handleSaveJudgeContact} 
-                disabled={isCheckingUser || isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : isCheckingUser ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Checking...
-                  </>
-                ) : 'Save Changes'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Assign Staff Dialog for Custom Pattern Disciplines */}
-        <Dialog open={assignStaffDialogOpen} onOpenChange={setAssignStaffDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Assign Staff & Due Date</DialogTitle>
-              <DialogDescription>
-                Select a staff member and set due date for this custom pattern discipline.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="dialog-staff" className="text-sm">Select Staff</Label>
-                  {dialogStaffName && dialogStaffName.trim() && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setDialogStaffName('')}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Remove Staff
-                    </Button>
-                  )}
-                </div>
-                <Select 
-                  value={dialogStaffName || ''} 
-                  onValueChange={(value) => {
-                    setDialogStaffName(value);
-                  }}
-                >
-                  <SelectTrigger id="dialog-staff" className="bg-background">
-                    <SelectValue placeholder="Select a staff member..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {getAvailableStaff().length > 0 ? (
-                      getAvailableStaff().map((staff) => (
-                        <SelectItem key={staff.id} value={staff.name}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{staff.name}</span>
-                            {staff.role && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {staff.role}
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-staff" disabled>No staff members available. Add staff in Step 3.</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="dialog-staff-due-date" className="text-sm">Due Date</Label>
-                  {dialogStaffDueDate && dialogStaffDueDate.trim() && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setDialogStaffDueDate('')}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Remove Date
-                    </Button>
-                  )}
-                </div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !dialogStaffDueDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dialogStaffDueDate ? format(parseLocalDate(dialogStaffDueDate), 'EEE, MMM d') : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dialogStaffDueDate ? parseLocalDate(dialogStaffDueDate) : undefined}
-                      onSelect={(date) => setDialogStaffDueDate(date ? format(date, 'yyyy-MM-dd') : '')}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            <DialogFooter className="gap-2 mt-4">
-              <Button variant="outline" onClick={() => {
-                setAssignStaffDialogOpen(false);
-                setDialogStaffName('');
-                setDialogStaffDueDate('');
-              }}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleAssignStaff}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                Assign Staff
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
     </motion.div>
   );
 };

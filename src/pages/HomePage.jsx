@@ -90,9 +90,9 @@ const HomePage = () => {
                 <h2 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">Earn Creator Benefits & Share Your Expertise</h2>
                 <p className="text-lg text-muted-foreground">License your patterns now and earn valuable rewards.</p>
                 <ul className="space-y-4">
-                    <li className="flex items-start gap-3"><UploadCloud className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Upload original patterns and earn <strong className="text-foreground">platform credits</strong>.</span></li>
-                    <li className="flex items-start gap-3"><Star className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Earn <strong className="text-foreground">exclusive</strong> perks as a <strong className="text-foreground">valued creator</strong>.</span></li>
-                    <li className="flex items-start gap-3"><CheckCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Reach <strong className="text-foreground">thousands</strong> of show <strong className="text-foreground">organizers</strong> and <strong className="text-foreground">riders</strong>.</span></li>
+                    <li className="flex items-start gap-3"><UploadCloud className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Upload original patterns and earn platform credits.</span></li>
+                    <li className="flex items-start gap-3"><Star className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Earn exclusive perks as a valued creator.</span></li>
+                    <li className="flex items-start gap-3"><CheckCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Reach thousands of show organizers and riders.</span></li>
                 </ul>
                 <p className="text-sm text-muted-foreground">EquiPatterns reserves the <em>right</em> to review, approve, reject, or remove submissions at its discretion.</p>
                 <Button asChild size="lg" variant="outline">

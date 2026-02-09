@@ -1,18 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock, User, Users, Award, CheckCircle2 } from 'lucide-react';
+import { Loader2, CreditCard, Mail, Check, ArrowLeft, Building2, Lock } from 'lucide-react';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { supabase } from '@/lib/supabaseClient';
 import { useAnalytics } from '@/components/AnalyticsProvider';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const [email, setEmail] = useState('');
@@ -24,136 +21,8 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [cardName, setCardName] = useState('');
-  const [emailNotifications, setEmailNotifications] = useState({});
   const { toast } = useToast();
   const { trackPatternEvent, trackBehaviorEvent } = useAnalytics();
-
-  // Get ALL judges and staff, showing assigned/unassigned status
-  const recipientsList = useMemo(() => {
-    const assignedJudgeNames = new Set();
-    const assignedStaffNames = new Set();
-    
-    // Collect assigned judge names from groupJudges
-    if (pbbData.groupJudges) {
-      Object.values(pbbData.groupJudges).forEach((groups) => {
-        if (groups && typeof groups === 'object') {
-          Object.values(groups).forEach((judgeName) => {
-            if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
-              assignedJudgeNames.add(judgeName.trim().toLowerCase());
-            }
-          });
-        }
-      });
-    }
-    
-    // Collect assigned judge names from judgeSelections
-    if (pbbData.judgeSelections) {
-      Object.values(pbbData.judgeSelections).forEach((judgeName) => {
-        if (judgeName && typeof judgeName === 'string' && judgeName.trim()) {
-          assignedJudgeNames.add(judgeName.trim().toLowerCase());
-        }
-      });
-    }
-    
-    // Collect assigned staff names from staffSelections
-    if (pbbData.staffSelections) {
-      Object.values(pbbData.staffSelections).forEach((staffName) => {
-        if (staffName && typeof staffName === 'string' && staffName.trim()) {
-          assignedStaffNames.add(staffName.trim().toLowerCase());
-        }
-      });
-    }
-    
-    // Build map of all available people (judges and staff) with their details
-    const allPeopleMap = new Map();
-    
-    // Get all judges from associationJudges
-    if (pbbData.associationJudges) {
-      Object.entries(pbbData.associationJudges).forEach(([assocId, assocData]) => {
-        if (assocData?.judges) {
-          assocData.judges.forEach((judge) => {
-            if (judge.name && judge.email) {
-              const normalizedName = judge.name.trim().toLowerCase();
-              const normalizedEmail = judge.email.toLowerCase().trim();
-              const key = `${normalizedName}-${normalizedEmail}`;
-              if (!allPeopleMap.has(key)) {
-                allPeopleMap.set(key, {
-                  name: judge.name.trim(),
-                  email: normalizedEmail,
-                  role: 'Judge',
-                  type: 'judge',
-                  isAssigned: assignedJudgeNames.has(normalizedName)
-                });
-              }
-            }
-          });
-        }
-      });
-    }
-    
-    // Get all people from officials (judges and staff)
-    if (pbbData.officials) {
-      pbbData.officials.forEach((official) => {
-        if (official.name && official.email) {
-          const normalizedName = official.name.trim().toLowerCase();
-          const normalizedEmail = official.email.toLowerCase().trim();
-          const key = `${normalizedName}-${normalizedEmail}`;
-          const isJudge = official.role?.toLowerCase().includes('judge');
-          
-          if (!allPeopleMap.has(key)) {
-            allPeopleMap.set(key, {
-              name: official.name.trim(),
-              email: normalizedEmail,
-              role: official.role || (isJudge ? 'Judge' : 'Staff'),
-              type: isJudge ? 'judge' : 'staff',
-              isAssigned: isJudge 
-                ? assignedJudgeNames.has(normalizedName)
-                : assignedStaffNames.has(normalizedName)
-            });
-          } else {
-            // Update existing entry if needed
-            const existing = allPeopleMap.get(key);
-            if (isJudge && !existing.isAssigned) {
-              existing.isAssigned = assignedJudgeNames.has(normalizedName);
-            }
-          }
-        }
-      });
-    }
-    
-    // Convert map to array and sort: judges first, then staff; assigned first within each group
-    const recipients = Array.from(allPeopleMap.values())
-      .sort((a, b) => {
-        // Judges first
-        if (a.type === 'judge' && b.type !== 'judge') return -1;
-        if (a.type !== 'judge' && b.type === 'judge') return 1;
-        // Within same type, assigned first
-        if (a.isAssigned && !b.isAssigned) return -1;
-        if (!a.isAssigned && b.isAssigned) return 1;
-        // Then alphabetically by name
-        return a.name.localeCompare(b.name);
-      })
-      .map((person, index) => ({
-        key: `${person.type}-${person.email}-${index}`,
-        name: person.name,
-        email: person.email,
-        role: person.role,
-        type: person.type,
-        isAssigned: person.isAssigned
-      }));
-    
-    return recipients;
-  }, [pbbData.groupJudges, pbbData.judgeSelections, pbbData.staffSelections, pbbData.associationJudges, pbbData.officials]);
-
-  // Initialize email notifications state when recipients change
-  // Default to enabled only for assigned people
-  React.useEffect(() => {
-    const initialState = {};
-    recipientsList.forEach(r => {
-      initialState[r.key] = r.isAssigned; // Default to enabled only if assigned
-    });
-    setEmailNotifications(initialState);
-  }, [recipientsList]);
 
   const handleOpenChange = (isOpen) => {
     if (!isOpen) {
@@ -166,44 +35,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
       setCardName('');
     }
     onOpenChange(isOpen);
-  };
-
-  const toggleRecipientEmail = (key) => {
-    setEmailNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  const sendJudgeNotifications = async () => {
-    const projectName = pbbData.showName || 'Pattern Book';
-    const projectId = pbbData.id || 'unknown';
-    
-    // Filter recipients who have email notifications enabled
-    const enabledRecipients = recipientsList.filter(r => emailNotifications[r.key]);
-    
-    if (enabledRecipients.length === 0) return;
-
-    const notifications = enabledRecipients.map(recipient => ({
-      judge_email: recipient.email.toLowerCase(),
-      judge_name: recipient.name,
-      project_id: projectId,
-      project_name: projectName,
-      notification_type: 'assignment',
-      message: `You have been assigned as ${recipient.role} for "${projectName}". The pattern book is now published and available for review.`,
-      is_read: false,
-      created_by: email,
-    }));
-
-    try {
-      await supabase.from('judge_notifications').insert(notifications);
-      toast({
-        title: 'Notifications Sent',
-        description: `Email notifications sent to ${enabledRecipients.length} recipient(s).`,
-      });
-    } catch (err) {
-      console.error('Error sending notifications:', err);
-    }
   };
 
   const handlePayment = async () => {
@@ -256,8 +87,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
       link.click();
       document.body.removeChild(link);
 
-      await sendJudgeNotifications();
-
       const { data, error } = await supabase.functions.invoke('send-pattern-book', {
         body: JSON.stringify({ email, pdfDataUri, bookName: pbbData.showName || 'My Pattern Book' }),
       });
@@ -303,8 +132,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
   const basePrice = 49.99;
   const customFee = customClassCount * 50;
   const totalPrice = basePrice + customFee;
-
-  const enabledCount = Object.values(emailNotifications).filter(Boolean).length;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -424,11 +251,10 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 <Check className="h-5 w-5 text-green-500" />
                 Payment Complete
               </DialogTitle>
-              <DialogDescription>Enter your email and select who should receive notifications.</DialogDescription>
+              <DialogDescription>Enter your email to receive the generated pattern book.</DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4 py-2">
-              {/* Your Email */}
               <div className="space-y-2">
                 <Label htmlFor="email">Your Email</Label>
                 <Input
@@ -440,82 +266,6 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                   disabled={isGenerating}
                 />
               </div>
-
-              {/* Recipients List */}
-              {recipientsList.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Send Email Notifications
-                    </Label>
-                    <Badge variant="secondary" className="text-xs">
-                      {enabledCount}/{recipientsList.length} selected
-                    </Badge>
-                  </div>
-                  
-                  <ScrollArea className="h-[280px] border rounded-lg">
-                    <div className="p-3 space-y-2">
-                      {recipientsList.map((recipient) => (
-                        <div
-                          key={recipient.key}
-                          className={`flex items-center justify-between p-2.5 rounded-md hover:bg-muted/50 transition-colors border ${recipient.isAssigned ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${recipient.type === 'judge' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                              {recipient.type === 'judge' ? (
-                                <Award className="h-4 w-4" />
-                              ) : (
-                                <User className="h-4 w-4" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-medium truncate">{recipient.name}</p>
-                                {recipient.isAssigned && (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 shrink-0" />
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-xs text-muted-foreground truncate">{recipient.email}</span>
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-[10px] px-1.5 py-0 shrink-0 ${recipient.type === 'judge' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300'}`}
-                                >
-                                  {recipient.role}
-                                </Badge>
-                                {recipient.isAssigned && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 shrink-0">
-                                    Assigned
-                                  </Badge>
-                                )}
-                                {!recipient.isAssigned && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground shrink-0">
-                                    Not Assigned
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Switch
-                            checked={emailNotifications[recipient.key] || false}
-                            onCheckedChange={() => toggleRecipientEmail(recipient.key)}
-                            disabled={isGenerating}
-                            className="ml-2 shrink-0"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-
-              {recipientsList.length === 0 && (
-                <div className="text-center py-6 border rounded-lg bg-muted/30">
-                  <Users className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">No judges or staff found to notify.</p>
-                </div>
-              )}
             </div>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -524,7 +274,7 @@ const GenerateBookDialog = ({ open, onOpenChange, pbbData }) => {
                 Back
               </Button>
               <Button onClick={handleSend} disabled={isGenerating || !email}>
-                {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : 'Download & Send'}
+                {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : 'Generate Pattern'}
               </Button>
             </DialogFooter>
           </>

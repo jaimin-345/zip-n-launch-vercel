@@ -107,7 +107,7 @@ export function initializeShowBill(formData) {
       customText: '',
     },
     days,
-    nextClassNumber: 1,
+    nextClassNumber: 10001,
     settings: {
       showNumbers: true,
       showAssociations: true,

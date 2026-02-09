@@ -6,7 +6,6 @@ import { cn, parseLocalDate } from '@/lib/utils';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { JudgesAndStaff } from '@/components/pbb/JudgesAndStaff';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -47,13 +46,6 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
     custom: 'Event Information'
   };
 
-  const staffTriggers = {
-    show: 'Judges & Staff',
-    clinic: 'Clinicians & Staff',
-    education: 'Instructor(s) & Staff',
-    custom: 'Judges & Staff'
-  };
-  
   const nameLabels = {
     show: 'Show Name',
     clinic: 'Clinic Name',
@@ -153,19 +145,6 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                         </div>
                     </div>
                 </AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="item-2">
-                 <AccordionTrigger className="text-base font-semibold">{staffTriggers[mode]}</AccordionTrigger>
-                 <AccordionContent className="pt-3">
-                    <JudgesAndStaff
-                        formData={formData}
-                        setFormData={setFormData}
-                        selectedAssociationIds={selectedAssociationIds}
-                        isClinicMode={isClinicMode}
-                        isEducationMode={isEducationMode}
-                        isReadOnly={isReadOnly}
-                    />
-                 </AccordionContent>
             </AccordionItem>
         </Accordion>
       </CardContent>

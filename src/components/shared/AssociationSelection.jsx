@@ -439,7 +439,10 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
     });
   };
 
+  const isClinic = context === 'hub' && formData.usageType === 'clinic';
+
   const getShowNameLabel = () => {
+    if (isClinic) return "Clinic Number";
     if (context === 'hub' && selectedPurposeName) {
         return `${selectedPurposeName} Name`;
     }
@@ -448,9 +451,9 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getShowNamePlaceholder = () => {
+     if (isClinic) return "E.g., C-2026-001";
      if (context === 'hub') {
-        if (formData.usageType === 'clinic') return "E.g., Spring Tune-Up Clinic";
-        if (formData.usageType === 'educational') return "E.g., Horsemanship Fundamentals";
+        if (formData.usageType === 'just_for_fun') return "E.g., My Pattern Collection";
         return "E.g., Individual Pattern Purchase";
     }
     if (context === 'pbb') return "E.g., Summer Sizzler Pattern Book";
@@ -465,6 +468,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getDescription = () => {
+    if (isClinic) return "Enter your clinic number and select which groups you're teaching.";
     if (context === 'hub') return "Choose which governing body's patterns you're looking for.";
     if (context === 'pbb') return "Name your pattern book and select the affiliated associations.";
     if (context === 'showInfo') return "Select all associations that are part of this show. This will help populate the class list.";
@@ -498,20 +502,25 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
             />
           </div>
           
-          <div className="space-y-1.5">
-            <Label htmlFor="showNumber" className="font-semibold">Show Number</Label>
-            <Input
-                id="showNumber"
-                placeholder="E.g., 2024-001"
-                value={formData.showNumber || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, showNumber: e.target.value }))}
-                disabled={isReadOnly}
-            />
-          </div>
+          {!isClinic && (
+            <div className="space-y-1.5">
+              <Label htmlFor="showNumber" className="font-semibold">Show Number</Label>
+              <Input
+                  id="showNumber"
+                  placeholder="E.g., 2024-001"
+                  value={formData.showNumber || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, showNumber: e.target.value }))}
+                  disabled={isReadOnly}
+              />
+            </div>
+          )}
         </div>
         
         <div className="space-y-2">
-          <Label className="font-semibold">Select all hosted associations:</Label>
+          <Label className="font-semibold">{isClinic ? 'Who are you teaching?' : 'Select all hosted associations:'}</Label>
+          {isClinic && (
+            <p className="text-xs text-muted-foreground">Select the groups or associations your clinic is intended for</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="space-y-1.5 border-l-4 border-red-500 pl-3">
               {leftAssociations.map(assoc => (

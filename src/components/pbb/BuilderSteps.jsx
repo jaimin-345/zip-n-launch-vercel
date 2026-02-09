@@ -50,7 +50,7 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                                 {step.name}
                             </p>
                         </div>
-                        {index < steps.length - 1 && (<div className={`w-full h-0.5 mt-5 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(step.id + 1) ? 'bg-green-600' : (currentStep > index + 1 ? 'bg-primary' : 'bg-border')}`} />)}
+                        {index < steps.length - 1 && (<div className={`w-full h-0.5 mt-5 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(steps[index + 1]?.id) ? 'bg-green-600' : (currentStep > steps[index + 1]?.id ? 'bg-primary' : 'bg-border')}`} />)}
                     </React.Fragment>
                 )
             })}

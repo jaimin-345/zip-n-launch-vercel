@@ -433,7 +433,7 @@ export const generatePatternBookPdf = async (pbbData) => {
     }
 
     // --- Pattern Pages ---
-    let sequentialClassNumber = 0;
+    let sequentialClassNumber = 10000;
     for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
         for (const [groupIndex, group] of (discipline.patternGroups || []).entries()) {
             if (!group.divisions || group.divisions.length === 0) continue;

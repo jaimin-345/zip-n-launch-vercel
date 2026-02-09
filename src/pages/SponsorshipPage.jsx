@@ -47,19 +47,7 @@ const SponsorshipPage = () => {
   ];
 
   const handleCTAClick = () => {
-    toast({
-      title: "Let's Talk!",
-      description: "Please contact us to discuss sponsorship opportunities. Full checkout coming soon!",
-    });
-    // Placeholder for Stripe integration
-    console.log("Stripe Checkout to be implemented here.");
-    toast({
-        title: "Stripe Checkout Guide",
-        description: (
-            <p>To enable payments, you need to set up Stripe. Check out <a href="https://www.hostinger.com/support/hostinger-horizons-how-to-sell-subscriptions-with-stripe/" target="_blank" rel="noopener noreferrer" className="underline">this guide</a> to learn how to sell subscriptions with Stripe.</p>
-        ),
-        duration: 9000,
-    });
+    // Placeholder — checkout/contact flow to be implemented
   };
 
   const handleFormSubmit = (e) => {

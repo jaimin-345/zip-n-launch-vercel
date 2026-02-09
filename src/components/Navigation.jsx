@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Menu, X, ShoppingCart, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel, Briefcase } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel, Briefcase } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
-import { useCart } from '@/hooks/useCart';
+
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import {
   DropdownMenu,
@@ -22,8 +22,6 @@ const Navigation = () => {
     const { user, signOut, isAdmin, openAuthModal } = useAuth();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const { cartItems } = useCart();
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
     const navItems = [
         { name: 'Home', path: '/', show: 'always' },
@@ -193,18 +191,6 @@ const Navigation = () => {
                         <div className="flex items-center gap-2 ml-4">
                             {user ? (
                                 <>
-                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                        <Button variant="ghost" size="icon" className="relative" asChild>
-                                            <Link to="/store">
-                                                <ShoppingCart className="h-5 w-5" />
-                                                {totalItems > 0 && (
-                                                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                                                        {totalItems}
-                                                    </span>
-                                                )}
-                                            </Link>
-                                        </Button>
-                                    </motion.div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-medium hidden lg:inline">{user.user_metadata?.full_name || user.email}</span>
                                         <UserMenu />
@@ -247,16 +233,6 @@ const Navigation = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <JudgeNotificationPanel userEmail={user?.email} />
-                                        <Button variant="ghost" size="icon" className="relative" asChild>
-                                            <Link to="/store" onClick={() => setIsMenuOpen(false)}>
-                                                <ShoppingCart className="h-5 w-5" />
-                                                {totalItems > 0 && (
-                                                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                                                        {totalItems}
-                                                    </span>
-                                                )}
-                                            </Link>
-                                        </Button>
                                         <ThemeToggle />
                                     </div>
                                 </div>

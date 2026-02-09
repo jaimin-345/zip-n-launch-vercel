@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { useCart } from '@/hooks/useCart';
+
 import { fetchAssociations } from '@/lib/associationsData';
 
 const initialFormData = {
-    usageType: 'individual',
+    usageType: '',
     showType: '',
     associations: {},
     customAssociations: [],
@@ -45,12 +45,12 @@ const initialFormData = {
     sort_order: 0,
     city: null,
     patternGroups: [],
+    selectedDivisions: {},
+    selectedLevels: {},
 };
 
 export const usePatternHub = (projectId) => {
     const { toast } = useToast();
-    const { addToCart } = useCart();
-    
     const [currentStep, setCurrentStep] = useState(0);
     const [formData, setFormData] = useState(initialFormData);
     const [highestStepReached, setHighestStepReached] = useState(0);
@@ -59,22 +59,24 @@ export const usePatternHub = (projectId) => {
     const [disciplineLibrary, setDisciplineLibrary] = useState([]);
     const [associationsData, setAssociationsData] = useState([]);
     const [divisionsData, setDivisionsData] = useState({});
-    const [usagePurposes, setUsagePurposes] = useState([]);
+    const [usagePurposes] = useState([
+        { id: 'horse_show', name: 'Horse Show', sort_order: 1 },
+        { id: 'clinic', name: 'Clinic / Practicing / Coaching', sort_order: 2 },
+        { id: 'just_for_fun', name: 'Just for Fun', sort_order: 3 },
+    ]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const [disciplinesRes, associations, divisionsRes, purposesRes] = await Promise.all([
+                const [disciplinesRes, associations, divisionsRes] = await Promise.all([
                     supabase.from('disciplines').select('*').order('sort_order'),
                     fetchAssociations(),
                     supabase.from('divisions').select('*, division_levels(*)').order('sort_order'),
-                    supabase.from('usage_purposes').select('*').order('sort_order')
                 ]);
-    
+
                 if (disciplinesRes.error) throw disciplinesRes.error;
                 if (divisionsRes.error) throw divisionsRes.error;
-                if (purposesRes.error) throw purposesRes.error;
     
                 const formattedDisciplines = disciplinesRes.data.map(d => ({
                   ...d,
@@ -82,7 +84,6 @@ export const usePatternHub = (projectId) => {
                 }));
                 setDisciplineLibrary(formattedDisciplines);
                 setAssociationsData(associations);
-                setUsagePurposes(purposesRes.data);
                 
                 const divisionsByAssoc = (divisionsRes.data || []).reduce((acc, div) => {
                     const key = div.association_id;
@@ -133,10 +134,12 @@ export const usePatternHub = (projectId) => {
                         });
                         
                         // Restore step and completed steps from project_data (not from separate columns)
-                        const savedStep = savedProjectData.currentStep || 0;
+                        // Restore step and completed steps; clamp to max step 7 (Generate)
+                        let savedStep = savedProjectData.currentStep || 0;
+                        if (savedStep > 7) savedStep = 7;
                         const savedCompleted = savedProjectData.completedSteps || [];
                         const maxCompleted = savedCompleted.length > 0 ? Math.max(...savedCompleted) : 0;
-                        const maxStep = Math.max(savedStep, maxCompleted);
+                        const maxStep = Math.max(savedStep, maxCompleted > 7 ? 7 : maxCompleted);
                         
                         console.log('Restoring step:', savedStep, 'completed steps:', savedCompleted, 'highest:', maxStep);
                         setCurrentStep(savedStep);
@@ -177,34 +180,6 @@ export const usePatternHub = (projectId) => {
       setFormData(prev => ({ ...prev, disciplines: [] }));
     }, [setFormData]);
 
-    const handlePurchase = async (pricing) => {
-        try {
-            const product = {
-                id: pricing.id,
-                title: 'Individual Pattern/Scoresheet Order',
-                price_in_cents: pricing.price,
-                description: `A custom selection of patterns and score sheets.`,
-            };
-            const variant = {
-                id: `hub_order_${new Date().getTime()}`,
-                title: 'Custom Selection',
-                price_in_cents: pricing.price,
-                manage_inventory: false,
-            };
-            await addToCart(product, variant, 1, Infinity);
-            toast({
-                title: 'Added to Cart! 🛒',
-                description: 'Your custom selection is now in your shopping cart.',
-            });
-        } catch (error) {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        }
-    };
-    
     return {
         currentStep, setCurrentStep,
         formData, setFormData,
@@ -213,7 +188,6 @@ export const usePatternHub = (projectId) => {
         associationsData,
         divisionsData,
         usagePurposes,
-        handlePurchase,
         resetDisciplines,
         highestStepReached,
         setHighestStepReached,
