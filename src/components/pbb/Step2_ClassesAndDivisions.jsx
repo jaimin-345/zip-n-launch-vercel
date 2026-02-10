@@ -345,7 +345,7 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
     );
 };
 
-export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLibrary, associationsData, onRefreshDisciplines }) => {
+export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLibrary, associationsData, onRefreshDisciplines, stepNumber = 2 }) => {
     const { toast } = useToast();
     const [customDisciplineName, setCustomDisciplineName] = React.useState('');
     const [isCustomDisciplineModalOpen, setIsCustomDisciplineModalOpen] = React.useState(false);
@@ -1047,7 +1047,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     return (
         <motion.div key="step2" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader className="pb-3">
-                <CardTitle className="text-xl">Step 2: Select Disciplines</CardTitle>
+                <CardTitle className="text-xl">Step {stepNumber}: Select Disciplines</CardTitle>
                 <CardDescription className="text-sm">{ isVrhMode ? "The required disciplines for a Versatility Ranch Horse show have been automatically selected." : "Select disciplines from the library, or add custom disciplines for open shows." }</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

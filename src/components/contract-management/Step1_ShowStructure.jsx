@@ -29,7 +29,7 @@ const defaultAssociations = [
   { id: 'NRCHA', name: 'NRCHA - National Reined Cow Horse Association', column: 'right' },
 ];
 
-export const Step1_ShowStructure = ({ formData, setFormData }) => {
+export const Step1_ShowStructure = ({ formData, setFormData, existingProjects = [] }) => {
   const [associations, setAssociations] = useState(defaultAssociations);
 
   useEffect(() => {
@@ -41,10 +41,9 @@ export const Step1_ShowStructure = ({ formData, setFormData }) => {
           .order('sort_order', { ascending: true });
         
         if (!error && data && data.length > 0) {
-          // Keep default layout if database fetch fails or is empty
           const dbAssociations = data.map((a, idx) => ({
             id: a.id,
-            name: a.abbreviation ? `${a.abbreviation} - ${a.name}` : a.name,
+            name: a.name,
             column: idx < Math.ceil(data.length / 2) ? 'left' : 'right'
           }));
           setAssociations(dbAssociations);
@@ -55,6 +54,31 @@ export const Step1_ShowStructure = ({ formData, setFormData }) => {
     };
     fetchAssociations();
   }, []);
+
+  const handleShowNumberChange = (value) => {
+    setFormData(prev => ({ ...prev, showNumber: value }));
+
+    if (!value.trim() || existingProjects.length === 0) return;
+
+    const match = existingProjects.find(p =>
+      p.project_data?.showNumber && p.project_data.showNumber.toString() === value.trim()
+    );
+
+    if (match?.project_data) {
+      const pd = match.project_data;
+      let assocIds = [];
+      if (pd.associations && typeof pd.associations === 'object') {
+        assocIds = Object.keys(pd.associations).filter(key => pd.associations[key]);
+      }
+      setFormData(prev => ({
+        ...prev,
+        showNumber: value,
+        showName: pd.showName || match.project_name || prev.showName,
+        selectedAssociations: assocIds.length > 0 ? assocIds : prev.selectedAssociations,
+        linkedProjectId: match.id,
+      }));
+    }
+  };
 
   const handleShowNameChange = (value) => {
     setFormData(prev => ({
@@ -79,6 +103,7 @@ export const Step1_ShowStructure = ({ formData, setFormData }) => {
 
   const selectedAssociations = formData.selectedAssociations || [];
   const showName = formData.showName || '';
+  const showNumber = formData.showNumber || '';
 
   // Split associations into columns
   const leftColumn = associations.filter(a => a.column === 'left');
@@ -98,74 +123,97 @@ export const Step1_ShowStructure = ({ formData, setFormData }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0 space-y-6">
-        {/* Horse Show Name */}
-        <div className="space-y-2">
-          <Label htmlFor="horse-show-name" className="font-semibold">Horse Show Name</Label>
-          <Input
-            id="horse-show-name"
-            value={showName}
-            onChange={(e) => handleShowNameChange(e.target.value)}
-            placeholder="E.g., Summer Sizzler"
-            className="bg-background"
-          />
+        {/* Horse Show Name + Show Number side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="horse-show-name" className="font-semibold">Horse Show Name</Label>
+            <Input
+              id="horse-show-name"
+              value={showName}
+              onChange={(e) => handleShowNameChange(e.target.value)}
+              placeholder="E.g., Summer Sizzler"
+              className="bg-background"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="show-number" className="font-semibold">Show Number</Label>
+            <Input
+              id="show-number"
+              value={showNumber}
+              onChange={(e) => handleShowNumberChange(e.target.value)}
+              placeholder="E.g., 1009"
+              className="bg-background"
+            />
+            {formData.linkedProjectId && (
+              <p className="text-xs text-green-600">Linked to existing project</p>
+            )}
+          </div>
         </div>
 
         {/* Associations Grid */}
         <div className="space-y-2">
           <Label className="font-semibold">Select all hosted associations:</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Left Column */}
-            <div className="space-y-1">
+            <div className="space-y-1.5 border-l-4 border-red-500 pl-3">
               {leftColumn.map(assoc => (
                 <div
                   key={assoc.id}
                   className={cn(
-                    "flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-all",
+                    "rounded-md border bg-card transition-all duration-200",
                     selectedAssociations.includes(assoc.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50"
+                      ? "border-primary ring-1 ring-primary"
+                      : "hover:bg-muted/50"
                   )}
-                  onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
                 >
-                  <Checkbox
-                    id={`assoc-${assoc.id}`}
-                    checked={selectedAssociations.includes(assoc.id)}
-                    onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
-                  />
-                  <Label
-                    htmlFor={`assoc-${assoc.id}`}
-                    className="font-normal cursor-pointer flex-grow text-sm"
+                  <div
+                    className="flex items-center space-x-3 p-3 cursor-pointer"
+                    onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
                   >
-                    {assoc.name}
-                  </Label>
+                    <Checkbox
+                      id={`assoc-${assoc.id}`}
+                      checked={selectedAssociations.includes(assoc.id)}
+                      onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
+                    />
+                    <Label
+                      htmlFor={`assoc-${assoc.id}`}
+                      className="font-normal cursor-pointer flex-grow"
+                    >
+                      {assoc.name}
+                    </Label>
+                  </div>
                 </div>
               ))}
             </div>
 
             {/* Right Column */}
-            <div className="space-y-1">
+            <div className="space-y-1.5 border-l-4 border-blue-500 pl-3">
               {rightColumn.map(assoc => (
                 <div
                   key={assoc.id}
                   className={cn(
-                    "flex items-center space-x-3 p-3 rounded-md border cursor-pointer transition-all",
+                    "rounded-md border bg-card transition-all duration-200",
                     selectedAssociations.includes(assoc.id)
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50"
+                      ? "border-primary ring-1 ring-primary"
+                      : "hover:bg-muted/50"
                   )}
-                  onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
                 >
-                  <Checkbox
-                    id={`assoc-${assoc.id}`}
-                    checked={selectedAssociations.includes(assoc.id)}
-                    onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
-                  />
-                  <Label
-                    htmlFor={`assoc-${assoc.id}`}
-                    className="font-normal cursor-pointer flex-grow text-sm"
+                  <div
+                    className="flex items-center space-x-3 p-3 cursor-pointer"
+                    onClick={() => handleAssociationToggle(assoc.id, !selectedAssociations.includes(assoc.id))}
                   >
-                    {assoc.name}
-                  </Label>
+                    <Checkbox
+                      id={`assoc-${assoc.id}`}
+                      checked={selectedAssociations.includes(assoc.id)}
+                      onCheckedChange={(checked) => handleAssociationToggle(assoc.id, checked)}
+                    />
+                    <Label
+                      htmlFor={`assoc-${assoc.id}`}
+                      className="font-normal cursor-pointer flex-grow"
+                    >
+                      {assoc.name}
+                    </Label>
+                  </div>
                 </div>
               ))}
             </div>

@@ -285,7 +285,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
   );
 };
 
-export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName, isReadOnly = false }) => {
+export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName, isReadOnly = false, stepNumber = 1 }) => {
     
   const handleAssociationSelection = (assocId, isChecked) => {
     if (isReadOnly) return;
@@ -461,10 +461,10 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getTitle = () => {
-    if (context === 'pbb') return "Step 1: Book & Association Details";
+    if (context === 'pbb') return `Step ${stepNumber}: Book & Association Details`;
     if (context === 'showInfo') return "Select Association / Affiliation";
-    if (context === 'hub') return "Step 1: Select Association";
-    return "Step 1: Show Structure";
+    if (context === 'hub') return `Step ${stepNumber}: Select Association`;
+    return `Step ${stepNumber}: Show Structure`;
   };
 
   const getDescription = () => {

@@ -255,7 +255,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const [isDisciplineFoldersOpen, setIsDisciplineFoldersOpen] = useState(true);
   const [isDisciplineConfigOpen, setIsDisciplineConfigOpen] = useState(true);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [dialogJudge, setDialogJudge] = useState('');
   const [dialogDueDate, setDialogDueDate] = useState('');
   const [currentDiscipline, setCurrentDiscipline] = useState(null);
 
@@ -303,15 +302,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
     
     // Filter out groups that don't have actual divisions/content
-    let validGroups = (discipline.patternGroups || []).filter(group => 
+    let validGroups = (discipline.patternGroups || []).filter(group =>
       group.divisions && group.divisions.length > 0
     );
-    
-    // For scoresheet-only disciplines: if no groups exist but divisions are selected, create a default group
-    if (isScoresheetOnly && validGroups.length === 0 && discipline.divisionOrder && discipline.divisionOrder.length > 0) {
-      // Create a default group from selected divisions
+
+    // If no groups have divisions, create a default group from divisionOrder if available
+    if (validGroups.length === 0 && discipline.divisionOrder && discipline.divisionOrder.length > 0) {
       const divisionsFromOrder = discipline.divisionOrder.map(divId => {
-        // Parse division ID format: "assocId-divisionName"
         const [assocId, ...divisionParts] = divId.split('-');
         const divisionName = divisionParts.join('-');
         return {
@@ -320,13 +317,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           division: divisionName
         };
       });
-      
+
       if (divisionsFromOrder.length > 0) {
         validGroups = [{
           id: `group-${discipline.id}-default`,
           name: 'Group 1',
           divisions: divisionsFromOrder
         }];
+      }
+    }
+
+    // If still no valid groups but original groups exist, keep them so patterns can be assigned
+    if (validGroups.length === 0) {
+      const originalGroups = discipline.patternGroups || [];
+      if (originalGroups.length > 0) {
+        validGroups = originalGroups;
       }
     }
     
@@ -511,7 +516,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   const handleAssignPattern = () => {
     // TODO: implement pattern assignment logic
     setAssignDialogOpen(false);
-    setDialogJudge('');
     setDialogDueDate('');
   };
 
@@ -637,8 +641,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
     return hasPatternAssigned;
   };
-
-  // (Judge/staff assignment functions removed)
 
 
   const dateRange = formData.startDate && formData.endDate
@@ -886,20 +888,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     const isComplete = isDisciplineComplete(discipline, disciplineIndex);
                     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
                     
-                    // Check if judge is assigned (skip for clinic mode)
-                    const judgeAssigned = isClinicMode || (formData.judgeSelections?.[disciplineIndex] &&
-                                          formData.judgeSelections[disciplineIndex].trim() &&
-                                          !formData.judgeSelections[disciplineIndex].startsWith('judge-'));
-                    
-                    // Get judge name and number (skip for clinic mode)
-                    let judgeName = null;
-                    let judgeNumber = null;
-                    if (!isClinicMode && judgeAssigned) {
-                      judgeName = formData.judgeSelections?.[disciplineIndex];
-                      const match = judgeName?.match(/(\d+)/);
-                      judgeNumber = match ? match[1] : null;
-                    }
-                    
                     // Count assigned patterns/groups
                     const assignedCount = isScoresheetOnly
                       ? groups.filter(group => group.divisions && group.divisions.length > 0).length
@@ -927,10 +915,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     // Determine subtitle text
                     let subtitle = '';
                     let subtitleColor = 'text-muted-foreground';
-                    if (judgeName && judgeNumber) {
-                      subtitle = `★ Test Judge ${judgeNumber}`;
-                      subtitleColor = 'text-blue-600 dark:text-blue-400';
-                    } else if (isScoresheetOnly) {
+                    if (isScoresheetOnly) {
                       subtitle = `${assignedCount} group${assignedCount !== 1 ? 's' : ''} configured`;
                     } else if (assignedCount > 0) {
                       subtitle = `${assignedCount} pattern${assignedCount !== 1 ? 's' : ''} assigned`;
@@ -944,13 +929,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     
                     const handleDisciplineClick = () => {
                       scrollToDiscipline(discipline.id);
-                      if (!isClinicMode && !isScoresheetOnly && !judgeAssigned) {
-                        toast({
-                          title: "Judge Required",
-                          description: "First assign this discipline judge before proceeding.",
-                          variant: "destructive"
-                        });
-                      }
                     };
                     
                     return (
@@ -1661,20 +1639,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         {/* Hover Preview - Rendered via portal at body level, centered */}
                                         {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                             <div
-                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
+                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-none"
                                                 style={{
                                                     left: '50%',
                                                     top: '50%',
                                                     transform: 'translate(-50%, -50%)',
-                                                }}
-                                                onMouseEnter={() => {
-                                                    // Keep preview visible when hovering over it
-                                                    if (hoveredPatternId) {
-                                                        setHoveredPatternId(hoveredPatternId);
-                                                    }
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setHoveredPatternId(null);
                                                 }}
                                             >
                                                 {loadingHoveredImage ? (
@@ -1729,61 +1698,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <DialogTitle>Assign Pattern</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {!isClinicMode && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="dialog-judge" className="text-sm">Assign Judge</Label>
-                  {dialogJudge && dialogJudge.trim() && !dialogJudge.startsWith('judge-') && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setDialogJudge('')}
-                    >
-                      <X className="h-3 w-3 mr-1" />
-                      Remove Judge
-                    </Button>
-                  )}
-                </div>
-                <Select
-                  value={dialogJudge && !dialogJudge.startsWith('judge-') ? dialogJudge : ''}
-                  onValueChange={(value) => {
-                    // Ensure we always set the judge name, never an ID
-                    // The SelectItem value is already judge.name, so value will be the name
-                    setDialogJudge(value);
-                  }}
-                >
-                  <SelectTrigger id="dialog-judge" className="bg-background">
-                    <SelectValue placeholder="Select a judge..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background z-50">
-                    {(currentDiscipline?.associationJudges || []).length > 0 ? (
-                      (currentDiscipline?.associationJudges || []).map((judge, idx) => {
-                        // Always use judge.name as the value - never use ID
-                        const judgeName = judge.name || 'Unnamed Judge';
-                        const associations = judge.associations || [];
-                        return (
-                          <SelectItem key={idx} value={judgeName}>
-                            <div className="flex items-center justify-between w-full">
-                              <span>{judgeName}</span>
-                              {associations.length > 0 && (
-                                <Badge variant="outline" className="ml-2 text-xs">
-                                  {associations.join(', ')}
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem value="no-judges" disabled>No judges for this association</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              )}
-
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <Label htmlFor="dialog-due-date" className="text-sm">Due Date</Label>

@@ -2,19 +2,24 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, disabled = false }) => {
-    const getNextStepId = () => {
-        for (let i = 1; i <= steps.length; i++) {
-            if (!completedSteps.has(i)) {
-                return i;
+export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, disabled = false, nextStepId: nextStepIdProp }) => {
+    const computedNextStepId = (() => {
+        for (const step of steps) {
+            if (!completedSteps.has(step.id)) {
+                return step.id;
             }
         }
-        return steps.length;
-    };
-    const nextStepId = getNextStepId();
+        return steps[steps.length - 1]?.id;
+    })();
+    const nextStepId = nextStepIdProp ?? computedNextStepId;
 
     const handleStepClick = (stepId) => {
-        if (!disabled && setCurrentStep) {
+        if (disabled || !setCurrentStep) return;
+        // Only allow navigation to completed steps, current step, or the next available step
+        const isCompleted = completedSteps.has(stepId);
+        const isCurrent = stepId === currentStep;
+        const isNext = stepId === nextStepId;
+        if (isCompleted || isCurrent || isNext) {
             setCurrentStep(stepId);
         }
     };
@@ -27,11 +32,12 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                 const isNext = step.id === nextStepId && !isActive;
                 return (
                     <React.Fragment key={step.id}>
-                        <div 
+                        <div
                             className={cn(
                                 "flex flex-col items-center text-center flex-1",
-                                disabled ? "cursor-default opacity-80" : "cursor-pointer"
-                            )} 
+                                disabled ? "cursor-default opacity-80" :
+                                (isCompleted || isActive || isNext) ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                            )}
                             onClick={() => handleStepClick(step.id)}
                         >
                             <div className={cn(

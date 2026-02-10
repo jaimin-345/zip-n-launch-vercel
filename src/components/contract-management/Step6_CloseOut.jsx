@@ -9,12 +9,16 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CheckCircle, DollarSign, Save, Link2, Download, Send,
-  AlertTriangle, ShieldCheck, Archive, CalendarCheck, Users, FolderOpen,
+  AlertTriangle, ShieldCheck, Archive, CalendarCheck, Users, FolderOpen, FileText,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { flattenPersonnel } from '@/lib/contractUtils';
+
+const REQUIRED_DOC_IDS = ['signed_contract', 'w9_form', 'association_member_id', 'emergency_contact'];
 
 const closeOutItems = [
-  { id: 'all_signed', label: 'All contracts have been signed by personnel', required: true, icon: CheckCircle },
+  { id: 'all_signed', label: 'All contracts signed and approved', required: true, icon: ShieldCheck },
+  { id: 'all_docs_collected', label: 'All required documents collected from employees', required: true, icon: FileText },
   { id: 'payment_confirmed', label: 'Payment terms confirmed and payment received/scheduled', required: true, icon: DollarSign },
   { id: 'copies_distributed', label: 'Copies distributed to all parties', required: true, icon: Send },
   { id: 'saved_to_project', label: 'Finalized contracts saved within the Horse Show project', required: true, icon: Save },
@@ -35,9 +39,61 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
   const paymentStatus = formData.paymentStatus || 'unpaid';
   const isPaymentConfirmed = paymentStatus === 'confirmed';
 
+  // Approval & document status from employee folders
+  const approvalStats = useMemo(() => {
+    const personnel = flattenPersonnel(formData);
+    const folders = formData.employeeFolders || {};
+    const total = personnel.length;
+    const approved = personnel.filter(m => folders[m.id]?.signatureStatus === 'approved').length;
+    const docsCollected = personnel.filter(m => {
+      const docs = folders[m.id]?.documents;
+      if (!docs) return false;
+      return REQUIRED_DOC_IDS.every(id => docs[id]?.status === 'complete');
+    }).length;
+    return {
+      total,
+      approved,
+      allApproved: total > 0 && approved === total,
+      docsCollected,
+      allDocsCollected: total > 0 && docsCollected === total,
+    };
+  }, [formData.showDetails?.officials, formData.employeeFolders]);
+
   const requiredItems = closeOutItems.filter(i => i.required);
   const allRequiredComplete = requiredItems.every(i => checkedItems.includes(i.id));
   const progress = closeOutItems.length > 0 ? (checkedItems.length / closeOutItems.length) * 100 : 0;
+
+  // Auto-check all_signed when all contracts are approved
+  useEffect(() => {
+    if (approvalStats.allApproved && !checkedItems.includes('all_signed')) {
+      setFormData(prev => ({
+        ...prev,
+        closeOutChecklist: [...(prev.closeOutChecklist || []), 'all_signed'],
+      }));
+    }
+    if (!approvalStats.allApproved && checkedItems.includes('all_signed')) {
+      setFormData(prev => ({
+        ...prev,
+        closeOutChecklist: (prev.closeOutChecklist || []).filter(id => id !== 'all_signed'),
+      }));
+    }
+  }, [approvalStats.allApproved]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-check all_docs_collected when all documents are collected
+  useEffect(() => {
+    if (approvalStats.allDocsCollected && !checkedItems.includes('all_docs_collected')) {
+      setFormData(prev => ({
+        ...prev,
+        closeOutChecklist: [...(prev.closeOutChecklist || []), 'all_docs_collected'],
+      }));
+    }
+    if (!approvalStats.allDocsCollected && checkedItems.includes('all_docs_collected')) {
+      setFormData(prev => ({
+        ...prev,
+        closeOutChecklist: (prev.closeOutChecklist || []).filter(id => id !== 'all_docs_collected'),
+      }));
+    }
+  }, [approvalStats.allDocsCollected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-check payment_confirmed when payment status changes
   useEffect(() => {
@@ -57,7 +113,7 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
 
   const handleToggleItem = (itemId) => {
     // Don't allow manual toggle for auto-managed items
-    if (itemId === 'payment_confirmed' || itemId === 'saved_to_project' || itemId === 'linked_to_personnel') return;
+    if (itemId === 'all_signed' || itemId === 'all_docs_collected' || itemId === 'payment_confirmed' || itemId === 'saved_to_project' || itemId === 'linked_to_personnel') return;
 
     setFormData(prev => {
       const current = prev.closeOutChecklist || [];
@@ -69,6 +125,14 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
   };
 
   const handlePaymentStatusChange = (newStatus) => {
+    if (newStatus === 'confirmed' && !approvalStats.allApproved) {
+      toast({
+        title: 'Cannot Confirm Payment',
+        description: 'All contracts must be approved before confirming payment.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setFormData(prev => ({
       ...prev,
       paymentStatus: newStatus,
@@ -129,6 +193,63 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
       </CardHeader>
 
       <CardContent className="px-0 space-y-6">
+        {/* Approval & Document Status Banners */}
+        <div className="space-y-3">
+          <Card className={`p-4 ${approvalStats.allApproved ? 'bg-green-500/5 border-green-500/30' : 'bg-amber-500/5 border-amber-500/30'}`}>
+            <div className="flex items-center gap-3">
+              {approvalStats.allApproved ? (
+                <ShieldCheck className="h-5 w-5 text-green-500 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className={`font-medium ${approvalStats.allApproved ? 'text-green-600' : 'text-amber-600'}`}>
+                  {approvalStats.allApproved
+                    ? 'All Contracts Approved — Eligible for Payment'
+                    : `${approvalStats.approved} of ${approvalStats.total} Contracts Approved`}
+                </p>
+                {!approvalStats.allApproved && (
+                  <p className="text-sm text-muted-foreground">
+                    All contracts must be approved in Step 4 before confirming payment.
+                  </p>
+                )}
+              </div>
+              <Badge className={approvalStats.allApproved
+                ? 'bg-green-500/10 text-green-600 border-green-600/30'
+                : 'bg-amber-500/10 text-amber-600 border-amber-600/30'}>
+                {approvalStats.approved}/{approvalStats.total}
+              </Badge>
+            </div>
+          </Card>
+
+          <Card className={`p-4 ${approvalStats.allDocsCollected ? 'bg-green-500/5 border-green-500/30' : 'bg-blue-500/5 border-blue-500/30'}`}>
+            <div className="flex items-center gap-3">
+              {approvalStats.allDocsCollected ? (
+                <FolderOpen className="h-5 w-5 text-green-500 shrink-0" />
+              ) : (
+                <FolderOpen className="h-5 w-5 text-blue-500 shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className={`font-medium ${approvalStats.allDocsCollected ? 'text-green-600' : 'text-blue-600'}`}>
+                  {approvalStats.allDocsCollected
+                    ? 'All Documents Collected'
+                    : `${approvalStats.docsCollected} of ${approvalStats.total} Personnel — Documents Complete`}
+                </p>
+                {!approvalStats.allDocsCollected && (
+                  <p className="text-sm text-muted-foreground">
+                    Collect remaining documents in Step 5 (Track & Documents).
+                  </p>
+                )}
+              </div>
+              <Badge className={approvalStats.allDocsCollected
+                ? 'bg-green-500/10 text-green-600 border-green-600/30'
+                : 'bg-blue-500/10 text-blue-600 border-blue-600/30'}>
+                {approvalStats.docsCollected}/{approvalStats.total}
+              </Badge>
+            </div>
+          </Card>
+        </div>
+
         {/* Payment Status */}
         <Card className="p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -150,7 +271,9 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
                 <SelectContent>
                   <SelectItem value="unpaid">Unpaid</SelectItem>
                   <SelectItem value="partial">Partial Payment</SelectItem>
-                  <SelectItem value="confirmed">Payment Confirmed</SelectItem>
+                  <SelectItem value="confirmed" disabled={!approvalStats.allApproved}>
+                    Payment Confirmed {!approvalStats.allApproved ? '(requires approval)' : ''}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -176,7 +299,9 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                 <p className="text-xs text-muted-foreground">
-                  Download and sending features require payment confirmation. Update the payment status above to enable these actions.
+                  {!approvalStats.allApproved
+                    ? 'All contracts must be approved before payment can be confirmed. Go to Step 4 to approve contracts.'
+                    : 'Download and sending features require payment confirmation. Update the payment status above to enable these actions.'}
                 </p>
               </div>
             </Card>
@@ -201,7 +326,7 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
           <div className="space-y-2">
             {closeOutItems.map((item) => {
               const isChecked = checkedItems.includes(item.id);
-              const isAutoManaged = ['payment_confirmed', 'saved_to_project', 'linked_to_personnel'].includes(item.id);
+              const isAutoManaged = ['all_signed', 'all_docs_collected', 'payment_confirmed', 'saved_to_project', 'linked_to_personnel'].includes(item.id);
               const Icon = item.icon;
 
               return (

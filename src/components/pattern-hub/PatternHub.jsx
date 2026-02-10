@@ -118,6 +118,12 @@ export const PatternHub = ({ projectId }) => {
             .map((s, i) => ({ ...s, displayNumber: i }));
     }, [isHorseShow]);
 
+    // Map step ID to 1-indexed display number for content titles
+    const getDisplayStepNumber = (stepId) => {
+        const step = hubSteps.find(s => s.id === stepId);
+        return step ? step.displayNumber + 1 : stepId + 1;
+    };
+
     // Find the max step ID in the current flow
     const maxStepId = hubSteps[hubSteps.length - 1]?.id ?? 5;
 
@@ -164,9 +170,10 @@ export const PatternHub = ({ projectId }) => {
                 const patternDisciplines = formData.disciplines.filter(d => d.pattern);
                 if (patternDisciplines.length === 0) return true;
                 return patternDisciplines.every(pbbDiscipline => {
-                    const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
-                    return (pbbDiscipline.patternGroups || []).every((_, groupIndex) =>
-                        !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
+                    const groups = pbbDiscipline.patternGroups || [];
+                    if (groups.length === 0) return true;
+                    return groups.some(group =>
+                        !!formData.patternSelections?.[pbbDiscipline.id]?.[group.id]?.patternId
                     );
                 });
             })();
@@ -272,12 +279,13 @@ export const PatternHub = ({ projectId }) => {
                       associationsData={associationsData}
                       onShowTypeChange={resetDisciplines}
                       isHub={true}
+                      stepNumber={getDisplayStepNumber(1)}
                       selectedPurposeName={usagePurposes.find(p => p.id === formData.usageType)?.name || 'Pattern'}
                     />
                 );
             case 2:
                 return (
-                    <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} />
+                    <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} stepNumber={getDisplayStepNumber(2)} />
                 );
             case 3:
                 return (
@@ -286,19 +294,20 @@ export const PatternHub = ({ projectId }) => {
                       setFormData={setFormData}
                       divisionsData={divisionsData}
                       associationsData={associationsData}
+                      stepNumber={getDisplayStepNumber(3)}
                     />
                 );
             case 4:
                 return (
-                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} stepNumber={4} isClinicMode={formData.usageType === 'clinic'} />
+                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} stepNumber={getDisplayStepNumber(4)} isClinicMode={formData.usageType === 'clinic'} />
                 );
             case 5:
                 return (
-                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinic} isEducationMode={false} stepNumber={5} purposeName={usagePurposes.find(p => p.id === formData.usageType)?.name || 'Pattern'} />
+                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinic} isEducationMode={false} stepNumber={getDisplayStepNumber(5)} purposeName={usagePurposes.find(p => p.id === formData.usageType)?.name || 'Pattern'} />
                 );
             case 6:
                 return (
-                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={6} purposeName={isClinic ? 'Clinic Materials' : null} />
+                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(6)} purposeName={isClinic ? 'Clinic Materials' : null} />
                 );
             case 7:
                 return <GenerateStep isGenerated={isGenerated} />;
@@ -331,9 +340,10 @@ export const PatternHub = ({ projectId }) => {
                 const patternDisciplines = formData.disciplines.filter(d => d.pattern);
                 if (patternDisciplines.length === 0) return true;
                 return patternDisciplines.every(pbbDiscipline => {
-                    const disciplineIndex = formData.disciplines.findIndex(c => c.id === pbbDiscipline.id);
-                    return (pbbDiscipline.patternGroups || []).every((_, groupIndex) =>
-                        !!formData.patternSelections?.[disciplineIndex]?.[groupIndex]
+                    const groups = pbbDiscipline.patternGroups || [];
+                    if (groups.length === 0) return true;
+                    return groups.some(group =>
+                        !!formData.patternSelections?.[pbbDiscipline.id]?.[group.id]?.patternId
                     );
                 });
             }
@@ -416,7 +426,7 @@ export const PatternHub = ({ projectId }) => {
                                 )}
                             </Button>
                         ) : (
-                            <Button onClick={handleNext} disabled={isFinalStep}>
+                            <Button onClick={handleNext} disabled={isFinalStep || !isCurrentStepComplete}>
                                 Next <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                         )}

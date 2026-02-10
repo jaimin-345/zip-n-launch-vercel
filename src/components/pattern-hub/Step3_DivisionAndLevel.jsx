@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 
-export const Step3_DivisionAndLevel = ({ formData, setFormData, divisionsData, associationsData }) => {
+export const Step3_DivisionAndLevel = ({ formData, setFormData, divisionsData, associationsData, stepNumber = 3 }) => {
   const selectedAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
 
   const handleToggleDivision = (assocId, groupName, checked) => {
@@ -72,7 +72,7 @@ export const Step3_DivisionAndLevel = ({ formData, setFormData, divisionsData, a
   return (
     <motion.div key="step3-division-level" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-xl">Step 3: Division & Level</CardTitle>
+        <CardTitle className="text-xl">Step {stepNumber}: Division & Level</CardTitle>
         <CardDescription className="text-sm">
           Select the divisions and levels for your horse show patterns.
           {totalSelected > 0 && (

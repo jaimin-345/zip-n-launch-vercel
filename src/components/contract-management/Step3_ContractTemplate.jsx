@@ -176,24 +176,6 @@ export const Step3_ContractTemplate = ({ formData, setFormData }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="jurisdiction">Governing Jurisdiction</Label>
-              <Select
-                value={contractSettings.jurisdiction || 'texas'}
-                onValueChange={(value) => handleSettingChange('jurisdiction', value)}
-              >
-                <SelectTrigger id="jurisdiction">
-                  <SelectValue placeholder="Select jurisdiction" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="texas">Texas</SelectItem>
-                  <SelectItem value="california">California</SelectItem>
-                  <SelectItem value="florida">Florida</SelectItem>
-                  <SelectItem value="oklahoma">Oklahoma</SelectItem>
-                  <SelectItem value="colorado">Colorado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="paymentMethod">Payment Method</Label>
               <Select
                 value={contractSettings.paymentMethod || 'check'}
