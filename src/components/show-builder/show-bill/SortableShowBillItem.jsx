@@ -3,11 +3,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { GripVertical, Pencil, Trash2, Coffee, Tractor, Type, Star, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// ─── Class Box: visible container with big number ───
+// ─── Class Box: compact row with inline number ───
 const ClassBoxDisplay = ({ item, allClassItems, associationsData, onRemoveClassFromBox }) => {
   const classDetails = (item.classes || []).map(classId =>
     allClassItems.find(c => c.id === classId)
@@ -18,54 +18,48 @@ const ClassBoxDisplay = ({ item, allClassItems, associationsData, onRemoveClassF
     data: { origin: 'classbox-drop', classBoxId: item.id },
   });
 
-  return (
-    <div className="w-full">
-      {/* Box header with number and title */}
-      <div className="flex items-center gap-3 mb-2">
-        <span className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-primary text-primary-foreground text-lg font-bold shrink-0 shadow-sm">
-          {item.number || '?'}
-        </span>
-        <div className="min-w-0 flex-grow">
-          <p className="font-bold text-base">{item.title || 'Untitled Box'}</p>
-        </div>
-      </div>
+  const singleClass = classDetails.length <= 1;
+  const firstAssoc = classDetails[0] && associationsData?.find(a => a.id === classDetails[0].assocId);
 
-      {/* Classes inside the box — this is the drop zone */}
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'ml-12 border-l-2 border-primary/30 pl-3 space-y-1 min-h-[36px] rounded-r transition-colors',
-          isOver && 'bg-primary/10 border-primary'
-        )}
-      >
-        {classDetails.length > 0 ? (
-          classDetails.map(cls => {
-            const assoc = associationsData?.find(a => a.id === cls.assocId);
-            return (
-              <div key={cls.id} className="flex items-center gap-2 py-1 px-2 rounded bg-white/60 dark:bg-background/40 text-sm group">
-                <span className="truncate flex-grow">{cls.name}</span>
-                {assoc && (
-                  <Badge variant={assoc.color || 'secondary'} className="text-xs px-1.5 py-0 shrink-0">
-                    {assoc.abbreviation}
-                  </Badge>
-                )}
-                {onRemoveClassFromBox && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemoveClassFromBox(item.id, cls.id); }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10"
-                  >
-                    <X className="h-3 w-3 text-destructive" />
-                  </button>
-                )}
-              </div>
-            );
-          })
-        ) : (
-          <p className="text-xs text-muted-foreground py-2 italic">
-            Drag classes here from the palette
-          </p>
-        )}
-      </div>
+  return (
+    <div ref={setNodeRef} className={cn('w-full rounded transition-colors', isOver && 'bg-primary/10')}>
+      {singleClass ? (
+        /* Single-class box: one compact line */
+        <div className="flex items-center gap-1.5 text-sm min-h-[28px]">
+          <span className="font-bold text-primary shrink-0 w-6 text-right">{item.number || '?'}.</span>
+          <span className="truncate font-medium">{item.title || classDetails[0]?.name || 'Untitled'}</span>
+          {firstAssoc && (
+            <span className="text-xs text-muted-foreground shrink-0">({firstAssoc.abbreviation})</span>
+          )}
+        </div>
+      ) : (
+        /* Multi-class box: title line + compact sub-rows */
+        <div>
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="font-bold text-primary shrink-0 w-6 text-right">{item.number || '?'}.</span>
+            <span className="font-bold truncate">{item.title || 'Grouped Classes'}</span>
+          </div>
+          <div className="ml-8 space-y-0.5 mt-0.5">
+            {classDetails.map(cls => {
+              const assoc = associationsData?.find(a => a.id === cls.assocId);
+              return (
+                <div key={cls.id} className="flex items-center gap-1 text-sm group py-0.5">
+                  <span className="truncate flex-grow">{cls.name}</span>
+                  {assoc && <span className="text-xs text-muted-foreground shrink-0">({assoc.abbreviation})</span>}
+                  {onRemoveClassFromBox && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRemoveClassFromBox(item.id, cls.id); }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-destructive/10"
+                    >
+                      <X className="h-3 w-3 text-destructive" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -87,7 +81,7 @@ const DragDisplay = ({ item }) => (
 );
 
 const SectionHeaderDisplay = ({ item }) => (
-  <div className="flex-grow text-center min-w-0 py-1">
+  <div className="flex-grow text-center min-w-0 py-0.5">
     <div className="border-t border-muted-foreground/30 mb-1.5" />
     <p className="font-bold text-sm uppercase tracking-wide">{item.title}</p>
     <div className="border-b border-muted-foreground/30 mt-1.5" />
@@ -113,7 +107,7 @@ const typeStyles = {
   custom: 'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
 };
 
-const SortableShowBillItem = ({ item, onEdit, onRemove, onRemoveClassFromBox, allClassItems, associationsData }) => {
+const SortableShowBillItem = ({ item, onEdit, onRemove, onRemoveClassFromBox, allClassItems, associationsData, isSelected, onToggleSelection }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     data: { origin: 'arena', item },
@@ -132,13 +126,21 @@ const SortableShowBillItem = ({ item, onEdit, onRemove, onRemoveClassFromBox, al
       style={style}
       className={cn(
         'rounded-lg touch-none',
-        isClassBox ? 'p-3 border-2' : 'flex items-center gap-2 p-2 border',
+        isClassBox ? 'p-2 border-2' : 'flex items-center gap-1.5 p-1.5 border',
         typeStyles[item.type] || 'bg-background border-border',
-        isDragging && 'opacity-50 shadow-lg'
+        isDragging && 'opacity-50 shadow-lg',
+        isSelected && 'ring-2 ring-primary'
       )}
     >
       {/* Drag handle + content row */}
-      <div className={cn('flex items-start gap-2', !isClassBox && 'flex-grow')}>
+      <div className={cn('flex items-start gap-1.5', !isClassBox && 'flex-grow')}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelection?.(item.id)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="h-3.5 w-3.5 shrink-0 mt-1"
+        />
         <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 shrink-0 mt-0.5">
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>

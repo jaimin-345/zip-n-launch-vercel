@@ -36,6 +36,10 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
   const [editingDayId, setEditingDayId] = useState(null);
   const [editingArenaId, setEditingArenaId] = useState(null);
 
+  // Multi-select state
+  const [selectedPaletteIds, setSelectedPaletteIds] = useState(new Set());
+  const [selectedArenaItemIds, setSelectedArenaItemIds] = useState(new Set());
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const showBill = formData.showBill;
@@ -58,6 +62,43 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
   const allClassItems = useMemo(() => getAllClassItems(formData), [formData]);
   const unplacedClasses = useMemo(() => getUnplacedClasses(formData), [formData]);
   const activeDay = useMemo(() => showBill?.days?.find(d => d.id === activeDayId), [showBill, activeDayId]);
+
+  // Prune stale palette selections when classes get placed
+  useEffect(() => {
+    if (selectedPaletteIds.size > 0) {
+      const unplacedIds = new Set(unplacedClasses.map(c => c.id));
+      const pruned = new Set([...selectedPaletteIds].filter(id => unplacedIds.has(id)));
+      if (pruned.size !== selectedPaletteIds.size) setSelectedPaletteIds(pruned);
+    }
+  }, [unplacedClasses, selectedPaletteIds]);
+
+  // Selection helpers
+  const clearSelection = useCallback(() => {
+    setSelectedPaletteIds(new Set());
+    setSelectedArenaItemIds(new Set());
+  }, []);
+
+  const selectedCount = selectedPaletteIds.size + selectedArenaItemIds.size;
+
+  const togglePaletteSelection = useCallback((classId) => {
+    setSelectedArenaItemIds(new Set());
+    setSelectedPaletteIds(prev => {
+      const next = new Set(prev);
+      if (next.has(classId)) next.delete(classId);
+      else next.add(classId);
+      return next;
+    });
+  }, []);
+
+  const toggleArenaItemSelection = useCallback((itemId) => {
+    setSelectedPaletteIds(new Set());
+    setSelectedArenaItemIds(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }, []);
 
   // Wrapped setter that pushes to undo stack
   const setShowBill = useCallback((newShowBill) => {
@@ -99,8 +140,22 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
     setShowBill(updateHeader(showBill, field, value));
   }, [showBill, setShowBill]);
 
+  // Toggle arena closed/open for a specific day
+  const handleToggleArenaClosed = useCallback((dayId, arenaId) => {
+    const key = `${dayId}::${arenaId}`;
+    const sb = JSON.parse(JSON.stringify(showBill));
+    if (!sb.closedArenas) sb.closedArenas = {};
+    if (sb.closedArenas[key]) {
+      delete sb.closedArenas[key];
+    } else {
+      sb.closedArenas[key] = true;
+    }
+    setShowBill(renumberShowBill(sb));
+  }, [showBill, setShowBill]);
+
   // Insert item at end of an arena
   const handleInsertItem = useCallback((dayId, arenaId, type) => {
+    if ((showBill.closedArenas || {})[`${dayId}::${arenaId}`]) return;
     const newItem = createShowBillItem(type);
     setShowBill(appendItem(showBill, dayId, arenaId, newItem));
   }, [showBill, setShowBill]);
@@ -166,13 +221,28 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
     if (activeData?.origin === 'palette') {
       const classItem = activeData.classItem;
 
-      // Case 1a: Dropped onto an existing classBox drop zone — add class to that box
+      // Determine which classes to move (multi-select or single)
+      const isMulti = selectedPaletteIds.has(classItem.id) && selectedPaletteIds.size > 1;
+      const classesToMove = isMulti
+        ? unplacedClasses.filter(c => selectedPaletteIds.has(c.id))
+        : [classItem];
+
+      // Case 1a: Dropped onto an existing classBox drop zone — add class(es) to that box
       if (over.data.current?.origin === 'classbox-drop') {
         const classBoxId = over.data.current.classBoxId;
         const loc = findItemLocation(showBill, classBoxId);
         if (loc) {
-          setShowBill(addClassToBox(showBill, loc.dayId, loc.arenaId, classBoxId, classItem.id));
+          const sb = JSON.parse(JSON.stringify(showBill));
+          const arena = sb.days.find(d => d.id === loc.dayId)?.arenas.find(a => a.id === loc.arenaId);
+          const box = arena?.items.find(i => i.id === classBoxId);
+          if (box) {
+            classesToMove.forEach(cls => {
+              if (!box.classes.includes(cls.id)) box.classes.push(cls.id);
+            });
+          }
+          setShowBill(sb);
         }
+        clearSelection();
         return;
       }
 
@@ -180,14 +250,12 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
       let targetDayId, targetArenaId, targetIndex;
 
       if (over.data.current?.origin === 'arena-zone') {
-        // Dropped on empty arena zone
         targetDayId = over.data.current.dayId;
         targetArenaId = over.data.current.arenaId;
         const day = showBill.days.find(d => d.id === targetDayId);
         const arena = day?.arenas.find(a => a.id === targetArenaId);
         targetIndex = arena?.items.length || 0;
       } else if (over.data.current?.sortable?.containerId) {
-        // Dropped on/near an existing sortable item
         const containerId = over.data.current.sortable.containerId;
         const [dayId, arenaId] = containerId.split('::');
         targetDayId = dayId;
@@ -200,19 +268,22 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
         return;
       }
 
-      // Create a classBox with this class
-      const newItem = createShowBillItem('classBox', {
-        title: classItem.name,
-        classes: [classItem.id],
-      });
+      // Reject drops into closed arenas
+      if ((showBill.closedArenas || {})[`${targetDayId}::${targetArenaId}`]) return;
 
+      // Create classBox(es) — each class becomes its own classBox
       const sb = JSON.parse(JSON.stringify(showBill));
       const day = sb.days.find(d => d.id === targetDayId);
       const arena = day?.arenas.find(a => a.id === targetArenaId);
       if (arena) {
-        arena.items.splice(targetIndex, 0, newItem);
+        const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
+          title: cls.name,
+          classes: [cls.id],
+        }));
+        arena.items.splice(targetIndex, 0, ...newItems);
       }
       setShowBill(renumberShowBill(sb));
+      clearSelection();
       return;
     }
 
@@ -231,6 +302,46 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
       const [srcDayId, srcArenaId] = activeContainerId.split('::');
       const [destDayId, destArenaId] = overContainerId.split('::');
 
+      // Reject drops into closed arenas
+      if ((showBill.closedArenas || {})[`${destDayId}::${destArenaId}`]) return;
+
+      const isDraggedSelected = selectedArenaItemIds.has(active.id) && selectedArenaItemIds.size > 1;
+
+      if (isDraggedSelected) {
+        // Multi-move: collect all selected items, remove from sources, insert at drop position
+        const sb = JSON.parse(JSON.stringify(showBill));
+        const collectedItems = [];
+
+        // Remove selected items from their current positions (maintain relative order)
+        for (const day of sb.days) {
+          for (const arena of day.arenas) {
+            const kept = [];
+            for (const item of arena.items) {
+              if (selectedArenaItemIds.has(item.id)) {
+                collectedItems.push(item);
+              } else {
+                kept.push(item);
+              }
+            }
+            arena.items = kept;
+          }
+        }
+
+        // Find destination
+        const destDay = sb.days.find(d => d.id === destDayId);
+        const destArena = destDay?.arenas.find(a => a.id === destArenaId);
+        if (!destArena) return;
+
+        let destIndex = destArena.items.findIndex(i => i.id === over.id);
+        if (destIndex === -1) destIndex = destArena.items.length;
+
+        destArena.items.splice(destIndex, 0, ...collectedItems);
+        setShowBill(renumberShowBill(sb));
+        clearSelection();
+        return;
+      }
+
+      // Single-item move (existing logic)
       const sb = JSON.parse(JSON.stringify(showBill));
       const srcDay = sb.days.find(d => d.id === srcDayId);
       const srcArena = srcDay?.arenas.find(a => a.id === srcArenaId);
@@ -260,7 +371,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
         setShowBill(renumberShowBill(sb));
       }
     }
-  }, [showBill, setShowBill]);
+  }, [showBill, setShowBill, selectedPaletteIds, selectedArenaItemIds, unplacedClasses, clearSelection]);
 
   if (!showBill) {
     return <div className="text-center py-10 text-muted-foreground">Initializing show bill...</div>;
@@ -278,6 +389,8 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
         onRedo={handleRedo}
         onSave={handleSave}
         onGeneratePdf={handleGeneratePdf}
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
       />
 
       <ShowBillHeader header={showBill.header} onUpdateHeader={handleUpdateHeader} />
@@ -290,6 +403,8 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
             allClassItems={allClassItems}
             unplacedClasses={unplacedClasses}
             associationsData={propAssociationsData}
+            selectedIds={selectedPaletteIds}
+            onToggleSelection={togglePaletteSelection}
           />
         </div>
 
@@ -304,6 +419,10 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
                 onInsertItem={handleInsertItem}
                 allClassItems={allClassItems}
                 associationsData={propAssociationsData}
+                closedArenas={showBill.closedArenas || {}}
+                onToggleArenaClosed={handleToggleArenaClosed}
+                selectedArenaItemIds={selectedArenaItemIds}
+                onToggleArenaItemSelection={toggleArenaItemSelection}
               />
             ) : (
               <p className="text-center text-muted-foreground py-10">Select a day to view the schedule</p>
@@ -318,14 +437,21 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
           <div className="p-2 border rounded-lg bg-background shadow-lg cursor-grabbing flex items-center gap-2">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">{activeDragData.classItem.name}</span>
+            {selectedPaletteIds.has(activeDragData.classItem.id) && selectedPaletteIds.size > 1 && (
+              <Badge className="ml-1">{selectedPaletteIds.size}</Badge>
+            )}
           </div>
         )}
         {activeDragData?.origin === 'arena' && activeDragData.item && (
           <div className="p-2 border rounded-lg bg-background shadow-lg cursor-grabbing flex items-center gap-2 opacity-90">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">{activeDragData.item.title || activeDragData.item.type}</span>
-            {activeDragData.item.type === 'classBox' && activeDragData.item.number && (
-              <Badge className="ml-auto">{activeDragData.item.number}</Badge>
+            {selectedArenaItemIds.has(activeDragData.item.id) && selectedArenaItemIds.size > 1 ? (
+              <Badge className="ml-auto">{selectedArenaItemIds.size}</Badge>
+            ) : (
+              activeDragData.item.type === 'classBox' && activeDragData.item.number && (
+                <Badge className="ml-auto">{activeDragData.item.number}</Badge>
+              )
             )}
           </div>
         )}

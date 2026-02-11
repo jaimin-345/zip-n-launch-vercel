@@ -126,12 +126,12 @@ export const Step1_ShowStructure = ({ formData, setFormData, existingProjects = 
         {/* Horse Show Name + Show Number side by side */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="horse-show-name" className="font-semibold">Horse Show Name</Label>
+            <Label htmlFor="horse-show-name" className="font-semibold">Show Name</Label>
             <Input
               id="horse-show-name"
               value={showName}
               onChange={(e) => handleShowNameChange(e.target.value)}
-              placeholder="E.g., Summer Sizzler"
+              placeholder="e.g., Summer Sizzle"
               className="bg-background"
             />
           </div>

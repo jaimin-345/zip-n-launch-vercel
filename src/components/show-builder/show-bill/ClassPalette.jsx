@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Search, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const DraggablePaletteClass = ({ classItem, associationsData }) => {
+const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onToggleSelection }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-${classItem.id}`,
     data: { origin: 'palette', classItem },
@@ -21,26 +21,32 @@ const DraggablePaletteClass = ({ classItem, associationsData }) => {
       {...attributes}
       {...listeners}
       className={cn(
-        'flex items-center gap-2 p-2 border rounded-lg bg-background touch-none cursor-grab active:cursor-grabbing',
-        isDragging && 'opacity-50'
+        'flex items-center gap-1.5 px-1.5 py-1 border rounded bg-background touch-none cursor-grab active:cursor-grabbing text-sm',
+        isDragging && 'opacity-50',
+        isSelected && 'ring-2 ring-primary bg-primary/5'
       )}
     >
-      <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-      <div className="flex-grow min-w-0">
-        <p className="text-sm font-semibold truncate">{classItem.name}</p>
-        <div className="flex flex-wrap gap-1 mt-0.5">
-          {assoc && (
-            <Badge variant={assoc.color || 'secondary'} className="text-xs px-1 py-0">
-              {assoc.abbreviation || assoc.name}
-            </Badge>
-          )}
-        </div>
-      </div>
+      {onToggleSelection && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={() => onToggleSelection(classItem.id)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="h-3.5 w-3.5 shrink-0"
+        />
+      )}
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <span className="truncate flex-grow font-medium">{classItem.name}</span>
+      {assoc && (
+        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+          ({assoc.abbreviation || assoc.name})
+        </span>
+      )}
     </div>
   );
 };
 
-const ClassPalette = ({ allClassItems, unplacedClasses, associationsData }) => {
+const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClasses = useMemo(() => {
@@ -82,13 +88,19 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData }) => {
             {unplacedClasses.length === 0 ? 'All classes placed!' : 'No matches found'}
           </p>
         )}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {Object.entries(groupedClasses).map(([discipline, classes]) => (
             <div key={discipline}>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1.5 px-1">{discipline}</p>
-              <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">{discipline}</p>
+              <div className="space-y-1">
                 {classes.map(cls => (
-                  <DraggablePaletteClass key={cls.id} classItem={cls} associationsData={associationsData} />
+                  <DraggablePaletteClass
+                    key={cls.id}
+                    classItem={cls}
+                    associationsData={associationsData}
+                    isSelected={selectedIds?.has(cls.id)}
+                    onToggleSelection={onToggleSelection}
+                  />
                 ))}
               </div>
             </div>

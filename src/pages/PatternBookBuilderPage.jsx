@@ -291,45 +291,6 @@ const PatternBookBuilderPage = () => {
         
         const staffList = Array.from(staff.values());
         
-        // Find all Judges (case-insensitive, exact match for "judge" role)
-        const judges = staffList.filter(s => {
-            if (!s.role) return false;
-            const roleLower = s.role.toLowerCase().trim();
-            return roleLower === 'judge';
-        });
-        
-        // Check at least one Judge - return first error found
-        if (judges.length === 0) {
-            return 'Judge is missing. Add in Step 4: Show Details.';
-        }
-        
-        // Check ALL judges have complete info (name, email, phone)
-        const incompleteJudges = judges.filter(judge => {
-            const hasCompleteInfo = judge.name && judge.name.trim() && 
-                                   judge.email && judge.email.trim() && 
-                                   judge.phone && judge.phone.trim();
-            return !hasCompleteInfo;
-        });
-        
-        if (incompleteJudges.length > 0) {
-            // Show toast error for each incomplete judge
-            incompleteJudges.forEach(judge => {
-                const missingFields = [];
-                if (!judge.name || !judge.name.trim()) missingFields.push('name');
-                if (!judge.email || !judge.email.trim()) missingFields.push('email');
-                if (!judge.phone || !judge.phone.trim()) missingFields.push('phone');
-                
-                toast({
-                    variant: "destructive",
-                    title: "Judge Information Incomplete",
-                    description: `Judge "${judge.name || 'Unnamed Judge'}" is missing: ${missingFields.join(', ')}. Please add in Step 4: Show Details.`,
-                });
-            });
-            
-            // Return error flag to prevent dialog from opening, but skip generic toast since specific toasts were shown
-            return 'JUDGE_INCOMPLETE_FLAG'; // Special flag to indicate errors exist but toasts were shown
-        }
-        
         return null; // All validations passed
     };
     

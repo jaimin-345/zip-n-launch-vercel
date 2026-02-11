@@ -1,17 +1,27 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Undo, Redo, Save, FileText } from 'lucide-react';
+import { Undo, Redo, Save, FileText, X } from 'lucide-react';
 
-const ShowBillToolbar = ({ showName, startDate, endDate, undoStack, redoStack, onUndo, onRedo, onSave, onGeneratePdf }) => {
+const ShowBillToolbar = ({ showName, startDate, endDate, undoStack, redoStack, onUndo, onRedo, onSave, onGeneratePdf, selectedCount, onClearSelection }) => {
   return (
     <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-sm -mx-6 px-6 py-3 border-b mb-4">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-bold">{showName || 'Untitled Show'}</h2>
-          {startDate && (
-            <p className="text-sm text-muted-foreground">
-              {new Date(startDate + 'T00:00:00').toLocaleDateString()} - {endDate && new Date(endDate + 'T00:00:00').toLocaleDateString()}
-            </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h2 className="text-xl font-bold">{showName || 'Untitled Show'}</h2>
+            {startDate && (
+              <p className="text-sm text-muted-foreground">
+                {new Date(startDate + 'T00:00:00').toLocaleDateString()} - {endDate && new Date(endDate + 'T00:00:00').toLocaleDateString()}
+              </p>
+            )}
+          </div>
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 rounded-full text-sm">
+              <span className="font-semibold">{selectedCount} selected</span>
+              <button onClick={onClearSelection} className="p-0.5 rounded-full hover:bg-primary/20">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">

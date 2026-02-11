@@ -21,10 +21,13 @@ const initialFormData = {
   endDate: null,
   venueName: '',
   venueAddress: '',
+  arenas: [],
   officials: [],
   staff: [],
   schedule: [],
   showBill: null,
+  layoutSettings: null,
+  showStatus: 'draft',
 };
 
 export const useShowBuilder = (showId) => {
@@ -114,14 +117,22 @@ export const useShowBuilder = (showId) => {
     setFormData(prev => ({ ...prev, disciplines: [] }));
   };
 
-  const createOrUpdateShow = useCallback(async () => {
+  const createOrUpdateShow = useCallback(async (statusOverride) => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save a project.', variant: 'destructive' });
       return null;
     }
 
+    const effectiveStatus = statusOverride || formData.showStatus || 'draft';
+
+    // Update formData with the status if overridden
+    if (statusOverride && statusOverride !== formData.showStatus) {
+      setFormData(prev => ({ ...prev, showStatus: statusOverride }));
+    }
+
     const showDataToSave = {
       ...formData,
+      showStatus: effectiveStatus,
       currentStep: step,
       completedSteps: Array.from(completedSteps),
     };
@@ -130,7 +141,7 @@ export const useShowBuilder = (showId) => {
       project_name: formData.showName || 'Untitled Show',
       project_type: 'show',
       project_data: showDataToSave,
-      status: 'draft',
+      status: effectiveStatus,
       user_id: user.id,
     };
 
@@ -170,7 +181,7 @@ export const useShowBuilder = (showId) => {
     }
   }, [formData, step, completedSteps, showId, toast, navigate, user]);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 6));
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 7));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
   const setCurrentStep = (newStep) => setStep(newStep);
 

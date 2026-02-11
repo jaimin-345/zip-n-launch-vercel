@@ -1071,34 +1071,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     </Popover>
                 </div>
 
-                {/* 3. Staff Access & Delegation */}
-                <div className="space-y-4 p-4 border rounded-lg">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <Users className="h-5 w-5 text-purple-600" />
-                        Staff Access & Delegation
-                    </h3>
-                    <p className="text-sm text-muted-foreground">Manage staff members' access rights and delegation settings.</p>
-                    {staffList.length > 0 ? (
-                        staffList.map(staff => (
-                            <StaffDelegationCard
-                                key={staff.id}
-                                staffMember={staff}
-                                disciplines={disciplines}
-                                onUpdate={handleUpdateStaffDelegation}
-                                onContactUpdate={handleContactUpdate}
-                                isReadOnly={isReadOnly}
-                            />
-                        ))
-                    ) : (
-                        <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                            <Users className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                            <p className="text-muted-foreground">No staff members found.</p>
-                            <p className="text-sm text-muted-foreground mt-1">Go back to Step 4 to add judges and staff.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* 4. Review & Finalize Summary - BOTTOM */}
+                {/* 3. Review & Finalize Summary - BOTTOM */}
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <FileText className="h-5 w-5 text-green-600" />

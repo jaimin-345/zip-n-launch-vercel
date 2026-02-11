@@ -8,6 +8,7 @@ import { useShowBuilder } from '@/hooks/useShowBuilder';
 import ShowBuilderSteps from '@/components/show-builder/ShowBuilderSteps';
 import { Step1_ShowAssociations } from '@/components/show-builder/Step1_ShowAssociations';
 import { Step2_ShowClasses } from '@/components/show-builder/Step2_ShowClasses';
+import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
 import { Step3_ConfigureDivisions } from '@/components/show-builder/Step3_ConfigureDivisions';
 import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
 import { Step5_Schedule } from '@/components/show-builder/Step5_Schedule';
@@ -44,11 +45,12 @@ const CreateShowPage = () => {
 
     const steps = [
         { id: 1, name: 'Show Structure', component: Step1_ShowAssociations },
-        { id: 2, name: 'Select Disciplines', component: Step2_ShowClasses },
-        { id: 3, name: 'Configure Classes', component: Step3_ConfigureDivisions },
-        { id: 4, name: 'Details & Staff', component: Step4_ShowDetails },
-        { id: 5, name: 'Show Bill', component: Step5_Schedule },
-        { id: 6, name: 'Preview & Finalize', component: Step6_Preview },
+        { id: 2, name: 'Core Details', component: Step4_ShowDetails },
+        { id: 3, name: 'Arenas & Dates', component: Step3_ArenasAndDates },
+        { id: 4, name: 'Build Classes', component: Step2_ShowClasses },
+        { id: 5, name: 'Organize Schedule', component: Step3_ConfigureDivisions },
+        { id: 6, name: 'Design & Finalize Layout', component: Step5_Schedule },
+        { id: 7, name: 'Save & Manage', component: Step6_Preview },
     ];
 
     const CurrentStepComponent = steps.find(s => s.id === currentStep)?.component;
@@ -86,14 +88,15 @@ const CreateShowPage = () => {
                                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                     </CardContent>
                                 ) : CurrentStepComponent ? (
-                                    <CurrentStepComponent 
-                                        key={currentStep} 
-                                        formData={formData} 
-                                        setFormData={setFormData} 
+                                    <CurrentStepComponent
+                                        key={currentStep}
+                                        formData={formData}
+                                        setFormData={setFormData}
                                         disciplineLibrary={disciplineLibrary}
                                         associationsData={associationsData}
                                         divisionsData={divisionsData}
                                         resetDisciplines={resetDisciplines}
+                                        createOrUpdateShow={createOrUpdateShow}
                                     />
                                 ) : (
                                     <CardContent className="flex items-center justify-center p-16">

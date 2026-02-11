@@ -447,7 +447,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         return `${selectedPurposeName} Name`;
     }
     if (context === 'pbb') return "Horse Show Name";
-    return "Horse Show Name";
+    return "Show Name";
   };
 
   const getShowNamePlaceholder = () => {
@@ -457,7 +457,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         return "E.g., Individual Pattern Purchase";
     }
     if (context === 'pbb') return "E.g., Summer Sizzler Pattern Book";
-    return "E.g., Summer Sizzler";
+    return "e.g., Summer Sizzle";
   };
 
   const getTitle = () => {

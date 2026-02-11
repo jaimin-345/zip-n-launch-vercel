@@ -32,7 +32,7 @@ import React from 'react';
       return (
         <div className="mb-12">
           <motion.div
-            className="grid grid-cols-3 md:grid-cols-6 gap-4"
+            className="grid grid-cols-4 md:grid-cols-7 gap-4"
             variants={containerVariants}
             initial="hidden"
             animate="show"

@@ -65,11 +65,9 @@ export function initializeShowBill(formData) {
         id: `day-${uuidv4()}`,
         date: dateStr,
         label: current.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
-        arenas: (formData.arenas || []).filter(a => a.name.trim() !== '').map(arena => ({
-          id: arena.id,
-          name: arena.name,
-          items: [],
-        })),
+        arenas: (formData.arenas || [])
+          .filter(a => a.name.trim() !== '' && (!a.dates || a.dates.length === 0 || a.dates.includes(dateStr)))
+          .map(arena => ({ id: arena.id, name: arena.name, items: [] })),
       });
       current.setDate(current.getDate() + 1);
     }
@@ -82,11 +80,9 @@ export function initializeShowBill(formData) {
       id: `day-${uuidv4()}`,
       date: today,
       label: new Date(today + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
-      arenas: (formData.arenas || []).filter(a => a.name.trim() !== '').map(arena => ({
-        id: arena.id,
-        name: arena.name,
-        items: [],
-      })),
+      arenas: (formData.arenas || [])
+        .filter(a => a.name.trim() !== '' && (!a.dates || a.dates.length === 0 || a.dates.includes(today)))
+        .map(arena => ({ id: arena.id, name: arena.name, items: [] })),
     });
   }
 
@@ -113,6 +109,7 @@ export function initializeShowBill(formData) {
       showAssociations: true,
       numberingMode: 'global',
     },
+    closedArenas: {},
   };
 }
 
@@ -128,16 +125,18 @@ export function createShowBillItem(type, overrides = {}) {
   return { ...(defaults[type] || defaults.custom), ...overrides };
 }
 
-// Renumber all classBox items sequentially
+// Renumber all classBox items sequentially (skips closed arenas)
 export function renumberShowBill(showBill) {
   if (!showBill) return showBill;
   const mode = showBill.settings?.numberingMode || 'global';
+  const closed = showBill.closedArenas || {};
   const newShowBill = JSON.parse(JSON.stringify(showBill));
   let globalCounter = 1;
 
   for (const day of newShowBill.days) {
     let dayCounter = 1;
     for (const arena of day.arenas) {
+      if (closed[`${day.id}::${arena.id}`]) continue;
       let arenaCounter = 1;
       for (const item of arena.items) {
         if (item.type === 'classBox') {

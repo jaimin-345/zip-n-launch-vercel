@@ -1,105 +1,295 @@
-import React from 'react';
-    import { motion } from 'framer-motion';
-    import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-    import { Badge } from '@/components/ui/badge';
-    import { Button } from '@/components/ui/button';
-    import { useToast } from '@/components/ui/use-toast';
-    import { parseLocalDate } from '@/lib/utils';
-    import { FileText } from 'lucide-react';
-    import { getAllClassItems } from '@/lib/showBillUtils';
-    import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
+import { useMemo, useCallback, useState } from 'react';
+import { motion } from 'framer-motion';
+import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { parseLocalDate } from '@/lib/utils';
+import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info } from 'lucide-react';
+import { getAllClassItems } from '@/lib/showBillUtils';
+import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
 
-    export const Step6_Preview = ({ formData, setFormData, associationsData }) => {
-        const { toast } = useToast();
+const STATUS_CONFIG = {
+  draft:     { label: 'Draft',     color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
+  approved:  { label: 'Approved',  color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
+  locked:    { label: 'Locked',    color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
+  published: { label: 'Published', color: 'bg-purple-100 text-purple-800 border-purple-300', dotColor: 'bg-purple-600' },
+};
 
-        const handleFeatureRequest = () => {
-            toast({
-                title: 'Coming Soon',
-                description: "This feature isn't implemented yet — it will be available in a future update.",
-            });
-        };
+// --- Left Panel: Project Info ---
+const ProjectInfoCard = ({ formData, user }) => {
+  const status = formData.showStatus || 'draft';
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
 
-        const allClassItems = React.useMemo(() => getAllClassItems(formData), [formData]);
+  return (
+    <div className="border rounded-lg bg-card p-5 space-y-4">
+      <h3 className="text-base font-semibold">Project Info</h3>
 
-        const handleGenerateShowBill = async () => {
-            if (!formData.showBill) {
-                toast({
-                    title: 'No Show Bill Data',
-                    description: 'Please build your show bill in Step 5 before generating a PDF.',
-                    variant: 'destructive',
-                });
-                return;
-            }
-            try {
-                await generateShowBillPdf(formData.showBill, allClassItems, associationsData);
-                toast({ title: 'PDF Generated', description: 'Your show bill PDF has been downloaded.' });
-            } catch (err) {
-                toast({ title: 'PDF Error', description: err.message, variant: 'destructive' });
-            }
-        };
+      <div className="space-y-3">
+        <div>
+          <p className="text-xs text-muted-foreground">Show Name</p>
+          <p className="text-sm font-medium">{formData.showName || 'Untitled Show'}</p>
+        </div>
 
-        return (
-            <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-                <CardHeader>
-                    <CardTitle>Step 6: Preview & Finalize</CardTitle>
-                    <CardDescription>Review your complete show setup before finalizing.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="text-lg font-semibold mb-2">{formData.showName || 'Untitled Show'}</h3>
-                    <p className="text-muted-foreground">{formData.venueAddress}</p>
-                    <p className="text-muted-foreground">
-                        {formData.startDate && parseLocalDate(formData.startDate).toLocaleDateString()} - {formData.endDate && parseLocalDate(formData.endDate).toLocaleDateString()}
-                    </p>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="text-lg font-semibold mb-2">Associations</h3>
-                        <div className="flex flex-wrap gap-2">
-                            {Object.keys(formData.associations || {}).map(assocId => (
-                                <Badge key={assocId} variant="secondary">{assocId}</Badge>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="text-lg font-semibold mb-2">Classes ({allClassItems.length})</h3>
-                         <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                            {allClassItems.map(pbbClass => (
-                                <Badge key={pbbClass.id} variant="outline">{pbbClass.name}</Badge>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="text-lg font-semibold mb-2">Judges</h3>
-                         <div className="flex flex-wrap gap-2">
-                            {Object.entries(formData.associationJudges || {}).flatMap(([assocId, info]) =>
-                                (info.judges || []).filter(j => j?.name).map((judge, index) => (
-                                    <Badge key={`${assocId}-${index}`} variant="outline">{judge.name} ({assocId})</Badge>
-                                ))
-                            )}
-                            {Object.keys(formData.associationJudges || {}).length === 0 && (
-                                <p className="text-sm text-muted-foreground">No judges assigned yet.</p>
-                            )}
-                        </div>
-                    </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Owner</p>
+          <p className="text-sm font-medium">{user?.user_metadata?.full_name || user?.email || 'Unknown'}</p>
+        </div>
 
-                    {formData.showBill && (
-                        <div className="p-4 border rounded-lg">
-                            <h3 className="text-lg font-semibold mb-2">Show Bill Summary</h3>
-                            <p className="text-sm text-muted-foreground">
-                                {formData.showBill.days?.length || 0} day(s), {' '}
-                                {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.length, 0) || 0} arena(s), {' '}
-                                {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.reduce((s, a) => s + a.items.filter(i => i.type === 'classBox').length, 0), 0) || 0} class box(es) scheduled
-                            </p>
-                        </div>
-                    )}
+        {formData.startDate && (
+          <div>
+            <p className="text-xs text-muted-foreground">Show Dates</p>
+            <p className="text-sm">
+              {parseLocalDate(formData.startDate).toLocaleDateString()}
+              {formData.endDate && ` — ${parseLocalDate(formData.endDate).toLocaleDateString()}`}
+            </p>
+          </div>
+        )}
 
-                    <div className="mt-8 flex justify-end gap-4">
-                        <Button variant="outline" onClick={handleGenerateShowBill}>
-                            <FileText className="h-4 w-4 mr-2" />Generate Show Bill
-                        </Button>
-                        <Button onClick={handleFeatureRequest}>Finalize & Pay</Button>
-                    </div>
-                </CardContent>
-            </motion.div>
-        );
-    };
+        {formData.venueAddress && (
+          <div>
+            <p className="text-xs text-muted-foreground">Venue</p>
+            <p className="text-sm">{formData.venueAddress}</p>
+          </div>
+        )}
+
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Current Status</p>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${cfg.color}`}>
+            <span className={`w-2 h-2 rounded-full ${cfg.dotColor}`} />
+            {cfg.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="pt-3 border-t space-y-1.5">
+        <p className="text-xs text-muted-foreground">
+          {formData.disciplines?.length || 0} discipline(s) &middot; {formData.arenas?.length || 0} arena(s)
+        </p>
+        {formData.showBill && (
+          <p className="text-xs text-muted-foreground">
+            {formData.showBill.days?.length || 0} day(s) &middot;{' '}
+            {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.reduce((s, a) => s + a.items.filter(i => i.type === 'classBox').length, 0), 0) || 0} class(es) scheduled
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Center Panel: Action Buttons ---
+const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, isSaving }) => {
+  const isLocked = currentStatus === 'locked' || currentStatus === 'published';
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold mb-1">Manage Show</h3>
+      <p className="text-xs text-muted-foreground mb-4">
+        Save, approve, and publish your show when ready.
+      </p>
+
+      {/* Save Draft */}
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full justify-start text-sm h-12"
+        onClick={() => onStatusChange('draft')}
+        disabled={isSaving}
+      >
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
+        <div className="text-left">
+          <span className="font-semibold">Save Draft</span>
+          <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
+        </div>
+      </Button>
+
+      {/* Approve Show */}
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full justify-start text-sm h-12 border-green-200 hover:bg-green-50 hover:border-green-300"
+        onClick={() => onStatusChange('approved')}
+        disabled={isSaving || isLocked}
+      >
+        <ShieldCheck className="mr-3 h-5 w-5 text-green-600" />
+        <div className="text-left">
+          <span className="font-semibold text-green-700">Approve Show</span>
+          <span className="block text-xs text-muted-foreground">Mark approved — still editable</span>
+        </div>
+      </Button>
+
+      {/* Lock Show */}
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+        onClick={() => onStatusChange('locked')}
+        disabled={isSaving || currentStatus === 'published'}
+      >
+        <Lock className="mr-3 h-5 w-5 text-blue-600" />
+        <div className="text-left">
+          <span className="font-semibold text-blue-700">Lock Show</span>
+          <span className="block text-xs text-muted-foreground">Disable editing — export & view only</span>
+        </div>
+      </Button>
+
+      {/* Publish Show */}
+      <Button
+        size="lg"
+        className="w-full justify-start text-sm h-12 bg-purple-600 hover:bg-purple-700 text-white"
+        onClick={() => onStatusChange('published')}
+        disabled={isSaving}
+      >
+        <Rocket className="mr-3 h-5 w-5" />
+        <div className="text-left">
+          <span className="font-semibold">Publish Show</span>
+          <span className="block text-xs text-purple-200">Final state — official show bill</span>
+        </div>
+      </Button>
+
+      {/* Divider */}
+      <hr className="my-2 border-border" />
+
+      {/* Export PDF */}
+      <Button
+        size="lg"
+        className="w-full text-sm font-semibold h-12"
+        onClick={onExportPdf}
+        disabled={isSaving}
+      >
+        <Download className="mr-2 h-5 w-5" /> Export Final PDF
+      </Button>
+    </div>
+  );
+};
+
+// --- Right Panel: Licensing & Ownership ---
+const LicensingCard = () => (
+  <div className="border rounded-lg bg-card p-5 space-y-4">
+    <h3 className="text-base font-semibold flex items-center gap-2">
+      <Info className="h-4 w-4 text-primary" />
+      Project Ownership & Licensing
+    </h3>
+
+    <div className="space-y-2.5">
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Ownership retained by creator</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Stored in your My Projects folder</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Admin access assigned</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Can be edited until locked</p>
+      </div>
+    </div>
+
+    <hr className="border-border" />
+
+    <div className="bg-muted/50 rounded-md p-3">
+      <p className="text-sm font-medium">Pricing Notice</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Building a show is free for members. Licensing applies only when publishing or exporting the final show bill.
+      </p>
+    </div>
+  </div>
+);
+
+// --- Main Step Component ---
+export const Step6_Preview = ({ formData, setFormData, associationsData, createOrUpdateShow }) => {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const allClassItems = useMemo(() => getAllClassItems(formData), [formData]);
+
+  const handleStatusChange = useCallback(async (newStatus) => {
+    setIsSaving(true);
+    try {
+      const project = await createOrUpdateShow(newStatus);
+      if (project) {
+        const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
+        toast({
+          title: `Show ${statusLabel}!`,
+          description: newStatus === 'published'
+            ? 'Your show has been published as the official show bill.'
+            : newStatus === 'locked'
+            ? 'Show is now locked. Editing is disabled — export and view only.'
+            : `Your show has been saved with status: ${statusLabel}.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Save Failed',
+        description: 'Could not save show. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [createOrUpdateShow, toast]);
+
+  const handleExportPdf = useCallback(async () => {
+    if (!formData.showBill) {
+      toast({
+        title: 'No Show Bill Data',
+        description: 'Please build your schedule in Step 5 before exporting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      await generateShowBillPdf(formData.showBill, allClassItems, associationsData, formData.layoutSettings);
+      toast({ title: 'PDF Generated', description: 'Your show bill PDF has been downloaded.' });
+    } catch (err) {
+      toast({ title: 'PDF Error', description: err.message, variant: 'destructive' });
+    }
+  }, [formData.showBill, formData.layoutSettings, allClassItems, associationsData, toast]);
+
+  const currentStatus = formData.showStatus || 'draft';
+
+  return (
+    <motion.div key="step7" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+      <CardHeader>
+        <CardTitle>7. Save & Manage Your Show</CardTitle>
+        <CardDescription>
+          Save your show, manage status, and publish when ready.
+          <span className="block mt-1 text-xs text-muted-foreground/70">
+            Building a show is free — licensing applies only when publishing/exporting.
+          </span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Panel: Project Info */}
+          <div className="lg:col-span-3">
+            <ProjectInfoCard formData={formData} user={user} />
+          </div>
+
+          {/* Center Panel: Action Buttons */}
+          <div className="lg:col-span-5">
+            <ActionPanel
+              formData={formData}
+              currentStatus={currentStatus}
+              onStatusChange={handleStatusChange}
+              onExportPdf={handleExportPdf}
+              isSaving={isSaving}
+            />
+          </div>
+
+          {/* Right Panel: Licensing */}
+          <div className="lg:col-span-4">
+            <LicensingCard />
+          </div>
+        </div>
+      </CardContent>
+    </motion.div>
+  );
+};
