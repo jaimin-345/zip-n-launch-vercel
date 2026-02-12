@@ -1,17 +1,23 @@
 import React from 'react';
 import { Helmet } from 'react-helmet';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle, ShoppingBag, ArrowRight } from 'lucide-react';
+import { CheckCircle, ShoppingBag, ArrowRight, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
 
 const SuccessPage = () => {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('session_id');
+
+  // If session_id is present, the user came from Stripe Checkout
+  const isStripeCheckout = !!sessionId;
+
   return (
     <>
       <Helmet>
-        <title>Payment Successful - EquiPatterns Store</title>
-        <meta name="description" content="Your purchase was successful. Thank you for shopping with us!" />
+        <title>Payment Successful - EquiPatterns</title>
+        <meta name="description" content="Your purchase was successful. Thank you!" />
       </Helmet>
       <div className="min-h-screen bg-background text-foreground">
         <Navigation />
@@ -38,20 +44,40 @@ const SuccessPage = () => {
               Thank You!
             </h1>
             <p className="mt-4 text-xl text-muted-foreground">
-              Your order has been placed successfully. A confirmation email is on its way to you.
+              {isStripeCheckout
+                ? 'Your payment was processed successfully. Your account has been updated.'
+                : 'Your order has been placed successfully. A confirmation email is on its way to you.'}
             </p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Button asChild size="lg" className="w-full sm:w-auto">
-                <Link to="/store">
-                  <ShoppingBag className="mr-2 h-5 w-5" />
-                  Continue Shopping
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                <Link to="/">
-                  Back to Homepage <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
+              {isStripeCheckout ? (
+                <>
+                  <Button asChild size="lg" className="w-full sm:w-auto">
+                    <Link to="/profile">
+                      <Crown className="mr-2 h-5 w-5" />
+                      View My Account
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                    <Link to="/">
+                      Back to Homepage <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild size="lg" className="w-full sm:w-auto">
+                    <Link to="/store">
+                      <ShoppingBag className="mr-2 h-5 w-5" />
+                      Continue Shopping
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
+                    <Link to="/">
+                      Back to Homepage <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

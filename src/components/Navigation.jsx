@@ -30,6 +30,7 @@ const Navigation = () => {
         { name: 'Horse Show Manager', path: '/horse-show-manager', show: 'always' },
         { name: 'Events', path: '/events', show: 'always' },
         { name: 'Upload Pattern', path: '/upload-patterns/new', show: 'always' },
+        { name: 'Pricing', path: '/pricing', show: 'always' },
         { name: 'Admin Portal', path: '/admin', show: 'admin' },
     ];
 

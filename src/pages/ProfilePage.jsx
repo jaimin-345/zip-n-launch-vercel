@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Gavel, Save } from 'lucide-react';
+import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Gavel, Save, Crown, CreditCard, ExternalLink } from 'lucide-react';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -75,10 +76,12 @@ const AGE_DIVISIONS = [
 ];
 
 const ProfilePage = () => {
-    const { user, loading, updateUserProfile, openAuthModal } = useAuth();
+    const { user, loading, updateUserProfile, openAuthModal, isSubscribed, subscriptionTier, subscriptionStatus } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
+    const { subscription, openBillingPortal, loading: subLoading } = useSubscription();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [billingLoading, setBillingLoading] = useState(false);
     
     // Basic Info
     const [firstName, setFirstName] = useState('');
@@ -623,7 +626,77 @@ const ProfilePage = () => {
                                         )}
                                     </div>
 
-                                    {/* Section 4: Horse Information */}
+                                    {/* Section 4: Membership & Subscription */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
+                                            <Crown className="h-5 w-5" />
+                                            Membership & Subscription
+                                        </h3>
+
+                                        {isSubscribed ? (
+                                            <Card className="bg-green-500/10 border-green-500/30">
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-semibold text-foreground">
+                                                                {subscriptionTier === 'founding_insider' && 'Founding Insider'}
+                                                                {subscriptionTier === 'founding_member' && 'Founding Member'}
+                                                                {subscriptionTier === 'standard' && 'Standard Member'}
+                                                            </p>
+                                                            <p className="text-sm text-muted-foreground">Status: Active</p>
+                                                            {subscription?.current_period_end && (
+                                                                <p className="text-sm text-muted-foreground">
+                                                                    Renews: {new Date(subscription.current_period_end).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <Badge className="bg-green-600">Active</Badge>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        disabled={billingLoading}
+                                                        onClick={async () => {
+                                                            setBillingLoading(true);
+                                                            try {
+                                                                await openBillingPortal();
+                                                            } catch (error) {
+                                                                toast({
+                                                                    title: 'Error',
+                                                                    description: error.message,
+                                                                    variant: 'destructive',
+                                                                });
+                                                                setBillingLoading(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {billingLoading ? (
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <CreditCard className="mr-2 h-4 w-4" />
+                                                        )}
+                                                        Manage Billing
+                                                        <ExternalLink className="ml-2 h-3 w-3" />
+                                                    </Button>
+                                                </CardContent>
+                                            </Card>
+                                        ) : (
+                                            <Card className="bg-muted/30">
+                                                <CardContent className="p-4 flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-medium">No active membership</p>
+                                                        <p className="text-sm text-muted-foreground">Subscribe to unlock all features</p>
+                                                    </div>
+                                                    <Button type="button" variant="default" size="sm" asChild>
+                                                        <a href="/pricing">View Plans</a>
+                                                    </Button>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                    </div>
+
+                                    {/* Section 5: Horse Information */}
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between border-b pb-2">
                                             <h3 className="text-lg font-semibold">Horse Information</h3>

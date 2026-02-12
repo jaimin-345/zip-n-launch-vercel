@@ -86,6 +86,7 @@ import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
 import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagementPage';
 import AccountSecurityPage from '@/pages/AccountSecurityPage';
 import ScoresheetUploadPage from '@/pages/ScoresheetUploadPage';
+import PricingPage from '@/pages/PricingPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -110,6 +111,8 @@ function App() {
                   <Route path="/qr/:code" element={<QRCodePage />} />
                   <Route path="/sponsorship" element={<SponsorshipPage />} />
                   <Route path="/advertisement" element={<SponsorshipPage />} />
+                  <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/membership" element={<PricingPage />} />
                   <Route path="/database-schema" element={<DatabaseSchemaPage />} />
                   <Route path="/not-authorized" element={<NotAuthorizedPage />} />
                   <Route path="/show/:showId" element={<PublicShowPage />} />

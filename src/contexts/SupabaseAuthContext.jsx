@@ -288,6 +288,11 @@ export const AuthProvider = ({ children }) => {
     authModalInitialTab: authModalState.initialTab,
     openAuthModal,
     closeAuthModal,
+    // Subscription fields (synced from profiles table via Stripe webhook)
+    subscriptionStatus: profile?.subscription_status || 'none',
+    subscriptionTier: profile?.subscription_tier || null,
+    isSubscribed: profile?.subscription_status === 'active',
+    hasUsedFreePatternBook: profile?.free_pattern_book_used === true,
   }), [user, profile, session, loading, isAdmin, permissions, hasPermission, signUp, signIn, signOut, sendPasswordResetEmail, updatePassword, updateUserProfile, authModalState]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

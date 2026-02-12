@@ -95,7 +95,7 @@ const HomePage = () => {
                     <li className="flex items-start gap-3"><CheckCircle className="h-6 w-6 text-primary flex-shrink-0 mt-1" /><span className="text-muted-foreground">Reach thousands of show organizers and riders.</span></li>
                 </ul>
                 <p className="text-sm text-muted-foreground">EquiPatterns reserves the <em>right</em> to review, approve, reject, or remove submissions at its discretion.</p>
-                <Button asChild size="lg" variant="outline">
+                <Button asChild size="lg" variant="default">
                     <Link to="/contributor-portal">License Your Patterns <ArrowRight className="ml-2 h-5 w-5" /></Link>
                 </Button>
                 </div>
