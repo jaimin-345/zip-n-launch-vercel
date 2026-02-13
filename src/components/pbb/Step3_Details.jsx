@@ -10,6 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { JudgesAndStaff } from './JudgesAndStaff';
 
 export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false, purposeName = null, stepNumber = 4, isReadOnly = false }) => {
   const handleUpdate = (key, value) => {
@@ -144,6 +145,21 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                             <Input id="venueAddress" value={formData.venueAddress} onChange={(e) => handleUpdate('venueAddress', e.target.value)} placeholder="E.g., 123 Stable Rd, City, State" disabled={isReadOnly} />
                         </div>
                     </div>
+                </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-2">
+                <AccordionTrigger className="text-base font-semibold">
+                    {mode === 'clinic' ? 'Clinicians & Staff' : mode === 'education' ? 'Instructors & Contributors' : 'Judges & Show Staff'}
+                </AccordionTrigger>
+                <AccordionContent className="pt-3">
+                    <JudgesAndStaff
+                        formData={formData}
+                        setFormData={setFormData}
+                        selectedAssociationIds={selectedAssociationIds}
+                        isClinicMode={isClinicMode}
+                        isEducationMode={isEducationMode}
+                        isReadOnly={isReadOnly}
+                    />
                 </AccordionContent>
             </AccordionItem>
         </Accordion>

@@ -117,7 +117,6 @@ serve(async (req: Request) => {
           .from('profiles')
           .upsert({
             id: existingAuthUser.id,
-            email: email,
             full_name: name,
             role: role
           }, {
@@ -138,13 +137,13 @@ serve(async (req: Request) => {
 
         const { error: customerCreateError } = await supabaseAdmin
           .from('customers')
-          .insert({
-            id: crypto.randomUUID(),
-            user_id: existingAuthUser.id, // Use profile id as user_id
+          .upsert({
+            user_id: existingAuthUser.id,
             email: email,
             full_name: name,
             last_name: lastName,
-            created_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id'
           });
 
         if (customerCreateError) {
@@ -199,7 +198,6 @@ serve(async (req: Request) => {
       .from('profiles')
       .insert({
         id: newUser.user.id,
-        email: email,
         full_name: name,
         role: role
       })
@@ -213,7 +211,6 @@ serve(async (req: Request) => {
         .from('profiles')
         .upsert({
           id: newUser.user.id,
-          email: email,
           full_name: name,
           role: role
         }, {
@@ -238,13 +235,13 @@ serve(async (req: Request) => {
     // Create customer record using the profile id (user_id)
     const { error: customerError } = await supabaseAdmin
       .from('customers')
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: newUser.user.id, // Use profile id as user_id
+      .upsert({
+        user_id: newUser.user.id,
         email: email,
         full_name: name,
         last_name: lastName,
-        created_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
       });
 
     if (customerError) {

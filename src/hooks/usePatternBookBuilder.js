@@ -427,7 +427,7 @@ export const usePatternBookBuilder = (projectId) => {
             venueName: '',
             venueAddress: '',
             officials: [],
-            associationJudges: [],
+            associationJudges: {},
           };
         case 5:
           return {

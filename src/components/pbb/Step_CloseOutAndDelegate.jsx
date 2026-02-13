@@ -1071,7 +1071,30 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     </Popover>
                 </div>
 
-                {/* 3. Review & Finalize Summary - BOTTOM */}
+                {/* 3. Staff Delegation */}
+                {staffList.length > 0 && (
+                    <div className="space-y-4 p-4 border rounded-lg">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <Users className="h-5 w-5 text-purple-600" />
+                            Staff & Delegation ({staffList.length})
+                        </h3>
+                        <p className="text-sm text-muted-foreground">Manage access phases and delegation for judges and show staff.</p>
+                        <div className="space-y-3">
+                            {staffList.map(member => (
+                                <StaffDelegationCard
+                                    key={member.id}
+                                    staffMember={member}
+                                    disciplines={disciplines}
+                                    onUpdate={handleUpdateStaffDelegation}
+                                    onContactUpdate={handleContactUpdate}
+                                    isReadOnly={isReadOnly}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* 4. Review & Finalize Summary - BOTTOM */}
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <FileText className="h-5 w-5 text-green-600" />
@@ -1096,7 +1119,8 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         </ReviewItem>
 
                         <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel & Sponsors">
-                            <p><strong>Officials:</strong> {(formData.officials || []).length} added</p>
+                            <p><strong>Judges:</strong> {Object.values(formData.associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
+                            <p><strong>Officials:</strong> {(formData.officials || []).filter(o => o.name).length} added</p>
                             <p><strong>Sponsors:</strong> {(formData.sponsors || []).length} added</p>
                         </ReviewItem>
 
