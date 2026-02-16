@@ -7,6 +7,9 @@ export function useSubscription() {
   const { user, profile } = useAuth();
   const [subscription, setSubscription] = useState(null);
   const [purchases, setPurchases] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [planChanges, setPlanChanges] = useState([]);
+  const [subscriptionHistory, setSubscriptionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
@@ -88,6 +91,63 @@ export function useSubscription() {
     }
   }, [user]);
 
+  const fetchInvoices = useCallback(async () => {
+    if (!user) return [];
+
+    const { data, error } = await supabase.functions.invoke('stripe-fetch-invoices', {
+      body: {},
+    });
+
+    if (error) {
+      console.error('Error fetching invoices:', error);
+      throw new Error(error.message || 'Failed to fetch invoices');
+    }
+
+    if (data?.error) {
+      console.error('Stripe invoice error:', data.error);
+      throw new Error(data.error);
+    }
+
+    setInvoices(data?.invoices || []);
+    return data?.invoices || [];
+  }, [user]);
+
+  const fetchPlanChanges = useCallback(async () => {
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('plan_changes')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('changed_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching plan changes:', error);
+      return [];
+    }
+
+    setPlanChanges(data || []);
+    return data || [];
+  }, [user]);
+
+  const fetchSubscriptionHistory = useCallback(async () => {
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching subscription history:', error);
+      return [];
+    }
+
+    setSubscriptionHistory(data || []);
+    return data || [];
+  }, [user]);
+
   const openBillingPortal = useCallback(async () => {
     if (!user) throw new Error('Must be logged in');
 
@@ -106,6 +166,9 @@ export function useSubscription() {
   return {
     subscription,
     purchases,
+    invoices,
+    planChanges,
+    subscriptionHistory,
     loading,
     checkoutLoading,
     isSubscribed,
@@ -113,6 +176,9 @@ export function useSubscription() {
     hasUsedFreePatternBook,
     createCheckoutSession,
     openBillingPortal,
+    fetchInvoices,
+    fetchPlanChanges,
+    fetchSubscriptionHistory,
     refetch: fetchSubscriptionData,
   };
 }

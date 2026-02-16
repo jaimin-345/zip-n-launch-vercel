@@ -213,6 +213,29 @@ serve(async (req: Request): Promise<Response> => {
           const isActive = ["active", "trialing"].includes(subscription.status);
           const tier = subscription.metadata?.tier || "standard";
 
+          // --- Plan change tracking ---
+          const newSubItem = subscription.items?.data?.[0];
+          const newPriceId = newSubItem?.price?.id || "unknown";
+
+          const { data: existingSub } = await adminClient
+            .from("subscriptions")
+            .select("tier, stripe_price_id")
+            .eq("stripe_subscription_id", subscription.id)
+            .single();
+
+          if (existingSub && existingSub.tier !== tier) {
+            await adminClient.from("plan_changes").insert({
+              user_id: profile.id,
+              old_tier: existingSub.tier,
+              new_tier: tier,
+              old_price_id: existingSub.stripe_price_id,
+              new_price_id: newPriceId,
+              changed_at: new Date().toISOString(),
+            });
+            console.log(`Plan change logged for user ${profile.id}: ${existingSub.tier} -> ${tier}`);
+          }
+          // --- End plan change tracking ---
+
           // Period dates are on subscription items in newer Stripe API versions
           const subItem = subscription.items?.data?.[0];
           const periodStart = subItem?.current_period_start || subscription.current_period_start;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage } from 'lucide-react';
+import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 
 const AdminPage = () => {
@@ -19,6 +19,7 @@ const AdminPage = () => {
     { name: 'Manual Pattern Entry', path: '/admin/manual-pattern-entry', icon: PenTool, description: 'Manually input pattern data.' },
     { name: 'Scoresheet Upload', path: '/admin/scoresheet-upload', icon: FileImage, description: 'Upload scoresheet images and link to patterns.' },
     { name: 'Pattern Review', path: '/admin/pattern-review', icon: FileText, description: 'Review and approve submitted patterns.' },
+    { name: 'Billing & Revenue', path: '/admin/billing-report', icon: Receipt, description: 'View all subscriptions, purchases, and revenue.' },
   ];
 
   return (

@@ -87,6 +87,8 @@ import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagement
 import AccountSecurityPage from '@/pages/AccountSecurityPage';
 import ScoresheetUploadPage from '@/pages/ScoresheetUploadPage';
 import PricingPage from '@/pages/PricingPage';
+import BillingHistoryPage from '@/pages/BillingHistoryPage';
+import AdminBillingReportPage from '@/pages/AdminBillingReportPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -100,6 +102,7 @@ function App() {
                   <Route path="/update-password" element={<UpdatePasswordPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/account-security" element={<AccountSecurityPage />} />
+                  <Route path="/billing-history" element={<BillingHistoryPage />} />
                   <Route path="/customize/:id" element={<CustomizePage />} />
                   <Route path="/contributors" element={<ContributorsPage />} />
                   <Route path="/contributor-portal" element={<RoleBasedRoute requiredPermission="patterns:upload"><ContributorPortalPage /></RoleBasedRoute>} />
@@ -160,6 +163,7 @@ function App() {
                   <Route path="/admin/scoresheet-upload" element={<AdminRoute><ScoresheetUploadPage /></AdminRoute>} />
                   <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
+                  <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
 
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />

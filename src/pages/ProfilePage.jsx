@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Gavel, Save, Crown, CreditCard, ExternalLink } from 'lucide-react';
+import { Loader2, User, AlertTriangle, Camera, MapPin, Award, Users, Plus, Trash2, Gavel, Save, Crown, CreditCard, ExternalLink, Receipt } from 'lucide-react';
 import { useSubscription } from '@/hooks/useSubscription';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -679,17 +679,31 @@ const ProfilePage = () => {
                                                         Manage Billing
                                                         <ExternalLink className="ml-2 h-3 w-3" />
                                                     </Button>
+                                                    <Button type="button" variant="ghost" size="sm" asChild>
+                                                        <Link to="/billing-history">
+                                                            <Receipt className="mr-2 h-4 w-4" />
+                                                            View Billing History
+                                                        </Link>
+                                                    </Button>
                                                 </CardContent>
                                             </Card>
                                         ) : (
                                             <Card className="bg-muted/30">
-                                                <CardContent className="p-4 flex items-center justify-between">
-                                                    <div>
-                                                        <p className="font-medium">No active membership</p>
-                                                        <p className="text-sm text-muted-foreground">Subscribe to unlock all features</p>
+                                                <CardContent className="p-4 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="font-medium">No active membership</p>
+                                                            <p className="text-sm text-muted-foreground">Subscribe to unlock all features</p>
+                                                        </div>
+                                                        <Button type="button" variant="default" size="sm" asChild>
+                                                            <a href="/pricing">View Plans</a>
+                                                        </Button>
                                                     </div>
-                                                    <Button type="button" variant="default" size="sm" asChild>
-                                                        <a href="/pricing">View Plans</a>
+                                                    <Button type="button" variant="ghost" size="sm" asChild>
+                                                        <Link to="/billing-history">
+                                                            <Receipt className="mr-2 h-4 w-4" />
+                                                            View Billing History
+                                                        </Link>
                                                     </Button>
                                                 </CardContent>
                                             </Card>
