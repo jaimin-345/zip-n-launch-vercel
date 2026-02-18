@@ -89,6 +89,16 @@ import ScoresheetUploadPage from '@/pages/ScoresheetUploadPage';
 import PricingPage from '@/pages/PricingPage';
 import BillingHistoryPage from '@/pages/BillingHistoryPage';
 import AdminBillingReportPage from '@/pages/AdminBillingReportPage';
+import EquipmentManagementPage from '@/pages/EquipmentManagementPage';
+import DisciplinePlannerPage from '@/pages/DisciplinePlannerPage';
+import ArenaSessionsPage from '@/pages/ArenaSessionsPage';
+import EquipmentRequirementsPage from '@/pages/EquipmentRequirementsPage';
+import DistributionPlanPage from '@/pages/DistributionPlanPage';
+import EquipmentCheckInOutPage from '@/pages/EquipmentCheckInOutPage';
+import EquipmentPlanningHubPage from '@/pages/EquipmentPlanningHubPage';
+import LocationsPage from '@/pages/LocationsPage';
+import ReconciliationPage from '@/pages/ReconciliationPage';
+import EquipmentReportsPage from '@/pages/EquipmentReportsPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -164,6 +174,16 @@ function App() {
                   <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
                   <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
+                  <Route path="/admin/equipment" element={<AdminRoute><EquipmentManagementPage /></AdminRoute>} />
+                  <Route path="/admin/discipline-planner" element={<AdminRoute><DisciplinePlannerPage /></AdminRoute>} />
+                  <Route path="/admin/arena-sessions" element={<AdminRoute><ArenaSessionsPage /></AdminRoute>} />
+                  <Route path="/admin/equipment-requirements" element={<AdminRoute><EquipmentRequirementsPage /></AdminRoute>} />
+                  <Route path="/admin/distribution-plan" element={<AdminRoute><DistributionPlanPage /></AdminRoute>} />
+                  <Route path="/admin/equipment-check-in-out" element={<AdminRoute><EquipmentCheckInOutPage /></AdminRoute>} />
+                  <Route path="/admin/equipment-planning" element={<AdminRoute><EquipmentPlanningHubPage /></AdminRoute>} />
+                  <Route path="/admin/locations" element={<AdminRoute><LocationsPage /></AdminRoute>} />
+                  <Route path="/admin/reconciliation" element={<AdminRoute><ReconciliationPage /></AdminRoute>} />
+                  <Route path="/admin/equipment-reports" element={<AdminRoute><EquipmentReportsPage /></AdminRoute>} />
 
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />

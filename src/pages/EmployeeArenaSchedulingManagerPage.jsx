@@ -6,43 +6,51 @@ import { useToast } from '@/components/ui/use-toast';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { 
-    Users, Building, Hotel, Briefcase, Calendar, Clock, Plane, ClipboardList, 
-    Radio, MessageSquare, DollarSign, FileText, Search, Settings 
-} from 'lucide-react';
+import { Users, Building, Plane, Radio, MessageSquare, ArrowLeft } from 'lucide-react';
 
 const EmployeeArenaSchedulingManagerPage = () => {
     const { toast } = useToast();
 
     const handleFeatureClick = (featureName) => {
         toast({
-            title: `🚀 ${featureName}`,
-            description: "This feature isn't implemented yet—but don't worry! You can request it in your next prompt! 🚀",
+            title: featureName,
+            description: "This feature is coming soon!",
         });
     };
 
     const features = [
-        { name: "Employee Management", icon: Users, description: "Manage all staff, roles, and certifications.", link: "#" },
-        { name: "Venue & Arena Setup", icon: Building, description: "Configure show venues and specific arenas.", link: "#" },
-        { name: "Hotel Management", icon: Hotel, description: "Manage hotel blocks and staff accommodation.", link: "#" },
-        { name: "Demand Planning", icon: Briefcase, description: "Create staffing templates and generate assignments.", link: "#" },
-        { name: "Live Schedule Board", icon: Calendar, description: "Drag-and-drop scheduling with conflict checks.", link: "#" },
-        { name: "Timesheet & Payroll", icon: Clock, description: "Track hours, manage approvals, and export for payroll.", link: "#" },
-        { name: "Travel Coordination", icon: Plane, description: "Organize flights, rentals, and arrivals.", link: "#" },
-        { name: "Task Management", icon: ClipboardList, description: "Assign and track micro-tasks for each shift.", link: "#" },
-        { name: "Equipment Checkout", icon: Radio, description: "Track radios, laptops, and other equipment.", link: "#" },
-        { name: "Communications Log", icon: MessageSquare, description: "Audit log for all SMS/email notifications.", link: "#" },
-        { name: "Pay Rate Configuration", icon: DollarSign, description: "Set hourly, daily, and per-show pay rates.", link: "#" },
-        { name: "Comprehensive Reporting", icon: FileText, description: "Generate reports for payroll, occupancy, and more.", link: "#" },
-        { name: "Universal Search", icon: Search, description: "Faceted search across all scheduling data.", link: "#" },
-        { name: "System Settings", icon: Settings, description: "Configure roles, pay rates, and templates.", link: "#" },
+        {
+            name: "Employee Management",
+            icon: Users,
+            description: "Manage all staff, roles, and certifications.",
+        },
+        {
+            name: "Venue & Arena Setup",
+            icon: Building,
+            description: "Configure show venues and specific arenas.",
+        },
+        {
+            name: "Travel Management",
+            icon: Plane,
+            description: "Hotels, flights, and rental cars — your complete travel hub.",
+        },
+        {
+            name: "Equipment Checkout",
+            icon: Radio,
+            description: "Check in/out radios, laptops, and gear with real-time status tracking.",
+        },
+        {
+            name: "Communications Log",
+            icon: MessageSquare,
+            description: "Audit log for all SMS and email notifications.",
+        },
     ];
 
     const containerVariants = {
         hidden: { opacity: 0 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.05 }
+            transition: { staggerChildren: 0.08 }
         }
     };
 
@@ -54,45 +62,48 @@ const EmployeeArenaSchedulingManagerPage = () => {
     return (
         <>
             <Helmet>
-                <title>Employee & Arena Scheduling Manager - Horse Show Manager</title>
-                <meta name="description" content="Efficiently manage staff and arena schedules for horse shows." />
+                <title>Employee & Arena Scheduling - Horse Show Manager</title>
+                <meta name="description" content="Manage staff, venues, travel, equipment, and communications for horse shows." />
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-                            <div>
-                                <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
-                                    Employee & Arena Scheduling
-                                </h1>
-                                <p className="text-xl text-muted-foreground max-w-3xl mt-2">
-                                    Your central command for all show staffing and scheduling logistics.
-                                </p>
-                            </div>
-                            <Button asChild variant="outline">
-                                <Link to="/horse-show-manager">Back to Manager</Link>
-                            </Button>
+
+                {/* Full-width header banner */}
+                <div className="w-full bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                        <div className="mb-3">
+                            <Link to="/horse-show-manager" className="text-primary hover:underline text-sm flex items-center gap-1">
+                                <ArrowLeft className="h-4 w-4" /> Horse Show Manager
+                            </Link>
                         </div>
-                    </motion.div>
-                    
-                    <motion.div 
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            Employee & Arena Scheduling
+                        </h1>
+                        <p className="mt-2 text-lg text-gray-500 dark:text-gray-400">
+                            Your central command for show staffing and logistics.
+                        </p>
+                    </div>
+                </div>
+
+                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    {/* Module cards — 2-3 column centered grid */}
+                    <motion.div
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
                         variants={containerVariants}
                         initial="hidden"
                         animate="visible"
                     >
                         {features.map((feature) => (
-                             <motion.div key={feature.name} variants={itemVariants}>
+                            <motion.div key={feature.name} variants={itemVariants}>
                                 <Card className="h-full flex flex-col hover:border-primary/70 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                                     <CardHeader>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3">
                                             <div className="p-3 bg-primary/10 rounded-lg">
                                                 <feature.icon className="h-6 w-6 text-primary" />
                                             </div>
-                                            <CardTitle>{feature.name}</CardTitle>
+                                            <CardTitle className="text-lg">{feature.name}</CardTitle>
                                         </div>
-                                        <CardDescription className="pt-2 min-h-[40px]">{feature.description}</CardDescription>
+                                        <CardDescription className="pt-2">{feature.description}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="mt-auto">
                                         <Button className="w-full" onClick={() => handleFeatureClick(feature.name)}>
