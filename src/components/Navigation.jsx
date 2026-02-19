@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, BookOpenCheck, Archive, Activity, Shield, Gavel, Briefcase, Receipt } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, Archive, Activity, Shield, Gavel, Briefcase, Receipt } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
 
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
@@ -82,12 +82,6 @@ const Navigation = () => {
                                 <Link to="/dashboard" className="w-full">
                                     <LayoutDashboard className="mr-2 h-4 w-4" />
                                     <span>Dashboard</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link to="/library/patterns" className="w-full">
-                                    <BookOpenCheck className="mr-2 h-4 w-4" />
-                                    <span>Pattern Library</span>
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>

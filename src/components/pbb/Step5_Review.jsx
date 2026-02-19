@@ -16,7 +16,7 @@ export const Step5_Review = ({ formData, pricing, handlePurchase }) => {
               <p><strong className="text-muted-foreground w-32 inline-block">Show Name:</strong> {formData.showName || 'Not set'}</p>
               <p><strong className="text-muted-foreground w-32 inline-block">Show Type:</strong> {formData.showType}</p>
               <p><strong className="text-muted-foreground w-32 inline-block">Classes:</strong> {formData.classes.length > 0 ? `${formData.classes.length} selected` : 'None selected'}</p>
-              <p><strong className="text-muted-foreground w-32 inline-block">Layout Style:</strong> {formData.layoutStyle === 'styleA' ? 'Modern' : 'Classic'}</p>
+              <p><strong className="text-muted-foreground w-32 inline-block">Layout Style:</strong> {formData.layoutStyle === 'styleA' ? 'By Date' : 'By Discipline'}</p>
             </div>
             {pricing.officeUpgrade && (
               <Badge variant="secondary" className="bg-primary/10 border-primary/30 text-primary font-semibold">

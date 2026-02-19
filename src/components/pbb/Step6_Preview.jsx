@@ -207,6 +207,20 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
     );
 };
 
+// Helper: determine display state for a pattern group
+const getGroupDisplayState = (rawSelection) => {
+  if (!rawSelection) return 'placeholder';
+  if (typeof rawSelection === 'object' && rawSelection !== null) {
+    if (rawSelection.type === 'judgeAssigned') return 'judgeAssigned';
+    if (rawSelection.type === 'customRequest') return 'customRequest';
+    if (rawSelection.patternId) return 'patternSelected';
+    return 'placeholder';
+  }
+  // Primitive value (legacy number/string ID)
+  if (rawSelection) return 'patternSelected';
+  return 'placeholder';
+};
+
 export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7, onGoToStep, purposeName = null }) => {
   const [availablePatterns, setAvailablePatterns] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -878,7 +892,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
               >
                 <div className="w-full space-y-2">
-                  <p className="font-semibold text-center mb-2">Layout A: Modern</p>
+                  <p className="font-semibold text-center mb-2">Layout A: By Date</p>
                   <div className="w-full min-h-48 bg-gradient-to-br from-primary/20 to-primary/5 rounded-md flex flex-col items-center justify-center text-xs p-6 border border-border space-y-4">
                     <div className="text-center space-y-2 border-b pb-4 w-full">
                       <p className="font-bold text-2xl">{formData.showName || (purposeName ? `${purposeName}` : 'Show Name')}</p>
@@ -922,7 +936,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
               >
                 <div className="w-full space-y-2">
-                  <p className="font-semibold text-center mb-2">Layout B: Classic</p>
+                  <p className="font-semibold text-center mb-2">Layout B: By Discipline</p>
                   <div className="w-full min-h-48 border-4 border-double border-border rounded-md flex flex-col p-6 bg-background space-y-4">
                     <div className="text-center border-b-2 border-double pb-3">
                       <p className="font-bold text-xl font-serif tracking-wide">
@@ -990,17 +1004,32 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 const disciplinePatternSelections = [];
                 groups.forEach((group) => {
                   const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                  const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                  if (selectedId && selectedPatternDetails[selectedId]) {
-                    const patternDetail = selectedPatternDetails[selectedId];
-                    const patternName = patternDetail.pdf_file_name || '';
-                    const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
-                    const version = patternDetail.pattern_version || '';
-                    const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                  const state = getGroupDisplayState(rawSelection);
+                  if (state === 'judgeAssigned') {
                     disciplinePatternSelections.push({
-                      patternId: selectedId,
-                      displayText
+                      patternId: null,
+                      displayText: `Judge: ${rawSelection?.judgeName || 'TBD'}`,
+                      type: 'judgeAssigned'
                     });
+                  } else if (state === 'customRequest') {
+                    disciplinePatternSelections.push({
+                      patternId: null,
+                      displayText: 'Custom Pattern',
+                      type: 'customRequest'
+                    });
+                  } else {
+                    const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                    if (selectedId && selectedPatternDetails[selectedId]) {
+                      const patternDetail = selectedPatternDetails[selectedId];
+                      const patternName = patternDetail.pdf_file_name || '';
+                      const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
+                      const version = patternDetail.pattern_version || '';
+                      const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
+                      disciplinePatternSelections.push({
+                        patternId: selectedId,
+                        displayText
+                      });
+                    }
                   }
                 });
                 
@@ -1040,12 +1069,18 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                         )}
                         <div className="flex items-center gap-1 flex-wrap flex-1">
                           {disciplinePatternSelections.map((sel, idx) => (
-                            <PatternBadgeWithHover 
-                              key={idx} 
-                              patternId={sel.patternId} 
-                              displayText={sel.displayText}
-                              formData={formData}
-                            />
+                            sel.type === 'judgeAssigned' ? (
+                              <Badge key={idx} className="bg-amber-100 text-amber-800 border-amber-200 text-xs">{sel.displayText}</Badge>
+                            ) : sel.type === 'customRequest' ? (
+                              <Badge key={idx} className="bg-purple-100 text-purple-800 border-purple-200 text-xs">{sel.displayText}</Badge>
+                            ) : (
+                              <PatternBadgeWithHover
+                                key={idx}
+                                patternId={sel.patternId}
+                                displayText={sel.displayText}
+                                formData={formData}
+                              />
+                            )
                           ))}
                         </div>
                       </div>
@@ -1103,17 +1138,64 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                     const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
                                     const groupPatterns = availablePatterns[groupKey] || [];
                                     const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
-                                    const selectedId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
+                                    const displayState = getGroupDisplayState(rawSelection);
+                                    const selectedId = displayState === 'patternSelected'
+                                      ? (typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection)
+                                      : null;
                                     return (
                                       <div key={group.id}>
-                                        <PatternGroupPreview
-                                          group={group}
-                                          patterns={groupPatterns}
-                                          selectedPatternId={selectedId}
-                                          selectedPatternDetail={selectedPatternDetails[selectedId]}
-                                          onPatternSelect={(newPatternId) => handlePatternSelectionChange(pbbDiscipline.id, group.id, newPatternId)}
-                                          primaryAffiliates={new Set(formData.primaryAffiliates || [])}
-                                        />
+                                        {displayState === 'judgeAssigned' ? (
+                                          <div className="p-4 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 text-center">
+                                            <p className="text-amber-800 dark:text-amber-300 font-medium">
+                                              Pattern to be selected by Judge: {rawSelection?.judgeName || 'TBD'}
+                                            </p>
+                                            {group.divisions && group.divisions.length > 0 && (
+                                              <div className="flex flex-wrap gap-1 justify-center mt-2">
+                                                {group.divisions.map(div => (
+                                                  <Badge key={div.id} variant="secondary" className="text-xs">{div.division}</Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : displayState === 'customRequest' ? (
+                                          <div className="p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 text-center">
+                                            <p className="text-purple-800 dark:text-purple-300 font-medium">
+                                              Custom Pattern — Coming Soon
+                                            </p>
+                                            {rawSelection?.requestNote && (
+                                              <p className="text-sm text-muted-foreground mt-1">Note: {rawSelection.requestNote}</p>
+                                            )}
+                                            {group.divisions && group.divisions.length > 0 && (
+                                              <div className="flex flex-wrap gap-1 justify-center mt-2">
+                                                {group.divisions.map(div => (
+                                                  <Badge key={div.id} variant="secondary" className="text-xs">{div.division}</Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : displayState === 'placeholder' ? (
+                                          <div className="p-4 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50/50 dark:bg-slate-900/20 text-center">
+                                            <p className="text-slate-500 dark:text-slate-400 font-medium">
+                                              Pattern Coming Soon
+                                            </p>
+                                            {group.divisions && group.divisions.length > 0 && (
+                                              <div className="flex flex-wrap gap-1 justify-center mt-2">
+                                                {group.divisions.map(div => (
+                                                  <Badge key={div.id} variant="secondary" className="text-xs">{div.division}</Badge>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <PatternGroupPreview
+                                            group={group}
+                                            patterns={groupPatterns}
+                                            selectedPatternId={selectedId}
+                                            selectedPatternDetail={selectedPatternDetails[selectedId]}
+                                            onPatternSelect={(newPatternId) => handlePatternSelectionChange(pbbDiscipline.id, group.id, newPatternId)}
+                                            primaryAffiliates={new Set(formData.primaryAffiliates || [])}
+                                          />
+                                        )}
                                         {isEducationMode && formData.lessonPlans && formData.lessonPlans.length > 0 && (
                                           <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
                                             <h5 className="font-semibold text-sm mb-2 text-blue-800 dark:text-blue-300">Associated Lesson Plans</h5>

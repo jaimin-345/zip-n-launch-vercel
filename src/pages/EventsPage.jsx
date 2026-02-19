@@ -4006,10 +4006,10 @@ const EventPatternBookDialogContent = ({ project, profile, user, associationsDat
                         <div className="border rounded-lg p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                <h3 className="font-semibold text-lg">Layout A - Modern</h3>
+                                <h3 className="font-semibold text-lg">Layout A - By Date</h3>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Modern layout with clean design and contemporary styling.
+                                Patterns organized by show date with clean, contemporary styling.
                             </p>
                             <div className="flex gap-3">
                                 <Button 
@@ -4134,10 +4134,10 @@ const EventPatternBookDialogContent = ({ project, profile, user, associationsDat
                         <div className="border rounded-lg p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                <h3 className="font-semibold text-lg">Layout B - Classic</h3>
+                                <h3 className="font-semibold text-lg">Layout B - By Discipline</h3>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Classic layout with traditional design and professional styling.
+                                Patterns organized by discipline with traditional, professional styling.
                             </p>
                             <div className="flex gap-3">
                                 <Button 

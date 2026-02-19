@@ -345,29 +345,32 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
   // Get class/group name
   const className = scoresheet?.groupName || scoresheet?.disciplineName || '';
   
-  // Get date - check multiple possible locations
+  // Get date - prioritize per-class date from scoresheet, then divisionDates lookup, then show start date
   let date = '';
-  if (projectData.startDate && projectData.endDate) {
-    date = `${projectData.startDate} - ${projectData.endDate}`;
-  } else if (projectData.startDate) {
-    date = projectData.startDate;
-  } else if (projectData.showDates?.startDate) {
-    date = projectData.showDates.startDate;
-    if (projectData.showDates.endDate) {
-      date = `${date} - ${projectData.showDates.endDate}`;
+  // Use scoresheet's classDate if available
+  if (scoresheet?.classDate) {
+    date = scoresheet.classDate;
+  }
+  // Try to find per-division date by matching division name
+  if (!date && scoresheet?.divisionName && projectData.disciplines?.length > 0) {
+    for (const discipline of projectData.disciplines) {
+      for (const group of (discipline.patternGroups || [])) {
+        for (const div of (group.divisions || [])) {
+          const divName = div?.name || div?.divisionName || div?.division || div?.title || '';
+          const divId = div?.id;
+          if (divName.trim() === scoresheet.divisionName && divId && discipline.divisionDates?.[divId]) {
+            date = discipline.divisionDates[divId];
+            break;
+          }
+        }
+        if (date) break;
+      }
+      if (date) break;
     }
   }
-  // Check divisionDates from disciplines if no main date found
-  if (!date && projectData.disciplines?.length > 0) {
-    for (const discipline of projectData.disciplines) {
-      if (discipline.divisionDates && Object.keys(discipline.divisionDates).length > 0) {
-        const firstDate = Object.values(discipline.divisionDates)[0];
-        if (firstDate) {
-          date = firstDate;
-          break;
-        }
-      }
-    }
+  // Fallback to show start date only (not range)
+  if (!date) {
+    date = projectData.startDate || projectData.showDates?.startDate || '';
   }
   
   // Get judge name - check multiple possible locations

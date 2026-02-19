@@ -46,7 +46,7 @@ export const Step7_Review = ({ formData, pricing, handlePurchase }) => {
         </div>
         <div className="space-y-4 p-4 border rounded-lg bg-background/50">
             <h4 className="font-semibold text-lg flex items-center"><LayoutTemplate className="mr-2 h-5 w-5 text-primary" /> Final Touches</h4>
-            <p><strong className="text-muted-foreground">Layout Style:</strong> {formData.layoutSelection === 'layout-a' ? 'Modern' : 'Classic'}</p>
+            <p><strong className="text-muted-foreground">Layout Style:</strong> {formData.layoutSelection === 'layout-a' ? 'By Date' : 'By Discipline'}</p>
             <p><strong className="text-muted-foreground">Cover Page:</strong> {formData.coverPageOption === 'generate' ? 'Auto-Generated' : 'Custom Upload'}</p>
         </div>
         <div className="flex items-center p-4 border-l-4 border-green-500 bg-green-500/10 rounded-r-lg">

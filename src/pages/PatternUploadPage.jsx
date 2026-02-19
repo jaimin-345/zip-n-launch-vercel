@@ -43,6 +43,7 @@ const PatternUploadPage = () => {
         handlePdfSplit,
         assignStagedPdf,
         removeStagedPdf,
+        renameStagedPdf,
         accessoryDocs,
         handleAddAccessoryDoc,
         handleRemoveAccessoryDoc,
@@ -264,17 +265,17 @@ const PatternUploadPage = () => {
     return (
         <>
             <Helmet>
-                <title>New Pattern Set - EquiPatterns</title>
-                <meta name="description" content="Upload and configure a new set of custom horse show patterns." />
+                <title>Upload Patterns - EquiPatterns</title>
+                <meta name="description" content="Upload your patterns and assign them to divisions." />
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                         <CardHeader className="text-center px-0 mb-8">
-                            <CardTitle className="text-4xl md:text-5xl font-bold">Create New Pattern Set</CardTitle>
+                            <CardTitle className="text-4xl md:text-5xl font-bold">Upload Patterns</CardTitle>
                             <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                                Upload your patterns, define their hierarchy, and tag them for the world to see.
+                                Upload your patterns and assign them to divisions.
                             </CardDescription>
                         </CardHeader>
 
@@ -309,6 +310,7 @@ const PatternUploadPage = () => {
                                 handlePdfSplit={handlePdfSplit}
                                 assignStagedPdf={assignStagedPdf}
                                 removeStagedPdf={removeStagedPdf}
+                                renameStagedPdf={renameStagedPdf}
                                 pinnedPattern={pinnedPattern}
                                 handlePinPattern={handlePinPattern}
                             />
@@ -332,7 +334,7 @@ const PatternUploadPage = () => {
                                   {isSubmitting ? (
                                     <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Submitting...</>
                                   ) : (
-                                    <><CheckCircle className="mr-2 h-5 w-5" /> Submit Pattern Set for Review</>
+                                    <><CheckCircle className="mr-2 h-5 w-5" /> Submit Patterns</>
                                   )}
                               </Button>
                             </div>

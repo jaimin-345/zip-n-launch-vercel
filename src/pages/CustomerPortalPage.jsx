@@ -1999,6 +1999,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [disciplineSearch, setDisciplineSearch] = useState('');
     const [divisionSearch, setDivisionSearch] = useState('');
     const [judgeSearch, setJudgeSearch] = useState('');
+    const [filterDates, setFilterDates] = useState(new Set());
+    const [dateFilterOpen, setDateFilterOpen] = useState(false);
 
     // Score sheet generation state (user-controlled, not auto-fetched)
     const [generatedScoresheets, setGeneratedScoresheets] = useState([]);
@@ -2779,15 +2781,27 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         // Generated scoresheet: use specific division and judge
                         const projectDataLocal = project?.project_data || {};
                         let date = '';
-                        if (projectDataLocal.startDate && projectDataLocal.endDate) {
-                            date = `${projectDataLocal.startDate} - ${projectDataLocal.endDate}`;
-                        } else if (projectDataLocal.startDate) {
-                            date = projectDataLocal.startDate;
-                        } else if (projectDataLocal.showDates?.startDate) {
-                            date = projectDataLocal.showDates.startDate;
-                            if (projectDataLocal.showDates.endDate) {
-                                date = `${date} - ${projectDataLocal.showDates.endDate}`;
+                        // Use per-class date if available
+                        if (scoresheet.classDate) {
+                            date = scoresheet.classDate;
+                        } else {
+                            // Fallback: look up divisionDates by matching division name
+                            for (const disc of (projectDataLocal.disciplines || [])) {
+                                for (const group of (disc.patternGroups || [])) {
+                                    for (const div of (group.divisions || [])) {
+                                        const divName = div?.name || div?.divisionName || div?.division || div?.title || '';
+                                        const divId = div?.id;
+                                        if (divName.trim() === scoresheet.divisionName && divId && disc.divisionDates?.[divId]) {
+                                            date = disc.divisionDates[divId];
+                                            break;
+                                        }
+                                    }
+                                    if (date) break;
+                                }
+                                if (date) break;
                             }
+                            // Final fallback to show start date only (not range)
+                            if (!date) date = projectDataLocal.startDate || '';
                         }
                         overlayData = {
                             showName: project?.project_name || projectDataLocal.showName || '',
@@ -2926,6 +2940,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     }, [projectData]);
     const uniqueDivisions = [...new Set([...allDivisionNamesFromPatterns, ...allDivisionNamesFromProjectData])].filter(Boolean).sort();
 
+    // Get unique dates from divisionDates and show date range
+    const uniqueDates = useMemo(() => {
+        const dates = new Set();
+        // Collect per-division dates
+        (projectData.disciplines || []).forEach(discipline => {
+            Object.values(discipline.divisionDates || {}).forEach(d => {
+                if (d) dates.add(d);
+            });
+        });
+        // Also include all dates from show date range
+        if (projectData.startDate) {
+            dates.add(projectData.startDate);
+            if (projectData.endDate && projectData.endDate !== projectData.startDate) {
+                // Generate each day between start and end
+                const start = parseLocalDate(projectData.startDate);
+                const end = parseLocalDate(projectData.endDate);
+                const current = new Date(start);
+                while (current <= end) {
+                    dates.add(format(current, 'yyyy-MM-dd'));
+                    current.setDate(current.getDate() + 1);
+                }
+            }
+        }
+        return [...dates].sort();
+    }, [projectData]);
+
     // Get unique judges from patterns and project data (associationJudges, officials, groupJudges)
     const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
     const allJudgesFromProjectData = useMemo(() => {
@@ -3038,6 +3078,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             );
             if (!hasMatchingDivision) return false;
         }
+        // Date filter
+        if (filterDates.size > 0) {
+            if (!pattern.classDate || !filterDates.has(pattern.classDate)) return false;
+        }
         return true;
     }).sort((a, b) => {
         if (sortBy === 'newest') {
@@ -3080,7 +3124,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         if (activeTab === 'patternBook' && activeSubTab === 'scoreSheets') {
             generateScoresheets();
         }
-    }, [filterDisciplines, filterDivisions, filterJudges]);
+    }, [filterDisciplines, filterDivisions, filterJudges, filterDates]);
 
     const fetchPatterns = async () => {
         setIsLoadingPatterns(true);
@@ -3438,9 +3482,23 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         ? judgesForGroup 
                         : (judgesForGroup ? [judgesForGroup] : []);
                     
+                    // Compute classDate from divisionDates for the first division in this group
+                    let classDate = null;
+                    const groupDivisions = group.divisions || [];
+                    for (const div of groupDivisions) {
+                        const divId = typeof div === 'string' ? div : div?.id;
+                        if (divId && discipline.divisionDates?.[divId]) {
+                            classDate = discipline.divisionDates[divId];
+                            break;
+                        }
+                    }
+                    if (!classDate) {
+                        classDate = projectData.groupDueDates?.[disciplineIndex]?.[groupIndex] || projectData.startDate || null;
+                    }
+
                     // Create unique key based on content, not just indices, to prevent duplicates
                     const uniqueKey = `${disciplineName}-${groupName}-${numericPatternId || patternId || 'no-pattern'}-${patternVersion || 'default'}`;
-                    
+
                     // Always add pattern if we have a selection (even if not in database)
                     if (!processedPatterns.has(uniqueKey)) {
                         patternsList.push({
@@ -3458,6 +3516,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             groupName: groupName,
                             groupId: group.id,
                             groupIndex: groupIndex,
+                            classDate, // Per-class competition date
                             divisions: extractedDivisions,
                             divisionNames: extractedDivisions.map(d => {
                                 // Remove category prefix (e.g., "Open - ", "Amateur - ", "Youth - ")
@@ -3979,19 +4038,35 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
 
                 // Collect all divisions within this discipline's groups
+                // Also build division name → date mapping for classDate
                 const disciplineDivisions = [];
+                const divisionDateMap = {};
                 for (const group of groups) {
                     (group.divisions || []).forEach(div => {
                         const divName = typeof div === 'string' ? div : div?.name || div?.divisionName || div?.division || div?.title || '';
-                        if (divName.trim()) disciplineDivisions.push(divName.trim());
+                        const divId = typeof div === 'string' ? div : div?.id;
+                        if (divName.trim()) {
+                            disciplineDivisions.push(divName.trim());
+                            if (divId && discipline.divisionDates?.[divId]) {
+                                divisionDateMap[divName.trim()] = discipline.divisionDates[divId];
+                            }
+                        }
                     });
                 }
                 const uniqueDisciplineDivisions = [...new Set(disciplineDivisions)];
 
                 // Intersect with user-selected divisions
-                const matchingDivisions = uniqueDisciplineDivisions.filter(d =>
+                let matchingDivisions = uniqueDisciplineDivisions.filter(d =>
                     selectedDivisionsList.some(sel => sel.toLowerCase() === d.toLowerCase())
                 );
+
+                // Apply date filter if active
+                if (filterDates.size > 0) {
+                    matchingDivisions = matchingDivisions.filter(d => {
+                        const divDate = divisionDateMap[d];
+                        return divDate && filterDates.has(divDate);
+                    });
+                }
 
                 // Cross-product: division x judge
                 for (const divisionName of matchingDivisions) {
@@ -4006,6 +4081,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             disciplineIndex: disciplines.indexOf(discipline),
                             divisionName,
                             judgeName,
+                            classDate: divisionDateMap[divisionName] || projectData.startDate || null,
                             displayName: `${disciplineName} Scoresheet`,
                             image_url: baseScoresheetData?.image_url || null,
                             generatedAt: new Date().toISOString(),
@@ -5324,6 +5400,66 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </Popover>
                                         )}
 
+                                        {/* Date Filter - Show for Patterns and Score Sheets tabs */}
+                                        {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && uniqueDates.length > 0 && (
+                                            <Popover open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterDates.size === 0
+                                                                ? 'All Dates'
+                                                                : filterDates.size === 1
+                                                                    ? format(parseLocalDate(Array.from(filterDates)[0]), 'EEE, MMM d')
+                                                                    : `${filterDates.size} Dates`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Dates</span>
+                                                        {filterDates.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => setFilterDates(new Set())}
+                                                            >
+                                                                Clear
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {uniqueDates.map(dateVal => (
+                                                                <div
+                                                                    key={dateVal}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterDates(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(dateVal)) {
+                                                                                newSet.delete(dateVal);
+                                                                            } else {
+                                                                                newSet.add(dateVal);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterDates.has(dateVal)} />
+                                                                    <span className="text-sm">{format(parseLocalDate(dateVal), 'EEE, MMM d, yyyy')}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
+
                                     </div>
                                 )}
 
@@ -6382,10 +6518,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         <div className="border rounded-lg p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                <h3 className="font-semibold text-lg">Layout A - Modern</h3>
+                                <h3 className="font-semibold text-lg">Layout A - By Date</h3>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Modern layout with clean design and contemporary styling.
+                                Patterns organized by show date with clean, contemporary styling.
                             </p>
                             <div className="flex gap-3">
                                 <Button 
@@ -6510,10 +6646,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         <div className="border rounded-lg p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                <h3 className="font-semibold text-lg">Layout B - Classic</h3>
+                                <h3 className="font-semibold text-lg">Layout B - By Discipline</h3>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Classic layout with traditional design and professional styling.
+                                Patterns organized by discipline with traditional, professional styling.
                             </p>
                             <div className="flex gap-3">
                                 <Button 

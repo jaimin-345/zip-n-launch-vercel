@@ -35,6 +35,8 @@ const initialFormData = {
   judgeSelections: [],
   dueDateSelections: [],
   disciplineDueDates: {},
+  lockedSections: { step1: false, structure: false },
+  showClassNumbers: false,
 };
 
 // Migration function: Convert old Prelims/Finals format to new Go 1/Go 2 format
@@ -348,6 +350,11 @@ export const usePatternBookBuilder = (projectId) => {
         return null;
       }
       toast({ title: 'Project Saved!', description: 'Your progress has been successfully saved.' });
+      // Auto-lock Step 1 and structure after save
+      setFormData(prev => ({
+        ...prev,
+        lockedSections: { ...prev.lockedSections, step1: true, structure: true }
+      }));
       return currentProjectId;
     } else {
       const newId = uuidv4();
@@ -363,7 +370,11 @@ export const usePatternBookBuilder = (projectId) => {
       }
 
       const newProjectId = data.id;
-      setFormData(prev => ({ ...prev, id: newProjectId }));
+      setFormData(prev => ({
+        ...prev,
+        id: newProjectId,
+        lockedSections: { ...prev.lockedSections, step1: true, structure: true }
+      }));
       navigate(`/pattern-book-builder/${newProjectId}`, { replace: true });
       toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
       return newProjectId;
@@ -373,6 +384,13 @@ export const usePatternBookBuilder = (projectId) => {
   const nextStep = () => setStep(prev => Math.min(prev + 1, 10));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
   const setCurrentStep = (newStep) => setStep(newStep);
+
+  const unlockSection = useCallback((sectionKey) => {
+    setFormData(prev => ({
+      ...prev,
+      lockedSections: { ...prev.lockedSections, [sectionKey]: false }
+    }));
+  }, []);
 
   const resetDisciplines = useCallback(() => {
     setFormData(prev => ({ ...prev, disciplines: [] }));
@@ -473,5 +491,6 @@ export const usePatternBookBuilder = (projectId) => {
     resetDisciplines,
     resetCurrentStep,
     refreshDisciplineLibrary,
+    unlockSection,
   };
 };

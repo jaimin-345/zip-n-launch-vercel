@@ -34,13 +34,13 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
             <Label htmlFor="styleA" className="flex flex-col items-center p-4 border rounded-lg cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-primary/10">
               <RadioGroupItem value="styleA" id="styleA" className="sr-only" />
               <Palette className="w-8 h-8 mb-2" />
-              <span className="font-semibold">Style A (Modern)</span>
+              <span className="font-semibold">Style A (By Date)</span>
               <span className="text-xs text-muted-foreground text-center">Clean, minimalist design with a focus on readability.</span>
             </Label>
             <Label htmlFor="styleB" className="flex flex-col items-center p-4 border rounded-lg cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-primary/10">
               <RadioGroupItem value="styleB" id="styleB" className="sr-only" />
               <Palette className="w-8 h-8 mb-2" />
-              <span className="font-semibold">Style B (Classic)</span>
+              <span className="font-semibold">Style B (By Discipline)</span>
               <span className="text-xs text-muted-foreground text-center">Traditional layout with elegant typography and borders.</span>
             </Label>
           </RadioGroup>

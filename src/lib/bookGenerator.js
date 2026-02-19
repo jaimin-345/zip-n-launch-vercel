@@ -12,6 +12,9 @@ export const generatePatternBookPdf = async (pbbData) => {
     // Get selected layout (default to 'layout-a' if not specified)
     const selectedLayout = pbbData.layoutSelection || 'layout-a';
     console.log('Selected layout:', selectedLayout);
+
+    // Feature flag: class number display (set to false to hide auto-generated numbers)
+    const showClassNumbers = pbbData.showClassNumbers || false;
     
     const doc = new jsPDF('p', 'pt', 'a4');
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -93,7 +96,35 @@ export const generatePatternBookPdf = async (pbbData) => {
     const formatAssociationName = (assocId) => {
         return assocId?.toUpperCase() || 'HORSE ASSOCIATION';
     };
-    
+
+    // Helper: Check if discipline should have pattern pages in the PDF
+    const isPatternDiscipline = (discipline) => {
+        if (!discipline.pattern) return false;
+        if (discipline.pattern_type === 'scoresheet_only') return false;
+        return true;
+    };
+
+    // Helper: Extract pattern number from pdf_file_name (e.g., "WesternRiding0001.L1" -> 1)
+    const extractPatternNumber = (fileName) => {
+        if (!fileName) return null;
+        const nameWithoutExt = fileName.replace(/\.(pdf|PDF)$/, '');
+        const match = nameWithoutExt.match(/(\d+)(?:\.|$)/);
+        if (match) return parseInt(match[1], 10) || null;
+        const fallback = nameWithoutExt.match(/(\d+)$/);
+        return fallback ? (parseInt(fallback[1], 10) || null) : null;
+    };
+
+    // Helper: Format human-readable pattern display name from patternSelection object
+    const getPatternDisplayName = (patternSelection) => {
+        if (!patternSelection) return null;
+        const num = extractPatternNumber(patternSelection.patternName);
+        let display = num !== null ? `Pattern ${num}` : (patternSelection.patternName || null);
+        if (display && patternSelection.version && patternSelection.version !== 'ALL') {
+            display = `${display} - ${patternSelection.version}`;
+        }
+        return display;
+    };
+
     // --- Fetch Assets ---
     const assets = await fetchPatternAndScoresheetAssets(pbbData);
     let coverImageBase64 = null;
@@ -350,6 +381,7 @@ export const generatePatternBookPdf = async (pbbData) => {
         yPos = margin + 50;
         
         for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
+            if (!isPatternDiscipline(discipline)) continue;
             // Check if discipline has any valid groups
             const hasValidGroups = (discipline.patternGroups || []).some(g => g.divisions && g.divisions.length > 0);
             if (!hasValidGroups) continue;
@@ -389,22 +421,17 @@ export const generatePatternBookPdf = async (pbbData) => {
                 }
                 
                 const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(', ');
-                // Extract pattern ID - handle both object format and direct ID
-                const patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
-                let patternId = null;
-                if (patternSelection) {
-                    if (typeof patternSelection === 'object' && patternSelection !== null) {
-                        patternId = patternSelection.patternId || patternSelection.id || patternSelection;
-                    } else {
-                        patternId = patternSelection;
-                    }
+                // Extract pattern selection - try ID-based keys first, then fallback to index-based
+                const disciplineId = discipline.id;
+                const groupId = group.id;
+                let patternSelection = null;
+                if (disciplineId && groupId) {
+                    patternSelection = pbbData.patternSelections?.[disciplineId]?.[groupId];
                 }
-                // Use patternId or a placeholder if not found. 
-                // Ideally we would look up the pattern number/name from a patterns list.
-                // For now, we'll display the ID or "TBD" if missing. 
-                // If ID is a long UUID, we might want to truncate or handle differently.
-                // Assuming for now it might be a simple ID or we just show it.
-                const patternDisplay = patternId ? patternId.toString().substring(0, 8) : 'TBD'; 
+                if (!patternSelection) {
+                    patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
+                }
+                const patternDisplay = getPatternDisplayName(patternSelection) || 'TBD';
                 
                 // Class Name
                 doc.text(divisions, margin, yPos);
@@ -435,6 +462,7 @@ export const generatePatternBookPdf = async (pbbData) => {
     // --- Pattern Pages ---
     let sequentialClassNumber = 10000;
     for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
+        if (!isPatternDiscipline(discipline)) continue;
         for (const [groupIndex, group] of (discipline.patternGroups || []).entries()) {
             if (!group.divisions || group.divisions.length === 0) continue;
 
@@ -454,7 +482,11 @@ export const generatePatternBookPdf = async (pbbData) => {
                 patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
             }
             
-            if (patternSelection) {
+            // Check for special selection types (judge-assigned, custom-request)
+            const isJudgeAssigned = patternSelection?.type === 'judgeAssigned';
+            const isCustomRequest = patternSelection?.type === 'customRequest';
+
+            if (patternSelection && !isJudgeAssigned && !isCustomRequest) {
                 if (typeof patternSelection === 'object' && patternSelection !== null) {
                     patternId = patternSelection.patternId || patternSelection.id;
                     // If still an object, try to extract from nested structure
@@ -465,6 +497,7 @@ export const generatePatternBookPdf = async (pbbData) => {
                     patternId = patternSelection;
                 }
             }
+            const hasNoPattern = !patternId && !isJudgeAssigned && !isCustomRequest;
             console.log(`Extracted patternId for discipline ${disciplineId || discIndex}, group ${groupId || groupIndex}:`, patternSelection, '->', patternId);
             
             // Get competition date - first try divisionDates from divisions in the group, then groupDueDates, then startDate
@@ -501,11 +534,11 @@ export const generatePatternBookPdf = async (pbbData) => {
             // Add to TOC with sequential numbering
             sequentialClassNumber++;
             const className = `${discipline.name} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
-            toc.push({ 
+            toc.push({
                 title: className,
                 page: doc.internal.getNumberOfPages() - 1,
                 date: competitionDate,
-                classNumber: sequentialClassNumber.toString()
+                classNumber: showClassNumbers ? sequentialClassNumber.toString() : ''
             });
             
             // Start from top margin
@@ -533,7 +566,16 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.text(disciplineLines, margin, yPos);
             
             yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
-            
+
+            // Pattern name line (e.g., "Pattern 6 - L1")
+            const patternDisplayName = getPatternDisplayName(patternSelection);
+            if (patternDisplayName) {
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text(patternDisplayName, margin, yPos);
+                yPos += 16;
+            }
+
             // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
             const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
             if (divisions) {
@@ -553,12 +595,38 @@ export const generatePatternBookPdf = async (pbbData) => {
                 yPos += 15; // Space before image if no divisions
             }
             
+            // Render placeholder or real pattern image
+            if (isJudgeAssigned) {
+                // Judge-assigned placeholder
+                const placeholderY = yPos + 150;
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Pattern to be selected by Judge: ${patternSelection?.judgeName || 'TBD'}`, pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                yPos = placeholderY + 40;
+            } else if (isCustomRequest) {
+                // Custom pattern placeholder
+                const placeholderY = yPos + 150;
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(150, 150, 150);
+                doc.text('Custom Pattern \u2014 Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                yPos = placeholderY + 40;
+            } else if (hasNoPattern) {
+                // No pattern assigned placeholder
+                const placeholderY = yPos + 150;
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(150, 150, 150);
+                doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                yPos = placeholderY + 40;
+            } else {
             // Add real pattern image - centered and large
             const numericPatternId = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
-            const patternImageBase64 = numericPatternId && !isNaN(numericPatternId) && patternImagesMap.has(numericPatternId) 
-                ? patternImagesMap.get(numericPatternId) 
-                : dummyPatternBase64;
-            
+            const patternImageBase64 = numericPatternId && !isNaN(numericPatternId) && patternImagesMap.has(numericPatternId)
+                ? patternImagesMap.get(numericPatternId)
+                : null;
+
             if (patternImageBase64) {
                 try {
                     const imgProps = doc.getImageProperties(patternImageBase64);
@@ -567,36 +635,40 @@ export const generatePatternBookPdf = async (pbbData) => {
                     const availableHeight = pageHeight - yPos - 40; // Space for footer
                     const imgWidth = pageWidth - margin * 2;
                     const imgHeight = imgWidth * aspect;
-                    
+
                     let finalWidth = imgWidth;
                     let finalHeight = imgHeight;
-                    
+
                     if (imgHeight > availableHeight) {
                         finalHeight = availableHeight;
                         finalWidth = finalHeight / aspect;
                     }
-                    
+
                     // Center the image
                     const xOffset = (pageWidth - finalWidth) / 2;
-                    
+
                     await addImageToPage(patternImageBase64, xOffset, yPos, finalWidth, finalHeight);
                     yPos += finalHeight + 20;
                 } catch (e) {
                     console.error('Failed to add pattern image:', e);
-                    const graphHeight = 400;
-                    doc.setDrawColor(200, 200, 200);
-                    doc.setLineWidth(1);
-                    doc.rect(margin, yPos, pageWidth - (margin * 2), graphHeight);
-                    yPos += graphHeight + 20;
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
                 }
             } else {
-                const graphHeight = 400;
-                doc.setDrawColor(200, 200, 200);
-                doc.setLineWidth(1);
-                doc.rect(margin, yPos, pageWidth - (margin * 2), graphHeight);
-                yPos += graphHeight + 20;
+                // No image found for this pattern
+                const placeholderY = yPos + 150;
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(150, 150, 150);
+                doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                yPos = placeholderY + 40;
             }
-            
+            } // end else (real pattern)
+
             } else if (selectedLayout === 'layout-b') {
                 // LAYOUT B: Same format as Layout A
                 
@@ -618,7 +690,16 @@ export const generatePatternBookPdf = async (pbbData) => {
                 doc.text(disciplineLines, margin, yPos);
                 
                 yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
-                
+
+                // Pattern name line (e.g., "Pattern 6 - L1")
+                const patternDisplayNameB = getPatternDisplayName(patternSelection);
+                if (patternDisplayNameB) {
+                    doc.setFontSize(11);
+                    doc.setFont('times', 'bold');
+                    doc.text(patternDisplayNameB, margin, yPos);
+                    yPos += 16;
+                }
+
                 // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
                 const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
                 if (divisions) {
@@ -638,12 +719,35 @@ export const generatePatternBookPdf = async (pbbData) => {
                     yPos += 15; // Space before image if no divisions
                 }
                 
+                // Render placeholder or real pattern image (Layout B)
+                if (isJudgeAssigned) {
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('times', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`Pattern to be selected by Judge: ${patternSelection?.judgeName || 'TBD'}`, pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
+                } else if (isCustomRequest) {
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('times', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Custom Pattern \u2014 Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
+                } else if (hasNoPattern) {
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('times', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
+                } else {
                 // Add real pattern image - centered and large
                 const numericPatternId = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
-                const patternImageBase64 = numericPatternId && !isNaN(numericPatternId) && patternImagesMap.has(numericPatternId) 
-                    ? patternImagesMap.get(numericPatternId) 
-                    : dummyPatternBase64;
-                
+                const patternImageBase64 = numericPatternId && !isNaN(numericPatternId) && patternImagesMap.has(numericPatternId)
+                    ? patternImagesMap.get(numericPatternId)
+                    : null;
+
                 if (patternImageBase64) {
                     try {
                         const imgProps = doc.getImageProperties(patternImageBase64);
@@ -652,35 +756,39 @@ export const generatePatternBookPdf = async (pbbData) => {
                         const availableHeight = pageHeight - yPos - 40; // Space for footer
                         const imgWidth = pageWidth - margin * 2;
                         const imgHeight = imgWidth * aspect;
-                        
+
                         let finalWidth = imgWidth;
                         let finalHeight = imgHeight;
-                        
+
                         if (imgHeight > availableHeight) {
                             finalHeight = availableHeight;
                             finalWidth = finalHeight / aspect;
                         }
-                        
+
                         // Center the image
                         const xOffset = (pageWidth - finalWidth) / 2;
-                        
+
                         await addImageToPage(patternImageBase64, xOffset, yPos, finalWidth, finalHeight);
                         yPos += finalHeight + 20;
                     } catch (e) {
                         console.error('Failed to add pattern image:', e);
-                        const graphHeight = 400;
-                        doc.setDrawColor(200, 200, 200);
-                        doc.setLineWidth(1);
-                        doc.rect(margin, yPos, pageWidth - (margin * 2), graphHeight);
-                        yPos += graphHeight + 20;
+                        const placeholderY = yPos + 150;
+                        doc.setFontSize(20);
+                        doc.setFont('times', 'bold');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                        yPos = placeholderY + 40;
                     }
                 } else {
-                    const graphHeight = 400;
-                    doc.setDrawColor(200, 200, 200);
-                    doc.setLineWidth(1);
-                    doc.rect(margin, yPos, pageWidth - (margin * 2), graphHeight);
-                    yPos += graphHeight + 20;
+                    // No image found for this pattern
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('times', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
                 }
+                } // end else (real pattern)
             }
         }
     }
@@ -896,23 +1004,21 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.text(dateFormatted, margin, yPos);
             yPos += 30;
     
-            const tableData = tocByDate[dateStr].map(item => [
-                item.classNumber || '',
-                item.title || '',
-                item.page.toString()
-            ]);
-    
+            const hasAnyClassNumbers = tocByDate[dateStr].some(item => item.classNumber);
+            const tableData = hasAnyClassNumbers
+                ? tocByDate[dateStr].map(item => [item.classNumber || '', item.title || '', item.page.toString()])
+                : tocByDate[dateStr].map(item => [item.title || '', item.page.toString()]);
+
             doc.autoTable({
                 startY: yPos,
-                head: [['#', 'Class', 'Pg']],
+                head: hasAnyClassNumbers ? [['#', 'Class', 'Pg']] : [['Class', 'Pg']],
                 body: tableData,
                 theme: 'grid',
                 styles: { fontSize: 10, cellPadding: 5, lineColor: [200, 200, 200], lineWidth: 0.5 },
                 headStyles: { fontStyle: 'bold', fillColor: [52, 73, 94], textColor: [255, 255, 255] },
-                columnStyles: { 
-                    0: { cellWidth: 60 },
-                    2: { cellWidth: 40, halign: 'center' }
-                },
+                columnStyles: hasAnyClassNumbers
+                    ? { 0: { cellWidth: 60 }, 2: { cellWidth: 40, halign: 'center' } }
+                    : { 1: { cellWidth: 40, halign: 'center' } },
                 margin: { left: margin, right: margin },
                 // Handle page breaks within autoTable
                 didDrawPage: function(data) {

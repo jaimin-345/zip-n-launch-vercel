@@ -1295,8 +1295,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <Label className="font-semibold text-base">{group.name}</Label>
-                                      {/* Show pattern badge if selected (only for pattern disciplines) */}
-                                      {!isScoresheetOnly && currentSelection?.patternName && (() => {
+                                      {/* Show pattern badge, judge-assigned badge, or custom-request badge */}
+                                      {!isScoresheetOnly && currentSelection?.type === 'judgeAssigned' && (
+                                        <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">
+                                          Judge: {currentSelection.judgeName || 'TBD'}
+                                        </Badge>
+                                      )}
+                                      {!isScoresheetOnly && currentSelection?.type === 'customRequest' && (
+                                        <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                                          Custom Pattern
+                                        </Badge>
+                                      )}
+                                      {!isScoresheetOnly && !currentSelection?.type && currentSelection?.patternName && (() => {
                                         const patternName = currentSelection.patternName || '';
                                         // Remove .pdf extension if present
                                         const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
@@ -1304,8 +1314,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
                                         const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
                                         return (
-                                          <PatternBadgeWithHover 
-                                            patternId={currentSelection.patternId} 
+                                          <PatternBadgeWithHover
+                                            patternId={currentSelection.patternId}
                                             displayText={displayText}
                                             formData={formData}
                                           />
@@ -1373,8 +1383,147 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     </div>
                                   </div>
 
-                                {/* Pattern Selection - Only show for non-scoresheet-only disciplines */}
+                                {/* Judge Assignment & Custom Pattern Options */}
                                 {!isScoresheetOnly && (
+                                  <div className="flex flex-wrap gap-4 pt-1">
+                                    {/* Judge Assignment Checkbox */}
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        id={`judge-assign-${discipline.id}-${group.id}`}
+                                        checked={currentSelection?.type === 'judgeAssigned'}
+                                        onCheckedChange={(checked) => {
+                                          if (isReadOnly) return;
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
+                                            if (checked) {
+                                              newSelections[discipline.id][group.id] = {
+                                                type: 'judgeAssigned',
+                                                judgeName: '',
+                                                patternId: null,
+                                                patternName: null,
+                                                maneuversRange: null
+                                              };
+                                            } else {
+                                              newSelections[discipline.id][group.id] = {
+                                                patternId: null,
+                                                patternName: null,
+                                                maneuversRange: null
+                                              };
+                                            }
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                        disabled={isReadOnly || currentSelection?.type === 'customRequest'}
+                                      />
+                                      <Label htmlFor={`judge-assign-${discipline.id}-${group.id}`} className="text-sm cursor-pointer">
+                                        Assign Judge to Select Pattern
+                                      </Label>
+                                    </div>
+
+                                    {/* Custom Pattern Request Checkbox - only for custom disciplines */}
+                                    {(discipline.isCustom || discipline.pattern_type === 'custom') && (
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          id={`custom-request-${discipline.id}-${group.id}`}
+                                          checked={currentSelection?.type === 'customRequest'}
+                                          onCheckedChange={(checked) => {
+                                            if (isReadOnly) return;
+                                            setFormData(prev => {
+                                              const newSelections = { ...(prev.patternSelections || {}) };
+                                              if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
+                                              if (checked) {
+                                                newSelections[discipline.id][group.id] = {
+                                                  type: 'customRequest',
+                                                  patternId: null,
+                                                  patternName: null,
+                                                  requestNote: ''
+                                                };
+                                              } else {
+                                                newSelections[discipline.id][group.id] = {
+                                                  patternId: null,
+                                                  patternName: null,
+                                                  maneuversRange: null
+                                                };
+                                              }
+                                              return { ...prev, patternSelections: newSelections };
+                                            });
+                                          }}
+                                          disabled={isReadOnly || currentSelection?.type === 'judgeAssigned'}
+                                        />
+                                        <Label htmlFor={`custom-request-${discipline.id}-${group.id}`} className="text-sm cursor-pointer">
+                                          Request Custom Pattern
+                                        </Label>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Judge Assignment Details */}
+                                {currentSelection?.type === 'judgeAssigned' && (
+                                  <div className="p-3 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
+                                    <Label className="text-xs text-muted-foreground mb-1 block">Assigned Judge</Label>
+                                    <Select
+                                      value={currentSelection.judgeName || ''}
+                                      onValueChange={(judgeName) => {
+                                        if (isReadOnly) return;
+                                        setFormData(prev => {
+                                          const newSelections = { ...(prev.patternSelections || {}) };
+                                          newSelections[discipline.id][group.id] = {
+                                            ...newSelections[discipline.id][group.id],
+                                            judgeName
+                                          };
+                                          return { ...prev, patternSelections: newSelections };
+                                        });
+                                      }}
+                                      disabled={isReadOnly}
+                                    >
+                                      <SelectTrigger className="bg-background">
+                                        <SelectValue placeholder="Select a judge..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Object.values(formData.associationJudges || {})
+                                          .flatMap(assocData => (assocData.judges || []))
+                                          .filter(judge => judge?.name)
+                                          .map((judge, idx) => (
+                                            <SelectItem key={idx} value={judge.name}>{judge.name}</SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                                      Pattern will be selected by the assigned judge. No pattern will be auto-assigned.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Custom Pattern Request Details */}
+                                {currentSelection?.type === 'customRequest' && (
+                                  <div className="p-3 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20">
+                                    <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-2">Custom Pattern Requested</p>
+                                    <Input
+                                      placeholder="Optional notes for custom pattern request..."
+                                      value={currentSelection.requestNote || ''}
+                                      onChange={(e) => {
+                                        if (isReadOnly) return;
+                                        setFormData(prev => {
+                                          const newSelections = { ...(prev.patternSelections || {}) };
+                                          newSelections[discipline.id][group.id] = {
+                                            ...newSelections[discipline.id][group.id],
+                                            requestNote: e.target.value
+                                          };
+                                          return { ...prev, patternSelections: newSelections };
+                                        });
+                                      }}
+                                      disabled={isReadOnly}
+                                    />
+                                    <p className="text-xs text-purple-700 dark:text-purple-400 mt-2">
+                                      A custom pattern will be assigned later. No standard pattern will be selected.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Pattern Selection - Only show for non-scoresheet-only disciplines and when not judge-assigned/custom-request */}
+                                {!isScoresheetOnly && currentSelection?.type !== 'judgeAssigned' && currentSelection?.type !== 'customRequest' && (
                                   <div className="space-y-2">
                                       <Label className="text-sm text-muted-foreground">Pattern Selection</Label>
                                       <div className="grid grid-cols-2 gap-3">

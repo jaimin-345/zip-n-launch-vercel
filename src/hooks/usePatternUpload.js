@@ -185,16 +185,18 @@ import { useState, useMemo, useEffect } from 'react';
             toast({ title: 'Processing PDF...', description: 'Splitting pages into individual patterns.' });
             try {
                 const { pdfToDataUrls } = await import('@/lib/pdfUtils');
-                const dataUrls = await pdfToDataUrls(file);
-                const newStagedPdfs = dataUrls.map((dataUrl, index) => ({
+                const pages = await pdfToDataUrls(file);
+                const baseName = file.name.replace(/\.pdf$/i, '');
+                const newStagedPdfs = pages.map((page, index) => ({
                     id: uuidv4(),
-                    dataUrl,
-                    originalFileName: `${file.name}`,
+                    dataUrl: page.dataUrl,
+                    originalFileName: file.name,
+                    displayName: `${baseName} - Page ${index + 1}`,
                     pageNumber: index + 1,
-                    file: new File([dataUrl], `${file.name}_page_${index + 1}.pdf`, { type: 'application/pdf' })
+                    file: new File([page.blob], `${baseName}_page_${index + 1}.pdf`, { type: 'application/pdf' })
                 }));
                 setStagedPdfs(prev => [...prev, ...newStagedPdfs]);
-                toast({ title: 'PDF Split Successfully', description: `${dataUrls.length} pages are ready to be assigned.` });
+                toast({ title: 'PDF Split Successfully', description: `${pages.length} pages ready to assign.` });
             } catch (error) {
                 toast({ title: 'PDF Split Failed', description: error.message, variant: 'destructive' });
             }
@@ -209,7 +211,7 @@ import { useState, useMemo, useEffect } from 'react';
                         id: slotId,
                         file: stagedPdf.file,
                         dataUrl: stagedPdf.dataUrl,
-                        name: `${stagedPdf.originalFileName} (Page ${stagedPdf.pageNumber})`,
+                        name: stagedPdf.displayName || `${stagedPdf.originalFileName} (Page ${stagedPdf.pageNumber})`,
                     }
                 }));
                 setStagedPdfs(prev => prev.filter(p => p.id !== stagedPdfId));
@@ -218,6 +220,12 @@ import { useState, useMemo, useEffect } from 'react';
 
         const removeStagedPdf = (stagedPdfId) => {
             setStagedPdfs(prev => prev.filter(p => p.id !== stagedPdfId));
+        };
+
+        const renameStagedPdf = (stagedPdfId, newName) => {
+            setStagedPdfs(prev => prev.map(p =>
+                p.id === stagedPdfId ? { ...p, displayName: newName } : p
+            ));
         };
 
         const handleAddAccessoryDoc = (file, type) => {
@@ -261,6 +269,7 @@ import { useState, useMemo, useEffect } from 'react';
             handlePdfSplit,
             assignStagedPdf,
             removeStagedPdf,
+            renameStagedPdf,
             accessoryDocs,
             handleAddAccessoryDoc,
             handleRemoveAccessoryDoc,

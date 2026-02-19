@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
+import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
 import { Step3_Details } from '@/components/pbb/Step3_Details';
@@ -115,11 +116,16 @@ const PatternBookBuilderPage = () => {
         handleShowTypeChange,
         resetCurrentStep,
         refreshDisciplineLibrary,
+        unlockSection,
     } = usePatternBookBuilder(projectId);
 
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isSaveConfirmationOpen, setIsSaveConfirmationOpen] = useState(false);
+    const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+
+    // Lock state: Step 1 is locked after save (unless explicitly unlocked)
+    const isStep1Locked = !!formData.lockedSections?.step1 && !isReadOnly;
     const { toast } = useToast();
     const { trackBehaviorEvent, trackPatternEvent } = useAnalytics();
     const sessionStartRef = React.useRef(Date.now());
@@ -370,7 +376,7 @@ const PatternBookBuilderPage = () => {
         const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
         switch (currentStep) {
-            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isReadOnly} />;
+            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isReadOnly} isLocked={isStep1Locked} onUnlock={() => setShowUnlockDialog(true)} />;
             case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} isReadOnly={isReadOnly} onRefreshDisciplines={refreshDisciplineLibrary} />;
             case 3: return (
                 <>
@@ -477,6 +483,25 @@ const PatternBookBuilderPage = () => {
                     pbbData={formData}
                 />
                 
+                {/* Unlock Confirmation Dialog */}
+                <ConfirmationDialog
+                    isOpen={showUnlockDialog}
+                    onClose={() => setShowUnlockDialog(false)}
+                    onConfirm={() => {
+                        unlockSection('step1');
+                        unlockSection('structure');
+                        setShowUnlockDialog(false);
+                        toast({
+                            title: 'Sections Unlocked',
+                            description: 'You can now edit locked sections. Save again to persist changes.',
+                        });
+                    }}
+                    title="Unlock Sections?"
+                    description="Unlocking may affect saved data. Your existing data will NOT be erased, but changes to associations or class structure could impact pattern selections. Are you sure?"
+                    confirmText="Unlock"
+                    cancelText="Cancel"
+                />
+
                 {/* Save Confirmation Dialog */}
                 <Dialog open={isSaveConfirmationOpen} onOpenChange={setIsSaveConfirmationOpen}>
                     <DialogContent>

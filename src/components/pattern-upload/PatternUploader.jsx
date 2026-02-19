@@ -23,6 +23,7 @@ const PatternUploader = ({
   handlePdfSplit,
   assignStagedPdf,
   removeStagedPdf,
+  renameStagedPdf,
   pinnedPattern,
   handlePinPattern,
 }) => {
@@ -108,10 +109,11 @@ const PatternUploader = ({
                   <CardDescription className="text-xs">Upload a multi-page PDF to split it into individual patterns.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <PdfStagingArea 
-                    stagedPdfs={stagedPdfs} 
-                    onPdfSplit={handlePdfSplit} 
+                  <PdfStagingArea
+                    stagedPdfs={stagedPdfs}
+                    onPdfSplit={handlePdfSplit}
                     onRemove={removeStagedPdf}
+                    onRename={renameStagedPdf}
                     onPreview={onPreview}
                     onHover={onHover}
                     onLeave={onLeave}

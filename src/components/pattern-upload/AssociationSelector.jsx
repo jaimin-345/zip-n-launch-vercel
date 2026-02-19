@@ -29,14 +29,14 @@ const AssociationSelector = ({ selectedAssociations, associationDifficulties, on
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center"><Shield className="mr-2 h-6 w-6 text-primary" /> Legal Associations & Difficulty</CardTitle>
-        <CardDescription>Select associations and specify if the pattern set is for beginners.</CardDescription>
+        <CardDescription>Select one association and specify if the pattern set is for beginners.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
           {associationsData.filter(a => !a.is_group && !a.is_open_show).map(assoc => (
             <div key={assoc.id} className="flex items-center justify-between gap-4 py-3 border-b border-border last:border-b-0">
               <div className="flex items-center space-x-3">
-                <Checkbox id={`assoc-${assoc.id}`} checked={!!selectedAssociations[assoc.id]} onCheckedChange={(c) => onAssociationChange(assoc.id, c)} />
+                <Checkbox id={`assoc-${assoc.id}`} checked={!!selectedAssociations[assoc.id]} onCheckedChange={(c) => onAssociationChange(assoc.id, c)} disabled={!selectedAssociations[assoc.id] && Object.keys(selectedAssociations).length >= 1} />
                 <Label htmlFor={`assoc-${assoc.id}`} className="font-medium text-sm flex-1 cursor-pointer">{assoc.name}</Label>
               </div>
               {selectedAssociations[assoc.id] && (

@@ -30,8 +30,15 @@ export const fetchPatternAndScoresheetAssets = async (pbbData) => {
 
     if (pbbData.patternSelections) {
         Object.values(pbbData.patternSelections).forEach(disciplineSelection => {
-            Object.values(disciplineSelection).forEach(patternId => {
-                if (patternId) patternIds.add(patternId);
+            Object.values(disciplineSelection).forEach(selection => {
+                // Skip special selection types (judge-assigned, custom-request)
+                if (typeof selection === 'object' && selection !== null) {
+                    if (selection.type === 'judgeAssigned' || selection.type === 'customRequest') return;
+                    const id = selection.patternId || selection.id;
+                    if (id) patternIds.add(id);
+                } else if (selection) {
+                    patternIds.add(selection);
+                }
             });
         });
     }

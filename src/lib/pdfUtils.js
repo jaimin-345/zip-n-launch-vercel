@@ -1,6 +1,33 @@
 import { pdfjs } from 'react-pdf';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
+export const pdfToDataUrls = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const srcDoc = await PDFDocument.load(arrayBuffer);
+    const pageCount = srcDoc.getPageCount();
+
+    if (pageCount > 5) {
+        throw new Error(`PDF has ${pageCount} pages. Maximum allowed is 5.`);
+    }
+
+    const results = [];
+    for (let i = 0; i < pageCount; i++) {
+        const newDoc = await PDFDocument.create();
+        const [copiedPage] = await newDoc.copyPages(srcDoc, [i]);
+        newDoc.addPage(copiedPage);
+        const pdfBytes = await newDoc.save();
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+        results.push({ dataUrl, blob });
+    }
+    return results;
+};
+
 export const extractPatternSteps = async (pdfFile) => {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
