@@ -1,14 +1,15 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Users, Building, Plane, Radio, MessageSquare, ArrowLeft } from 'lucide-react';
+import { Users, Building, Plane, MessageSquare, ArrowLeft, Save } from 'lucide-react';
 
 const EmployeeArenaSchedulingManagerPage = () => {
+    const navigate = useNavigate();
     const { toast } = useToast();
 
     const handleFeatureClick = (featureName) => {
@@ -34,11 +35,12 @@ const EmployeeArenaSchedulingManagerPage = () => {
             icon: Plane,
             description: "Hotels, flights, and rental cars — your complete travel hub.",
         },
-        {
-            name: "Equipment Checkout",
-            icon: Radio,
-            description: "Check in/out radios, laptops, and gear with real-time status tracking.",
-        },
+        // Equipment Checkout moved to Horse Show Management section
+        // {
+        //     name: "Equipment Checkout",
+        //     icon: Radio,
+        //     description: "Check in/out radios, laptops, and gear with real-time status tracking.",
+        // },
         {
             name: "Communications Log",
             icon: MessageSquare,
@@ -68,24 +70,13 @@ const EmployeeArenaSchedulingManagerPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
 
-                {/* Full-width header banner */}
-                <div className="w-full bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                        <div className="mb-3">
-                            <Link to="/horse-show-manager" className="text-primary hover:underline text-sm flex items-center gap-1">
-                                <ArrowLeft className="h-4 w-4" /> Horse Show Manager
-                            </Link>
-                        </div>
-                        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                            Employee & Arena Scheduling
-                        </h1>
-                        <p className="mt-2 text-lg text-gray-500 dark:text-gray-400">
-                            Your central command for show staffing and logistics.
-                        </p>
+                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    <div className="flex justify-between items-center mb-6">
+                        <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to Manager
+                        </Button>
                     </div>
-                </div>
-
-                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     {/* Module cards — 2-3 column centered grid */}
                     <motion.div
                         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"

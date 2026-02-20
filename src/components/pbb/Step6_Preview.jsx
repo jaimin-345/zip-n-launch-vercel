@@ -950,7 +950,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                         Table of Contents
                       </p>
                       <div className="flex justify-between px-2">
-                        <span className="font-semibold">{purposeName ? `${purposeName}` : 'Show Information'}</span>
+                        <span className="font-semibold">{purposeName ? `${purposeName}` : 'Show Structure'}</span>
                         <span>1</span>
                       </div>
                       {patternDisciplines.slice(0, 4).map((disc, idx) => {

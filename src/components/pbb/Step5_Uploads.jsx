@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Palette, FileUp, QrCode, Zap } from 'lucide-react';
-import { LogoUploader } from '@/components/show-information/LogoUploader';
+import { LogoUploader } from '@/components/show-structure/LogoUploader';
 
 export const Step5_Uploads = ({ formData, setFormData }) => {
   const handleFileChange = (e) => {

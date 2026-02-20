@@ -9,13 +9,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Info, User, DollarSign, Trophy, Search, Check, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import { GeneralVenueStep } from '@/components/show-information/GeneralVenueStep';
-import { AssociationStep } from '@/components/show-information/AssociationStep';
-import { OfficialsStaffStep } from '@/components/show-information/OfficialsStaffStep';
-import { FeeStructureStep } from '@/components/show-information/FeeStructureStep';
-import { EntrySchedulingStep } from '@/components/show-information/EntrySchedulingStep';
-import { AwardsSponsorshipStep } from '@/components/show-information/AwardsSponsorshipStep';
-import { ReviewStep } from '@/components/show-information/ReviewStep';
+import { GeneralVenueStep } from '@/components/show-structure/GeneralVenueStep';
+import { AssociationStep } from '@/components/show-structure/AssociationStep';
+import { OfficialsStaffStep } from '@/components/show-structure/OfficialsStaffStep';
+import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
+import { EntrySchedulingStep } from '@/components/show-structure/EntrySchedulingStep';
+import { AwardsSponsorshipStep } from '@/components/show-structure/AwardsSponsorshipStep';
+import { ReviewStep } from '@/components/show-structure/ReviewStep';
 
 
 const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
@@ -61,7 +61,7 @@ const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
 };
 
 
-const ShowInformationPage = () => {
+const ShowStructurePage = () => {
     const { showId } = useParams();
     const navigate = useNavigate();
     const { formData, setFormData, createOrUpdateShow, isLoading: isDataLoading, associationsData, divisionsData } = useShowBuilder(showId);
@@ -104,7 +104,7 @@ const ShowInformationPage = () => {
         try {
             const project = await createOrUpdateShow();
             if (project && !showId) {
-                navigate(`/horse-show-manager/show-information/${project.id}`, { replace: true });
+                navigate(`/horse-show-manager/show-structure/${project.id}`, { replace: true });
             }
         } catch (error) {
             // Error is handled in hook
@@ -126,7 +126,7 @@ const ShowInformationPage = () => {
     return (
         <>
             <Helmet>
-                <title>Show Information</title>
+                <title>Show Structure</title>
                 <meta name="description" content="Manage all the critical details for your horse show bill and schedule." />
             </Helmet>
             <div className="min-h-screen bg-background">
@@ -176,4 +176,4 @@ const ShowInformationPage = () => {
     );
 };
 
-export default ShowInformationPage;
+export default ShowStructurePage;

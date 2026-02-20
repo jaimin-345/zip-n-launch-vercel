@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Info, CalendarDays, FileText,
-  DollarSign, LayoutGrid, Building2, BarChart2,
+  DollarSign, LayoutGrid, Building2, BarChart2, Radio,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
@@ -87,7 +87,7 @@ const sections = [
     link: '/horse-show-manager/create',
     items: [
       { icon: CalendarDays, label: 'Show Schedule', link: '/horse-show-manager/create' },
-      { icon: Info, label: 'Show Information', link: '/horse-show-manager/show-information' },
+      { icon: Info, label: 'Show Structure', link: '/horse-show-manager/show-structure' },
     ],
   },
   {
@@ -105,9 +105,9 @@ const sections = [
     title: 'Horse Show Management',
     link: '/horse-show-manager/stalling-service-manager',
     items: [
-      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager' },
-      { icon: DollarSign, label: 'Horse Show Financials', unimplemented: true },
-      { icon: BarChart2, label: 'Show Analytics', unimplemented: true },
+      { icon: Radio, label: 'Equipment Management', unimplemented: true, line: 1 },
+      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 2 },
+      { icon: DollarSign, label: 'Horse Show Financials / Analytics', unimplemented: true, line: 3 },
     ],
   },
 ];
@@ -139,29 +139,50 @@ const SectionCard = ({ icon: Icon, title, link, items }) => {
 
         {/* Sub-item links */}
         <div className="flex-grow space-y-4 mb-7">
-          {items.map((item) => {
-            const ItemIcon = item.icon;
-            return item.unimplemented ? (
-              <a
-                key={item.label}
-                href="#"
-                onClick={handleUnimplemented}
-                className="flex items-center gap-3 text-gray-700 dark:text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-              >
-                <ItemIcon className="h-5 w-5 text-blue-500 shrink-0" />
-                <span className="text-[15px] font-semibold">{item.label}</span>
-              </a>
-            ) : (
-              <Link
-                key={item.label}
-                to={item.link}
-                className="flex items-center gap-3 text-gray-700 dark:text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                <ItemIcon className="h-5 w-5 text-blue-500 shrink-0" />
-                <span className="text-[15px] font-semibold">{item.label}</span>
-              </Link>
-            );
-          })}
+          {(() => {
+            // Group items by line number (undefined = each item is its own group)
+            const groups = [];
+            items.forEach((item) => {
+              if (item.line != null) {
+                const existing = groups.find(g => g.line === item.line);
+                if (existing) { existing.items.push(item); }
+                else { groups.push({ line: item.line, items: [item] }); }
+              } else {
+                groups.push({ line: null, items: [item] });
+              }
+            });
+
+            const renderItem = (item) => {
+              const ItemIcon = item.icon;
+              return item.unimplemented ? (
+                <a
+                  key={item.label}
+                  href="#"
+                  onClick={handleUnimplemented}
+                  className="flex items-center gap-3 text-gray-700 dark:text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                >
+                  <ItemIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                  <span className="text-[15px] font-semibold">{item.label}</span>
+                </a>
+              ) : (
+                <Link
+                  key={item.label}
+                  to={item.link}
+                  className="flex items-center gap-3 text-gray-700 dark:text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  <ItemIcon className="h-5 w-5 text-blue-500 shrink-0" />
+                  <span className="text-[15px] font-semibold">{item.label}</span>
+                </Link>
+              );
+            };
+
+            return groups.map((group, gIdx) => (
+              <React.Fragment key={group.line ?? `g-${gIdx}`}>
+                {gIdx > 0 && group.line != null && <hr className="border-gray-200 dark:border-border" />}
+                {group.items.map(renderItem)}
+              </React.Fragment>
+            ));
+          })()}
         </div>
 
         {/* Get Started button */}
@@ -198,7 +219,7 @@ const HorseShowManagerPage = () => {
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 items-start gap-8 max-w-5xl mx-auto">
             {sections.map((section, index) => (
               <motion.div
                 key={section.title}

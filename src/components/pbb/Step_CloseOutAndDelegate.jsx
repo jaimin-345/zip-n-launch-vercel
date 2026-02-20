@@ -1101,7 +1101,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         Review & Finalize Summary
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Information">
+                        <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Structure">
                             <p><strong>Name:</strong> {formData.showName || 'N/A'}</p>
                             <p><strong>Type:</strong> {formData.showType || 'N/A'}</p>
                             <p><strong>Associations:</strong> {getAssociationNames()}</p>

@@ -24,14 +24,17 @@ const ClassTypeSelector = ({ classType, setClassType, customClassType, setCustom
           {DISCIPLINE_OPTIONS.map(type => (
             <SelectItem key={type} value={type}>{type}</SelectItem>
           ))}
+          {/* Hidden temporarily — "New Discipline" option preserved for future use
           <SelectSeparator />
           <SelectItem value="new-discipline">
             <div className="flex items-center">
               <PlusCircle className="mr-2 h-4 w-4" /> New Discipline...
             </div>
           </SelectItem>
+          */}
         </SelectContent>
       </Select>
+      {/* Hidden temporarily — custom discipline input preserved for future use
       {isCustomDiscipline && (
         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} transition={{ duration: 0.2 }}>
           <Input
@@ -42,6 +45,7 @@ const ClassTypeSelector = ({ classType, setClassType, customClassType, setCustom
           />
         </motion.div>
       )}
+      */}
     </div>
   );
 };

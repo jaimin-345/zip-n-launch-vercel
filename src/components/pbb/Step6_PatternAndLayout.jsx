@@ -689,9 +689,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
           <div className="space-y-6">
             {/* First Row - 2 columns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column - Show Information */}
+              {/* Left Column - Show Structure */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2">Show Information</h3>
+                <h3 className="text-lg font-semibold border-b pb-2">Show Structure</h3>
                 <div className="space-y-3 text-sm">
                   {formData.showName && (
                     <div className="flex items-start gap-2">

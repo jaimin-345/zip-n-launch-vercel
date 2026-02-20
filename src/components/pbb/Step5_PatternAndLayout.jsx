@@ -336,9 +336,9 @@ const detectGroupType = (divisions) => {
             
             {/* 3-Column Layout */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Left Column - Show Information */}
+              {/* Left Column - Show Structure */}
               <Card className="p-4 bg-muted/50">
-                <h3 className="text-lg font-semibold mb-4">Show Information</h3>
+                <h3 className="text-lg font-semibold mb-4">Show Structure</h3>
                 <div className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <Trophy className="w-4 h-4 mt-0.5 text-muted-foreground" />

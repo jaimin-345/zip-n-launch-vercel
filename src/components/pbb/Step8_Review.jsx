@@ -53,7 +53,7 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Information">
+          <ReviewItem icon={<ShieldCheck className="w-5 h-5" />} title="Show Structure">
             <p><strong>Name:</strong> {showName || 'N/A'}</p>
             <p><strong>Type:</strong> {showType || 'N/A'}</p>
             <p><strong>Associations:</strong> {getAssociationNames()}</p>

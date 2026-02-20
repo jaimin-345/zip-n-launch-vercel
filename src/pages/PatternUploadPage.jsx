@@ -273,7 +273,7 @@ const PatternUploadPage = () => {
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                         <CardHeader className="text-center px-0 mb-8">
-                            <CardTitle className="text-4xl md:text-5xl font-bold">Upload Patternsss</CardTitle>
+                            <CardTitle className="text-4xl md:text-5xl font-bold">Upload Patterns</CardTitle>
                             <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto">
                                 Upload your patterns and assign them to divisions.
                             </CardDescription>
