@@ -447,6 +447,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         return `${selectedPurposeName} Name`;
     }
     if (context === 'pbb') return "Horse Show Name";
+    if (context === 'contract') return "Show Name";
     return "Show Name";
   };
 
@@ -457,6 +458,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         return "E.g., Individual Pattern Purchase";
     }
     if (context === 'pbb') return "E.g., Summer Sizzler Pattern Book";
+    if (context === 'contract') return "e.g., Summer Sizzle";
     return "e.g., Summer Sizzle";
   };
 
@@ -464,6 +466,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
     if (context === 'pbb') return `Step ${stepNumber}: Book & Association Details`;
     if (context === 'showInfo') return "Select Association / Affiliation";
     if (context === 'hub') return `Step ${stepNumber}: Select Association`;
+    if (context === 'contract') return `Step ${stepNumber}: Select Association / Affiliation`;
     return `Step ${stepNumber}: Show Structure`;
   };
 
@@ -472,6 +475,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
     if (context === 'hub') return "Choose which governing body's patterns you're looking for.";
     if (context === 'pbb') return "Name your pattern book and select the affiliated associations.";
     if (context === 'showInfo') return "Select all associations that are part of this show. This will help populate the class list.";
+    if (context === 'contract') return "Select all associations that are part of this show. This will help populate the class list.";
     return "Start by giving your show a name, then choose the sanctioning bodies. This will help populate the class list.";
   };
 

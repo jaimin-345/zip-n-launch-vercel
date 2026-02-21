@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Building2, Users, FileText, Send, FolderOpen, CheckCircle, Save, Loader2, RotateCcw } from 'lucide-react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Building2, Users, FileText, Send, FolderOpen, CheckCircle, Save, Loader2, RotateCcw, FileSignature } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 
 // Step Components
 import { Step1_ShowStructure } from '@/components/contract-management/Step1_ShowStructure';
@@ -33,7 +33,9 @@ const initialFormData = {
   // Steps 1-2
   selectedShow: null,
   showDetails: null,
+  associations: {},
   selectedAssociations: [],
+  subAssociationSelections: {},
   showName: '',
   showNumber: '',
   linkedProjectId: null,
@@ -72,58 +74,6 @@ const initialFormData = {
   linkedToPersonnel: false,
 };
 
-const ContractSteps = ({ currentStep, completedSteps, onStepClick }) => {
-  return (
-    <div className="flex items-center justify-between mb-8 overflow-x-auto pb-2">
-      {steps.map((step, index) => {
-        const isCompleted = completedSteps.has(step.id);
-        const isCurrent = currentStep === step.id;
-        const isNext = currentStep + 1 === step.id;
-        const Icon = step.icon;
-
-        return (
-          <React.Fragment key={step.id}>
-            <button
-              onClick={() => (isCompleted || isNext || isCurrent) && onStepClick(step.id)}
-              disabled={!isCompleted && !isNext && !isCurrent}
-              className={cn(
-                "flex flex-col items-center gap-2 p-2 rounded-lg transition-all min-w-[90px]",
-                isCurrent && "bg-primary/10",
-                (isCompleted || isNext || isCurrent) ? "cursor-pointer hover:bg-primary/5" : "cursor-not-allowed opacity-50"
-              )}
-            >
-              <div
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors",
-                  isCurrent && "border-primary bg-primary text-primary-foreground",
-                  isCompleted && "border-green-500 bg-green-500 text-white",
-                  !isCurrent && !isCompleted && "border-muted-foreground/30 text-muted-foreground"
-                )}
-              >
-                {isCompleted ? <CheckCircle className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
-              </div>
-              <span className={cn(
-                "text-xs font-medium text-center",
-                isCurrent && "text-primary",
-                isCompleted && "text-green-600",
-                !isCurrent && !isCompleted && "text-muted-foreground"
-              )}>
-                {step.name}
-              </span>
-            </button>
-            {index < steps.length - 1 && (
-              <div className={cn(
-                "flex-1 h-0.5 mx-2",
-                isCompleted ? "bg-green-500" : "bg-muted"
-              )} />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-};
-
 const ContractManagementPage = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -136,21 +86,43 @@ const ContractManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [existingProjects, setExistingProjects] = useState([]);
+  const [associationsData, setAssociationsData] = useState([]);
   const [formData, setFormData] = useState(initialFormData);
+
+  // Sync selectedAssociations (array) from associations (object) for Step 2 compatibility
+  useEffect(() => {
+    const assocObj = formData.associations || {};
+    const derived = Object.keys(assocObj).filter(key => assocObj[key]);
+    const current = formData.selectedAssociations || [];
+    // Only update if they differ to avoid infinite loops
+    if (JSON.stringify(derived.sort()) !== JSON.stringify([...current].sort())) {
+      setFormData(prev => ({ ...prev, selectedAssociations: derived }));
+    }
+  }, [formData.associations]);
 
   // Load existing project or initial data
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('projects')
-          .select('id, project_name, project_type, project_data, created_at')
-          .in('project_type', ['show', 'pattern_book'])
-          .order('created_at', { ascending: false });
+        const [projectsRes, associationsRes] = await Promise.all([
+          supabase
+            .from('projects')
+            .select('id, project_name, project_type, project_data, created_at')
+            .in('project_type', ['show', 'pattern_book'])
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('associations')
+            .select('*')
+            .order('position')
+            .order('name'),
+        ]);
 
-        if (projectsError) throw projectsError;
-        setExistingProjects(projectsData || []);
+        if (projectsRes.error) throw projectsRes.error;
+        if (associationsRes.error) throw associationsRes.error;
+
+        setExistingProjects(projectsRes.data || []);
+        setAssociationsData(associationsRes.data || []);
 
         // Load existing project if projectId is present
         if (sanitizedProjectId) {
@@ -163,6 +135,11 @@ const ContractManagementPage = () => {
           if (projectError) throw projectError;
           if (projectData?.project_data) {
             const saved = projectData.project_data;
+            // Migrate legacy data: convert selectedAssociations array to associations object
+            if (saved.selectedAssociations?.length > 0 && (!saved.associations || Object.keys(saved.associations).length === 0)) {
+              saved.associations = {};
+              saved.selectedAssociations.forEach(id => { saved.associations[id] = true; });
+            }
             setFormData(prev => ({ ...initialFormData, ...saved, id: sanitizedProjectId }));
             setCurrentStep(saved.currentStep || 1);
             setCompletedSteps(new Set(saved.completedSteps || []));
@@ -282,7 +259,7 @@ const ContractManagementPage = () => {
     setFormData(prev => {
       switch (currentStep) {
         case 1:
-          return { ...prev, selectedAssociations: [], showName: '', selectedShow: null, showDetails: null, primaryAffiliates: [], customAssociations: [] };
+          return { ...prev, associations: {}, selectedAssociations: [], subAssociationSelections: {}, showName: '', showNumber: '', selectedShow: null, showDetails: null, primaryAffiliates: [], customAssociations: [] };
         case 2:
           return { ...prev };
         case 3:
@@ -306,7 +283,7 @@ const ContractManagementPage = () => {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <Step1_ShowStructure formData={formData} setFormData={setFormData} existingProjects={existingProjects} />;
+        return <Step1_ShowStructure formData={formData} setFormData={setFormData} associationsData={associationsData} />;
       case 2:
         return <Step2_OfficialsStaff formData={formData} setFormData={setFormData} />;
       case 3:
@@ -328,53 +305,26 @@ const ContractManagementPage = () => {
         <title>Contract Management - EquiPatterns</title>
         <meta name="description" content="Manage employee contracts and agreements." />
       </Helmet>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background text-foreground">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            <Button variant="ghost" asChild className="mb-4">
-              <Link to="/horse-show-manager/employee-management">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Employee Management
-              </Link>
-            </Button>
-            <h1 className="text-4xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-sky-400">
-              Contract Management
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Generate and manage contracts for show officials and staff.
-            </p>
+        <main className="container mx-auto px-4 py-4">
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-4">
+            <FileSignature className="mx-auto h-12 w-12 text-primary mb-2" />
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Contract Management</h1>
+            <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate and manage contracts for show officials and staff.</p>
           </motion.div>
-
-          <Card className="mb-6">
-            <CardContent className="pt-6">
-              <ContractSteps
-                currentStep={currentStep}
-                completedSteps={completedSteps}
-                onStepClick={handleStepClick}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <AnimatePresence mode="wait">
-                {renderStep()}
-              </AnimatePresence>
-
-              <div className="flex justify-between mt-8 pt-6 border-t">
+          <div className="max-w-7xl mx-auto">
+            <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} />
+            <Card className="glass-effect">
+              <CardContent className="p-0 sm:p-6">
+                <AnimatePresence mode="wait">
+                  {renderStep()}
+                </AnimatePresence>
+              </CardContent>
+              <CardFooter className="p-4 flex justify-between items-center border-t border-border">
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handlePrev}
-                    disabled={currentStep === 1}
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Previous
+                  <Button variant="outline" onClick={handlePrev} disabled={currentStep === 1}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back
                   </Button>
                   <Button variant="ghost" size="sm" onClick={handleResetStep} className="text-muted-foreground hover:text-destructive">
                     <RotateCcw className="mr-1 h-4 w-4" /> Reset Step
@@ -387,8 +337,7 @@ const ContractManagementPage = () => {
                   </Button>
                   {currentStep < 6 ? (
                     <Button onClick={handleNext} disabled={isSaving}>
-                      Next
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      Next <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
                     <Button
@@ -400,9 +349,9 @@ const ContractManagementPage = () => {
                     </Button>
                   )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardFooter>
+            </Card>
+          </div>
         </main>
       </div>
     </>
