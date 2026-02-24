@@ -776,6 +776,7 @@ export type Database = {
           equipment_id: string
           id: string
           is_optional: boolean
+          module_name: string | null
           quantity: number
           updated_at: string
           user_id: string
@@ -786,6 +787,7 @@ export type Database = {
           equipment_id: string
           id?: string
           is_optional?: boolean
+          module_name?: string | null
           quantity?: number
           updated_at?: string
           user_id: string
@@ -796,6 +798,7 @@ export type Database = {
           equipment_id?: string
           id?: string
           is_optional?: boolean
+          module_name?: string | null
           quantity?: number
           updated_at?: string
           user_id?: string

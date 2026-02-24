@@ -70,6 +70,7 @@ export const useDisciplinePlanner = () => {
       .select('*, equipment_items(id, name, category, unit_type, total_qty_owned, condition)')
       .eq('user_id', user.id)
       .eq('discipline_id', disciplineId)
+      .order('module_name', { ascending: true, nullsFirst: true })
       .order('created_at');
 
     if (error) {
@@ -91,6 +92,7 @@ export const useDisciplinePlanner = () => {
         equipment_id: payload.equipment_id,
         quantity: payload.quantity || 1,
         is_optional: payload.is_optional || false,
+        module_name: payload.module_name || null,
       })
       .select()
       .single();
