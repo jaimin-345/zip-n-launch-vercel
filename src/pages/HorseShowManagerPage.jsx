@@ -105,7 +105,7 @@ const sections = [
     title: 'Horse Show Management',
     link: '/horse-show-manager/stalling-service-manager',
     items: [
-      { icon: Radio, label: 'Equipment Management', unimplemented: true, line: 1 },
+      { icon: Radio, label: 'Equipment Management', link: '/admin/equipment-planning', line: 1 },
       { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 2 },
       { icon: DollarSign, label: 'Horse Show Financials / Analytics', unimplemented: true, line: 3 },
     ],
