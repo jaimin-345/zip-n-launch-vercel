@@ -178,35 +178,144 @@ export type Database = {
         }
         Relationships: []
       }
+      arena_session_classes: {
+        Row: {
+          arena_session_id: string
+          class_template_id: string
+          created_at: string
+          id: string
+          quantity: number
+          reset_between: boolean
+        }
+        Insert: {
+          arena_session_id: string
+          class_template_id: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          reset_between?: boolean
+        }
+        Update: {
+          arena_session_id?: string
+          class_template_id?: string
+          created_at?: string
+          id?: string
+          quantity?: number
+          reset_between?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_session_classes_arena_session_id_fkey"
+            columns: ["arena_session_id"]
+            isOneToOne: false
+            referencedRelation: "arena_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_session_classes_class_template_id_fkey"
+            columns: ["class_template_id"]
+            isOneToOne: false
+            referencedRelation: "class_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      arena_sessions: {
+        Row: {
+          arena_id: string
+          calculation_mode: string
+          created_at: string
+          date: string
+          id: string
+          session_name: string
+          show_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arena_id: string
+          calculation_mode?: string
+          created_at?: string
+          date: string
+          id?: string
+          session_name: string
+          show_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arena_id?: string
+          calculation_mode?: string
+          created_at?: string
+          date?: string
+          id?: string
+          session_name?: string
+          show_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arena_sessions_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arena_sessions_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arenas: {
         Row: {
+          arena_type: string | null
           created_at: string | null
           id: string
           name: string
           notes: string | null
+          show_id: string | null
           surface_type: string | null
           updated_at: string | null
+          user_id: string | null
           venue_id: string | null
         }
         Insert: {
+          arena_type?: string | null
           created_at?: string | null
           id?: string
           name: string
           notes?: string | null
+          show_id?: string | null
           surface_type?: string | null
           updated_at?: string | null
+          user_id?: string | null
           venue_id?: string | null
         }
         Update: {
+          arena_type?: string | null
           created_at?: string | null
           id?: string
           name?: string
           notes?: string | null
+          show_id?: string | null
           surface_type?: string | null
           updated_at?: string | null
+          user_id?: string | null
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "arenas_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "arenas_venue_id_fkey"
             columns: ["venue_id"]
@@ -402,6 +511,89 @@ export type Database = {
           },
         ]
       }
+      class_template_equipment: {
+        Row: {
+          class_template_id: string
+          created_at: string
+          equipment_id: string
+          id: string
+          quantity: number
+        }
+        Insert: {
+          class_template_id: string
+          created_at?: string
+          equipment_id: string
+          id?: string
+          quantity?: number
+        }
+        Update: {
+          class_template_id?: string
+          created_at?: string
+          equipment_id?: string
+          id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_template_equipment_class_template_id_fkey"
+            columns: ["class_template_id"]
+            isOneToOne: false
+            referencedRelation: "class_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_template_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_templates: {
+        Row: {
+          created_at: string
+          default_arena_type: string | null
+          discipline_id: string
+          id: string
+          name: string
+          setup_notes: string | null
+          staff_notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_arena_type?: string | null
+          discipline_id: string
+          id?: string
+          name: string
+          setup_notes?: string | null
+          staff_notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_arena_type?: string | null
+          discipline_id?: string
+          id?: string
+          name?: string
+          setup_notes?: string | null
+          staff_notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_templates_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classes: {
         Row: {
           association_id: string | null
@@ -577,15 +769,65 @@ export type Database = {
         }
         Relationships: []
       }
+      discipline_equipment: {
+        Row: {
+          created_at: string
+          discipline_id: string
+          equipment_id: string
+          id: string
+          is_optional: boolean
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          discipline_id: string
+          equipment_id: string
+          id?: string
+          is_optional?: boolean
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          discipline_id?: string
+          equipment_id?: string
+          id?: string
+          is_optional?: boolean
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discipline_equipment_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discipline_equipment_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disciplines: {
         Row: {
           association_id: string | null
           category: string | null
           city: string | null
+          description: string | null
           id: string
           name: string
           open_divisions: boolean | null
           pattern_type: string | null
+          rules_json: Json | null
           sort_order: number | null
           sub_association_type: string | null
         }
@@ -593,10 +835,12 @@ export type Database = {
           association_id?: string | null
           category?: string | null
           city?: string | null
+          description?: string | null
           id?: string
           name: string
           open_divisions?: boolean | null
           pattern_type?: string | null
+          rules_json?: Json | null
           sort_order?: number | null
           sub_association_type?: string | null
         }
@@ -604,14 +848,87 @@ export type Database = {
           association_id?: string | null
           category?: string | null
           city?: string | null
+          description?: string | null
           id?: string
           name?: string
           open_divisions?: boolean | null
           pattern_type?: string | null
+          rules_json?: Json | null
           sort_order?: number | null
           sub_association_type?: string | null
         }
         Relationships: []
+      }
+      distribution_plan: {
+        Row: {
+          arena_id: string
+          created_at: string
+          date: string | null
+          discipline_id: string | null
+          equipment_id: string
+          id: string
+          notes: string | null
+          planned_qty: number
+          show_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arena_id: string
+          created_at?: string
+          date?: string | null
+          discipline_id?: string | null
+          equipment_id: string
+          id?: string
+          notes?: string | null
+          planned_qty?: number
+          show_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arena_id?: string
+          created_at?: string
+          date?: string | null
+          discipline_id?: string | null
+          equipment_id?: string
+          id?: string
+          notes?: string | null
+          planned_qty?: number
+          show_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_plan_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_plan_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_plan_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_plan_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       division_levels: {
         Row: {
@@ -1531,6 +1848,219 @@ export type Database = {
           },
         ]
       }
+      equipment_items: {
+        Row: {
+          category: string
+          condition: string
+          created_at: string
+          default_home_location_id: string | null
+          description: string | null
+          id: string
+          name: string
+          notes: string | null
+          total_qty_owned: number
+          unit_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          condition?: string
+          created_at?: string
+          default_home_location_id?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          total_qty_owned?: number
+          unit_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          condition?: string
+          created_at?: string
+          default_home_location_id?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          total_qty_owned?: number
+          unit_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_default_home_location_fk"
+            columns: ["default_home_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_requirements: {
+        Row: {
+          aggregation_date: string | null
+          aggregation_level: string
+          arena_session_id: string | null
+          calculated_at: string
+          calculation_details: Json
+          created_at: string
+          equipment_id: string
+          id: string
+          required_qty: number
+          shortage_qty: number
+          show_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aggregation_date?: string | null
+          aggregation_level?: string
+          arena_session_id?: string | null
+          calculated_at?: string
+          calculation_details?: Json
+          created_at?: string
+          equipment_id: string
+          id?: string
+          required_qty?: number
+          shortage_qty?: number
+          show_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aggregation_date?: string | null
+          aggregation_level?: string
+          arena_session_id?: string | null
+          calculated_at?: string
+          calculation_details?: Json
+          created_at?: string
+          equipment_id?: string
+          id?: string
+          required_qty?: number
+          shortage_qty?: number
+          show_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_requirements_arena_session_id_fkey"
+            columns: ["arena_session_id"]
+            isOneToOne: false
+            referencedRelation: "arena_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_requirements_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_requirements_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_transactions: {
+        Row: {
+          arena_id: string | null
+          assigned_to: string | null
+          created_at: string
+          crew_name: string | null
+          equipment_id: string
+          from_arena_id: string | null
+          id: string
+          notes: string | null
+          quantity: number
+          show_id: string
+          to_arena_id: string | null
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arena_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          crew_name?: string | null
+          equipment_id: string
+          from_arena_id?: string | null
+          id?: string
+          notes?: string | null
+          quantity: number
+          show_id: string
+          to_arena_id?: string | null
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arena_id?: string | null
+          assigned_to?: string | null
+          created_at?: string
+          crew_name?: string | null
+          equipment_id?: string
+          from_arena_id?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          show_id?: string
+          to_arena_id?: string | null
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_transactions_arena_id_fkey"
+            columns: ["arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_transactions_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_transactions_from_arena_id_fkey"
+            columns: ["from_arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_transactions_show_id_fkey"
+            columns: ["show_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_transactions_to_arena_id_fkey"
+            columns: ["to_arena_id"]
+            isOneToOne: false
+            referencedRelation: "arenas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           created_at: string | null
@@ -1647,6 +2177,36 @@ export type Database = {
           project_id?: string
           project_name?: string
           read_at?: string | null
+        }
+        Relationships: []
+      }
+      locations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1966,35 +2526,83 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_changes: {
+        Row: {
+          changed_at: string
+          created_at: string
+          id: string
+          new_price_id: string | null
+          new_tier: string | null
+          old_price_id: string | null
+          old_tier: string | null
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          created_at?: string
+          id?: string
+          new_price_id?: string | null
+          new_tier?: string | null
+          old_price_id?: string | null
+          old_tier?: string | null
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          created_at?: string
+          id?: string
+          new_price_id?: string | null
+          new_tier?: string | null
+          old_price_id?: string | null
+          old_tier?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           associations_allowed: string[] | null
           avatar_url: string | null
+          free_pattern_book_used: boolean | null
           full_name: string | null
           id: string
           permissions: string[] | null
           role: string | null
           shows_allowed: string[] | null
+          stripe_customer_id: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string | null
+          subscription_tier: string | null
           updated_at: string | null
         }
         Insert: {
           associations_allowed?: string[] | null
           avatar_url?: string | null
+          free_pattern_book_used?: boolean | null
           full_name?: string | null
           id: string
           permissions?: string[] | null
           role?: string | null
           shows_allowed?: string[] | null
+          stripe_customer_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           updated_at?: string | null
         }
         Update: {
           associations_allowed?: string[] | null
           avatar_url?: string | null
+          free_pattern_book_used?: boolean | null
           full_name?: string | null
           id?: string
           permissions?: string[] | null
           role?: string | null
           shows_allowed?: string[] | null
+          stripe_customer_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2096,6 +2704,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      purchases: {
+        Row: {
+          amount_cents: number
+          created_at: string | null
+          currency: string | null
+          id: string
+          metadata: Json | null
+          product_type: string
+          status: string
+          stripe_payment_intent_id: string | null
+          stripe_session_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          product_type: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          metadata?: Json | null
+          product_type?: string
+          status?: string
+          stripe_payment_intent_id?: string | null
+          stripe_session_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       role_permissions: {
         Row: {
@@ -2425,6 +3072,54 @@ export type Database = {
           updated_at?: string | null
           url?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          canceled_at: string | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          status: string
+          stripe_customer_id: string
+          stripe_price_id: string
+          stripe_subscription_id: string
+          tier: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id: string
+          stripe_price_id: string
+          stripe_subscription_id: string
+          tier: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_customer_id?: string
+          stripe_price_id?: string
+          stripe_subscription_id?: string
+          tier?: string
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -2876,10 +3571,12 @@ export type Database = {
           association_id: string | null
           category: string | null
           city: string | null
+          description: string | null
           id: string
           name: string
           open_divisions: boolean | null
           pattern_type: string | null
+          rules_json: Json | null
           sort_order: number | null
           sub_association_type: string | null
         }[]
