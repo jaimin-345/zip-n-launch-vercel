@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Ruler, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, Copy, Package } from 'lucide-react';
+import { Ruler, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, Copy, Package, Layers, FolderPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,73 @@ const DebouncedQuantityInput = ({ value, onChange }) => {
   return <Input type="number" min={1} value={localValue} onChange={handleChange} className="w-20 h-8 text-center" />;
 };
 
-// ---- Class Template Form ----
+// ---- Equipment Module Table (reusable for baseline + modules) ----
+const EquipmentModuleTable = ({ items, onUpdateQty, onToggleOptional, onRemove, onChangeModule, allModuleNames }) => (
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>Equipment</TableHead>
+        <TableHead>Category</TableHead>
+        <TableHead className="text-center">Qty</TableHead>
+        <TableHead className="text-center">Optional</TableHead>
+        <TableHead>Module</TableHead>
+        <TableHead className="text-right">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {items.map(row => (
+        <TableRow key={row.id}>
+          <TableCell>
+            <p className="font-medium text-sm">{row.equipment_items?.name}</p>
+            <p className="text-xs text-muted-foreground">{row.equipment_items?.unit_type}</p>
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline" className="text-xs">{row.equipment_items?.category}</Badge>
+          </TableCell>
+          <TableCell className="text-center">
+            <DebouncedQuantityInput value={row.quantity} onChange={(v) => onUpdateQty(row.id, v)} />
+          </TableCell>
+          <TableCell className="text-center">
+            <Switch checked={row.is_optional} onCheckedChange={(checked) => onToggleOptional(row.id, checked)} />
+          </TableCell>
+          <TableCell>
+            <Select value={row.module_name || '__none__'} onValueChange={(v) => onChangeModule(row.id, v === '__none__' ? null : v)}>
+              <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Standard Kit</SelectItem>
+                {allModuleNames.map(m => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </TableCell>
+          <TableCell className="text-right">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remove Equipment</AlertDialogTitle>
+                  <AlertDialogDescription>Remove "{row.equipment_items?.name}" from this discipline?</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onRemove(row.id)} className="bg-destructive hover:bg-destructive/90">Remove</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+);
+
 const ClassTemplateForm = ({ template, disciplines, onSave, onCancel, isSaving }) => {
   const [formData, setFormData] = useState({
     name: '', discipline_id: '', default_arena_type: '', setup_notes: '', staff_notes: '',
@@ -119,7 +185,10 @@ const DisciplinePlannerPage = () => {
 
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [pickerContext, setPickerContext] = useState(null); // 'discipline' | 'template'
+  const [pickerModuleName, setPickerModuleName] = useState(null); // module to assign when adding from picker
   const [inheritedEquipment, setInheritedEquipment] = useState([]);
+  const [newModuleName, setNewModuleName] = useState('');
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
 
   useEffect(() => { fetchDisciplines(); }, [fetchDisciplines]);
   useEffect(() => { fetchClassTemplates(); }, [fetchClassTemplates]);
@@ -146,21 +215,50 @@ const DisciplinePlannerPage = () => {
   }, [disciplineEquipment, selectedTemplate]);
 
   // Equipment picker handlers
-  const openPickerForDiscipline = () => {
+  const openPickerForDiscipline = (moduleName = null) => {
     setPickerContext('discipline');
+    setPickerModuleName(moduleName);
     setIsPickerOpen(true);
   };
 
   const openPickerForTemplate = () => {
     setPickerContext('template');
+    setPickerModuleName(null);
     setIsPickerOpen(true);
   };
 
   const handlePickerSelect = (item) => {
     if (pickerContext === 'discipline' && selectedDiscipline) {
-      addDisciplineEquipment({ discipline_id: selectedDiscipline.id, equipment_id: item.id });
+      addDisciplineEquipment({
+        discipline_id: selectedDiscipline.id,
+        equipment_id: item.id,
+        module_name: pickerModuleName,
+      });
     } else if (pickerContext === 'template' && selectedTemplate) {
       addTemplateEquipment(selectedTemplate.id, item.id);
+    }
+  };
+
+  // Compute module groupings for discipline equipment
+  const moduleGroups = useMemo(() => {
+    const groups = {};
+    for (const row of disciplineEquipment) {
+      const key = row.module_name || '__baseline__';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(row);
+    }
+    return groups;
+  }, [disciplineEquipment]);
+
+  const moduleNames = useMemo(() => {
+    return [...new Set(disciplineEquipment.map(r => r.module_name).filter(Boolean))];
+  }, [disciplineEquipment]);
+
+  const handleCreateModule = () => {
+    if (newModuleName.trim()) {
+      openPickerForDiscipline(newModuleName.trim());
+      setNewModuleName('');
+      setIsModuleDialogOpen(false);
     }
   };
 
@@ -285,15 +383,17 @@ const DisciplinePlannerPage = () => {
                                 )}
                               </CardDescription>
                             </div>
-                            <Button onClick={openPickerForDiscipline} size="sm">
-                              <PlusCircle className="mr-2 h-4 w-4" /> Add Equipment
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button onClick={() => openPickerForDiscipline(null)} size="sm">
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Equipment
+                              </Button>
+                              <Button onClick={() => setIsModuleDialogOpen(true)} size="sm" variant="outline">
+                                <FolderPlus className="mr-2 h-4 w-4" /> New Module
+                              </Button>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <h4 className="font-semibold text-sm mb-3">
-                            Baseline Equipment Kit ({disciplineEquipment.length} items)
-                          </h4>
                           {isDisciplineEquipmentLoading ? (
                             <div className="flex justify-center py-8">
                               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -302,68 +402,54 @@ const DisciplinePlannerPage = () => {
                             <div className="text-center py-8 text-muted-foreground">
                               <Package className="h-10 w-10 mx-auto mb-3 opacity-50" />
                               <p className="text-sm">No equipment assigned yet.</p>
-                              <p className="text-xs mt-1">Click "Add Equipment" to build the baseline kit.</p>
+                              <p className="text-xs mt-1">Click "Add Equipment" to build the baseline kit or create an optional module.</p>
                             </div>
                           ) : (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Equipment</TableHead>
-                                  <TableHead>Category</TableHead>
-                                  <TableHead className="text-center">Qty</TableHead>
-                                  <TableHead className="text-center">Optional</TableHead>
-                                  <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {disciplineEquipment.map(row => (
-                                  <TableRow key={row.id}>
-                                    <TableCell>
-                                      <p className="font-medium text-sm">{row.equipment_items?.name}</p>
-                                      <p className="text-xs text-muted-foreground">{row.equipment_items?.unit_type}</p>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge variant="outline" className="text-xs">{row.equipment_items?.category}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <DebouncedQuantityInput
-                                        value={row.quantity}
-                                        onChange={(v) => updateDisciplineEquipment(row.id, { quantity: v })}
-                                      />
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                      <Switch
-                                        checked={row.is_optional}
-                                        onCheckedChange={(checked) => updateDisciplineEquipment(row.id, { is_optional: checked })}
-                                      />
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                            <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                          <AlertDialogHeader>
-                                            <AlertDialogTitle>Remove Equipment</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                              Remove "{row.equipment_items?.name}" from this discipline's baseline kit?
-                                            </AlertDialogDescription>
-                                          </AlertDialogHeader>
-                                          <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => removeDisciplineEquipment(row.id, selectedDiscipline.id)} className="bg-destructive hover:bg-destructive/90">
-                                              Remove
-                                            </AlertDialogAction>
-                                          </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                      </AlertDialog>
-                                    </TableCell>
-                                  </TableRow>
+                            <div className="space-y-6">
+                              {/* Baseline equipment (no module) */}
+                              {moduleGroups['__baseline__'] && (
+                                <div>
+                                  <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                                    <Package className="h-4 w-4" /> Standard Kit
+                                    <Badge variant="secondary" className="text-xs">{moduleGroups['__baseline__'].length} items</Badge>
+                                  </h4>
+                                  <EquipmentModuleTable
+                                    items={moduleGroups['__baseline__']}
+                                    onUpdateQty={(id, v) => updateDisciplineEquipment(id, { quantity: v })}
+                                    onToggleOptional={(id, checked) => updateDisciplineEquipment(id, { is_optional: checked })}
+                                    onRemove={(id) => removeDisciplineEquipment(id, selectedDiscipline.id)}
+                                    onChangeModule={(id, moduleName) => updateDisciplineEquipment(id, { module_name: moduleName || null })}
+                                    allModuleNames={moduleNames}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Optional modules */}
+                              {Object.entries(moduleGroups)
+                                .filter(([key]) => key !== '__baseline__')
+                                .map(([moduleName, items]) => (
+                                  <div key={moduleName} className="border rounded-lg p-4 bg-muted/30">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                                        <Layers className="h-4 w-4 text-primary" /> {moduleName}
+                                        <Badge className="text-xs">{items.length} items</Badge>
+                                        <Badge variant="outline" className="text-xs">Optional Module</Badge>
+                                      </h4>
+                                      <Button size="sm" variant="ghost" onClick={() => openPickerForDiscipline(moduleName)}>
+                                        <PlusCircle className="mr-1 h-3 w-3" /> Add
+                                      </Button>
+                                    </div>
+                                    <EquipmentModuleTable
+                                      items={items}
+                                      onUpdateQty={(id, v) => updateDisciplineEquipment(id, { quantity: v })}
+                                      onToggleOptional={(id, checked) => updateDisciplineEquipment(id, { is_optional: checked })}
+                                      onRemove={(id) => removeDisciplineEquipment(id, selectedDiscipline.id)}
+                                      onChangeModule={(id, newModName) => updateDisciplineEquipment(id, { module_name: newModName || null })}
+                                      allModuleNames={moduleNames}
+                                    />
+                                  </div>
                                 ))}
-                              </TableBody>
-                            </Table>
+                            </div>
                           )}
                         </CardContent>
                       </>
@@ -617,6 +703,46 @@ const DisciplinePlannerPage = () => {
         excludeIds={getPickerExcludeIds()}
         fetchUserEquipment={fetchUserEquipment}
       />
+
+      {/* New Module Dialog */}
+      <Dialog open={isModuleDialogOpen} onOpenChange={setIsModuleDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Create Optional Module</DialogTitle>
+            <DialogDescription>
+              Create a named optional equipment module (e.g., "Gate Kit", "Measurement Kit", "Signage Kit").
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="module-name">Module Name *</Label>
+              <Input
+                id="module-name"
+                value={newModuleName}
+                onChange={e => setNewModuleName(e.target.value)}
+                placeholder="e.g., Gate Kit"
+                onKeyDown={e => e.key === 'Enter' && handleCreateModule()}
+              />
+            </div>
+            {moduleNames.length > 0 && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Existing modules:</Label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {moduleNames.map(m => (
+                    <Badge key={m} variant="outline" className="text-xs">{m}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsModuleDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleCreateModule} disabled={!newModuleName.trim()}>
+                Create & Add Equipment
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

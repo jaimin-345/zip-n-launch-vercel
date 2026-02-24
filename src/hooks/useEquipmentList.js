@@ -6,14 +6,19 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 const ROWS_PER_PAGE = 15;
 
 export const DEFAULT_CATEGORIES = [
-  'Arena Equipment',
-  'Sound System',
-  'Judges Supplies',
-  'Office Supplies',
-  'Barns & Stalling',
-  'Awards & Trophies',
+  'Technology & Communication',
+  'Show Office & Administration',
+  'Operations & Production',
+  'Supplies',
+  'Arena, Trail & Ranch Equipment',
+  'Jumping / Hunter Equipment',
+  'Announcer Booth & Audio',
+  'Paddock / In-Gate Equipment',
+  'Marketing, Sponsorship & Branding',
+  'Awards & Ceremonies',
+  'Comfort, Facilities & Maintenance',
   'Safety Equipment',
-  'Signage',
+  'Barns & Stalling',
   'General',
 ];
 
