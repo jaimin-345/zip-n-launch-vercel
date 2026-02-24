@@ -54,7 +54,7 @@ const SortablePatternSlot = ({
         isDragging ? "border-primary shadow-lg" : "border-border",
         pattern ? "bg-card" : "bg-muted/20"
       )}
-      onMouseEnter={() => onHover({ id, type: 'hierarchy', file: pattern?.file, url: pattern?.url })}
+      onMouseEnter={() => onHover({ id, type: 'hierarchy', file: pattern?.file, dataUrl: pattern?.dataUrl })}
       onMouseLeave={onLeave}
     >
       <CardHeader className="flex flex-row items-center justify-between p-3 border-b">
@@ -73,7 +73,7 @@ const SortablePatternSlot = ({
         </div>
         {pattern && (
           <div className="flex items-center space-x-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPreview({ id, type: 'hierarchy', file: pattern?.file, url: pattern?.url })}>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onPreview({ id, type: 'hierarchy', file: pattern?.file, dataUrl: pattern?.dataUrl, name: pattern?.name })}>
               <Eye className="h-4 w-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemove(id)}>

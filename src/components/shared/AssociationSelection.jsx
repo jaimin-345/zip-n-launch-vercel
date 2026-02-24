@@ -446,6 +446,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
     if (context === 'hub' && selectedPurposeName) {
         return `${selectedPurposeName} Name`;
     }
+    if (context === 'pattern-upload') return "Pattern Set Name";
     if (context === 'pbb') return "Horse Show Name";
     if (context === 'contract') return "Show Name";
     return "Show Name";
@@ -457,12 +458,14 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
         if (formData.usageType === 'just_for_fun') return "E.g., My Pattern Collection";
         return "E.g., Individual Pattern Purchase";
     }
+    if (context === 'pattern-upload') return "E.g., Championship Horsemanship Finals 2025";
     if (context === 'pbb') return "E.g., Summer Sizzler Pattern Book";
     if (context === 'contract') return "e.g., Summer Sizzle";
     return "e.g., Summer Sizzle";
   };
 
   const getTitle = () => {
+    if (context === 'pattern-upload') return `Step ${stepNumber}: Pattern Set Name & Associations`;
     if (context === 'pbb') return `Step ${stepNumber}: Book & Association Details`;
     if (context === 'showInfo') return "Select Association / Affiliation";
     if (context === 'hub') return `Step ${stepNumber}: Select Association`;
@@ -472,6 +475,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
 
   const getDescription = () => {
     if (isClinic) return "Enter your clinic number and select which groups you're teaching.";
+    if (context === 'pattern-upload') return "Name your pattern set and select all applicable legal associations. These will automatically apply to every pattern in this set.";
     if (context === 'hub') return "Choose which governing body's patterns you're looking for.";
     if (context === 'pbb') return "Name your pattern book and select the affiliated associations.";
     if (context === 'showInfo') return "Select all associations that are part of this show. This will help populate the class list.";
@@ -506,7 +510,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
             />
           </div>
           
-          {!isClinic && (
+          {!isClinic && context !== 'pattern-upload' && (
             <div className="space-y-1.5">
               <Label htmlFor="showNumber" className="font-semibold">Show Number</Label>
               <Input

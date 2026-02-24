@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
+  'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
 
@@ -16,6 +16,15 @@ const PatternPreview = ({ previewItem, hierarchyOrder, onAssign, isStaged, onPin
   const [pageNumber, setPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Reset loading/error state when previewItem changes
+  React.useEffect(() => {
+    if (previewItem) {
+      setLoading(true);
+      setError(null);
+      setPageNumber(1);
+    }
+  }, [previewItem?.id, previewItem?.dataUrl]);
 
   const handleAssign = (slotId) => {
     if (previewItem && slotId) {
@@ -29,14 +38,15 @@ const PatternPreview = ({ previewItem, hierarchyOrder, onAssign, isStaged, onPin
     setError(null);
   };
 
-  const onDocumentLoadError = (error) => {
+  const onDocumentLoadError = (err) => {
     setError('Failed to load PDF preview');
     setLoading(false);
-    console.error('PDF Load Error:', error);
+    console.error('PDF Load Error:', err);
   };
 
-  const hasValidFile = previewItem && (previewItem.dataUrl || previewItem.file_url);
-  const fileSource = previewItem?.dataUrl || previewItem?.file_url;
+  // Prefer File object (most reliable for react-pdf), then dataUrl, then file_url
+  const hasValidFile = previewItem && (previewItem.file || previewItem.dataUrl || previewItem.file_url);
+  const fileSource = previewItem?.file || previewItem?.dataUrl || previewItem?.file_url;
 
   return (
     <div className="absolute top-0 left-full ml-4 h-auto w-[300px] z-50">

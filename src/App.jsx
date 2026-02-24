@@ -27,6 +27,7 @@ import SponsorshipIntelligencePage from '@/pages/SponsorshipIntelligencePage';
 import AssetLibraryPage from '@/pages/AssetLibraryPage';
 import CustomPatternSetPage from '@/pages/CustomPatternSetPage';
 import PatternUploadPage from '@/pages/PatternUploadPage';
+import PatternUploadWizardPage from '@/pages/PatternUploadWizardPage';
 import ScoreSheetGeneratorPage from '@/pages/ScoreSheetGeneratorPage';
 import AIScoreSheetManagerPage from '@/pages/AIScoreSheetManagerPage';
 import AdminPatternReviewPage from '@/pages/AdminPatternReviewPage';
@@ -210,7 +211,9 @@ function App() {
                   <Route path="/horse-show-manager/awards-presenters" element={<RoleBasedRoute requiredPermission="shows:manage:own"><AwardsPresenterManagerPage /></RoleBasedRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
-                  <Route path="/upload-patterns/new" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadPage /></RoleBasedRoute>} />
+                  <Route path="/upload-patterns/new" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadWizardPage /></RoleBasedRoute>} />
+                  <Route path="/upload-patterns/edit/:projectId" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadWizardPage /></RoleBasedRoute>} />
+                  <Route path="/upload-patterns/legacy" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadPage /></RoleBasedRoute>} />
                   <Route path="/score-sheet-generator" element={<ScoreSheetGeneratorPage />} />
                 </Routes>
                 <Toaster />

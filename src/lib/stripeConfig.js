@@ -48,6 +48,16 @@ export const STRIPE_PRICES = {
     amount: 9999,
     interval: 'month',
   },
+
+  // Pattern Upload Submission
+  pattern_upload_submission: {
+    priceId: 'price_PLACEHOLDER_pattern_upload', // TODO: Replace with real Stripe Price ID
+    productId: 'prod_PLACEHOLDER_pattern_upload', // TODO: Replace with real Stripe Product ID
+    name: 'Pattern Upload — Submission Fee',
+    description: 'One-time fee for submitting a custom pattern set',
+    amount: 1999,
+    interval: null,
+  },
 };
 
 // Returns the checkout mode for Stripe ('payment' for one-time, 'subscription' for recurring)
