@@ -19,7 +19,7 @@ export const FileUploadEditor = ({ isOpen, onOpenChange, fileData, onSave }) => 
 
   useEffect(() => {
     if (fileData) {
-      setFileName(fileData.customName || fileData.file.name);
+      setFileName(fileData.customName || fileData.file?.name || fileData.name || '');
       setTags(fileData.tags || []);
     }
   }, [fileData]);
