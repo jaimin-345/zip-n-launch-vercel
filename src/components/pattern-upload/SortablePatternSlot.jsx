@@ -95,7 +95,7 @@ const SortablePatternSlot = ({
           {pattern ? (
             <div className="flex items-center space-x-2 text-primary-foreground bg-primary/80 px-3 py-2 rounded-md">
               <FileText className="h-5 w-5" />
-              <span className="text-sm font-medium">{pattern.file.name}</span>
+              <span className="text-sm font-medium">{pattern.file?.name || pattern.name || 'Uploaded Pattern'}</span>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
