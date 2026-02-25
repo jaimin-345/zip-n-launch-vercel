@@ -28,6 +28,21 @@ export const pdfToDataUrls = async (file) => {
     return results;
 };
 
+// Normalize common OCR artifacts and encoding issues
+const normalizeText = (text) => {
+    return text
+        .replace(/[\u2018\u2019\u201A]/g, "'")    // smart single quotes
+        .replace(/[\u201C\u201D\u201E]/g, '"')     // smart double quotes
+        .replace(/\u2013/g, '-')                    // en-dash
+        .replace(/\u2014/g, '--')                   // em-dash
+        .replace(/\ufb01/g, 'fi')                   // fi ligature
+        .replace(/\ufb02/g, 'fl')                   // fl ligature
+        .replace(/\ufb03/g, 'ffi')                  // ffi ligature
+        .replace(/\ufb04/g, 'ffl')                  // ffl ligature
+        .replace(/\s+/g, ' ')                       // collapse whitespace
+        .trim();
+};
+
 export const extractPatternSteps = async (pdfFile) => {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
@@ -42,33 +57,185 @@ export const extractPatternSteps = async (pdfFile) => {
         fullText += pageText + ' ';
     }
 
-    const startIndex = fullText.indexOf('1.');
-    const endIndex = fullText.toLowerCase().indexOf('pattern complete');
+    fullText = normalizeText(fullText);
+
+    // Try standard "1." marker first, then fallback to "1)" or "1:" formats
+    let startIndex = fullText.indexOf('1.');
+    if (startIndex === -1) {
+        const altMatch = fullText.match(/(?:^|\s)(1[\)\:])\s/);
+        startIndex = altMatch ? fullText.indexOf(altMatch[1]) : -1;
+    }
 
     if (startIndex === -1) {
-        throw new Error('Could not find pattern start marker ("1.") in the PDF.');
+        // No numbered steps found — return empty instead of throwing
+        return {};
     }
-    
+
+    const endIndex = fullText.toLowerCase().indexOf('pattern complete');
     const effectiveEndIndex = endIndex === -1 ? fullText.length : endIndex;
 
     const patternText = fullText.substring(startIndex, effectiveEndIndex).trim();
-    
+
+    // Support "1.", "1)", and "1:" step formats
     const steps = patternText
-      .split(/\s+(?=\d+\.)/g)
+      .split(/\s+(?=\d+[\.\)\:])/g)
       .map(step => step.trim())
       .filter(Boolean);
 
     const stepMap = {};
     steps.forEach(step => {
-        const match = step.match(/^(\d+)\.\s*(.*)/);
+        const match = step.match(/^(\d+)[\.\)\:]\s*(.*)/);
         if (match) {
             const stepNumber = parseInt(match[1], 10);
             let description = match[2].trim();
-            stepMap[stepNumber] = description;
+            if (description) {
+                stepMap[stepNumber] = description;
+            }
         }
     });
 
     return stepMap;
+};
+
+export const extractPatternStepsWithProgress = async (pdfFile, onProgress) => {
+    onProgress?.({ status: 'loading', message: 'Reading PDF...' });
+
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+    let fullText = '';
+
+    onProgress?.({ status: 'extracting', message: `Extracting text from ${numPages} page${numPages !== 1 ? 's' : ''}...` });
+
+    for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + ' ';
+    }
+
+    fullText = normalizeText(fullText);
+
+    onProgress?.({ status: 'parsing', message: 'Parsing maneuver steps...' });
+
+    let startIndex = fullText.indexOf('1.');
+    if (startIndex === -1) {
+        const altMatch = fullText.match(/(?:^|\s)(1[\)\:])\s/);
+        startIndex = altMatch ? fullText.indexOf(altMatch[1]) : -1;
+    }
+
+    if (startIndex === -1) {
+        onProgress?.({ status: 'done', message: 'No numbered steps found in PDF text.' });
+        return {};
+    }
+
+    const endIndex = fullText.toLowerCase().indexOf('pattern complete');
+    const effectiveEndIndex = endIndex === -1 ? fullText.length : endIndex;
+    const patternText = fullText.substring(startIndex, effectiveEndIndex).trim();
+
+    const steps = patternText
+      .split(/\s+(?=\d+[\.\)\:])/g)
+      .map(step => step.trim())
+      .filter(Boolean);
+
+    const stepMap = {};
+    steps.forEach(step => {
+        const match = step.match(/^(\d+)[\.\)\:]\s*(.*)/);
+        if (match) {
+            const stepNumber = parseInt(match[1], 10);
+            let description = match[2].trim();
+            if (description) {
+                stepMap[stepNumber] = description;
+            }
+        }
+    });
+
+    onProgress?.({ status: 'done', message: `Found ${Object.keys(stepMap).length} steps` });
+    return stepMap;
+};
+
+// Group text items into lines based on Y-position proximity
+const groupItemsIntoLines = (items, yTolerance = 3) => {
+    if (items.length === 0) return [];
+
+    // Sort by Y descending (top to bottom in PDF coords), then X ascending (left to right)
+    const sorted = [...items].sort((a, b) => {
+        const yA = a.transform[5];
+        const yB = b.transform[5];
+        if (Math.abs(yA - yB) > yTolerance) return yB - yA; // higher Y = higher on page
+        return a.transform[4] - b.transform[4]; // left to right
+    });
+
+    const lines = [];
+    let currentLine = [sorted[0]];
+    let currentY = sorted[0].transform[5];
+
+    for (let i = 1; i < sorted.length; i++) {
+        const item = sorted[i];
+        const itemY = item.transform[5];
+        if (Math.abs(itemY - currentY) <= yTolerance) {
+            currentLine.push(item);
+        } else {
+            // Sort current line left-to-right before pushing
+            currentLine.sort((a, b) => a.transform[4] - b.transform[4]);
+            lines.push(currentLine);
+            currentLine = [item];
+            currentY = itemY;
+        }
+    }
+    // Push last line
+    currentLine.sort((a, b) => a.transform[4] - b.transform[4]);
+    lines.push(currentLine);
+
+    return lines;
+};
+
+// Extract ALL text from a PDF, optionally filtered by a region
+// bounds: { x, y, width, height } as normalized fractions (0-1) of page dimensions, or null for full page
+export const extractAllTextFromRegion = async (pdfFile, bounds = null) => {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(arrayBuffer) });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1 });
+    const textContent = await page.getTextContent();
+
+    let filteredItems = textContent.items.filter(item => item.str.trim().length > 0);
+
+    if (bounds) {
+        // Convert normalized bounds to PDF coordinate space
+        // PDF origin is bottom-left; bounds origin is top-left (image coords)
+        const pdfX = bounds.x * viewport.width;
+        const pdfY = (1 - bounds.y - bounds.height) * viewport.height; // flip Y axis
+        const pdfW = bounds.width * viewport.width;
+        const pdfH = bounds.height * viewport.height;
+
+        filteredItems = filteredItems.filter(item => {
+            const itemX = item.transform[4];
+            const itemY = item.transform[5];
+            return (
+                itemX >= pdfX &&
+                itemX <= pdfX + pdfW &&
+                itemY >= pdfY &&
+                itemY <= pdfY + pdfH
+            );
+        });
+    }
+
+    const lineGroups = groupItemsIntoLines(filteredItems);
+    const lines = lineGroups.map(group =>
+        normalizeText(group.map(item => item.str).join(' '))
+    ).filter(line => line.length > 0);
+
+    const rawText = lines.join('\n');
+
+    return { rawText, lines };
+};
+
+// Convenience wrapper: extract ALL text from page 1 with no region filter
+export const extractAllText = async (pdfFile) => {
+    return extractAllTextFromRegion(pdfFile, null);
 };
 
 export const generateScoreSheetPdf = async (templatePath, steps, patternInfo) => {

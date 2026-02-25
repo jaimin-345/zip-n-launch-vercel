@@ -1,13 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
-import { useSubscription } from '@/hooks/useSubscription';
 import LicensingAgreement from '@/components/pattern-upload/LicensingAgreement';
 import SubmissionSummary from './SubmissionSummary';
-import { submitPatternSet } from '@/lib/patternUploadUtils';
 
 export const Step6_LicenseAndSubmit = ({
   formData,
@@ -15,54 +10,7 @@ export const Step6_LicenseAndSubmit = ({
   associationsData,
   onGoToStep,
 }) => {
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const { createCheckoutSession, checkoutLoading } = useSubscription();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const hasPatterns = Object.values(formData.patterns).some(p => p);
-
-  const handleSubmit = async () => {
-    if (!user) {
-      toast({ title: 'Authentication Error', description: 'You must be logged in to submit.', variant: 'destructive' });
-      return;
-    }
-    if (!formData.agreedToTerms) {
-      toast({ title: 'Terms Required', description: 'Please agree to the licensing terms.', variant: 'destructive' });
-      return;
-    }
-    if (!hasPatterns) {
-      toast({ title: 'No Patterns', description: 'Please upload at least one pattern.', variant: 'destructive' });
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // Submit pattern data first
-      await submitPatternSet(formData, user);
-
-      toast({ title: 'Patterns Submitted!', description: 'Your pattern set has been submitted for review.' });
-
-      // Redirect to Stripe Checkout for payment
-      try {
-        await createCheckoutSession('pattern_upload_submission', {
-          pattern_set_name: formData.showName,
-          user_id: user.id,
-        });
-      } catch (stripeError) {
-        // If Stripe fails (e.g. no price configured yet), patterns are still submitted
-        console.warn('Stripe checkout error:', stripeError);
-        toast({
-          title: 'Patterns Submitted',
-          description: 'Your patterns were submitted successfully. Payment processing will be available soon.',
-        });
-      }
-    } catch (error) {
-      toast({ title: 'Submission Failed', description: error.message, variant: 'destructive' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <motion.div

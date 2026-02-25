@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename }) => {
     const [isEditing, setIsEditing] = useState(false);
@@ -101,10 +102,21 @@ const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, 
 
     return (
         <div className="space-y-2">
-            <div {...getRootProps()} className={`p-4 border-2 border-dashed rounded-md text-center cursor-pointer hover:border-primary transition-colors ${isDragActive ? 'border-primary bg-primary/10' : ''}`}>
+            <div
+                {...getRootProps()}
+                className={cn(
+                    "p-8 border-2 border-dashed rounded-lg text-center cursor-pointer transition-all duration-200",
+                    isDragActive
+                        ? "border-primary bg-gradient-to-b from-primary/10 to-primary/5 scale-[1.01]"
+                        : "border-muted-foreground/30 hover:border-primary/60 hover:bg-gradient-to-b hover:from-primary/5 hover:to-transparent"
+                )}
+            >
                 <input {...getInputProps()} />
-                <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-1 text-xs text-muted-foreground">Drop multi-page PDF here (max 5 pages)</p>
+                <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium text-muted-foreground">
+                    {isDragActive ? 'Drop PDF here' : 'Drop multi-page PDF here'}
+                </p>
+                <p className="text-xs text-muted-foreground/60 mt-1">or click to browse — max 5 pages per PDF</p>
             </div>
             <ScrollArea className="h-96">
                 <div className="space-y-2 pr-3">

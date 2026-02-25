@@ -1,15 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, FileText, ListChecks, Upload, PenTool, Package, ShieldCheck, Save, Loader2 } from 'lucide-react';
+import { ArrowRight, ArrowLeft, FileText, ListChecks, Upload, PenTool, Package, ShieldCheck, Save, Loader2, CheckCircle, LogOut, Send } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { usePatternUploadWizard } from '@/hooks/usePatternUploadWizard';
-import { useParams } from 'react-router-dom';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { useParams, useNavigate } from 'react-router-dom';
 import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
+import { submitPatternSet } from '@/lib/patternUploadUtils';
 
 import { Step1_NameAndAssociations } from '@/components/pattern-upload-wizard/Step1_NameAndAssociations';
 import { Step2_DisciplineAndClass } from '@/components/pattern-upload-wizard/Step2_DisciplineAndClass';
@@ -63,11 +65,23 @@ const PatternUploadWizardPage = () => {
     handleUpdateAccessoryDoc,
   } = usePatternUploadWizard(projectId);
 
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveConfirmation, setSaveConfirmation] = useState(null);
   const [previewingPattern, setPreviewingPattern] = useState(null);
   const [hoveredPattern, setHoveredPattern] = useState(null);
   const [pinnedPattern, setPinnedPattern] = useState(null);
   const hoverTimeoutRef = useRef(null);
+  const saveTimerRef = useRef(null);
+
+  // Auto-dismiss save confirmation after 5 seconds
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   const handleHover = (item) => {
     if (pinnedPattern) return;
@@ -86,8 +100,19 @@ const PatternUploadWizardPage = () => {
     setHoveredPattern(null);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setCompletedSteps(prev => new Set([...prev, currentStep]));
+
+    // Auto-save on step advance if project already exists
+    if (formData.id) {
+      try {
+        await createOrUpdateProject();
+      } catch (e) {
+        // Non-blocking: don't prevent navigation if auto-save fails
+        console.warn('Auto-save failed:', e);
+      }
+    }
+
     if (currentStep < steps.length) {
       nextStep();
     }
@@ -95,10 +120,74 @@ const PatternUploadWizardPage = () => {
 
   const handleBack = () => currentStep > 1 && prevStep();
 
+  const showSaveConfirmation = (savedId) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveConfirmation({ timestamp: new Date().toLocaleTimeString(), projectId: savedId });
+    saveTimerRef.current = setTimeout(() => setSaveConfirmation(null), 5000);
+  };
+
   const handleSaveDraft = async () => {
     setIsSaving(true);
     try {
+      const savedId = await createOrUpdateProject();
+      if (savedId) {
+        showSaveConfirmation(savedId);
+        toast({
+          title: 'Pattern Saved Successfully',
+          description: `Draft saved at ${new Date().toLocaleTimeString()}`,
+        });
+      }
+    } catch (error) {
+      // Error toast handled in hook
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSubmitPatterns = async () => {
+    if (!user) {
+      toast({ title: 'Authentication Error', description: 'You must be logged in to submit.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.agreedToTerms) {
+      toast({ title: 'Terms Required', description: 'Please agree to the licensing terms.', variant: 'destructive' });
+      return;
+    }
+    if (!hasPatterns) {
+      toast({ title: 'No Patterns', description: 'Please upload at least one pattern.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Save draft first to ensure all data is persisted
       await createOrUpdateProject();
+
+      // Submit the pattern set
+      await submitPatternSet(formData, user);
+
+      setCompletedSteps(prev => new Set([...prev, currentStep]));
+
+      toast({
+        title: 'Patterns Submitted!',
+        description: 'Your pattern set has been submitted successfully.',
+      });
+
+      navigate('/upload-patterns');
+    } catch (error) {
+      toast({ title: 'Submission Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveAndExit = async () => {
+    setIsSaving(true);
+    try {
+      const savedId = await createOrUpdateProject();
+      if (savedId) {
+        navigate('/upload-patterns');
+      }
     } catch (error) {
       // Error toast handled in hook
     } finally {
@@ -227,6 +316,24 @@ const PatternUploadWizardPage = () => {
                 </CardContent>
               </AnimatePresence>
 
+              {/* Save confirmation banner */}
+              <AnimatePresence>
+                {saveConfirmation && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.25 }}
+                    className="mx-4 mb-0 p-3 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-300 dark:border-green-700 flex items-center gap-2"
+                  >
+                    <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                    <span className="text-sm text-green-800 dark:text-green-200">
+                      Saved successfully at {saveConfirmation.timestamp}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <CardFooter className="p-4 flex justify-between items-center border-t border-border">
                 <div className="flex items-center gap-2">
                   <Button
@@ -238,6 +345,21 @@ const PatternUploadWizardPage = () => {
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Project name indicator */}
+                  {formData.id && formData.showName && (
+                    <span className="text-xs text-muted-foreground hidden sm:inline mr-1">
+                      Project: {formData.showName}
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSaveAndExit}
+                    disabled={isSaving}
+                    className="text-muted-foreground"
+                  >
+                    <LogOut className="mr-1.5 h-3.5 w-3.5" /> Save & Exit
+                  </Button>
                   <Button
                     variant="secondary"
                     onClick={handleSaveDraft}
@@ -255,8 +377,13 @@ const PatternUploadWizardPage = () => {
                       Next <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button onClick={handleNext} disabled={isNextDisabled}>
-                      <ShieldCheck className="mr-2 h-4 w-4" /> Pay & Submit Patterns
+                    <Button onClick={handleSubmitPatterns} disabled={isNextDisabled || isSubmitting}>
+                      {isSubmitting ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="mr-2 h-4 w-4" />
+                      )}
+                      Submit Patterns
                     </Button>
                   )}
                 </div>

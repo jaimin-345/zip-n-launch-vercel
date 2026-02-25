@@ -86,8 +86,8 @@ const SortablePatternSlot = ({
         <div
           {...getRootProps()}
           className={cn(
-            "flex items-center justify-center p-4 border-2 border-dashed rounded-md text-center transition-colors min-h-[80px]",
-            isDragActive ? "border-primary bg-primary/10" : "border-border hover:border-primary/50",
+            "flex items-center justify-center p-6 border-2 border-dashed rounded-md text-center transition-all duration-200 min-h-[100px]",
+            isDragActive ? "border-primary bg-primary/10 ring-2 ring-primary/30 scale-[1.01]" : "border-border hover:border-primary/50",
             pattern && "border-transparent hover:border-transparent"
           )}
         >

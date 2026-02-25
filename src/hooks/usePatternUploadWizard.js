@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -32,6 +32,7 @@ const initialFormData = {
   // Step 4: Maneuver Editing + Annotation
   patternManeuvers: {},
   patternAnnotations: {},
+  patternVerbiage: {}, // { [levelId]: { raw: string, formatted: ManeuverStep[], extractedAt: ISO } }
 
   // Step 5: Equipment & Documents
   accessoryDocs: [],
@@ -205,11 +206,13 @@ export const usePatternUploadWizard = (projectId) => {
         linkedPatternIds: doc.linkedPatternIds.filter(id => id !== levelId),
       }));
 
-      // Clean up maneuvers and annotations
+      // Clean up maneuvers, annotations, and verbiage
       const newManeuvers = { ...prev.patternManeuvers };
       delete newManeuvers[levelId];
       const newAnnotations = { ...prev.patternAnnotations };
       delete newAnnotations[levelId];
+      const newVerbiage = { ...prev.patternVerbiage };
+      delete newVerbiage[levelId];
 
       return {
         ...prev,
@@ -217,6 +220,7 @@ export const usePatternUploadWizard = (projectId) => {
         accessoryDocs: newDocs,
         patternManeuvers: newManeuvers,
         patternAnnotations: newAnnotations,
+        patternVerbiage: newVerbiage,
       };
     });
   }, []);
@@ -459,6 +463,42 @@ export const usePatternUploadWizard = (projectId) => {
     setCompletedSteps(new Set());
   }, []);
 
+  // --- Auto-save (30s debounce) ---
+  const [lastAutoSaved, setLastAutoSaved] = useState(null);
+  const autoSaveTimerRef = useRef(null);
+  const lastSavedSnapshotRef = useRef(null);
+
+  useEffect(() => {
+    if (!formData.id || !user) return;
+
+    const snapshot = JSON.stringify({
+      showName: formData.showName,
+      associations: formData.associations,
+      selectedClasses: formData.selectedClasses,
+      patterns: Object.keys(formData.patterns),
+      patternManeuvers: formData.patternManeuvers,
+      patternVerbiage: formData.patternVerbiage,
+      equipmentNotes: formData.equipmentNotes,
+    });
+
+    if (snapshot === lastSavedSnapshotRef.current) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await createOrUpdateProject();
+        lastSavedSnapshotRef.current = snapshot;
+        setLastAutoSaved(new Date());
+      } catch (e) {
+        console.warn('Auto-save failed:', e);
+      }
+    }, 30000);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [formData, user, createOrUpdateProject]);
+
   // --- Validation ---
   const isNextDisabled = useMemo(() => {
     if (isLoading) return true;
@@ -506,6 +546,7 @@ export const usePatternUploadWizard = (projectId) => {
     hasPatterns,
     selectedAssociationIds,
     resetForm,
+    lastAutoSaved,
     // Pattern handlers
     handleFileDrop,
     handleRemovePattern,

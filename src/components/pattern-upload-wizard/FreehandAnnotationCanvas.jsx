@@ -1,12 +1,13 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Undo2, Trash2, Pen, Highlighter } from 'lucide-react';
+import { Undo2, Trash2, Pen, Highlighter, Eraser } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TOOLS = {
   PEN: 'pen',
   HIGHLIGHT: 'highlight',
+  WHITEOUT: 'whiteout',
 };
 
 const COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#000000'];
@@ -99,6 +100,10 @@ const FreehandAnnotationCanvas = ({ backgroundImageUrl, onAnnotationChange, init
       ctx.globalAlpha = 0.3;
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = brushSize * 6;
+    } else if (tool === TOOLS.WHITEOUT) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = brushSize * 3;
     } else {
       ctx.globalAlpha = 1;
       ctx.strokeStyle = color;
@@ -191,6 +196,13 @@ const FreehandAnnotationCanvas = ({ backgroundImageUrl, onAnnotationChange, init
             onClick={() => setTool(TOOLS.HIGHLIGHT)}
           >
             <Highlighter className="h-3.5 w-3.5 mr-1" /> Highlight
+          </Button>
+          <Button
+            variant={tool === TOOLS.WHITEOUT ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setTool(TOOLS.WHITEOUT)}
+          >
+            <Eraser className="h-3.5 w-3.5 mr-1" /> White-out
           </Button>
         </div>
 

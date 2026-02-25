@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setFormData, allAssociations, isReadOnly = false }) => {
+const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setFormData, allAssociations, isReadOnly = false, context = 'default' }) => {
 
   const handleSubAssociationChange = (assocId, key, value) => {
     setFormData(prev => ({
@@ -109,6 +109,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
 
   const renderSubOptions = () => {
     if (!isSelected) return null;
+    if (context === 'pattern-upload') return null;
     const subSelections = formData.subAssociationSelections || {};
     
     if (association.sub_association_info) {
@@ -541,6 +542,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                   setFormData={isReadOnly ? () => {} : setFormData}
                   allAssociations={allAssociations}
                   isReadOnly={isReadOnly}
+                  context={context}
                 />
               ))}
             </div>
@@ -555,6 +557,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
                   setFormData={isReadOnly ? () => {} : setFormData}
                   allAssociations={allAssociations}
                   isReadOnly={isReadOnly}
+                  context={context}
                 />
               ))}
             </div>

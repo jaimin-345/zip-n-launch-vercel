@@ -1,7 +1,7 @@
-import React from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import React, { useState } from 'react';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Tag, FileUp, Info } from 'lucide-react';
+import { Tag, FileUp, Info, GripVertical, FileText } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -27,9 +27,27 @@ const PatternUploader = ({
   pinnedPattern,
   handlePinPattern,
 }) => {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  const [activeDragItem, setActiveDragItem] = useState(null);
+
+  const handleDragStart = (event) => {
+    const { active } = event;
+    if (active.id.toString().startsWith('staged-')) {
+      const pdf = stagedPdfs.find(p => `staged-${p.id}` === active.id);
+      setActiveDragItem({ type: 'staged', data: pdf });
+    } else if (active.id.toString().startsWith('slot-')) {
+      const slotId = active.id.replace('slot-', '');
+      const level = hierarchyOrder.find(h => h.id === slotId);
+      setActiveDragItem({ type: 'slot', data: level });
+    }
+  };
 
   const handleDragEnd = (event) => {
+    setActiveDragItem(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -51,6 +69,10 @@ const PatternUploader = ({
         });
       }
     }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragItem(null);
   };
 
   const currentPreviewItem = pinnedPattern || hoveredPattern;
@@ -75,7 +97,7 @@ const PatternUploader = ({
         <CardDescription>Drag and drop your PDF patterns, then assign suitable divisions and levels for each one. Hover to preview.</CardDescription>
       </CardHeader>
       <CardContent>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-3 relative">
               <SortableContext items={hierarchyOrder.map(h => `slot-${h.id}`)} strategy={verticalListSortingStrategy}>
@@ -93,8 +115,8 @@ const PatternUploader = ({
                   />
                 ))}
               </SortableContext>
-              <PatternPreview 
-                previewItem={currentPreviewItem} 
+              <PatternPreview
+                previewItem={currentPreviewItem}
                 hierarchyOrder={hierarchyOrder}
                 onAssign={assignStagedPdf}
                 isStaged={!!currentPreviewItem && !!stagedPdfs.find(p => p.id === currentPreviewItem.id)}
@@ -122,6 +144,22 @@ const PatternUploader = ({
               </Card>
             </div>
           </div>
+          <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
+            {activeDragItem?.type === 'staged' && activeDragItem.data && (
+              <div className="p-3 border-2 border-primary rounded-lg bg-background shadow-xl flex items-center gap-2">
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{activeDragItem.data.displayName || activeDragItem.data.originalFileName}</span>
+              </div>
+            )}
+            {activeDragItem?.type === 'slot' && activeDragItem.data && (
+              <div className="p-3 border-2 border-primary rounded-lg bg-background shadow-xl flex items-center gap-2">
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-semibold">{activeDragItem.data.title}</span>
+                <span className="text-xs text-muted-foreground">{activeDragItem.data.description}</span>
+              </div>
+            )}
+          </DragOverlay>
         </DndContext>
       </CardContent>
     </Card>

@@ -45,6 +45,7 @@ import CustomerAssetLibraryPage from '@/pages/CustomerAssetLibraryPage';
 import CustomerPortalPage from '@/pages/CustomerPortalPage';
 import ArchivePatternsPage from '@/pages/ArchivePatternsPage';
 import PatternUploadLandingPage from '@/pages/PatternUploadLandingPage';
+import MyPatternUploadsPage from '@/pages/MyPatternUploadsPage';
 import HorseShowManagerPage from '@/pages/HorseShowManagerPage';
 import CreateShowPage from '@/pages/CreateShowPage';
 import ShowStructurePage from '@/pages/ShowStructurePage';
@@ -211,6 +212,7 @@ function App() {
                   <Route path="/horse-show-manager/awards-presenters" element={<RoleBasedRoute requiredPermission="shows:manage:own"><AwardsPresenterManagerPage /></RoleBasedRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
+                  <Route path="/upload-patterns/my-uploads" element={<RoleBasedRoute requiredPermission="patterns:upload"><MyPatternUploadsPage /></RoleBasedRoute>} />
                   <Route path="/upload-patterns/new" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadWizardPage /></RoleBasedRoute>} />
                   <Route path="/upload-patterns/edit/:projectId" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadWizardPage /></RoleBasedRoute>} />
                   <Route path="/upload-patterns/legacy" element={<RoleBasedRoute requiredPermission="patterns:upload"><PatternUploadPage /></RoleBasedRoute>} />
