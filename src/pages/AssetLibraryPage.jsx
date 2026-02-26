@@ -70,7 +70,7 @@ const AssetLibraryPage = () => {
         ...discipline,
         customPatternCount: patternCounts[discipline.name] || 0
       }));
-
+// test
       setAssociations(addLogoToAssociations(associationsData));
       setDisciplines(disciplinesWithCounts);
     } catch (err) {
