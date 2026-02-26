@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Download, RotateCcw, Hash, Type, PanelTop, PanelBottom, AlertTriangle } from 'lucide-react';
+import { Download, RotateCcw, Hash, Type, PanelTop, PanelBottom, AlertTriangle, Image } from 'lucide-react';
+import BackgroundManager from '@/components/BackgroundManager';
 import { useToast } from '@/components/ui/use-toast';
 import { getAllClassItems, getUnplacedClasses, initializeShowBill, renumberShowBill } from '@/lib/showBillUtils';
 import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
@@ -28,6 +29,7 @@ const DEFAULT_LAYOUT = {
   showJudges: true,
   showFooter: true,
   customFooterText: '',
+  background: { id: 'none', type: 'none', value: '' },
 };
 
 // --- Layout Controls Panel ---
@@ -185,6 +187,19 @@ const LayoutControls = ({ settings, onChange, onExportPdf, onReset }) => {
                   />
                 </div>
               )}
+            </AccordionContent>
+          </AccordionItem>
+
+          {/* Background */}
+          <AccordionItem value="background" className="border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">
+              <span className="flex items-center gap-2"><Image className="h-4 w-4" /> Background</span>
+            </AccordionTrigger>
+            <AccordionContent className="pb-3">
+              <BackgroundManager
+                value={settings.background}
+                onChange={(bg) => update('background', bg)}
+              />
             </AccordionContent>
           </AccordionItem>
         </Accordion>

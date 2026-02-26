@@ -1,26 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { Helmet } from 'react-helmet-async';
     import { motion } from 'framer-motion';
-    import { Check, X, Eye, FileText, User, Loader2, ArrowLeft, Download, Trash2, CheckCircle, Mail, ExternalLink } from 'lucide-react';
+    import { Check, X, Eye, FileText, User, Loader2, ArrowLeft, Download, Trash2, CheckCircle, Mail, ExternalLink, Filter, CheckSquare, Square } from 'lucide-react';
     import { Link } from 'react-router-dom';
     import Navigation from '@/components/Navigation';
     import { Button } from '@/components/ui/button';
     import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
     import { useToast } from '@/components/ui/use-toast';
     import { Badge } from '@/components/ui/badge';
+    import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    import { Checkbox } from '@/components/ui/checkbox';
     import { supabase } from '@/lib/supabaseClient';
     import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
     import { ConfirmationDialog } from '@/components/ConfirmationDialog';
     import { EmailSenderModal } from '@/components/admin/EmailSenderModal';
+    import { generateNextPatternNumber, assignPatternNumber } from '@/lib/patternNumbering';
 
     const AdminPatternReviewPage = () => {
         const { toast } = useToast();
         const [pendingPatterns, setPendingPatterns] = useState([]);
         const [approvedPatterns, setApprovedPatterns] = useState([]);
+        const [rejectedPatterns, setRejectedPatterns] = useState([]);
         const [isLoading, setIsLoading] = useState(true);
         const [previewState, setPreviewState] = useState({ isOpen: false, pattern: null });
         const [deleteState, setDeleteState] = useState({ isOpen: false, pattern: null });
         const [emailState, setEmailState] = useState({ isOpen: false, patternSet: null });
+        const [activeFilter, setActiveFilter] = useState('pending');
+        const [selectedSets, setSelectedSets] = useState(new Set());
+        const [sidePreview, setSidePreview] = useState(null);
 
         const fetchPatterns = useCallback(async () => {
             setIsLoading(true);
@@ -28,7 +35,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             const { data: patternsData, error: patternsError } = await supabase
               .from('patterns')
               .select('*, pattern_associations(*), pattern_divisions(*), projects(id, project_name)')
-              .in('review_status', ['pending', 'approved']);
+              .in('review_status', ['pending', 'approved', 'rejected']);
         
             if (patternsError) {
               toast({
@@ -73,6 +80,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
             const pending = patternsWithCustomer.filter(p => p.review_status === 'pending');
             const approved = patternsWithCustomer.filter(p => p.review_status === 'approved');
+            const rejected = patternsWithCustomer.filter(p => p.review_status === 'rejected');
 
             const groupPatterns = (patterns) => {
                 const grouped = patterns.reduce((acc, pattern) => {
@@ -97,6 +105,8 @@ import React, { useState, useEffect, useCallback } from 'react';
         
             setPendingPatterns(groupPatterns(pending));
             setApprovedPatterns(groupPatterns(approved));
+            setRejectedPatterns(groupPatterns(rejected));
+            setSelectedSets(new Set());
             setIsLoading(false);
           }, [toast]);
 
@@ -104,7 +114,7 @@ import React, { useState, useEffect, useCallback } from 'react';
             fetchPatterns();
         }, [fetchPatterns]);
 
-        const handleReview = async (patternIds, newStatus) => {
+        const handleReview = async (patternIds, newStatus, discipline) => {
             const { error } = await supabase
                 .from('patterns')
                 .update({ review_status: newStatus })
@@ -117,9 +127,20 @@ import React, { useState, useEffect, useCallback } from 'react';
                     variant: 'destructive',
                 });
             } else {
+                // Auto-assign pattern numbers on approval
+                if (newStatus === 'approved') {
+                    for (const patternId of patternIds) {
+                        try {
+                            const number = await generateNextPatternNumber(discipline || 'unknown');
+                            await assignPatternNumber(patternId, number);
+                        } catch (e) {
+                            console.warn('Failed to assign pattern number:', e);
+                        }
+                    }
+                }
                 toast({
                     title: `Pattern Set ${newStatus}`,
-                    description: `The pattern set has been updated successfully.`,
+                    description: `The pattern set has been updated successfully.${newStatus === 'approved' ? ' Pattern numbers assigned.' : ''}`,
                 });
                 fetchPatterns();
             }
@@ -188,27 +209,87 @@ import React, { useState, useEffect, useCallback } from 'react';
             setEmailState({ isOpen: true, patternSet });
         };
 
-        const PatternSetCard = ({ set, isPendingReview }) => {
+        // Filtered data based on active tab
+        const filteredSets = useMemo(() => {
+            switch (activeFilter) {
+                case 'pending': return pendingPatterns;
+                case 'approved': return approvedPatterns;
+                case 'rejected': return rejectedPatterns;
+                case 'all': return [...pendingPatterns, ...approvedPatterns, ...rejectedPatterns];
+                default: return pendingPatterns;
+            }
+        }, [activeFilter, pendingPatterns, approvedPatterns, rejectedPatterns]);
+
+        const toggleSetSelection = (setKey) => {
+            setSelectedSets(prev => {
+                const next = new Set(prev);
+                if (next.has(setKey)) next.delete(setKey);
+                else next.add(setKey);
+                return next;
+            });
+        };
+
+        const toggleSelectAll = () => {
+            if (selectedSets.size === filteredSets.length) {
+                setSelectedSets(new Set());
+            } else {
+                setSelectedSets(new Set(filteredSets.map((s, i) => `${s.setName}-${i}`)));
+            }
+        };
+
+        const handleBulkAction = async (newStatus) => {
+            const selectedPatternSets = filteredSets.filter((s, i) => selectedSets.has(`${s.setName}-${i}`));
+            const allPatternIds = selectedPatternSets.flatMap(s => s.patterns.map(p => p.id));
+            if (allPatternIds.length === 0) return;
+
+            const { error } = await supabase
+                .from('patterns')
+                .update({ review_status: newStatus })
+                .in('id', allPatternIds);
+
+            if (error) {
+                toast({ title: `Bulk ${newStatus} failed`, description: error.message, variant: 'destructive' });
+            } else {
+                toast({ title: `Bulk ${newStatus} complete`, description: `${selectedPatternSets.length} set(s) updated.` });
+                fetchPatterns();
+            }
+        };
+
+        const PatternSetCard = ({ set, isPendingReview, setKey }) => {
             const patternIds = set.patterns.map(p => p.id);
             const userEmail = set.user?.email || 'Unknown User';
             // Use the projectId stored in the set object
             const projectId = set.projectId; 
 
+            const isSelected = selectedSets.has(setKey);
+
             return (
-                <Card className="bg-secondary/50">
+                <Card className={`bg-secondary/50 transition-colors ${isSelected ? 'ring-2 ring-primary' : ''}`}>
                     <CardHeader>
                         <div className="flex justify-between items-start">
-                            <div>
-                                <CardTitle>{set.setName}</CardTitle>
-                                <CardDescription>
-                                    <span className="flex items-center gap-2 mt-1">
-                                        <User className="h-4 w-4" /> {userEmail}
-                                        <span className="text-muted-foreground/50">|</span>
-                                        Submitted: {new Date(set.createdAt).toLocaleDateString()}
-                                    </span>
-                                </CardDescription>
+                            <div className="flex items-start gap-3">
+                                <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleSetSelection(setKey)}
+                                    className="mt-1"
+                                />
+                                <div>
+                                    <CardTitle>{set.setName}</CardTitle>
+                                    <CardDescription>
+                                        <span className="flex items-center gap-2 mt-1">
+                                            <User className="h-4 w-4" /> {userEmail}
+                                            <span className="text-muted-foreground/50">|</span>
+                                            Submitted: {new Date(set.createdAt).toLocaleDateString()}
+                                        </span>
+                                    </CardDescription>
+                                </div>
                             </div>
-                            <Badge variant="secondary" className="text-base">{set.className}</Badge>
+                            <div className="flex items-center gap-2">
+                                <Badge variant={isPendingReview ? 'default' : set.patterns[0]?.review_status === 'rejected' ? 'destructive' : 'secondary'}>
+                                    {isPendingReview ? 'Pending' : set.patterns[0]?.review_status || 'approved'}
+                                </Badge>
+                                <Badge variant="secondary" className="text-base">{set.className}</Badge>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -251,7 +332,7 @@ import React, { useState, useEffect, useCallback } from 'react';
                                         <Button variant="destructive" onClick={() => handleReview(patternIds, 'rejected')}>
                                             <X className="mr-2 h-4 w-4" /> Reject Set
                                         </Button>
-                                        <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleReview(patternIds, 'approved')}>
+                                        <Button variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleReview(patternIds, 'approved', set.className)}>
                                             <Check className="mr-2 h-4 w-4" /> Approve Set
                                         </Button>
                                     </>
@@ -293,46 +374,78 @@ import React, { useState, useEffect, useCallback } from 'react';
                                 </div>
                             ) : (
                                 <>
+                                    {/* Filter Tabs */}
+                                    <Tabs value={activeFilter} onValueChange={(v) => { setActiveFilter(v); setSelectedSets(new Set()); }} className="mb-6">
+                                        <TabsList className="grid w-full grid-cols-4">
+                                            <TabsTrigger value="all" className="flex items-center gap-2">
+                                                All <Badge variant="secondary" className="ml-1">{pendingPatterns.length + approvedPatterns.length + rejectedPatterns.length}</Badge>
+                                            </TabsTrigger>
+                                            <TabsTrigger value="pending" className="flex items-center gap-2">
+                                                Pending <Badge variant="default" className="ml-1">{pendingPatterns.length}</Badge>
+                                            </TabsTrigger>
+                                            <TabsTrigger value="approved" className="flex items-center gap-2">
+                                                Approved <Badge variant="secondary" className="ml-1">{approvedPatterns.length}</Badge>
+                                            </TabsTrigger>
+                                            <TabsTrigger value="rejected" className="flex items-center gap-2">
+                                                Rejected <Badge variant="destructive" className="ml-1">{rejectedPatterns.length}</Badge>
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
+
+                                    {/* Bulk Actions Bar */}
+                                    {filteredSets.length > 0 && (
+                                        <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-muted/50 border">
+                                            <div className="flex items-center gap-3">
+                                                <Checkbox
+                                                    checked={selectedSets.size === filteredSets.length && filteredSets.length > 0}
+                                                    onCheckedChange={toggleSelectAll}
+                                                />
+                                                <span className="text-sm text-muted-foreground">
+                                                    {selectedSets.size > 0 ? `${selectedSets.size} of ${filteredSets.length} selected` : `${filteredSets.length} set(s)`}
+                                                </span>
+                                            </div>
+                                            {selectedSets.size > 0 && (
+                                                <div className="flex items-center gap-2">
+                                                    <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700" onClick={() => handleBulkAction('approved')}>
+                                                        <Check className="mr-1 h-3 w-3" /> Approve Selected
+                                                    </Button>
+                                                    <Button size="sm" variant="destructive" onClick={() => handleBulkAction('rejected')}>
+                                                        <X className="mr-1 h-3 w-3" /> Reject Selected
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Filtered Pattern Sets */}
                                     <div className="space-y-6">
-                                        {pendingPatterns.length > 0 ? (
-                                            pendingPatterns.map((set, index) => (
+                                        {filteredSets.length > 0 ? (
+                                            filteredSets.map((set, index) => (
                                                 <motion.div
-                                                    key={`pending-${set.setName}-${index}`}
+                                                    key={`${activeFilter}-${set.setName}-${index}`}
                                                     initial={{ opacity: 0, y: 20 }}
                                                     animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                                                    transition={{ duration: 0.3, delay: index * 0.05 }}
                                                 >
-                                                    <PatternSetCard set={set} isPendingReview={true} />
+                                                    <PatternSetCard
+                                                        set={set}
+                                                        isPendingReview={set.patterns[0]?.review_status === 'pending'}
+                                                        setKey={`${set.setName}-${index}`}
+                                                    />
                                                 </motion.div>
                                             ))
                                         ) : (
                                             <div className="text-center py-20 text-muted-foreground">
                                                 <FileText className="mx-auto h-12 w-12 mb-4" />
-                                                <p className="text-lg">The review queue is empty. Great job!</p>
+                                                <p className="text-lg">
+                                                    {activeFilter === 'pending' ? 'No pending patterns. Great job!' :
+                                                     activeFilter === 'approved' ? 'No approved patterns yet.' :
+                                                     activeFilter === 'rejected' ? 'No rejected patterns.' :
+                                                     'No patterns found.'}
+                                                </p>
                                             </div>
                                         )}
                                     </div>
-
-                                    {approvedPatterns.length > 0 && (
-                                        <div className="mt-16">
-                                            <div className="flex items-center justify-center mb-8">
-                                                <CheckCircle className="h-8 w-8 text-green-500 mr-3" />
-                                                <h2 className="text-3xl font-bold text-center">Approved Pattern Sets</h2>
-                                            </div>
-                                            <div className="space-y-6">
-                                                {approvedPatterns.map((set, index) => (
-                                                    <motion.div
-                                                        key={`approved-${set.setName}-${index}`}
-                                                        initial={{ opacity: 0, y: 20 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        transition={{ duration: 0.5, delay: index * 0.1 }}
-                                                    >
-                                                        <PatternSetCard set={set} isPendingReview={false} />
-                                                    </motion.div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
                                 </>
                             )}
                         </motion.div>

@@ -35,7 +35,7 @@ const expenseTypes = [
 ];
 
 
-const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId }) => {
+const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, associationId }) => {
     
     const calculateDays = (startDate, endDate, isHotel = false) => {
         if (!startDate || !endDate) return 0;
@@ -138,6 +138,11 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId }) =
                             )}
                         </div>
                         <div className="flex items-center gap-2">
+                            {onDuplicate && (
+                              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDuplicate(member, associationId, role.id); }} className="text-muted-foreground hover:text-primary h-8 w-8" title="Duplicate staff member">
+                                  <Copy className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onRemove(member.id, associationId, role.id); }} className="text-destructive h-8 w-8">
                                 <Trash2 className="h-4 w-4" />
                             </Button>
@@ -322,7 +327,7 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId }) =
 };
 
 
-const StaffRoleSection = ({ roleId, staff, onAdd, onUpdate, onRemove, associationId }) => {
+const StaffRoleSection = ({ roleId, staff, onAdd, onUpdate, onRemove, onDuplicate, associationId }) => {
     const role = staffRoles[roleId];
     if (!role) return null;
 
@@ -341,7 +346,7 @@ const StaffRoleSection = ({ roleId, staff, onAdd, onUpdate, onRemove, associatio
             </div>
             <div className="pl-7 space-y-2">
                 {staff.map(member => (
-                    <StaffMemberInput key={member.id} member={member} onUpdate={onUpdate} onRemove={onRemove} role={role} associationId={associationId} />
+                    <StaffMemberInput key={member.id} member={member} onUpdate={onUpdate} onRemove={onRemove} onDuplicate={onDuplicate} role={role} associationId={associationId} />
                 ))}
             </div>
         </div>
@@ -456,6 +461,22 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
             }
             return { ...prev, showDetails: { ...currentDetails, officials: newOfficials } };
         });
+    };
+
+    const handleDuplicateStaff = (member, assocId, roleId) => {
+        setFormData(prev => {
+            const currentDetails = prev.showDetails || {};
+            const newOfficials = JSON.parse(JSON.stringify(currentDetails.officials || {}));
+            if (!newOfficials[assocId]) newOfficials[assocId] = {};
+            if (!newOfficials[assocId][roleId]) newOfficials[assocId][roleId] = [];
+
+            const cloned = JSON.parse(JSON.stringify(member));
+            cloned.id = uuidv4();
+
+            newOfficials[assocId][roleId].push(cloned);
+            return { ...prev, showDetails: { ...currentDetails, officials: newOfficials } };
+        });
+        toast({ title: 'Staff Duplicated', description: `Duplicated ${member.name || 'staff member'} with all details.` });
     };
 
     const associationRoles = useMemo(() => {
@@ -655,6 +676,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
                                                         onAdd={handleAddStaff}
                                                         onUpdate={handleStaffUpdate}
                                                         onRemove={handleRemoveStaff}
+                                                        onDuplicate={handleDuplicateStaff}
                                                         associationId={assocId}
                                                     />
                                                 ))}

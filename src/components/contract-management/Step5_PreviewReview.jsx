@@ -10,15 +10,19 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import {
   Users, CheckCircle, Send, FileText, Download, Printer, Clock,
   Mail, Settings, Info, FileSpreadsheet, FolderOpen, User, Shield,
   Upload, Trash2, File,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
 import {
   flattenPersonnel,
   calculateMemberFinancials,
+  resolvePlaceholders,
   currency,
   formatDate,
 } from '@/lib/contractUtils';
@@ -106,7 +110,6 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
   const personnel = useMemo(() => flattenPersonnel(formData), [formData.showDetails?.officials]);
   const employeeFolders = formData.employeeFolders || {};
   const contractSettings = formData.contractSettings || {};
-  const deliverySettings = formData.deliverySettings || {};
 
   const stats = useMemo(() => {
     const folders = Object.values(employeeFolders);
@@ -222,14 +225,7 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
     });
   };
 
-  // ── Delivery & Bulk Actions ──
-
-  const handleDeliveryChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      deliverySettings: { ...prev.deliverySettings, [field]: value },
-    }));
-  };
+  // ── Bulk Actions ──
 
   const handleSendAllUnsigned = () => {
     let sentCount = 0;
@@ -256,6 +252,64 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
     });
   };
 
+  const handleDownloadAllZip = async () => {
+    if (personnel.length === 0) {
+      toast({ title: 'No Personnel', description: 'Add personnel in Step 2 first.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const zip = new JSZip();
+      const globalTemplate = formData.contractBuilder?.globalTemplate || '';
+      const overrides = formData.contractBuilder?.employeeOverrides || {};
+
+      for (const member of personnel) {
+        const folder = employeeFolders[member.id];
+        const contractText = folder?.editedContract ?? folder?.resolvedContract ?? '';
+
+        if (!contractText) continue;
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
+        const maxWidth = pageWidth - margin * 2;
+        const lines = doc.splitTextToSize(contractText, maxWidth);
+
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(10);
+
+        let y = margin;
+        const lineHeight = 6;
+
+        for (const line of lines) {
+          if (y + lineHeight > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(line, margin, y);
+          y += lineHeight;
+        }
+
+        const filename = `Contract_${(member.name || 'Employee').replace(/\s+/g, '_')}.pdf`;
+        zip.file(filename, doc.output('blob'));
+      }
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Contracts_${(formData.showName || 'Project').replace(/\s+/g, '_')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({ title: 'ZIP Downloaded', description: `${personnel.length} contract PDFs bundled and downloaded.` });
+    } catch (err) {
+      toast({ title: 'Download Failed', description: err.message, variant: 'destructive' });
+    }
+  };
+
   const handleExportBudget = () => {
     const success = exportBudgetToExcel(formData);
     if (success) {
@@ -280,7 +334,7 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
           Step 5: Track & Collect Documents
         </CardTitle>
         <CardDescription>
-          Track contract status, collect required documents from signed employees, and configure delivery settings.
+          Track contract status, collect required documents from signed employees, and export contracts.
         </CardDescription>
       </CardHeader>
 
@@ -342,7 +396,31 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
 
                     return (
                       <tr key={member.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium">{member.name || 'Unnamed'}</td>
+                        <td className="px-4 py-3 font-medium">
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <span className="cursor-help underline decoration-dotted underline-offset-4">
+                                {member.name || 'Unnamed'}
+                              </span>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-72" side="bottom" align="start">
+                              <div className="space-y-2">
+                                <p className="font-semibold text-sm">{member.name || 'Unnamed'}</p>
+                                <div className="text-xs space-y-1 text-muted-foreground">
+                                  <p><span className="font-medium text-foreground">Role:</span> {member.roleName}</p>
+                                  <p><span className="font-medium text-foreground">Association:</span> {member.assocId}</p>
+                                  {member.email && <p><span className="font-medium text-foreground">Email:</span> {member.email}</p>}
+                                  {member.phone && <p><span className="font-medium text-foreground">Phone:</span> {member.phone}</p>}
+                                  <div className="pt-1 border-t mt-1">
+                                    <p><span className="font-medium text-foreground">Day Rate:</span> {currency(financials.dayFee)} x {financials.employmentDays} day(s)</p>
+                                    <p><span className="font-medium text-foreground">Expenses:</span> {currency(financials.totalExpenses)}</p>
+                                    <p className="font-semibold text-primary">Total: {currency(financials.totalCompensation)}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground">{member.roleName}</td>
                         <td className="px-4 py-3 text-center">
                           <Badge className={`text-[10px] ${sigCfg.className}`}>{sigCfg.label}</Badge>
@@ -457,7 +535,7 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                         </div>
                       </div>
 
-                      {/* 2. W-9 Form */}
+                      {/* 2. W-9 Form (Email-based) */}
                       <div className={`p-4 border rounded-lg transition-all ${folder.documents?.w9_form?.status === 'complete' ? 'border-green-500/50 bg-green-500/5' : ''}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -466,28 +544,73 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                             }`}>
                               {folder.documents?.w9_form?.status === 'complete'
                                 ? <CheckCircle className="h-3.5 w-3.5" />
-                                : <Upload className="h-3.5 w-3.5 text-muted-foreground" />}
+                                : <Mail className="h-3.5 w-3.5 text-muted-foreground" />}
                             </div>
                             <div>
                               <span className="font-medium text-sm">W-9 Form (Tax Information)</span>
                               <Badge variant="outline" className="ml-2 text-xs text-amber-600 border-amber-600/30">Required</Badge>
                             </div>
                           </div>
-                          {folder.documents?.w9_form?.status === 'complete' && (
-                            <Badge className="bg-green-500/10 text-green-600 border-green-600/30 text-[10px]">Uploaded</Badge>
-                          )}
+                          <Badge className={`text-[10px] ${
+                            folder.documents?.w9_form?.status === 'complete'
+                              ? 'bg-green-500/10 text-green-600 border-green-600/30'
+                              : folder.documents?.w9_form?.requestedAt
+                                ? 'bg-blue-500/10 text-blue-600 border-blue-600/30'
+                                : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {folder.documents?.w9_form?.status === 'complete'
+                              ? 'Received'
+                              : folder.documents?.w9_form?.requestedAt
+                                ? 'Requested'
+                                : 'Not Requested'}
+                          </Badge>
                         </div>
-                        <div className="mt-3 ml-9">
-                          <DocUploadZone
-                            file={folder.documents?.w9_form?.file}
-                            onDrop={(file) => updateDocument(member.id, 'w9_form', 'file', file)}
-                            onRemove={() => updateDocument(member.id, 'w9_form', 'file', null)}
-                            accept={{ 'application/pdf': ['.pdf'] }}
-                          />
+                        <div className="mt-3 ml-9 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <Input
+                              value={folder.documents?.w9_form?.destinationEmail || member.email || ''}
+                              onChange={(e) => {
+                                const doc = folder.documents?.w9_form || {};
+                                updateDocument(member.id, 'w9_form', 'destinationEmail', e.target.value);
+                              }}
+                              placeholder="Employee email for W-9 request"
+                              className="max-w-sm"
+                            />
+                            <Button
+                              size="sm"
+                              variant={folder.documents?.w9_form?.requestedAt ? 'outline' : 'default'}
+                              onClick={() => {
+                                updateDocument(member.id, 'w9_form', 'requestedAt', new Date().toISOString());
+                                toast({
+                                  title: 'W-9 Requested',
+                                  description: `W-9 request sent to ${folder.documents?.w9_form?.destinationEmail || member.email || 'employee'}.`,
+                                });
+                              }}
+                            >
+                              <Mail className="h-3.5 w-3.5 mr-1.5" />
+                              {folder.documents?.w9_form?.requestedAt ? 'Resend Request' : 'Request W-9 via Email'}
+                            </Button>
+                          </div>
+                          {folder.documents?.w9_form?.requestedAt && (
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-muted-foreground">
+                                Requested on {new Date(folder.documents.w9_form.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs h-6"
+                                onClick={() => updateDocument(member.id, 'w9_form', 'status', 'complete')}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Mark as Received
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground mt-2 ml-9 flex items-center gap-1">
                           <Shield className="h-3 w-3" />
-                          Required for tax reporting. W-9 data should be stored securely and never shared.
+                          W-9 forms are handled via email and not stored on this platform.
                         </p>
                       </div>
 
@@ -702,85 +825,6 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
           )}
         </Card>
 
-        {/* Delivery & Notification Settings */}
-        <Card className="p-5 space-y-4">
-          <h4 className="font-semibold flex items-center gap-2">
-            <Mail className="h-4 w-4 text-primary" />
-            Delivery & Notification Settings
-          </h4>
-
-          <Card className="p-3 bg-blue-500/5 border-blue-500/20">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 text-blue-500 shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Contract emails include a "Sign Contract + Upload Required Documents" link. Employees can sign and upload documents (W-9, Membership ID, Emergency Info) in one continuous flow.
-              </p>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Delivery Method</Label>
-              <Select
-                value={deliverySettings.deliveryMethod || 'email'}
-                onValueChange={(value) => handleDeliveryChange('deliveryMethod', value)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="portal">Secure Portal</SelectItem>
-                  <SelectItem value="both">Email + Secure Portal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Email Subject Line</Label>
-              <Input
-                value={deliverySettings.emailSubject || ''}
-                onChange={(e) => handleDeliveryChange('emailSubject', e.target.value)}
-                placeholder="Sign Contract + Upload Required Documents"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Custom Email Message</Label>
-            <Textarea
-              value={deliverySettings.emailMessage || ''}
-              onChange={(e) => handleDeliveryChange('emailMessage', e.target.value)}
-              placeholder="Add a personal message to include with the contract delivery. The email will automatically include a link for the employee to sign the contract and upload required documents..."
-              className="min-h-[80px]"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-6">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="sendReminders"
-                checked={deliverySettings.sendReminders ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('sendReminders', checked)}
-              />
-              <Label htmlFor="sendReminders" className="text-sm">Send automatic reminders</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="requireSignature"
-                checked={deliverySettings.requireSignature ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('requireSignature', checked)}
-              />
-              <Label htmlFor="requireSignature" className="text-sm">Require e-signature</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="notifyOnComplete"
-                checked={deliverySettings.notifyOnComplete ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('notifyOnComplete', checked)}
-              />
-              <Label htmlFor="notifyOnComplete" className="text-sm">Notify when signed & docs uploaded</Label>
-            </div>
-          </div>
-        </Card>
-
         {/* Bulk Actions */}
         <div className="flex flex-wrap gap-3">
           <Button onClick={handleSendAllUnsigned}>
@@ -791,7 +835,7 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Export Budget to Excel
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleDownloadAllZip}>
             <Download className="h-4 w-4 mr-2" />
             Download All as ZIP
           </Button>

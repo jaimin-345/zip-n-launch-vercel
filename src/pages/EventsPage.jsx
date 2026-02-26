@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Play, Search, BookOpen, Clock, Loader2, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Archive, PlusCircle } from 'lucide-react';
+import { Calendar, MapPin, Play, Search, BookOpen, Clock, Loader2, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Archive, PlusCircle, Globe, Facebook } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -80,7 +80,7 @@ const EventCard = ({ event, onPatternBookClick }) => {
             return <Button variant="secondary" size="sm" disabled><BookOpen className="h-4 w-4 mr-2" /> No Patterns</Button>;
         }
 
-        const isPublished = event.project?.status === 'Publication';
+        const isPublished = ['published', 'Publication', 'approved', 'locked'].includes(event.project?.status);
 
         return (
             <Link to={`/public-show/${event.pattern_book_id}`}>
@@ -138,8 +138,8 @@ const EventCard = ({ event, onPatternBookClick }) => {
                         {event.status === 'upcoming' && (
                             <div className="flex items-center">
                                 <BookOpen className="h-4 w-4 mr-2" />
-                                {event.project?.status === 'Publication' ? (
-                                    <span 
+                                {['published', 'Publication'].includes(event.project?.status) ? (
+                                    <span
                                         className="text-green-600 dark:text-green-400 cursor-pointer hover:underline"
                                         onClick={(e) => {
                                             e.preventDefault();
@@ -149,11 +149,25 @@ const EventCard = ({ event, onPatternBookClick }) => {
                                             }
                                         }}
                                     >
-                                        Patterns Published
+                                        Published
                                     </span>
+                                ) : ['approved', 'locked'].includes(event.project?.status) ? (
+                                    <span className="text-blue-600 dark:text-blue-400">Approved</span>
                                 ) : (
-                                    <span className="text-amber-600 dark:text-amber-400">Patterns Pending</span>
+                                    <span className="text-amber-600 dark:text-amber-400">Pending</span>
                                 )}
+                            </div>
+                        )}
+                        {event.showWebsite && (
+                            <div className="flex items-center">
+                                <Globe className="h-4 w-4 mr-2" />
+                                <a href={event.showWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{event.showWebsite.replace(/^https?:\/\//, '')}</a>
+                            </div>
+                        )}
+                        {event.showFacebook && (
+                            <div className="flex items-center">
+                                <Facebook className="h-4 w-4 mr-2" />
+                                <a href={event.showFacebook} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Facebook Event</a>
                             </div>
                         )}
                     </div>
@@ -194,11 +208,11 @@ const EventsPage = () => {
             toast({ title: 'Error fetching events', description: eventsError.message, variant: 'destructive' });
         }
 
-        // Also fetch projects with 'Publication' status to show as upcoming events
+        // Fetch projects that are approved, locked, or published (excludes drafts)
         const { data: publishedProjects, error: projectsError } = await supabase
             .from('projects')
             .select('*')
-            .eq('status', 'Publication')
+            .in('status', ['published', 'Publication', 'approved', 'locked'])
             .order('created_at', { ascending: false });
 
         if (projectsError) {
@@ -216,6 +230,8 @@ const EventsPage = () => {
             thumbnail_url: null,
             pattern_book_id: project.id,
             project: { id: project.id, status: project.status },
+            showWebsite: project.project_data?.showWebsite || null,
+            showFacebook: project.project_data?.showFacebook || null,
             isFromProjects: true
         }));
 

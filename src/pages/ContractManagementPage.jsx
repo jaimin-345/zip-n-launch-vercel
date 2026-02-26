@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -88,6 +88,7 @@ const ContractManagementPage = () => {
   const [existingProjects, setExistingProjects] = useState([]);
   const [associationsData, setAssociationsData] = useState([]);
   const [formData, setFormData] = useState(initialFormData);
+  const skipReloadRef = useRef(false);
 
   // Sync selectedAssociations (array) from associations (object) for Step 2 compatibility
   useEffect(() => {
@@ -102,6 +103,12 @@ const ContractManagementPage = () => {
 
   // Load existing project or initial data
   useEffect(() => {
+    // Skip reload when we just created the project (navigate changed the URL)
+    if (skipReloadRef.current) {
+      skipReloadRef.current = false;
+      return;
+    }
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
@@ -160,7 +167,7 @@ const ContractManagementPage = () => {
   }, [sanitizedProjectId, toast]);
 
   // Save project to Supabase
-  const saveProject = useCallback(async ({ silent = false } = {}) => {
+  const saveProject = useCallback(async ({ silent = false, stepOverride = null } = {}) => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save.', variant: 'destructive' });
       return null;
@@ -168,13 +175,14 @@ const ContractManagementPage = () => {
 
     setIsSaving(true);
     try {
+      const stepToSave = stepOverride ?? currentStep;
       const updatedCompleted = new Set(completedSteps);
       updatedCompleted.add(currentStep);
       setCompletedSteps(updatedCompleted);
 
       const projectToSave = {
         ...formData,
-        currentStep,
+        currentStep: stepToSave,
         completedSteps: Array.from(updatedCompleted),
       };
 
@@ -217,6 +225,7 @@ const ContractManagementPage = () => {
 
         const newProjectId = data.id;
         setFormData(prev => ({ ...prev, id: newProjectId }));
+        skipReloadRef.current = true;
         navigate(`/horse-show-manager/employee-management/contracts/${newProjectId}`, { replace: true });
         if (!silent) {
           toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
@@ -238,9 +247,10 @@ const ContractManagementPage = () => {
 
   // Next with auto-save
   const handleNext = async () => {
+    const nextStep = Math.min(currentStep + 1, 6);
     setCompletedSteps(prev => new Set([...prev, currentStep]));
-    await saveProject({ silent: true });
-    setCurrentStep(prev => Math.min(prev + 1, 6));
+    await saveProject({ silent: true, stepOverride: nextStep });
+    setCurrentStep(nextStep);
   };
 
   const handlePrev = () => {
@@ -283,7 +293,7 @@ const ContractManagementPage = () => {
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return <Step1_ShowStructure formData={formData} setFormData={setFormData} associationsData={associationsData} />;
+        return <Step1_ShowStructure formData={formData} setFormData={setFormData} associationsData={associationsData} existingProjects={existingProjects} />;
       case 2:
         return <Step2_OfficialsStaff formData={formData} setFormData={setFormData} />;
       case 3:

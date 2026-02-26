@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseLocalDate } from '@/lib/utils';
-import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info } from 'lucide-react';
+import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info, Globe, Facebook } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { getAllClassItems } from '@/lib/showBillUtils';
 import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
 
@@ -17,7 +19,7 @@ const STATUS_CONFIG = {
 };
 
 // --- Left Panel: Project Info ---
-const ProjectInfoCard = ({ formData, user }) => {
+const ProjectInfoCard = ({ formData, user, setFormData }) => {
   const status = formData.showStatus || 'draft';
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
 
@@ -73,6 +75,31 @@ const ProjectInfoCard = ({ formData, user }) => {
             {formData.showBill.days?.reduce((sum, d) => sum + d.arenas.reduce((s, a) => s + a.items.filter(i => i.type === 'classBox').length, 0), 0) || 0} class(es) scheduled
           </p>
         )}
+      </div>
+
+      {/* Publish Info — website & Facebook */}
+      <div className="pt-3 border-t space-y-3">
+        <p className="text-xs font-medium text-muted-foreground">Publish Info (shown on Events page)</p>
+        <div className="space-y-1.5">
+          <Label htmlFor="showWebsite" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Website URL</Label>
+          <Input
+            id="showWebsite"
+            placeholder="https://yourshow.com"
+            value={formData.showWebsite || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, showWebsite: e.target.value }))}
+            className="h-8 text-xs"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="showFacebook" className="text-xs flex items-center gap-1"><Facebook className="h-3 w-3" /> Facebook Event URL</Label>
+          <Input
+            id="showFacebook"
+            placeholder="https://facebook.com/events/..."
+            value={formData.showFacebook || ''}
+            onChange={(e) => setFormData(prev => ({ ...prev, showFacebook: e.target.value }))}
+            className="h-8 text-xs"
+          />
+        </div>
       </div>
     </div>
   );
@@ -270,7 +297,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Panel: Project Info */}
           <div className="lg:col-span-3">
-            <ProjectInfoCard formData={formData} user={user} />
+            <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} />
           </div>
 
           {/* Center Panel: Action Buttons */}

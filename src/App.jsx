@@ -41,6 +41,7 @@ import AssetIntelligenceCenterPage from '@/pages/AssetIntelligenceCenterPage';
 import CollaborationHubPage from '@/pages/CollaborationHubPage';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import AuthModal from '@/components/AuthModal';
+import SupportWidget from '@/components/SupportWidget';
 import CustomerAssetLibraryPage from '@/pages/CustomerAssetLibraryPage';
 import CustomerPortalPage from '@/pages/CustomerPortalPage';
 import ArchivePatternsPage from '@/pages/ArchivePatternsPage';
@@ -176,16 +177,16 @@ function App() {
                   <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
                   <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
-                  <Route path="/admin/equipment" element={<AdminRoute><EquipmentManagementPage /></AdminRoute>} />
-                  <Route path="/admin/discipline-planner" element={<AdminRoute><DisciplinePlannerPage /></AdminRoute>} />
-                  <Route path="/admin/arena-sessions" element={<AdminRoute><ArenaSessionsPage /></AdminRoute>} />
-                  <Route path="/admin/equipment-requirements" element={<AdminRoute><EquipmentRequirementsPage /></AdminRoute>} />
-                  <Route path="/admin/distribution-plan" element={<AdminRoute><DistributionPlanPage /></AdminRoute>} />
-                  <Route path="/admin/equipment-check-in-out" element={<AdminRoute><EquipmentCheckInOutPage /></AdminRoute>} />
-                  <Route path="/admin/equipment-planning" element={<AdminRoute><EquipmentPlanningHubPage /></AdminRoute>} />
-                  <Route path="/admin/locations" element={<AdminRoute><LocationsPage /></AdminRoute>} />
-                  <Route path="/admin/reconciliation" element={<AdminRoute><ReconciliationPage /></AdminRoute>} />
-                  <Route path="/admin/equipment-reports" element={<AdminRoute><EquipmentReportsPage /></AdminRoute>} />
+                  <Route path="/admin/equipment" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></RoleBasedRoute>} />
+                  <Route path="/admin/discipline-planner" element={<RoleBasedRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></RoleBasedRoute>} />
+                  <Route path="/admin/arena-sessions" element={<RoleBasedRoute requiredPermission="equipment:manage"><ArenaSessionsPage /></RoleBasedRoute>} />
+                  <Route path="/admin/equipment-requirements" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentRequirementsPage /></RoleBasedRoute>} />
+                  <Route path="/admin/distribution-plan" element={<RoleBasedRoute requiredPermission="equipment:manage"><DistributionPlanPage /></RoleBasedRoute>} />
+                  <Route path="/admin/equipment-check-in-out" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentCheckInOutPage /></RoleBasedRoute>} />
+                  <Route path="/admin/equipment-planning" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></RoleBasedRoute>} />
+                  <Route path="/admin/locations" element={<RoleBasedRoute requiredPermission="equipment:manage"><LocationsPage /></RoleBasedRoute>} />
+                  <Route path="/admin/reconciliation" element={<RoleBasedRoute requiredPermission="equipment:manage"><ReconciliationPage /></RoleBasedRoute>} />
+                  <Route path="/admin/equipment-reports" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentReportsPage /></RoleBasedRoute>} />
 
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
@@ -220,6 +221,7 @@ function App() {
                 </Routes>
                 <Toaster />
                 <AuthModal />
+                <SupportWidget />
               </div>
             </AnalyticsProvider>
           </ThemeProvider>

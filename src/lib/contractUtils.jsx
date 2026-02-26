@@ -37,9 +37,6 @@ The following expenses shall be reimbursed as outlined:
 Total Reimbursable Expenses: {{TOTAL_EXPENSES}}
 Total Compensation (including expenses): {{TOTAL_COMPENSATION}}
 
-GOVERNING LAW
-This Agreement shall be governed by the laws of the State of {{JURISDICTION}}.
-
 SIGNATURES
 Employee: ________________________  Date: ____________
 {{EMPLOYEE_NAME}}
@@ -105,7 +102,7 @@ export const PLACEHOLDER_GROUPS = [
     placeholders: [
       { tag: '{{EFFECTIVE_DATE}}', label: 'Effective Date', icon: Calendar },
       { tag: '{{EXPIRATION_DATE}}', label: 'Expiration Date', icon: Calendar },
-      { tag: '{{JURISDICTION}}', label: 'Jurisdiction', icon: Shield },
+
       { tag: '{{PAYMENT_METHOD}}', label: 'Payment Method', icon: DollarSign },
       { tag: '{{SIGNING_DEADLINE}}', label: 'Signing Deadline', icon: Calendar },
     ],
@@ -226,10 +223,6 @@ export const resolvePlaceholders = (templateText, member, formData) => {
     return currency(financials.expenseBreakdown[expId] || 0);
   };
 
-  const jurisdictionMap = {
-    texas: 'Texas', california: 'California', florida: 'Florida',
-    oklahoma: 'Oklahoma', colorado: 'Colorado',
-  };
   const paymentMethodMap = {
     check: 'Check', direct_deposit: 'Direct Deposit',
     wire: 'Wire Transfer', paypal: 'PayPal',
@@ -262,7 +255,7 @@ export const resolvePlaceholders = (templateText, member, formData) => {
     '{{TOTAL_COMPENSATION}}': currency(financials.totalCompensation),
     '{{EFFECTIVE_DATE}}': formatDate(contractSettings.effectiveDate),
     '{{EXPIRATION_DATE}}': formatDate(contractSettings.expirationDate),
-    '{{JURISDICTION}}': jurisdictionMap[contractSettings.jurisdiction] || fmt(contractSettings.jurisdiction),
+
     '{{PAYMENT_METHOD}}': paymentMethodMap[contractSettings.paymentMethod] || fmt(contractSettings.paymentMethod),
     '{{SIGNING_DEADLINE}}': formatDate(contractSettings.signingDeadline),
   };

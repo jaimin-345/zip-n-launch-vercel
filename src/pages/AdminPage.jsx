@@ -1,10 +1,25 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt, Wrench } from 'lucide-react';
 import Navigation from '@/components/Navigation';
+import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/lib/supabaseClient';
 
 const AdminPage = () => {
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count, error } = await supabase
+        .from('patterns')
+        .select('*', { count: 'exact', head: true })
+        .eq('review_status', 'pending');
+      if (!error && count !== null) setPendingCount(count);
+    };
+    fetchPendingCount();
+  }, []);
+
   const tools = [
     { name: 'User Management', path: '/admin/users', icon: Users, description: 'Manage users, roles, and permissions.' },
     { name: 'Role Management', path: '/admin/roles', icon: Settings, description: 'Configure user roles and their capabilities.' },
@@ -47,6 +62,9 @@ const AdminPage = () => {
                       <tool.icon className="h-6 w-6 text-primary" />
                     </div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">{tool.name}</h2>
+                    {tool.path === '/admin/pattern-review' && pendingCount > 0 && (
+                      <Badge variant="destructive" className="ml-2">{pendingCount}</Badge>
+                    )}
                   </div>
                   <p className="text-gray-600 dark:text-gray-300 flex-grow">{tool.description}</p>
                   <div className="mt-4 text-right">

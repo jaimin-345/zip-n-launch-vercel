@@ -144,7 +144,7 @@ export const Step3_ContractTemplate = ({ formData, setFormData }) => {
             ref={textareaRef}
             value={globalTemplate}
             onChange={(e) => updateGlobalTemplate(e.target.value)}
-            className="min-h-[320px] font-mono text-sm leading-relaxed"
+            className="min-h-[500px] font-mono text-sm leading-relaxed"
             placeholder="Start writing your contract template..."
           />
         </Card>

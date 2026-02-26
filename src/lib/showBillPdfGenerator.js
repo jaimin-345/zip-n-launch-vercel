@@ -17,6 +17,7 @@ const DEFAULT_LAYOUT = {
   showJudges: true,
   showFooter: true,
   customFooterText: '',
+  background: { id: 'none', type: 'none', value: '' },
 };
 
 // Font size maps: [body, subhead, heading]
@@ -49,10 +50,30 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
   const footerHeight = ls.showFooter ? 30 : 10;
   let y = margin;
 
+  // --- Background helper ---
+  const drawBackground = () => {
+    const bg = ls.background;
+    if (!bg || bg.type === 'none') return;
+    if (bg.type === 'solid' && bg.value) {
+      // Parse hex color
+      const hex = bg.value.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      doc.setFillColor(r, g, b);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    }
+    // Gradient and image backgrounds are complex in jsPDF — solid color is the primary supported option
+  };
+
+  // Draw background on first page
+  drawBackground();
+
   // --- Helpers ---
   const checkPageBreak = (needed) => {
     if (y + needed > pageHeight - margin - footerHeight) {
       doc.addPage();
+      drawBackground();
       y = margin;
     }
   };

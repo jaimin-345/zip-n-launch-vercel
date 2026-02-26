@@ -16,7 +16,10 @@ export function useSubscription() {
   // Derived state from profile (kept in sync by webhook)
   const isSubscribed = profile?.subscription_status === 'active';
   const subscriptionTier = profile?.subscription_tier;
-  const hasUsedFreePatternBook = profile?.free_pattern_book_used === true;
+  // Support count-based free pattern books: founding_insider gets 3/year, others get 1/year
+  const freePatternBooksUsed = profile?.free_pattern_books_used ?? (profile?.free_pattern_book_used ? 1 : 0);
+  const freePatternBookLimit = subscriptionTier === 'founding_insider' ? 3 : 1;
+  const hasUsedFreePatternBook = freePatternBooksUsed >= freePatternBookLimit;
 
   const fetchSubscriptionData = useCallback(async () => {
     if (!user) {
@@ -174,6 +177,8 @@ export function useSubscription() {
     isSubscribed,
     subscriptionTier,
     hasUsedFreePatternBook,
+    freePatternBooksUsed,
+    freePatternBookLimit,
     createCheckoutSession,
     openBillingPortal,
     fetchInvoices,

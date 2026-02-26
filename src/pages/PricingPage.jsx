@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
-import { Check, Crown, Star, Zap, Loader2, BookOpen, Lock, Gift } from 'lucide-react';
+import { Check, Crown, Star, Zap, Loader2, BookOpen, Gift } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -16,16 +16,16 @@ const membershipTiers = [
     key: 'membership_founding_insider',
     name: 'Founding Insider',
     price: '$39.99',
-    period: '/year',
-    renewalNote: 'Locks at $79.99/year — yours stays $39.99 forever',
+    period: '/first year',
+    renewalNote: 'Then $79/year after first year',
     badge: 'Limited — First 50',
     icon: Crown,
     highlighted: true,
     features: [
       'All standard membership features',
-      'Price locked at $39.99/year forever',
+      'First year just $39.99, then $79/year',
       'Founding Insider badge on profile',
-      '1 free pattern book per year',
+      '3 free pattern books per year',
       'Early access to new features',
       'Priority support',
     ],
@@ -35,15 +35,14 @@ const membershipTiers = [
     name: 'Founding Member',
     price: '$79.99',
     period: '/year',
-    renewalNote: 'Price locked at $79.99/year',
+    renewalNote: 'Renews annually at $79.99/year',
     badge: 'Next 950 Members',
     icon: Star,
     highlighted: false,
     features: [
       'All standard membership features',
-      'Price locked at $79.99/year',
       'Founding Member badge on profile',
-      '1 free pattern book per year',
+      '3 free pattern books per year',
       'Early access to new features',
     ],
   },
@@ -60,7 +59,7 @@ const membershipTiers = [
       'Full pattern library access',
       'Pattern Book Builder',
       'Horse Show Manager tools',
-      '1 free pattern book per year',
+      '3 free pattern books per year',
       'Score sheet generator',
       'Community features',
     ],
@@ -155,7 +154,7 @@ const PricingPage = () => {
     <>
       <Helmet>
         <title>Pricing & Membership - EquiPatterns</title>
-        <meta name="description" content="Choose a membership plan to access the full EquiPatterns platform. Founding members get locked-in pricing." />
+        <meta name="description" content="Choose a membership plan to access the full EquiPatterns platform. Founding members get exclusive perks and introductory pricing." />
       </Helmet>
 
       <div className="bg-background text-foreground">
@@ -175,7 +174,7 @@ const PricingPage = () => {
                 Simple, Transparent Pricing
               </h1>
               <p className="mt-4 max-w-3xl mx-auto text-lg sm:text-xl text-muted-foreground">
-                Join the EquiPatterns community. Every membership includes your first pattern book free.
+                Join the EquiPatterns community. Every membership includes 3 free pattern books per year.
               </p>
             </motion.div>
 
@@ -190,13 +189,13 @@ const PricingPage = () => {
                   <p className="text-3xl font-bold text-primary">
                     <Gift className="inline h-7 w-7" />
                   </p>
-                  <p className="text-sm text-muted-foreground">1st Pattern Book Free</p>
+                  <p className="text-sm text-muted-foreground">3 Free Pattern Books/Year</p>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-primary">
-                    <Lock className="inline h-7 w-7" />
+                    <Star className="inline h-7 w-7" />
                   </p>
-                  <p className="text-sm text-muted-foreground">Founders Lock Price</p>
+                  <p className="text-sm text-muted-foreground">Founding Member Perks</p>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-primary">Annual</p>
@@ -283,7 +282,7 @@ const PricingPage = () => {
             >
               <h2 className="text-3xl font-bold text-center mb-4">A La Carte Pattern Books</h2>
               <p className="text-center text-muted-foreground mb-10">
-                Members get their first pattern book free. Additional books available below.
+                Members get 3 free pattern books per year. Additional books available below.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                 {patternBooks.map((book) => {
@@ -338,7 +337,7 @@ const PricingPage = () => {
                   <h3 className="text-xl font-semibold mb-3">Questions?</h3>
                   <p className="text-muted-foreground">
                     All memberships are billed annually and include access to the full EquiPatterns platform.
-                    Founding member pricing is locked in for the life of your membership.
+                    Founding Insider members enjoy a special first-year rate of $39.99.
                     Cancel anytime from your profile.
                   </p>
                 </CardContent>

@@ -3,14 +3,21 @@ import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import {
   Info, User, Eye, Copy, RotateCcw, Edit3, Send,
-  CheckCircle, Clock, XCircle, ShieldCheck,
+  CheckCircle, Clock, XCircle, ShieldCheck, Maximize2, FileDown, Mail,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { jsPDF } from 'jspdf';
 import {
   DEFAULT_CONTRACT_TEMPLATE,
   PlaceholderToolbar,
@@ -21,6 +28,7 @@ import {
   renderResolvedPreview,
   currency,
   expenseTypeMeta,
+  formatDate,
 } from '@/lib/contractUtils';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,6 +76,8 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
   const { toast } = useToast();
   const overrideTextareaRef = useRef(null);
   const [editingMemberId, setEditingMemberId] = useState(null);
+  const [fullScreenMemberId, setFullScreenMemberId] = useState(null);
+  const deliverySettings = formData.deliverySettings || {};
 
   const personnel = useMemo(() => flattenPersonnel(formData), [formData.showDetails?.officials]);
   const employeeFolders = formData.employeeFolders || {};
@@ -209,6 +219,44 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
     });
   };
 
+  // ── PDF Download ──
+
+  const handleDownloadPdf = (member, contractText) => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    const lines = doc.splitTextToSize(contractText, maxWidth);
+
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(10);
+
+    let y = margin;
+    const lineHeight = 6;
+
+    for (const line of lines) {
+      if (y + lineHeight > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.text(line, margin, y);
+      y += lineHeight;
+    }
+
+    const filename = `Contract_${(member.name || 'Employee').replace(/\s+/g, '_')}.pdf`;
+    doc.save(filename);
+    toast({ title: 'PDF Downloaded', description: `${filename} saved.` });
+  };
+
+  // ── Delivery Settings ──
+
+  const handleDeliveryChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      deliverySettings: { ...prev.deliverySettings, [field]: value },
+    }));
+  };
+
   // ── Stats ──
 
   const stats = useMemo(() => {
@@ -306,9 +354,29 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                     <div className="flex items-center justify-between w-full gap-3">
                       <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span className="font-medium text-sm truncate">
-                          {member.name || 'Unnamed'}
-                        </span>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <span className="font-medium text-sm truncate cursor-help underline decoration-dotted underline-offset-4">
+                              {member.name || 'Unnamed'}
+                            </span>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-72" side="bottom" align="start">
+                            <div className="space-y-2">
+                              <p className="font-semibold text-sm">{member.name || 'Unnamed'}</p>
+                              <div className="text-xs space-y-1 text-muted-foreground">
+                                <p><span className="font-medium text-foreground">Role:</span> {member.roleName}</p>
+                                <p><span className="font-medium text-foreground">Association:</span> {member.assocId}</p>
+                                {member.email && <p><span className="font-medium text-foreground">Email:</span> {member.email}</p>}
+                                {member.phone && <p><span className="font-medium text-foreground">Phone:</span> {member.phone}</p>}
+                                <div className="pt-1 border-t mt-1">
+                                  <p><span className="font-medium text-foreground">Day Rate:</span> {currency(financials.dayFee)} x {financials.employmentDays} day(s)</p>
+                                  <p><span className="font-medium text-foreground">Expenses:</span> {currency(financials.totalExpenses)}</p>
+                                  <p className="font-semibold text-primary">Total: {currency(financials.totalCompensation)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
                         <Badge variant="outline" className="text-[10px] shrink-0">{member.roleName}</Badge>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -383,7 +451,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                             />
                           </div>
                         ) : (
-                          <div className="whitespace-pre-wrap font-mono text-xs p-4 bg-muted/30 rounded-lg border max-h-[300px] overflow-y-auto leading-relaxed">
+                          <div className="whitespace-pre-wrap font-mono text-xs p-4 bg-muted/30 rounded-lg border max-h-[600px] overflow-y-auto leading-relaxed">
                             {renderResolvedPreview(contractText)}
                           </div>
                         )}
@@ -408,6 +476,22 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                           >
                             <Copy className="h-3.5 w-3.5 mr-1.5" />
                             Copy
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setFullScreenMemberId(member.id)}
+                          >
+                            <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
+                            Full Screen
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDownloadPdf(member, contractText)}
+                          >
+                            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+                            PDF
                           </Button>
                           {folder.editedContract != null && (
                             <Button
@@ -511,7 +595,101 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
             })}
           </Accordion>
         )}
+        {/* Delivery & Notification Settings */}
+        <Card className="p-5 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" />
+            Delivery & Notification Settings
+          </h4>
+
+          <Card className="p-3 bg-blue-500/5 border-blue-500/20">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                Contract emails include a "Sign Contract + Upload Required Documents" link. Employees can sign and upload documents (W-9, Membership ID, Emergency Info) in one continuous flow.
+              </p>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Delivery Method</Label>
+              <Select
+                value={deliverySettings.deliveryMethod || 'email'}
+                onValueChange={(value) => handleDeliveryChange('deliveryMethod', value)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="portal">Secure Portal</SelectItem>
+                  <SelectItem value="both">Email + Secure Portal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Email Subject Line</Label>
+              <Input
+                value={deliverySettings.emailSubject || ''}
+                onChange={(e) => handleDeliveryChange('emailSubject', e.target.value)}
+                placeholder="Sign Contract + Upload Required Documents"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Custom Email Message</Label>
+            <Textarea
+              value={deliverySettings.emailMessage || ''}
+              onChange={(e) => handleDeliveryChange('emailMessage', e.target.value)}
+              placeholder="Add a personal message to include with the contract delivery..."
+              className="min-h-[80px]"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="sendReminders"
+                checked={deliverySettings.sendReminders ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('sendReminders', checked)}
+              />
+              <Label htmlFor="sendReminders" className="text-sm">Send automatic reminders</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="requireSignature"
+                checked={deliverySettings.requireSignature ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('requireSignature', checked)}
+              />
+              <Label htmlFor="requireSignature" className="text-sm">Require e-signature</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="notifyOnComplete"
+                checked={deliverySettings.notifyOnComplete ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('notifyOnComplete', checked)}
+              />
+              <Label htmlFor="notifyOnComplete" className="text-sm">Notify when signed & docs uploaded</Label>
+            </div>
+          </div>
+        </Card>
       </CardContent>
+
+      {/* Full Screen Contract Dialog */}
+      <Dialog open={!!fullScreenMemberId} onOpenChange={(open) => !open && setFullScreenMemberId(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Contract — {personnel.find(m => m.id === fullScreenMemberId)?.name || 'Employee'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto whitespace-pre-wrap font-mono text-sm p-6 bg-muted/30 rounded-lg border leading-relaxed">
+            {fullScreenMemberId && employeeFolders[fullScreenMemberId] && renderResolvedPreview(
+              employeeFolders[fullScreenMemberId].editedContract ?? employeeFolders[fullScreenMemberId].resolvedContract ?? ''
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

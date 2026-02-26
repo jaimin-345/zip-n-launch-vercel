@@ -171,11 +171,11 @@ const Navigation = () => {
                 <div className="flex items-center justify-between h-20">
                     <Link to="/" className="flex-shrink-0">
                         <motion.div whileHover={{ scale: 1.05 }} className="flex items-center">
-                            <img className="h-24 w-auto max-w-[180px] object-contain -my-4" alt="EquiPatterns Logo" src={logoImage} />
+                            <img className="h-12 w-auto max-w-[140px] object-contain" alt="EquiPatterns Logo" src={logoImage} />
                         </motion.div>
                     </Link>
 
-                    <div className="hidden md:flex items-center justify-end flex-1">
+                    <div className="hidden md:flex items-center flex-1 ml-6">
                         <div className="flex items-center space-x-1">
                             {getVisibleNavItems().map((item) => (
                                  <Link key={item.name} to={item.path}>

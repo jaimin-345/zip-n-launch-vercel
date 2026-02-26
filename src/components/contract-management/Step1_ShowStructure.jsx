@@ -1,13 +1,108 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { AssociationSelection } from '@/components/shared/AssociationSelection';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, Link2 } from 'lucide-react';
 
-export const Step1_ShowStructure = ({ formData, setFormData, associationsData = [] }) => {
+export const Step1_ShowStructure = ({ formData, setFormData, associationsData = [], existingProjects = [] }) => {
+  // Check for duplicate show name
+  const duplicateNameWarning = useMemo(() => {
+    const name = (formData.showName || '').trim().toLowerCase();
+    if (!name) return null;
+    const match = existingProjects.find(
+      (p) => (p.project_name || '').trim().toLowerCase() === name && p.id !== formData.id
+    );
+    return match ? `A project named "${match.project_name}" already exists.` : null;
+  }, [formData.showName, existingProjects, formData.id]);
+
+  // Check for duplicate show number
+  const duplicateNumberWarning = useMemo(() => {
+    const num = (formData.showNumber || '').trim().toLowerCase();
+    if (!num) return null;
+    const match = existingProjects.find((p) => {
+      const pNum = (p.project_data?.showNumber || '').trim().toLowerCase();
+      return pNum === num && p.id !== formData.id;
+    });
+    return match ? `Show number already used by "${match.project_name}".` : null;
+  }, [formData.showNumber, existingProjects, formData.id]);
+
+  const handleLinkProject = (projectId) => {
+    if (projectId === 'none') {
+      setFormData((prev) => ({ ...prev, linkedProjectId: null }));
+      return;
+    }
+    const project = existingProjects.find((p) => p.id === projectId);
+    if (project) {
+      setFormData((prev) => ({
+        ...prev,
+        linkedProjectId: projectId,
+        showName: project.project_name || prev.showName,
+      }));
+    }
+  };
+
   return (
-    <AssociationSelection
-      formData={formData}
-      setFormData={setFormData}
-      associationsData={associationsData}
-      context="contract"
-    />
+    <div className="space-y-4">
+      {/* Link to Existing Show */}
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-primary" />
+          <Label className="font-semibold">Link to Existing Show (Optional)</Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Link this contract to an existing show or pattern book project to auto-fill show details.
+        </p>
+        <Select
+          value={formData.linkedProjectId || 'none'}
+          onValueChange={handleLinkProject}
+        >
+          <SelectTrigger className="max-w-md">
+            <SelectValue placeholder="Select a project..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No linked project</SelectItem>
+            {existingProjects.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.project_name || 'Untitled'} ({p.project_type})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {formData.linkedProjectId && (
+          <Badge variant="secondary" className="text-xs">
+            <Link2 className="h-3 w-3 mr-1" />
+            Linked to project
+          </Badge>
+        )}
+      </Card>
+
+      {/* Validation Warnings */}
+      {duplicateNameWarning && (
+        <Card className="p-3 bg-amber-500/10 border-amber-500/30">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-600">{duplicateNameWarning}</p>
+          </div>
+        </Card>
+      )}
+      {duplicateNumberWarning && (
+        <Card className="p-3 bg-amber-500/10 border-amber-500/30">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-600">{duplicateNumberWarning}</p>
+          </div>
+        </Card>
+      )}
+
+      {/* Existing Association Selection */}
+      <AssociationSelection
+        formData={formData}
+        setFormData={setFormData}
+        associationsData={associationsData}
+        context="contract"
+      />
+    </div>
   );
 };
