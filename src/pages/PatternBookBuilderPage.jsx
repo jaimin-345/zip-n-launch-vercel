@@ -23,6 +23,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { useAnalytics } from '@/components/AnalyticsProvider';
+import { sendCustomPatternRequestEmails } from '@/lib/customPatternEmails';
 
 const steps = [
     { id: 1, name: 'Book Details', icon: GitMerge },
@@ -350,7 +351,19 @@ const PatternBookBuilderPage = () => {
                 title: "Project Saved",
                 description: "Your project has been saved successfully.",
             });
-            
+
+            // Send custom pattern request emails (non-blocking)
+            try {
+                const updatedSelections = await sendCustomPatternRequestEmails(formData);
+                if (updatedSelections !== formData.patternSelections) {
+                    setFormData(prev => ({ ...prev, patternSelections: updatedSelections }));
+                    // Persist the updated requestStatus values
+                    await createOrUpdateProject();
+                }
+            } catch (emailErr) {
+                console.error('Custom pattern request emails failed (non-blocking):', emailErr);
+            }
+
             // After saving, open the Generate & Email Pattern Book dialog
             setIsGenerateDialogOpen(true);
         } catch (error) {

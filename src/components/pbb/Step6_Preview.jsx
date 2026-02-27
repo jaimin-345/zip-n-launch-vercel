@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -861,6 +861,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
     setFormData(prev => ({ ...prev, layoutSelection: layoutId }));
   };
   
+
   if (isLoading) {
     return (
         <div className="flex justify-center items-center h-64">
@@ -1159,11 +1160,39 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                           </div>
                                         ) : displayState === 'customRequest' ? (
                                           <div className="p-4 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 text-center">
-                                            <p className="text-purple-800 dark:text-purple-300 font-medium">
-                                              Custom Pattern — Coming Soon
-                                            </p>
-                                            {rawSelection?.requestNote && (
-                                              <p className="text-sm text-muted-foreground mt-1">Note: {rawSelection.requestNote}</p>
+                                            {rawSelection?.uploadedFileUrl ? (
+                                              <>
+                                                {rawSelection.uploadedFileType?.startsWith('image/') ? (
+                                                  <img
+                                                    src={rawSelection.uploadedFileUrl}
+                                                    alt="Custom pattern"
+                                                    className="w-full max-h-64 object-contain rounded mb-2"
+                                                  />
+                                                ) : (
+                                                  <div className="flex items-center justify-center gap-2 p-3 mb-2 bg-white dark:bg-slate-800 rounded">
+                                                    <FileText className="h-8 w-8 text-red-500" />
+                                                    <div className="text-left">
+                                                      <p className="text-sm font-medium">{rawSelection.uploadedFileName}</p>
+                                                      <p className="text-xs text-muted-foreground">PDF Document</p>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                                <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">Custom Pattern Uploaded</Badge>
+                                              </>
+                                            ) : (
+                                              <>
+                                                <p className="text-purple-800 dark:text-purple-300 font-medium">
+                                                  {rawSelection?.requestStatus === 'email_sent'
+                                                    ? 'Custom Pattern — Request Sent'
+                                                    : 'Custom Pattern — Awaiting Upload'}
+                                                </p>
+                                                {rawSelection?.requestedFromName && (
+                                                  <p className="text-sm text-muted-foreground mt-1">From: {rawSelection.requestedFromName}{rawSelection.requestedFromEmail ? ` (${rawSelection.requestedFromEmail})` : ''}</p>
+                                                )}
+                                                {(rawSelection?.requestNotes || rawSelection?.requestNote) && (
+                                                  <p className="text-sm text-muted-foreground mt-1">Note: {rawSelection.requestNotes || rawSelection.requestNote}</p>
+                                                )}
+                                              </>
                                             )}
                                             {group.divisions && group.divisions.length > 0 && (
                                               <div className="flex flex-wrap gap-1 justify-center mt-2">
@@ -1253,11 +1282,76 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                               <div className="px-4 py-4 border-t bg-background/30">
                                 <div className="space-y-6">
                                   {groups.map((group, groupIndex) => {
+                                    // Check if this group is a custom pattern request
+                                    const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    const isCustomRequest = rawSelection?.type === 'customRequest';
+
+                                    if (isCustomRequest) {
+                                      // Render generic scoresheet preview for custom pattern requests
+                                      const divisions = (group.divisions || []).map(div => {
+                                        const name = div.division || '';
+                                        let cleaned = name.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
+                                        cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
+                                        if (cleaned === name) {
+                                          const parts = name.split(/\s+/);
+                                          if (parts.length > 1) cleaned = parts.slice(1).join(' ');
+                                        }
+                                        return cleaned || name;
+                                      });
+
+                                      return (
+                                        <div key={group.id} className="border border-slate-700 rounded-lg p-4 bg-slate-900/30">
+                                          <div className="mb-2">
+                                            <p className="font-semibold">{group.name}</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                              {divisions.map((d, i) => (
+                                                <Badge key={i} variant="secondary" className="text-xs">{d}</Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+
+                                          <div className="p-1 max-w-sm mx-auto">
+                                            <div className="overflow-hidden rounded-lg bg-slate-900 border border-slate-700">
+                                              {/* Generic scoresheet visual */}
+                                              <div className="p-4 bg-white dark:bg-slate-800 space-y-2">
+                                                <p className="text-center text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Score Sheet</p>
+                                                <p className="text-center text-[10px] text-slate-500 dark:text-slate-400">{pbbDiscipline.name}</p>
+                                                {/* Mini 3x5 grid */}
+                                                <div className="grid grid-cols-3 gap-1 px-2">
+                                                  {Array.from({ length: 15 }, (_, i) => (
+                                                    <div key={i} className="border border-slate-300 dark:border-slate-600 rounded-sm h-6 flex items-center justify-center">
+                                                      <span className="text-[8px] text-slate-400">{i + 1}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                                <div className="flex gap-1 px-2">
+                                                  <div className="flex-1 border border-slate-300 dark:border-slate-600 rounded-sm h-5 flex items-center px-1">
+                                                    <span className="text-[7px] text-slate-400">Penalties</span>
+                                                  </div>
+                                                  <div className="flex-1 border border-slate-300 dark:border-slate-600 rounded-sm h-5 flex items-center px-1">
+                                                    <span className="text-[7px] text-slate-400">Total</span>
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {/* Badge footer */}
+                                              <div className="p-3 border-t border-slate-700 text-center space-y-1">
+                                                <Badge className="bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700 text-[10px]">
+                                                  Custom Pattern Requested – Generic Scoresheet Active
+                                                </Badge>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    // --- Standard scoresheet lookup ---
                                     // For scoresheet-only disciplines, use discipline ID as key
                                     // For pattern disciplines, use pattern ID OR user-selected scoresheet
                                     const isScoresheetOnly = pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern;
                                     let scoresheetData = null;
-                                    
+
                                     // Priority 1: Check if scoresheet was selected in Step 3 (per group)
                                     const step3Scoresheet = selectedScoresheetDetails[`step3-selected-${pbbDiscipline.id}-${group.id}`];
                                     if (step3Scoresheet) {
@@ -1266,14 +1360,14 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                       // Priority 2: Check if VRH-RHC Ranch CowWork was selected in Step 2
                                       const disciplineKey = `${pbbDiscipline.association_id}-${pbbDiscipline.sub_association_type || 'none'}-${pbbDiscipline.name}-${pbbDiscipline.pattern_type || 'none'}`;
                                       const vrhRanchCowWorkScoresheet = selectedScoresheetDetails[`vrh-ranch-cowwork-${disciplineKey}`];
-                                      
+
                                       if (vrhRanchCowWorkScoresheet) {
                                         // Use VRH-RHC Ranch CowWork scoresheet from Step 2 dropdown
                                         scoresheetData = vrhRanchCowWorkScoresheet;
                                       } else {
                                         // Priority 3: Check if user has selected a scoresheet for this discipline in Step 2
                                         const userSelectedScoresheet = selectedScoresheetDetails[`user-selected-${disciplineKey}`];
-                                        
+
                                         if (userSelectedScoresheet) {
                                           // Use user-selected scoresheet (e.g., for Working Cow Horse)
                                           scoresheetData = userSelectedScoresheet;
@@ -1282,14 +1376,13 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                           scoresheetData = selectedScoresheetDetails[`scoresheet-only-${pbbDiscipline.id}`] || null;
                                         } else {
                                           // For pattern disciplines, try pattern selection first
-                                          const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
                                           const selectedPatternId = typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection;
-                                          
+
                                           if (selectedPatternId) {
                                             // Try to get scoresheet by pattern_id
                                             scoresheetData = selectedScoresheetDetails[selectedPatternId] || null;
                                           }
-                                          
+
                                           // Fallback: If pattern_id lookup failed or no pattern selected, try discipline-based lookup
                                           // This handles cases where pattern preview data doesn't exist but scoresheet does
                                           if (!scoresheetData) {
@@ -1298,7 +1391,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                         }
                                       }
                                     }
-                                    
+
                                     return (
                                       <ScoresheetGroupPreview
                                         key={group.id}

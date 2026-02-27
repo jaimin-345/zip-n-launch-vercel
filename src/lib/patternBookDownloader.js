@@ -1,7 +1,10 @@
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
+import { format } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchImageAsBase64 } from './pdfHelpers';
+import { createGenericScoreSheetPdf } from './genericScoreSheet';
+import { parseLocalDate } from '@/lib/utils';
 
 /**
  * Creates a PDF from an image (pattern or scoresheet)
@@ -257,44 +260,97 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                     : patternSelection)
                 : null;
 
-            // Add pattern PDF
-            const numericPatternId = patternId ? parseInt(patternId) : null;
-            console.log(`Looking for pattern ID ${numericPatternId} in map. Has it? ${patternDataMap.has(numericPatternId)}`);
-            
-            if (numericPatternId && patternDataMap.has(numericPatternId)) {
-                const patternUrl = patternDataMap.get(numericPatternId);
-                console.log(`Found pattern URL for ${numericPatternId}:`, patternUrl);
-                if (patternUrl) {
-                    const patternName = typeof patternSelection === 'object' && patternSelection.patternName
-                        ? patternSelection.patternName
-                        : `Pattern_${patternId}`;
-                    
-                    console.log(`Creating PDF for pattern: ${patternName} from URL: ${patternUrl}`);
-                    const pdfBlob = await createPdfFromImage(patternUrl, patternName);
-                    if (pdfBlob) {
-                        groupFolder.file(`${sanitizeFilename(patternName)}.pdf`, pdfBlob);
-                        console.log(`✓ Added pattern PDF: ${patternName}`);
-                    } else {
-                        console.error(`✗ Failed to create PDF for pattern: ${patternName}`);
+            // Detect special selection types
+            const isCustomRequest = patternSelection?.type === 'customRequest';
+
+            if (isCustomRequest) {
+                // --- Custom request: include uploaded file + generic scoresheet ---
+
+                // Include uploaded custom pattern file if available
+                if (patternSelection.uploadedFileUrl) {
+                    try {
+                        const base64 = await fetchImageAsBase64(patternSelection.uploadedFileUrl);
+                        if (base64) {
+                            const fileName = patternSelection.uploadedFileName || 'Custom_Pattern';
+                            const pdfBlob = await createPdfFromImage(patternSelection.uploadedFileUrl, fileName);
+                            if (pdfBlob) {
+                                groupFolder.file(`${sanitizeFilename(fileName)}.pdf`, pdfBlob);
+                                console.log(`✓ Added uploaded custom pattern: ${fileName}`);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Failed to include uploaded custom pattern:', err);
                     }
                 }
-            } else {
-                console.warn(`Pattern ID ${numericPatternId} not found in pattern data map`);
-            }
 
-            // Get scoresheet using the same priority logic as Step6_Preview
-            const scoresheetData = await getScoresheetForGroup(discipline, group, projectData, associationsData);
-            
-            if (scoresheetData && scoresheetData.image_url) {
-                const scoresheetName = scoresheetData.file_name || 
-                                       scoresheetData.display_name ||
-                                       scoresheetData.discipline ||
-                                       `Scoresheet_${discipline.name}`;
-                
-                console.log(`Creating PDF for scoresheet: ${scoresheetName}`);
-                const pdfBlob = await createPdfFromImage(scoresheetData.image_url, scoresheetName);
-                if (pdfBlob) {
-                    groupFolder.file(`${sanitizeFilename(scoresheetName)}_scoresheet.pdf`, pdfBlob);
+                // Generate generic scoresheet (no maneuvers)
+                const divisions = (group.divisions || []).map(d =>
+                    typeof d === 'string' ? d : (d.division || d.name || '')
+                ).join(' / ');
+                let competitionDate = projectData.startDate;
+                if (group.divisions?.length > 0) {
+                    const divDate = discipline.divisionDates?.[group.divisions[0]?.id || group.divisions[0]];
+                    if (divDate) competitionDate = divDate;
+                }
+                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                const assoc = associationsData?.find(a => a.id === discipline.association_id);
+                const judges = Object.values(projectData.associationJudges || {})
+                    .flatMap(a => (a.judges || []))
+                    .filter(j => j?.name)
+                    .map(j => j.name);
+                const genericBlob = createGenericScoreSheetPdf({
+                    association: assoc?.abbreviation || assoc?.name || '',
+                    showName: projectData.showName || '',
+                    discipline: discipline.name || '',
+                    division: divisions,
+                    date: dateStr,
+                    judge: judges[0] || '',
+                });
+                groupFolder.file(`${sanitizeFilename(discipline.name)}_generic_scoresheet.pdf`, genericBlob);
+                console.log(`✓ Added generic scoresheet for custom request: ${discipline.name}`);
+
+            } else {
+                // --- Standard pattern flow ---
+
+                // Add pattern PDF
+                const numericPatternId = patternId ? parseInt(patternId) : null;
+                console.log(`Looking for pattern ID ${numericPatternId} in map. Has it? ${patternDataMap.has(numericPatternId)}`);
+
+                if (numericPatternId && patternDataMap.has(numericPatternId)) {
+                    const patternUrl = patternDataMap.get(numericPatternId);
+                    console.log(`Found pattern URL for ${numericPatternId}:`, patternUrl);
+                    if (patternUrl) {
+                        const patternName = typeof patternSelection === 'object' && patternSelection.patternName
+                            ? patternSelection.patternName
+                            : `Pattern_${patternId}`;
+
+                        console.log(`Creating PDF for pattern: ${patternName} from URL: ${patternUrl}`);
+                        const pdfBlob = await createPdfFromImage(patternUrl, patternName);
+                        if (pdfBlob) {
+                            groupFolder.file(`${sanitizeFilename(patternName)}.pdf`, pdfBlob);
+                            console.log(`✓ Added pattern PDF: ${patternName}`);
+                        } else {
+                            console.error(`✗ Failed to create PDF for pattern: ${patternName}`);
+                        }
+                    }
+                } else {
+                    console.warn(`Pattern ID ${numericPatternId} not found in pattern data map`);
+                }
+
+                // Get scoresheet using the same priority logic as Step6_Preview
+                const scoresheetData = await getScoresheetForGroup(discipline, group, projectData, associationsData);
+
+                if (scoresheetData && scoresheetData.image_url) {
+                    const scoresheetName = scoresheetData.file_name ||
+                                           scoresheetData.display_name ||
+                                           scoresheetData.discipline ||
+                                           `Scoresheet_${discipline.name}`;
+
+                    console.log(`Creating PDF for scoresheet: ${scoresheetName}`);
+                    const pdfBlob = await createPdfFromImage(scoresheetData.image_url, scoresheetName);
+                    if (pdfBlob) {
+                        groupFolder.file(`${sanitizeFilename(scoresheetName)}_scoresheet.pdf`, pdfBlob);
+                    }
                 }
             }
 

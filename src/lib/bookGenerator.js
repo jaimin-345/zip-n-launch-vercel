@@ -1,10 +1,11 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
-import { fetchImageAsBase64, fetchPatternAndScoresheetAssets } from './pdfHelpers';
+import { fetchImageAsBase64, fetchPatternAndScoresheetAssets, compressImage } from './pdfHelpers';
 import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
 import patternDiagram from '@/assets/pattern-diagram-sample.png';
+import { drawGenericScoreSheetPage } from './genericScoreSheet';
 
 export const generatePatternBookPdf = async (pbbData) => {
     console.log('Generating PDF for', pbbData);
@@ -24,11 +25,19 @@ export const generatePatternBookPdf = async (pbbData) => {
     let toc = [];
 
     // --- Helper Functions ---
-    const addPageHeader = (text, rightText = null) => {
+    const addPageHeader = (text, rightText = null, logoBase64 = null) => {
+        const logoSize = 24;
+        const textX = logoBase64 ? margin + logoSize + 6 : margin;
+        if (logoBase64) {
+            try {
+                const imgType = logoBase64.substring(logoBase64.indexOf('/') + 1, logoBase64.indexOf(';'));
+                doc.addImage(logoBase64, imgType.toUpperCase(), margin, margin / 2 + 1, logoSize, logoSize);
+            } catch (e) { /* ignore logo errors */ }
+        }
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(100, 100, 100);
-        doc.text(text, margin, margin / 2 + 10);
+        doc.text(text, textX, margin / 2 + 10);
         if (rightText) {
             doc.text(rightText, pageWidth - margin, margin / 2 + 10, { align: 'right' });
         }
@@ -97,6 +106,38 @@ export const generatePatternBookPdf = async (pbbData) => {
         return assocId?.toUpperCase() || 'HORSE ASSOCIATION';
     };
 
+    // Draw social media icons on cover page (colored circles with letters, clickable)
+    const drawSocialIcons = (yPosition) => {
+        const socials = [
+            { url: pbbData.marketing?.facebook, color: [24, 119, 242], label: 'f' },
+            { url: pbbData.marketing?.instagram, color: [228, 64, 95], label: 'ig' },
+            { url: pbbData.marketing?.youtube, color: [255, 0, 0], label: 'yt' },
+        ].filter(s => s.url && s.url.trim());
+
+        if (socials.length === 0) return;
+
+        const radius = 8;
+        const spacing = 30;
+        const totalWidth = socials.length * (radius * 2) + (socials.length - 1) * (spacing - radius * 2);
+        let cx = (pageWidth - totalWidth) / 2 + radius;
+
+        for (const social of socials) {
+            // Colored circle
+            doc.setFillColor(social.color[0], social.color[1], social.color[2]);
+            doc.circle(cx, yPosition, radius, 'F');
+            // White letter
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(social.label.length > 1 ? 7 : 10);
+            doc.text(social.label, cx, yPosition + (social.label.length > 1 ? 2.5 : 3.5), { align: 'center' });
+            // Clickable link area
+            doc.link(cx - radius, yPosition - radius, radius * 2, radius * 2, { url: social.url });
+            cx += spacing;
+        }
+        // Reset text color
+        doc.setTextColor(0, 0, 0);
+    };
+
     // Helper: Check if discipline should have pattern pages in the PDF
     const isPatternDiscipline = (discipline) => {
         if (!discipline.pattern) return false;
@@ -132,6 +173,17 @@ export const generatePatternBookPdf = async (pbbData) => {
         coverImageBase64 = await fetchImageAsBase64(pbbData.marketing.coverImage.fileUrl);
     }
     
+    // Load show logo (for cover page and header)
+    let showLogoCoverBase64 = null;
+    let showLogoHeaderBase64 = null;
+    if (pbbData.showLogoUrl) {
+        const rawLogo = await fetchImageAsBase64(pbbData.showLogoUrl);
+        if (rawLogo) {
+            showLogoCoverBase64 = await compressImage(rawLogo, 200, 200, 0.8);
+            showLogoHeaderBase64 = await compressImage(rawLogo, 80, 80, 0.7);
+        }
+    }
+
     // Load dummy pattern graph image as fallback
     const dummyPatternBase64 = await fetchImageAsBase64(patternDiagram);
     
@@ -241,7 +293,10 @@ export const generatePatternBookPdf = async (pbbData) => {
     if (pbbData.marketing?.sponsorLogos?.length > 0) {
         for(const logo of pbbData.marketing.sponsorLogos) {
             const base64 = await fetchImageAsBase64(logo.fileUrl);
-            if(base64) sponsorLogosBase64.push(base64);
+            if (base64) {
+                const compressed = await compressImage(base64, 200, 200, 0.8);
+                sponsorLogosBase64.push(compressed || base64);
+            }
         }
     }
 
@@ -264,30 +319,37 @@ export const generatePatternBookPdf = async (pbbData) => {
         
         // Title Section
         const centerY = pageHeight / 2;
-        
+        const logoOffset = showLogoCoverBase64 ? 50 : 0;
+
+        // Show Logo (centered above title)
+        if (showLogoCoverBase64) {
+            const logoSize = 80;
+            await addImageToPage(showLogoCoverBase64, (pageWidth - logoSize) / 2, centerY - 80 - logoSize - 10, logoSize, logoSize);
+        }
+
         doc.setTextColor(0, 0, 0);
         doc.setFont('times', 'bold');
         doc.setFontSize(50);
         const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
-        doc.text(showTitle, pageWidth / 2, centerY - 80, { align: 'center', maxWidth: pageWidth - 140 });
-        
+        doc.text(showTitle, pageWidth / 2, centerY - 80 + logoOffset, { align: 'center', maxWidth: pageWidth - 140 });
+
         // Decorative Line
         doc.setLineWidth(1);
-        doc.line(pageWidth / 2 - 100, centerY - 40, pageWidth / 2 + 100, centerY - 40);
-        
+        doc.line(pageWidth / 2 - 100, centerY - 40 + logoOffset, pageWidth / 2 + 100, centerY - 40 + logoOffset);
+
         // Date & Location
         doc.setFont('times', 'italic');
         doc.setFontSize(24);
-        
+
         if (pbbData.startDate && pbbData.endDate) {
             const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-            doc.text(dateText, pageWidth / 2, centerY + 20, { align: 'center' });
+            doc.text(dateText, pageWidth / 2, centerY + 20 + logoOffset, { align: 'center' });
         }
-        
+
         if (pbbData.venueAddress) {
             doc.setFontSize(18);
             doc.setFont('times', 'normal');
-            doc.text(pbbData.venueAddress, pageWidth / 2, centerY + 60, { align: 'center' });
+            doc.text(pbbData.venueAddress, pageWidth / 2, centerY + 60 + logoOffset, { align: 'center' });
         }
         
         // Associations at bottom
@@ -296,8 +358,10 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.setFontSize(14);
             doc.setFont('times', 'bold');
             const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
-            doc.text(assocText, pageWidth / 2, pageHeight - margin - 40, { align: 'center' });
+            doc.text(assocText, pageWidth / 2, pageHeight - margin - 55, { align: 'center' });
         }
+        // Social media icons
+        drawSocialIcons(pageHeight - margin - 20);
     } else if (pbbData.coverPageOption !== 'none') {
         // Default Layout A Cover Page (existing logic)
         if (pbbData.coverPageOption === 'upload' && coverImageBase64) {
@@ -312,35 +376,46 @@ export const generatePatternBookPdf = async (pbbData) => {
             doc.setLineWidth(3);
             doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2), 'S');
             
+            const logoOffsetA = showLogoCoverBase64 ? 50 : 0;
+
+            // Show Logo (centered above title)
+            if (showLogoCoverBase64) {
+                const logoSize = 80;
+                await addImageToPage(showLogoCoverBase64, (pageWidth - logoSize) / 2, pageHeight / 2 - 100 - logoSize - 10, logoSize, logoSize);
+            }
+
             // Title
             doc.setTextColor(0, 0, 0);
             doc.setFontSize(42);
             doc.setFont('helvetica', 'bold');
             const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
-            doc.text(showTitle, pageWidth / 2, pageHeight / 2 - 100, { align: 'center', maxWidth: pageWidth - 100 });
-            
+            doc.text(showTitle, pageWidth / 2, pageHeight / 2 - 100 + logoOffsetA, { align: 'center', maxWidth: pageWidth - 100 });
+
             // Associations
             const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
             if (associations.length > 0) {
                 doc.setFontSize(20);
                 doc.setFont('helvetica', 'normal');
                 const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
-                doc.text(assocText, pageWidth / 2, pageHeight / 2 - 40, { align: 'center', maxWidth: pageWidth - 100 });
+                doc.text(assocText, pageWidth / 2, pageHeight / 2 - 40 + logoOffsetA, { align: 'center', maxWidth: pageWidth - 100 });
             }
-            
+
             // Dates
             doc.setFontSize(16);
             doc.setFont('helvetica', 'normal');
             if (pbbData.startDate && pbbData.endDate) {
                 const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-                doc.text(dateText, pageWidth / 2, pageHeight / 2, { align: 'center' });
+                doc.text(dateText, pageWidth / 2, pageHeight / 2 + logoOffsetA, { align: 'center' });
             }
-            
+
             // Venue
             if (pbbData.venueAddress) {
                 doc.setFontSize(14);
-                doc.text(pbbData.venueAddress, pageWidth / 2, pageHeight / 2 + 30, { align: 'center' });
+                doc.text(pbbData.venueAddress, pageWidth / 2, pageHeight / 2 + 30 + logoOffsetA, { align: 'center' });
             }
+
+            // Social media icons
+            drawSocialIcons(pageHeight - margin - 20);
         }
     }
 
@@ -605,13 +680,65 @@ export const generatePatternBookPdf = async (pbbData) => {
                 doc.text(`Pattern to be selected by Judge: ${patternSelection?.judgeName || 'TBD'}`, pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
                 yPos = placeholderY + 40;
             } else if (isCustomRequest) {
-                // Custom pattern placeholder
-                const placeholderY = yPos + 150;
-                doc.setFontSize(20);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(150, 150, 150);
-                doc.text('Custom Pattern \u2014 Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
-                yPos = placeholderY + 40;
+                // Custom pattern: show uploaded image if available, otherwise placeholder
+                if (patternSelection?.uploadedFileUrl && patternSelection.uploadedFileType?.startsWith('image/')) {
+                    try {
+                        const uploadedBase64 = await fetchImageAsBase64(patternSelection.uploadedFileUrl);
+                        if (uploadedBase64) {
+                            const imgProps = doc.getImageProperties(uploadedBase64);
+                            const aspect = imgProps.height / imgProps.width;
+                            const availH = pageHeight - yPos - 40;
+                            const imgW = pageWidth - margin * 2;
+                            let finalW = imgW;
+                            let finalH = imgW * aspect;
+                            if (finalH > availH) { finalH = availH; finalW = finalH / aspect; }
+                            const xOff = (pageWidth - finalW) / 2;
+                            await addImageToPage(uploadedBase64, xOff, yPos, finalW, finalH);
+                            yPos += finalH + 20;
+                        } else {
+                            throw new Error('fetch failed');
+                        }
+                    } catch (_e) {
+                        const placeholderY = yPos + 150;
+                        doc.setFontSize(20);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Custom Pattern \u2014 Uploaded (PDF)', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                        yPos = placeholderY + 40;
+                    }
+                } else if (patternSelection?.uploadedFileUrl) {
+                    // Uploaded PDF — can't embed inline, show notice
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Custom Pattern \u2014 See Attached PDF', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
+                } else {
+                    const placeholderY = yPos + 150;
+                    doc.setFontSize(20);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('Custom Pattern \u2014 Awaiting Upload', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                    yPos = placeholderY + 40;
+                }
+                doc.setTextColor(0, 0, 0);
+
+                // Add generic scoresheet page (no maneuvers)
+                addNewPage();
+                const judges = Object.values(pbbData.associationJudges || {})
+                    .flatMap(a => (a.judges || []))
+                    .filter(j => j?.name)
+                    .map(j => j.name);
+                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                drawGenericScoreSheetPage(doc, {
+                    association: assocName,
+                    showName: pbbData.showName || '',
+                    discipline: discipline.name || '',
+                    division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                    date: dateStr,
+                    judge: judges[0] || '',
+                });
             } else if (hasNoPattern) {
                 // No pattern assigned placeholder
                 const placeholderY = yPos + 150;
@@ -728,12 +855,64 @@ export const generatePatternBookPdf = async (pbbData) => {
                     doc.text(`Pattern to be selected by Judge: ${patternSelection?.judgeName || 'TBD'}`, pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
                     yPos = placeholderY + 40;
                 } else if (isCustomRequest) {
-                    const placeholderY = yPos + 150;
-                    doc.setFontSize(20);
-                    doc.setFont('times', 'bold');
-                    doc.setTextColor(150, 150, 150);
-                    doc.text('Custom Pattern \u2014 Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
-                    yPos = placeholderY + 40;
+                    // Custom pattern: show uploaded image if available, otherwise placeholder
+                    if (patternSelection?.uploadedFileUrl && patternSelection.uploadedFileType?.startsWith('image/')) {
+                        try {
+                            const uploadedBase64 = await fetchImageAsBase64(patternSelection.uploadedFileUrl);
+                            if (uploadedBase64) {
+                                const imgProps = doc.getImageProperties(uploadedBase64);
+                                const aspect = imgProps.height / imgProps.width;
+                                const availH = pageHeight - yPos - 40;
+                                const imgW = pageWidth - margin * 2;
+                                let finalW = imgW;
+                                let finalH = imgW * aspect;
+                                if (finalH > availH) { finalH = availH; finalW = finalH / aspect; }
+                                const xOff = (pageWidth - finalW) / 2;
+                                await addImageToPage(uploadedBase64, xOff, yPos, finalW, finalH);
+                                yPos += finalH + 20;
+                            } else {
+                                throw new Error('fetch failed');
+                            }
+                        } catch (_e) {
+                            const placeholderY = yPos + 150;
+                            doc.setFontSize(20);
+                            doc.setFont('times', 'bold');
+                            doc.setTextColor(150, 150, 150);
+                            doc.text('Custom Pattern \u2014 Uploaded (PDF)', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                            yPos = placeholderY + 40;
+                        }
+                    } else if (patternSelection?.uploadedFileUrl) {
+                        const placeholderY = yPos + 150;
+                        doc.setFontSize(20);
+                        doc.setFont('times', 'bold');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Custom Pattern \u2014 See Attached PDF', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                        yPos = placeholderY + 40;
+                    } else {
+                        const placeholderY = yPos + 150;
+                        doc.setFontSize(20);
+                        doc.setFont('times', 'bold');
+                        doc.setTextColor(150, 150, 150);
+                        doc.text('Custom Pattern \u2014 Awaiting Upload', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
+                        yPos = placeholderY + 40;
+                    }
+                    doc.setTextColor(0, 0, 0);
+
+                    // Add generic scoresheet page (no maneuvers)
+                    addNewPage();
+                    const judgesB = Object.values(pbbData.associationJudges || {})
+                        .flatMap(a => (a.judges || []))
+                        .filter(j => j?.name)
+                        .map(j => j.name);
+                    const dateStrB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                    drawGenericScoreSheetPage(doc, {
+                        association: assocName,
+                        showName: pbbData.showName || '',
+                        discipline: discipline.name || '',
+                        division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                        date: dateStrB,
+                        judge: judgesB[0] || '',
+                    });
                 } else if (hasNoPattern) {
                     const placeholderY = yPos + 150;
                     doc.setFontSize(20);
@@ -1031,12 +1210,13 @@ export const generatePatternBookPdf = async (pbbData) => {
     }
     
     
-    // Add footers to all pages (skip cover page, start numbering from TOC as page 1)
+    // Add headers and footers to all pages (skip cover page, start numbering from TOC as page 1)
     const finalPageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= finalPageCount; i++) {
         doc.setPage(i);
-        if (i === 1) continue; // Skip footer on cover page
+        if (i === 1) continue; // Skip cover page
         const pageNum = i - 1; // TOC becomes page 1, first pattern page becomes page 2, etc.
+        addPageHeader(pbbData.showName || 'Pattern Book', null, showLogoHeaderBase64);
         addPageFooter(pageNum);
     }
 

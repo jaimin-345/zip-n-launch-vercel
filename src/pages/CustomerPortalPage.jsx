@@ -46,13 +46,15 @@ import {
 } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
-import { applyTextOverlay, getOverlayDataFromContext } from '@/lib/scoresheetTextOverlay';
+import { applyTextOverlay, getOverlayDataFromContext, batchDetectFieldPositions, applyTextOverlayWithPositions } from '@/lib/scoresheetTextOverlay';
 import { fetchImageAsBase64 } from '@/lib/pdfHelpers';
 import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { jsPDF } from 'jspdf';
+import ResultsTab from '@/components/customer-portal/ResultsTab';
 // Removed drag-and-drop imports - no longer needed
 
 const accessPhaseLabels = {
@@ -2007,6 +2009,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isGeneratingScoresheets, setIsGeneratingScoresheets] = useState(false);
     const [selectedScoresheetIds, setSelectedScoresheetIds] = useState(new Set());
     const [scoresheetSortBy, setScoresheetSortBy] = useState('division');
+    const [bulkDownloadProgress, setBulkDownloadProgress] = useState(null);
 
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
     const [previewType, setPreviewType] = useState(null); // 'pattern' or 'scoresheet'
@@ -2876,20 +2879,231 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
     };
 
-    // Bulk download selected scoresheets
+    // Bulk download selected scoresheets as a single ZIP with deduplicated AI calls
     const handleBulkDownloadScoresheets = async () => {
         const selected = displayedScoresheets.filter(s => selectedScoresheetIds.has(s.uniqueKey));
         if (selected.length === 0) return;
 
-        toast({ title: `Downloading ${selected.length} scoresheet(s)...` });
+        setBulkDownloadProgress({ phase: 'detecting', current: 0, total: 0, message: 'Resolving scoresheet images...' });
 
-        for (const scoresheet of selected) {
-            await handleDownloadScoresheet(scoresheet);
-            // Small delay between downloads to prevent browser blocking
-            await new Promise(resolve => setTimeout(resolve, 300));
+        try {
+            // Phase 0: Resolve image URLs for all selected scoresheets
+            const resolvedScoresheets = [];
+            for (const scoresheet of selected) {
+                let imageUrl = scoresheet.image_url || null;
+
+                if (!imageUrl && scoresheet.id) {
+                    let numericId = null;
+                    if (typeof scoresheet.id === 'number') {
+                        numericId = scoresheet.id;
+                    } else if (typeof scoresheet.id === 'string') {
+                        if (scoresheet.id.startsWith('scoresheet-')) {
+                            const match = scoresheet.id.match(/\d+/);
+                            if (match) numericId = parseInt(match[0]);
+                        } else if (!isNaN(parseInt(scoresheet.id))) {
+                            numericId = parseInt(scoresheet.id);
+                        }
+                    }
+                    if (numericId) {
+                        const { data: ssData } = await supabase
+                            .from('tbl_scoresheet')
+                            .select('id, image_url')
+                            .eq('id', numericId)
+                            .maybeSingle();
+                        if (ssData?.image_url) imageUrl = ssData.image_url;
+                    }
+                }
+
+                if (!imageUrl && scoresheet.disciplineName && associationsData.length > 0) {
+                    const discipline = projectData.disciplines?.[scoresheet.disciplineIndex];
+                    const associationId = discipline?.association_id ||
+                        (discipline?.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(k => discipline.selectedAssociations[k]) : null);
+                    const association = associationsData.find(a => a.id === associationId);
+                    if (association?.abbreviation && scoresheet.disciplineName) {
+                        const { data: ssData } = await supabase
+                            .from('tbl_scoresheet')
+                            .select('id, image_url')
+                            .eq('association_abbrev', association.abbreviation)
+                            .eq('discipline', scoresheet.disciplineName)
+                            .limit(1)
+                            .maybeSingle();
+                        if (ssData?.image_url) imageUrl = ssData.image_url;
+                    }
+                }
+
+                resolvedScoresheets.push({ scoresheet, imageUrl });
+            }
+
+            const downloadable = resolvedScoresheets.filter(r => r.imageUrl);
+            if (downloadable.length === 0) {
+                toast({ title: 'No scoresheets available', description: 'Could not find image files for selected scoresheets', variant: 'destructive' });
+                setBulkDownloadProgress(null);
+                return;
+            }
+
+            // Phase 1: Deduplicated AI field detection
+            const uniqueImageUrls = [...new Set(downloadable.map(r => r.imageUrl))];
+            setBulkDownloadProgress({
+                phase: 'detecting',
+                current: 0,
+                total: uniqueImageUrls.length,
+                message: `Detecting fields on ${uniqueImageUrls.length} unique template(s)...`
+            });
+
+            const fieldPositionsMap = await batchDetectFieldPositions(
+                uniqueImageUrls,
+                (completed, total) => {
+                    setBulkDownloadProgress({
+                        phase: 'detecting',
+                        current: completed,
+                        total,
+                        message: `Detecting fields: ${completed} of ${total} template(s)...`
+                    });
+                }
+            );
+
+            // Phase 2: Render overlays in parallel batches and pack into ZIP
+            const zip = new JSZip();
+            const BATCH_SIZE = 4;
+            let renderedCount = 0;
+            const totalToRender = downloadable.length;
+            const usedFileNames = new Set();
+
+            setBulkDownloadProgress({
+                phase: 'rendering',
+                current: 0,
+                total: totalToRender,
+                message: `Rendering scoresheets: 0 of ${totalToRender}...`
+            });
+
+            for (let i = 0; i < downloadable.length; i += BATCH_SIZE) {
+                const batch = downloadable.slice(i, i + BATCH_SIZE);
+
+                const batchResults = await Promise.allSettled(
+                    batch.map(async ({ scoresheet, imageUrl }) => {
+                        // Build overlay data (same logic as handleDownloadScoresheet)
+                        let overlayData;
+                        if (scoresheet.divisionName && scoresheet.judgeName) {
+                            const projectDataLocal = project?.project_data || {};
+                            let date = '';
+                            if (scoresheet.classDate) {
+                                date = scoresheet.classDate;
+                            } else {
+                                for (const disc of (projectDataLocal.disciplines || [])) {
+                                    for (const group of (disc.patternGroups || [])) {
+                                        for (const div of (group.divisions || [])) {
+                                            const divName = div?.name || div?.divisionName || div?.division || div?.title || '';
+                                            const divId = div?.id;
+                                            if (divName.trim() === scoresheet.divisionName && divId && disc.divisionDates?.[divId]) {
+                                                date = disc.divisionDates[divId];
+                                                break;
+                                            }
+                                        }
+                                        if (date) break;
+                                    }
+                                    if (date) break;
+                                }
+                                if (!date) date = projectDataLocal.startDate || '';
+                            }
+                            overlayData = {
+                                showName: project?.project_name || projectDataLocal.showName || '',
+                                className: scoresheet.divisionName,
+                                date,
+                                judgeName: scoresheet.judgeName,
+                            };
+                        } else {
+                            overlayData = getOverlayDataFromContext(project, scoresheet);
+                        }
+
+                        // Apply overlay using pre-resolved positions
+                        const positions = fieldPositionsMap.get(imageUrl);
+                        const blob = await applyTextOverlayWithPositions(imageUrl, overlayData, positions);
+
+                        // Build filename
+                        let fileName = 'scoresheet.png';
+                        if (scoresheet.divisionName && scoresheet.judgeName) {
+                            fileName = `${scoresheet.disciplineName || 'Scoresheet'}_${scoresheet.divisionName}_${scoresheet.judgeName}.png`
+                                .replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+                        } else if (scoresheet.displayName) {
+                            fileName = scoresheet.displayName.replace(/[^a-zA-Z0-9._-]/g, '_') + '.png';
+                        }
+
+                        // Ensure unique filename within ZIP
+                        let finalName = fileName;
+                        let counter = 1;
+                        while (usedFileNames.has(finalName)) {
+                            const extIdx = fileName.lastIndexOf('.');
+                            finalName = extIdx > 0
+                                ? `${fileName.slice(0, extIdx)}_${counter}${fileName.slice(extIdx)}`
+                                : `${fileName}_${counter}`;
+                            counter++;
+                        }
+                        usedFileNames.add(finalName);
+
+                        return { fileName: finalName, blob };
+                    })
+                );
+
+                for (const result of batchResults) {
+                    if (result.status === 'fulfilled') {
+                        zip.file(result.value.fileName, result.value.blob);
+                    } else {
+                        console.error('Failed to render scoresheet:', result.reason);
+                    }
+                    renderedCount++;
+                }
+
+                setBulkDownloadProgress({
+                    phase: 'rendering',
+                    current: renderedCount,
+                    total: totalToRender,
+                    message: `Rendering scoresheets: ${renderedCount} of ${totalToRender}...`
+                });
+            }
+
+            // Phase 3: Generate and download ZIP
+            setBulkDownloadProgress({
+                phase: 'rendering',
+                current: totalToRender,
+                total: totalToRender,
+                message: 'Generating ZIP file...'
+            });
+
+            const projectName = (project?.project_name || 'Scoresheets').replace(/[^a-z0-9]/gi, '_');
+            const content = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+
+            const url = URL.createObjectURL(content);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${projectName}_Scoresheets.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            const addedCount = Object.keys(zip.files).length;
+            const failedCount = totalToRender - addedCount;
+            toast({
+                title: 'Download complete',
+                description: failedCount > 0
+                    ? `Downloaded ${addedCount} scoresheets (${failedCount} failed)`
+                    : `Downloaded ${addedCount} scoresheets as ZIP`
+            });
+        } catch (error) {
+            console.error('Bulk download error:', error);
+            toast({
+                title: 'Download failed',
+                description: error.message || 'Failed to download scoresheets',
+                variant: 'destructive'
+            });
+        } finally {
+            setBulkDownloadProgress(null);
+            setSelectedScoresheetIds(new Set());
         }
-
-        setSelectedScoresheetIds(new Set());
     };
 
     // Bulk move selected scoresheets to folder
@@ -4202,7 +4416,24 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             return { ok: false, error };
         }
     };
-    
+
+    const handleResultsSave = async (updatedProjectData) => {
+        try {
+            const { error } = await supabase
+                .from('projects')
+                .update({ project_data: updatedProjectData })
+                .eq('id', project.id);
+            if (error) throw error;
+            if (onRefresh) onRefresh();
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: error?.message || "Failed to save results data",
+                variant: "destructive",
+            });
+        }
+    };
+
     const handleCreateFolder = async (folderName, parentId = null) => {
         if (!folderName || !folderName.trim()) {
             setIsCreatingFolder(false);
@@ -6151,11 +6382,29 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         </Label>
                                                         {selectedScoresheetIds.size > 0 && (
                                                             <div className="flex items-center gap-2 ml-2">
-                                                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkDownloadScoresheets}>
-                                                                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                                                                    Download ({selectedScoresheetIds.size})
-                                                                </Button>
-                                                                {folders.length > 0 && (
+                                                                {bulkDownloadProgress ? (
+                                                                    <div className="flex items-center gap-2 min-w-[280px]">
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                                                                        <div className="flex-1">
+                                                                            <div className="text-xs text-muted-foreground mb-1">
+                                                                                {bulkDownloadProgress.message}
+                                                                            </div>
+                                                                            <Progress
+                                                                                value={bulkDownloadProgress.total > 0
+                                                                                    ? (bulkDownloadProgress.current / bulkDownloadProgress.total) * 100
+                                                                                    : 0
+                                                                                }
+                                                                                className="h-2"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkDownloadScoresheets}>
+                                                                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                                                                        Download ({selectedScoresheetIds.size})
+                                                                    </Button>
+                                                                )}
+                                                                {folders.length > 0 && !bulkDownloadProgress && (
                                                                     <DropdownMenu>
                                                                         <DropdownMenuTrigger asChild>
                                                                             <Button variant="outline" size="sm" className="h-7 text-xs">
@@ -6351,9 +6600,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         )}
                         
                         {activeTab === 'results' && (
-                            <div className="text-center py-12 text-muted-foreground">
-                                Results content coming soon
-                            </div>
+                            <ResultsTab
+                                projectData={projectData}
+                                projectId={project.id}
+                                onSave={handleResultsSave}
+                                toast={toast}
+                                associationsData={associationsData}
+                                affiliations={affiliations}
+                            />
                         )}
                     </div>
                 </div>

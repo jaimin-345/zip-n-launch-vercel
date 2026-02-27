@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
     import { Helmet } from 'react-helmet-async';
     import { motion } from 'framer-motion';
     import { supabase } from '@/lib/supabaseClient';
-    import { Loader2, Info, Users, DollarSign, Calendar, Download, FileText } from 'lucide-react';
+    import { Loader2, Info, Users, DollarSign, Calendar, Download, FileText, Facebook, Instagram, Youtube } from 'lucide-react';
     import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
     import { Button } from '@/components/ui/button';
     import { useToast } from '@/components/ui/use-toast';
@@ -91,6 +91,12 @@ import React, { useState, useEffect } from 'react';
         const { project_name, project_data } = showData;
         const { showDetails = {} } = project_data || {};
         const { general = {}, venue = {}, officials = {}, fees = [], entry = {}, scheduling = {}, awards = {} } = showDetails;
+        const marketing = project_data?.marketing || {};
+        const socialLinks = [
+            { url: marketing.facebook, icon: Facebook, label: 'Facebook' },
+            { url: marketing.instagram, icon: Instagram, label: 'Instagram' },
+            { url: marketing.youtube, icon: Youtube, label: 'YouTube' },
+        ].filter(s => s.url && s.url.trim());
 
         return (
             <>
@@ -105,6 +111,15 @@ import React, { useState, useEffect } from 'react';
                             <CardHeader className="text-center px-0 mb-8">
                                 <CardTitle className="text-4xl md:text-5xl font-bold">{project_name}</CardTitle>
                                 {general.eventHost && <CardDescription className="text-xl text-muted-foreground">Hosted by {general.eventHost}</CardDescription>}
+                                {socialLinks.length > 0 && (
+                                    <div className="flex items-center justify-center gap-3 mt-3">
+                                        {socialLinks.map(({ url, icon: Icon, label }) => (
+                                            <a key={label} href={url} target="_blank" rel="noopener noreferrer" title={label} className="text-muted-foreground hover:text-primary transition-colors">
+                                                <Icon className="h-5 w-5" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                             </CardHeader>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

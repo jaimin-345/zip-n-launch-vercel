@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, X, ZoomIn, ZoomOut, RotateCcw, Loader2, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, X, ZoomIn, ZoomOut, RotateCcw, Loader2, ChevronRight, UploadCloud, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -17,8 +17,11 @@ import { Calendar } from '@/components/ui/calendar';
 import PatternPagePreview from './PatternPagePreview';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { v4 as uuidv4 } from 'uuid';
 
 // Pattern Badge with Hover Functionality Component
 const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
@@ -226,11 +229,13 @@ const PATTERN_VERSIONS = [
 
 export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false, isClinicMode = false }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
   const disciplineRefs = useRef({});
   const [previewDiscipline, setPreviewDiscipline] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  
+  const [uploadingCustomPattern, setUploadingCustomPattern] = useState(null); // track which group is uploading
+
   // Database-driven pattern state
   const [dbPatterns, setDbPatterns] = useState({});
   const [loadingPatterns, setLoadingPatterns] = useState({});
@@ -491,6 +496,67 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     });
   };
 
+  // Handle custom pattern file upload
+  const handleCustomPatternUpload = async (file, disciplineId, groupId) => {
+    if (!user || !formData.id) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Please save the project before uploading.' });
+      return;
+    }
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowed.includes(file.type)) {
+      toast({ variant: 'destructive', title: 'Invalid file type', description: 'Only PDF, JPG, and PNG files are accepted.' });
+      return;
+    }
+    const uploadKey = `${disciplineId}-${groupId}`;
+    setUploadingCustomPattern(uploadKey);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/${formData.id}/custom-patterns/${uuidv4()}.${fileExt}`;
+      const { error } = await supabase.storage.from('project_files').upload(filePath, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('project_files').getPublicUrl(filePath);
+      setFormData(prev => {
+        const newSelections = { ...(prev.patternSelections || {}) };
+        newSelections[disciplineId][groupId] = {
+          ...newSelections[disciplineId][groupId],
+          uploadedFileUrl: publicUrl,
+          uploadedFilePath: filePath,
+          uploadedFileName: file.name,
+          uploadedFileType: file.type,
+          requestStatus: 'uploaded',
+        };
+        return { ...prev, patternSelections: newSelections };
+      });
+      toast({ title: 'Upload successful', description: `${file.name} has been uploaded.` });
+    } catch (err) {
+      console.error('Custom pattern upload failed:', err);
+      toast({ variant: 'destructive', title: 'Upload failed', description: err.message || 'Could not upload file.' });
+    } finally {
+      setUploadingCustomPattern(null);
+    }
+  };
+
+  // Remove an uploaded custom pattern file
+  const handleRemoveCustomPatternUpload = async (disciplineId, groupId) => {
+    const selection = formData.patternSelections?.[disciplineId]?.[groupId];
+    if (!selection?.uploadedFilePath) return;
+    try {
+      await supabase.storage.from('project_files').remove([selection.uploadedFilePath]);
+    } catch (err) {
+      console.error('Failed to remove file from storage:', err);
+    }
+    setFormData(prev => {
+      const newSelections = { ...(prev.patternSelections || {}) };
+      const { uploadedFileUrl, uploadedFilePath, uploadedFileName, uploadedFileType, ...rest } = newSelections[disciplineId][groupId];
+      newSelections[disciplineId][groupId] = {
+        ...rest,
+        requestStatus: selection.requestStatus === 'uploaded' ? 'requested' : rest.requestStatus,
+      };
+      return { ...prev, patternSelections: newSelections };
+    });
+    toast({ title: 'File removed' });
+  };
+
   // Handle pattern selection for a specific group
   const handleGroupPatternSelect = (disciplineId, groupId, patternId, maneuversRangeValue) => {
     if (isReadOnly) return;
@@ -639,7 +705,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       return selection?.patternId;
     });
 
-    return hasPatternAssigned;
+    // Also check that all custom request groups have valid name/email
+    const customRequestGroups = groups.filter(group => {
+      const selection = getPatternSelection(discipline.id, group.id);
+      return selection?.type === 'customRequest';
+    });
+    const customRequestsValid = customRequestGroups.every(group => {
+      const selection = getPatternSelection(discipline.id, group.id);
+      const hasName = !!selection.requestedFromName?.trim();
+      const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(selection.requestedFromEmail || '');
+      return hasName && hasValidEmail;
+    });
+
+    // Discipline is complete if it has patterns or valid custom requests, and all custom requests are valid
+    return (hasPatternAssigned || (customRequestGroups.length > 0 && customRequestsValid)) && customRequestsValid;
   };
 
 
@@ -1435,9 +1514,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                               if (checked) {
                                                 newSelections[discipline.id][group.id] = {
                                                   type: 'customRequest',
+                                                  customPatternRequested: true,
                                                   patternId: null,
                                                   patternName: null,
-                                                  requestNote: ''
+                                                  requestedFromName: '',
+                                                  requestedFromEmail: '',
+                                                  requestNotes: '',
+                                                  requestStatus: 'requested'
                                                 };
                                               } else {
                                                 newSelections[discipline.id][group.id] = {
@@ -1498,27 +1581,193 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
                                 {/* Custom Pattern Request Details */}
                                 {currentSelection?.type === 'customRequest' && (
-                                  <div className="p-3 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20">
-                                    <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-2">Custom Pattern Requested</p>
-                                    <Input
-                                      placeholder="Optional notes for custom pattern request..."
-                                      value={currentSelection.requestNote || ''}
-                                      onChange={(e) => {
-                                        if (isReadOnly) return;
-                                        setFormData(prev => {
-                                          const newSelections = { ...(prev.patternSelections || {}) };
-                                          newSelections[discipline.id][group.id] = {
-                                            ...newSelections[discipline.id][group.id],
-                                            requestNote: e.target.value
-                                          };
-                                          return { ...prev, patternSelections: newSelections };
-                                        });
-                                      }}
-                                      disabled={isReadOnly}
-                                    />
-                                    <p className="text-xs text-purple-700 dark:text-purple-400 mt-2">
-                                      A custom pattern will be assigned later. No standard pattern will be selected.
-                                    </p>
+                                  <div className="p-3 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 space-y-3">
+                                    <p className="text-sm font-medium text-purple-800 dark:text-purple-300">Custom Pattern Requested</p>
+
+                                    {/* Request From Name */}
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground mb-1 block">
+                                        Request From Name <span className="text-red-500">*</span>
+                                      </Label>
+                                      <Input
+                                        placeholder="Name of person to request pattern from..."
+                                        value={currentSelection.requestedFromName || ''}
+                                        onChange={(e) => {
+                                          if (isReadOnly) return;
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            newSelections[discipline.id][group.id] = {
+                                              ...newSelections[discipline.id][group.id],
+                                              requestedFromName: e.target.value
+                                            };
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                        disabled={isReadOnly}
+                                        className={!currentSelection.requestedFromName?.trim() && currentSelection._touched?.name ? 'border-red-400' : ''}
+                                        onBlur={() => {
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            newSelections[discipline.id][group.id] = {
+                                              ...newSelections[discipline.id][group.id],
+                                              _touched: { ...newSelections[discipline.id][group.id]._touched, name: true }
+                                            };
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                      />
+                                      {!currentSelection.requestedFromName?.trim() && currentSelection._touched?.name && (
+                                        <p className="text-xs text-red-500 mt-1">Name is required when requesting a custom pattern.</p>
+                                      )}
+                                    </div>
+
+                                    {/* Request From Email */}
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground mb-1 block">
+                                        Request From Email <span className="text-red-500">*</span>
+                                      </Label>
+                                      <Input
+                                        type="email"
+                                        placeholder="Email address..."
+                                        value={currentSelection.requestedFromEmail || ''}
+                                        onChange={(e) => {
+                                          if (isReadOnly) return;
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            newSelections[discipline.id][group.id] = {
+                                              ...newSelections[discipline.id][group.id],
+                                              requestedFromEmail: e.target.value
+                                            };
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                        disabled={isReadOnly}
+                                        className={
+                                          currentSelection._touched?.email &&
+                                          (!currentSelection.requestedFromEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSelection.requestedFromEmail))
+                                            ? 'border-red-400' : ''
+                                        }
+                                        onBlur={() => {
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            newSelections[discipline.id][group.id] = {
+                                              ...newSelections[discipline.id][group.id],
+                                              _touched: { ...newSelections[discipline.id][group.id]._touched, email: true }
+                                            };
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                      />
+                                      {currentSelection._touched?.email && !currentSelection.requestedFromEmail?.trim() && (
+                                        <p className="text-xs text-red-500 mt-1">Email is required when requesting a custom pattern.</p>
+                                      )}
+                                      {currentSelection._touched?.email && currentSelection.requestedFromEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSelection.requestedFromEmail) && (
+                                        <p className="text-xs text-red-500 mt-1">Please enter a valid email address.</p>
+                                      )}
+                                    </div>
+
+                                    {/* Optional Notes */}
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground mb-1 block">Optional Notes</Label>
+                                      <Textarea
+                                        placeholder="Optional notes for custom pattern request..."
+                                        value={currentSelection.requestNotes || ''}
+                                        onChange={(e) => {
+                                          if (isReadOnly) return;
+                                          setFormData(prev => {
+                                            const newSelections = { ...(prev.patternSelections || {}) };
+                                            newSelections[discipline.id][group.id] = {
+                                              ...newSelections[discipline.id][group.id],
+                                              requestNotes: e.target.value
+                                            };
+                                            return { ...prev, patternSelections: newSelections };
+                                          });
+                                        }}
+                                        disabled={isReadOnly}
+                                        rows={3}
+                                      />
+                                    </div>
+
+                                    {/* Custom Pattern Upload */}
+                                    <div>
+                                      <Label className="text-xs text-muted-foreground mb-1 block">Upload Custom Pattern</Label>
+                                      {currentSelection.uploadedFileUrl ? (
+                                        <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+                                          {/* Uploaded file preview */}
+                                          {currentSelection.uploadedFileType?.startsWith('image/') ? (
+                                            <img
+                                              src={currentSelection.uploadedFileUrl}
+                                              alt="Custom pattern"
+                                              className="w-full max-h-48 object-contain bg-slate-50 dark:bg-slate-800"
+                                            />
+                                          ) : (
+                                            <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800">
+                                              <FileText className="h-8 w-8 text-red-500 flex-shrink-0" />
+                                              <div className="overflow-hidden">
+                                                <p className="text-sm font-medium truncate">{currentSelection.uploadedFileName}</p>
+                                                <p className="text-xs text-muted-foreground">PDF Document</p>
+                                              </div>
+                                            </div>
+                                          )}
+                                          <div className="flex items-center justify-between p-2 border-t">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs flex-shrink-0">Uploaded</Badge>
+                                              <span className="text-xs text-muted-foreground truncate">{currentSelection.uploadedFileName}</span>
+                                            </div>
+                                            {!isReadOnly && (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                                                onClick={() => handleRemoveCustomPatternUpload(discipline.id, group.id)}
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <label
+                                          className={cn(
+                                            "flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                                            "border-purple-200 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/30",
+                                            isReadOnly && "opacity-50 cursor-not-allowed",
+                                            uploadingCustomPattern === `${discipline.id}-${group.id}` && "pointer-events-none opacity-70"
+                                          )}
+                                        >
+                                          {uploadingCustomPattern === `${discipline.id}-${group.id}` ? (
+                                            <>
+                                              <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                                              <span className="text-xs text-purple-600">Uploading...</span>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <UploadCloud className="h-6 w-6 text-purple-400" />
+                                              <span className="text-xs text-purple-600">
+                                                Drop or click to upload PDF, JPG, or PNG
+                                              </span>
+                                            </>
+                                          )}
+                                          <input
+                                            type="file"
+                                            className="hidden"
+                                            accept=".pdf,.jpg,.jpeg,.png"
+                                            disabled={isReadOnly || uploadingCustomPattern === `${discipline.id}-${group.id}`}
+                                            onChange={(e) => {
+                                              const file = e.target.files?.[0];
+                                              if (file) handleCustomPatternUpload(file, discipline.id, group.id);
+                                              e.target.value = '';
+                                            }}
+                                          />
+                                        </label>
+                                      )}
+                                    </div>
+
+                                    {!currentSelection.uploadedFileUrl && (
+                                      <p className="text-xs text-purple-700 dark:text-purple-400">
+                                        A custom pattern will be assigned later. No standard pattern will be selected.
+                                      </p>
+                                    )}
                                   </div>
                                 )}
 

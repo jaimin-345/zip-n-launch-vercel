@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabaseClient';
  */
 const CACHE_VERSION = 'v10';
 const fieldPositionCache = new Map();
+const STORAGE_KEY_PREFIX = 'scoresheet_fields_';
+const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
  * Generate a simple hash for caching
@@ -21,11 +23,47 @@ const hashUrl = (url) => {
 };
 
 /**
+ * Load field positions from localStorage
+ */
+const loadFromStorage = (cacheKey) => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.timestamp && Date.now() - parsed.timestamp > CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(STORAGE_KEY_PREFIX + cacheKey);
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Save field positions to localStorage
+ */
+const saveToStorage = (cacheKey, data) => {
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFIX + cacheKey, JSON.stringify({
+      data,
+      timestamp: Date.now(),
+    }));
+  } catch (e) {
+    console.warn('Failed to persist field positions to localStorage:', e.message);
+  }
+};
+
+/**
  * Clear the field position cache (useful for debugging)
  */
 export const clearFieldPositionCache = () => {
   fieldPositionCache.clear();
-  console.log('Field position cache cleared');
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(STORAGE_KEY_PREFIX));
+    keys.forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+  console.log('Field position cache cleared (memory + localStorage)');
 };
 
 /**
@@ -35,16 +73,24 @@ export const clearFieldPositionCache = () => {
  */
 export const detectFieldPositions = async (imageUrl) => {
   const cacheKey = hashUrl(imageUrl);
-  
-  // Check cache first
+
+  // Check in-memory cache first
   if (fieldPositionCache.has(cacheKey)) {
-    console.log('Using cached field positions');
+    console.log('Using in-memory cached field positions');
     return fieldPositionCache.get(cacheKey);
+  }
+
+  // Check localStorage cache
+  const stored = loadFromStorage(cacheKey);
+  if (stored) {
+    console.log('Using localStorage cached field positions');
+    fieldPositionCache.set(cacheKey, stored);
+    return stored;
   }
 
   try {
     console.log('Calling AI to detect field positions...');
-    
+
     const { data, error } = await supabase.functions.invoke('detect-scoresheet-fields', {
       body: { imageUrl }
     });
@@ -55,8 +101,9 @@ export const detectFieldPositions = async (imageUrl) => {
     }
 
     if (data && data.fields) {
-      // Cache the result
+      // Cache the result in memory and localStorage
       fieldPositionCache.set(cacheKey, data);
+      saveToStorage(cacheKey, data);
       console.log('Field positions detected:', data);
       return data;
     }
@@ -328,6 +375,77 @@ const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
 
   // Draw the text using alphabetic baseline to align with underline
   ctx.fillText(text, textX, textY);
+};
+
+/**
+ * Batch detect field positions for multiple image URLs.
+ * Deduplicates so the same image_url only triggers one AI call.
+ * @param {string[]} imageUrls - Array of image URLs (may contain duplicates)
+ * @param {function} [onProgress] - Optional callback: (completed, total) => void
+ * @returns {Promise<Map<string, Object>>} - Map of imageUrl -> field positions
+ */
+export const batchDetectFieldPositions = async (imageUrls, onProgress) => {
+  const uniqueUrls = [...new Set(imageUrls.filter(Boolean))];
+  const results = new Map();
+  let completed = 0;
+
+  for (const url of uniqueUrls) {
+    const positions = await detectFieldPositions(url);
+    results.set(url, positions);
+    completed++;
+    onProgress?.(completed, uniqueUrls.length);
+  }
+
+  return results;
+};
+
+/**
+ * Apply text overlay using pre-resolved field positions (skips AI call).
+ * Used by bulk download to avoid redundant AI calls per scoresheet.
+ * @param {string} imageUrl - URL of the scoresheet image
+ * @param {Object} overlayData - { showName, className, date, judgeName }
+ * @param {Object} fieldPositions - Pre-resolved field positions from detectFieldPositions
+ * @returns {Promise<Blob>} - Modified image as PNG blob
+ */
+export const applyTextOverlayWithPositions = async (imageUrl, overlayData, fieldPositions) => {
+  try {
+    const img = await loadImage(imageUrl);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to create canvas context');
+    ctx.drawImage(img, 0, 0);
+
+    if (fieldPositions?.fields) {
+      const isNormalized = fieldPositions.units === 'normalized' ||
+        ((fieldPositions.imageWidth ?? 0) > 0 && (fieldPositions.imageWidth ?? 0) <= 2 &&
+         (fieldPositions.imageHeight ?? 0) > 0 && (fieldPositions.imageHeight ?? 0) <= 2);
+      const scaleX = isNormalized ? img.width : (fieldPositions.imageWidth ? img.width / fieldPositions.imageWidth : 1);
+      const scaleY = isNormalized ? img.height : (fieldPositions.imageHeight ? img.height / fieldPositions.imageHeight : 1);
+      const fields = fieldPositions.fields;
+
+      const drawField = (rawField, text, key) => {
+        if (!rawField?.found || !text) return;
+        const refined = refineFieldBox(ctx, img, rawField, scaleX, scaleY);
+        if (refined.width < 40 || refined.height < 12) return;
+        drawFittedText(ctx, text, refined.x, refined.yCenter, refined.width, refined.height);
+      };
+
+      drawField(fields.show, overlayData.showName, 'show');
+      drawField(fields.class, overlayData.className, 'class');
+      drawField(fields.date, overlayData.date, 'date');
+      drawField(fields.judge, overlayData.judgeName, 'judge');
+    }
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('Failed to create blob')), 'image/png', 1.0);
+    });
+  } catch (error) {
+    console.error('Error applying text overlay with positions:', error);
+    const response = await fetch(imageUrl);
+    return await response.blob();
+  }
 };
 
 /**

@@ -19,6 +19,38 @@ export const fetchImageAsBase64 = async (url) => {
     }
 };
 
+/**
+ * Compress a base64 image using Canvas API.
+ * Resizes to fit within maxWidth × maxHeight (preserving aspect ratio)
+ * and outputs JPEG at the given quality.
+ */
+export const compressImage = (base64, maxWidth = 200, maxHeight = 200, quality = 0.8) => {
+    return new Promise((resolve) => {
+        if (!base64) { resolve(null); return; }
+        const img = new Image();
+        img.onload = () => {
+            let { width, height } = img;
+            // Scale down if larger than max dimensions
+            if (width > maxWidth || height > maxHeight) {
+                const ratio = Math.min(maxWidth / width, maxHeight / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            // White background (handles PNG transparency)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(null);
+        img.src = base64;
+    });
+};
+
 export const fetchPatternAndScoresheetAssets = async (pbbData) => {
     const assetUrls = {
         patterns: {},
