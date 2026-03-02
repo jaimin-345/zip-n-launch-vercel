@@ -1,11 +1,11 @@
 import React, { useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { getAssociationLogo, getDefaultAssociationIcon, addLogoToAssociations } from '@/lib/associationsData';
-import { Lock, Info } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ── Discipline classification ──────────────────────────────────────────────────
@@ -54,28 +54,28 @@ const DISCIPLINE_SECTIONS = [
   {
     id: 'ranch',
     label: 'Ranch',
-    sublabel: 'Select any — can combine with Trail & Jumping',
+    sublabel: 'Select any within this group',
     selectionMode: 'multi',
     names: ['Ranch Trail', 'VRH-RHC Ranch Trail'],
   },
   {
     id: 'trail',
     label: 'Trail',
-    sublabel: 'Select any — can combine with Ranch & Jumping',
+    sublabel: 'Select any within this group',
     selectionMode: 'multi',
     names: ['Trail', 'In-Hand Trail'],
   },
   {
     id: 'jumping',
     label: 'Jumping & Over Fences',
-    sublabel: 'Select any — fully flexible, independent from flat classes',
+    sublabel: 'Select any within this group',
     selectionMode: 'multi',
     names: ['Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping'],
   },
   {
     id: 'versatility',
     label: 'Versatility',
-    sublabel: 'Select any that apply',
+    sublabel: 'Select any within this group',
     selectionMode: 'multi',
     names: ['English Versatility', 'Western Versatility'],
   },
@@ -110,8 +110,7 @@ const DisciplineSectionGrid = ({
   disciplines,
   selectedKeys,
   onToggle,
-  singleGroupLocked,
-  lockedFamilyId,
+  activeSectionId,
 }) => {
   const renderSection = (section) => {
     const sectionDiscs = section.names
@@ -120,12 +119,16 @@ const DisciplineSectionGrid = ({
 
     if (sectionDiscs.length === 0) return null;
 
+    const isSectionLocked = activeSectionId && activeSectionId !== section.id;
     const isSingleSection = section.selectionMode === 'single';
 
     return (
       <div
         key={section.id}
-        className="space-y-1.5 rounded-md border border-border bg-card p-3"
+        className={cn(
+          'space-y-1.5 rounded-md border bg-card p-3',
+          isSectionLocked ? 'border-border/50 opacity-50' : 'border-border',
+        )}
       >
         <div className="flex items-center gap-2 px-1">
           <h5 className="text-sm font-semibold text-foreground">{section.label}</h5>
@@ -140,24 +143,13 @@ const DisciplineSectionGrid = ({
           {sectionDiscs.map(disc => {
             const key = `${disc.association_id}::${disc.name}`;
             const isSelected = selectedKeys.has(key);
-            const isSingleName = ALL_SINGLE_SELECT_NAMES.has(disc.name);
-
-            let isDisabled = false;
-            if (singleGroupLocked) {
-              if (isSingleName) {
-                const family = getFamilyForName(disc.name);
-                isDisabled = family?.id !== lockedFamilyId;
-              } else {
-                isDisabled = true;
-              }
-            }
 
             return (
               <DisciplineCheckbox
                 key={disc.id}
                 disc={disc}
                 isSelected={isSelected}
-                isDisabled={isDisabled}
+                isDisabled={!!isSectionLocked}
                 onToggle={onToggle}
               />
             );
@@ -169,12 +161,13 @@ const DisciplineSectionGrid = ({
 
   // Catch-all for disciplines not in any predefined section
   const uncategorized = disciplines.filter(d => !ALL_SECTION_NAMES.has(d.name));
+  const isOtherLocked = activeSectionId && activeSectionId !== 'other';
 
   return (
     <div className="space-y-4">
       {DISCIPLINE_SECTIONS.map(renderSection)}
       {uncategorized.length > 0 && (
-        <div className="space-y-1.5">
+        <div className={cn('space-y-1.5', isOtherLocked && 'opacity-50')}>
           <h5 className="text-sm font-semibold text-foreground px-1">Other Disciplines</h5>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 pl-3">
             {uncategorized.map(disc => (
@@ -182,7 +175,7 @@ const DisciplineSectionGrid = ({
                 key={disc.id}
                 disc={disc}
                 isSelected={selectedKeys.has(`${disc.association_id}::${disc.name}`)}
-                isDisabled={singleGroupLocked}
+                isDisabled={!!isOtherLocked}
                 onToggle={onToggle}
               />
             ))}
@@ -198,8 +191,7 @@ const AssociationDisciplineGroup = ({
   disciplines,
   selectedKeys,
   onToggle,
-  singleGroupLocked,
-  lockedFamilyId,
+  activeSectionId,
 }) => {
   const enriched = useMemo(() => addLogoToAssociations([association])[0], [association]);
   const logoUrl = getAssociationLogo(enriched);
@@ -224,8 +216,7 @@ const AssociationDisciplineGroup = ({
           disciplines={customDisciplines}
           selectedKeys={selectedKeys}
           onToggle={onToggle}
-          singleGroupLocked={singleGroupLocked}
-          lockedFamilyId={lockedFamilyId}
+          activeSectionId={activeSectionId}
         />
       </div>
     </div>
@@ -260,17 +251,21 @@ export const Step2_DisciplineAndClass = ({ formData, setFormData, disciplineLibr
     return groups;
   }, [selectedAssocIds, disciplineLibrary, associationsData]);
 
-  // Determine if a single-select family is currently locked
-  const { singleGroupLocked, lockedFamilyId, lockedFamilyLabel } = useMemo(() => {
+  // Determine which discipline section is currently active (has selections)
+  // Only one group can be active at a time — all others are frozen
+  const activeSectionId = useMemo(() => {
     const selectedNames = selectedClasses.map(key =>
       key.includes('::') ? key.split('::')[1] : key,
     );
-    for (const family of SINGLE_SELECT_FAMILIES) {
-      if (selectedNames.some(name => family.names.includes(name))) {
-        return { singleGroupLocked: true, lockedFamilyId: family.id, lockedFamilyLabel: family.label };
+    if (selectedNames.length === 0) return null;
+
+    for (const section of DISCIPLINE_SECTIONS) {
+      if (selectedNames.some(name => section.names.includes(name))) {
+        return section.id;
       }
     }
-    return { singleGroupLocked: false, lockedFamilyId: null, lockedFamilyLabel: null };
+    // Selections exist but don't match any predefined section
+    return 'other';
   }, [selectedClasses]);
 
   // All custom disciplines across selected associations (for global sync matching)
@@ -396,31 +391,8 @@ export const Step2_DisciplineAndClass = ({ formData, setFormData, disciplineLibr
     >
       <CardHeader className="pb-3">
         <CardTitle className="text-xl">Step 2: Select Disciplines</CardTitle>
-        <CardDescription className="text-sm">
-          Select the disciplines this pattern set applies to. Only associations chosen in Step 1 are shown.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Lock banner */}
-        {singleGroupLocked && (
-          <div className="flex items-center gap-2 p-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700">
-            <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              <span className="font-semibold">{lockedFamilyLabel}</span> is selected &mdash; this pattern is exclusive to this discipline. Deselect it to choose other disciplines.
-            </p>
-          </div>
-        )}
-
-        {/* Info note */}
-        {!singleGroupLocked && groupedByAssociation.length > 0 && (
-          <div className="flex items-start gap-2 p-3 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
-            <Info className="h-4 w-4 text-blue-500 dark:text-blue-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-700 dark:text-blue-300">
-              <strong>Showmanship</strong>, <strong>Horsemanship</strong>, and <strong>Hunt Seat Equitation</strong> are mutually exclusive &mdash; selecting one locks out all other disciplines. <strong>Ranch</strong>, <strong>Trail</strong>, <strong>Jumping</strong>, and <strong>Versatility</strong> disciplines allow multiple selections. Selections sync across all associations automatically.
-            </p>
-          </div>
-        )}
-
         {groupedByAssociation.length === 0 ? (
           <div className="flex items-center justify-center h-40 rounded-md border border-dashed bg-muted/30">
             <p className="text-sm text-muted-foreground">
@@ -436,8 +408,7 @@ export const Step2_DisciplineAndClass = ({ formData, setFormData, disciplineLibr
                 disciplines={disciplines}
                 selectedKeys={selectedKeys}
                 onToggle={handleDisciplineToggle}
-                singleGroupLocked={singleGroupLocked}
-                lockedFamilyId={lockedFamilyId}
+                activeSectionId={activeSectionId}
               />
             ))}
           </div>

@@ -7,8 +7,11 @@ import CommonDivisionsSelector from '@/components/pattern-upload/CommonDivisions
 export const Step3_UploadAndOrganize = ({
   formData,
   setFormData,
+  uploadSlots,
   handleFileDrop,
   handleRemovePattern,
+  handleMovePattern,
+  handlePatternSkillLevel,
   handlePdfSplit,
   assignStagedPdf,
   removeStagedPdf,
@@ -56,7 +59,7 @@ export const Step3_UploadAndOrganize = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <PatternUploader
-          hierarchyOrder={formData.hierarchyOrder}
+          hierarchyOrder={uploadSlots}
           setHierarchyOrder={(val) =>
             setFormData(prev => ({
               ...prev,
@@ -66,6 +69,8 @@ export const Step3_UploadAndOrganize = ({
           patterns={formData.patterns}
           handleFileDrop={handleFileDrop}
           handleRemovePattern={handleRemovePattern}
+          handleMovePattern={handleMovePattern}
+          onSkillLevelChange={handlePatternSkillLevel}
           onHover={onHover}
           onLeave={onLeave}
           onPreview={onPreview}
@@ -84,7 +89,7 @@ export const Step3_UploadAndOrganize = ({
             divisionsByAssociation={filteredDivisionsData}
             onBulkDivisionChange={handleBulkDivisionChange}
             patternDivisions={formData.patternDivisions}
-            hierarchyOrder={formData.hierarchyOrder}
+            hierarchyOrder={uploadSlots}
             patterns={formData.patterns}
           />
         )}

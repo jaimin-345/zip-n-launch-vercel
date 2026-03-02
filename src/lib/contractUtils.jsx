@@ -1,10 +1,110 @@
 import React from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { staffRoles } from '@/lib/staffingData';
 import { format, differenceInCalendarDays, isValid } from 'date-fns';
 import {
   DollarSign, Calendar, Plane, BaggageClaim, Car, Hotel, Fuel, Clock,
   User, Mail, Phone, Award, Briefcase, Building2, Shield,
 } from 'lucide-react';
+
+// ─── Auto-Fill Mapping (PBB/Show → Contract) ───────────────────────────────
+
+const PBB_TO_CONTRACT_ROLE_MAP = {
+  show_manager: 'SHOW_MANAGER',
+  show_secretary: 'SHOW_SECRETARY',
+  office_assistant: 'OFFICE_ASSISTANT',
+  show_steward: 'SHOW_STEWARD',
+  trail_course_designer: 'TRAIL_COURSE_DESIGNER',
+  jump_course_designer: 'JUMP_COURSE_DESIGNER',
+  scribe_ring_steward: 'SCRIBE_RING_STEWARD',
+  equipment_provider: 'EQUIPMENT_PROVIDER',
+};
+
+function createContractStaffMember(assocId, roleId, source = {}) {
+  return {
+    id: uuidv4(),
+    association_id: assocId,
+    role_id: roleId,
+    name: source.name || '',
+    email: source.email || '',
+    phone: source.phone || '',
+    cards_held: '',
+    employment_start_date: null,
+    employment_end_date: null,
+    day_fee: null,
+    has_overtime: false,
+    overtime_hours_threshold: 10,
+    overtime_rate_per_hour: null,
+    reimbursable_expenses: {},
+  };
+}
+
+export function mapOfficialsFromProject(pd) {
+  const result = {};
+  const associationIds = Object.keys(pd.associations || {}).filter(k => pd.associations[k]);
+  if (associationIds.length === 0) return result;
+
+  const pbbOfficials = (pd.officials || []).filter(o => o.name?.trim());
+
+  if (pbbOfficials.length > 0) {
+    for (const assocId of associationIds) {
+      if (!result[assocId]) result[assocId] = {};
+
+      for (const official of pbbOfficials) {
+        const contractRoleId = PBB_TO_CONTRACT_ROLE_MAP[official.roleId] || official.roleId?.toUpperCase();
+        if (!contractRoleId) continue;
+
+        if (!result[assocId][contractRoleId]) {
+          result[assocId][contractRoleId] = [];
+        }
+        result[assocId][contractRoleId].push(
+          createContractStaffMember(assocId, contractRoleId, official)
+        );
+      }
+    }
+  }
+
+  const pbbJudges = pd.associationJudges || {};
+  for (const assocId of associationIds) {
+    const judgeData = pbbJudges[assocId];
+    if (!judgeData?.judges?.length) continue;
+
+    if (!result[assocId]) result[assocId] = {};
+    if (!result[assocId]['JUDGE']) result[assocId]['JUDGE'] = [];
+
+    for (const judge of judgeData.judges) {
+      if (!judge.name?.trim()) continue;
+      result[assocId]['JUDGE'].push(
+        createContractStaffMember(assocId, 'JUDGE', judge)
+      );
+    }
+  }
+
+  return result;
+}
+
+export function applyLinkedProjectData(prev, project) {
+  const pd = project.project_data || {};
+  return {
+    ...prev,
+    linkedProjectId: project.id,
+    showName: project.project_name || prev.showName,
+    showNumber: pd.showNumber || prev.showNumber,
+    associations: pd.associations || prev.associations,
+    subAssociationSelections: pd.subAssociationSelections || prev.subAssociationSelections,
+    primaryAffiliates: pd.primaryAffiliates || prev.primaryAffiliates,
+    customAssociations: pd.customAssociations || prev.customAssociations,
+    contractSettings: {
+      ...prev.contractSettings,
+      effectiveDate: pd.startDate || prev.contractSettings?.effectiveDate || '',
+      expirationDate: pd.endDate || prev.contractSettings?.expirationDate || '',
+    },
+    showDetails: {
+      ...prev.showDetails,
+      officials: mapOfficialsFromProject(pd),
+    },
+  };
+}
 
 // ─── Default Contract Template ─────────────────────────────────────────────────
 

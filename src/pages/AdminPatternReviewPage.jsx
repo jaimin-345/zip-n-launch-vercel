@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { Helmet } from 'react-helmet-async';
     import { motion } from 'framer-motion';
-    import { Check, X, Eye, FileText, User, Loader2, ArrowLeft, Download, Trash2, CheckCircle, Mail, ExternalLink, Filter, CheckSquare, Square } from 'lucide-react';
+    import { Check, X, Eye, FileText, User, Loader2, ArrowLeft, Download, Trash2, CheckCircle, Mail, ExternalLink, Filter, CheckSquare, Square, Pencil } from 'lucide-react';
     import { Link } from 'react-router-dom';
     import Navigation from '@/components/Navigation';
     import { Button } from '@/components/ui/button';
@@ -11,6 +11,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
     import { Checkbox } from '@/components/ui/checkbox';
     import { supabase } from '@/lib/supabaseClient';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+    import { Input } from '@/components/ui/input';
+    import { Label } from '@/components/ui/label';
     import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
     import { ConfirmationDialog } from '@/components/ConfirmationDialog';
     import { EmailSenderModal } from '@/components/admin/EmailSenderModal';
@@ -25,6 +28,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
         const [previewState, setPreviewState] = useState({ isOpen: false, pattern: null });
         const [deleteState, setDeleteState] = useState({ isOpen: false, pattern: null });
         const [emailState, setEmailState] = useState({ isOpen: false, patternSet: null });
+        const [editState, setEditState] = useState({ isOpen: false, pattern: null, fields: {} });
+        const [isSavingEdit, setIsSavingEdit] = useState(false);
         const [activeFilter, setActiveFilter] = useState('pending');
         const [selectedSets, setSelectedSets] = useState(new Set());
         const [sidePreview, setSidePreview] = useState(null);
@@ -209,6 +214,40 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
             setEmailState({ isOpen: true, patternSet });
         };
 
+        const handleOpenEditDialog = (pattern) => {
+            setEditState({
+                isOpen: true,
+                pattern,
+                fields: {
+                    name: pattern.name || '',
+                    class_name: pattern.class_name || '',
+                    pattern_set_name: pattern.pattern_set_name || '',
+                },
+            });
+        };
+
+        const handleSaveEdit = async () => {
+            if (!editState.pattern) return;
+            setIsSavingEdit(true);
+            const { error } = await supabase
+                .from('patterns')
+                .update({
+                    name: editState.fields.name,
+                    class_name: editState.fields.class_name,
+                    pattern_set_name: editState.fields.pattern_set_name,
+                })
+                .eq('id', editState.pattern.id);
+
+            setIsSavingEdit(false);
+            if (error) {
+                toast({ title: 'Failed to update pattern', description: error.message, variant: 'destructive' });
+            } else {
+                toast({ title: 'Pattern Updated', description: `"${editState.fields.name}" saved successfully.` });
+                setEditState({ isOpen: false, pattern: null, fields: {} });
+                fetchPatterns();
+            }
+        };
+
         // Filtered data based on active tab
         const filteredSets = useMemo(() => {
             switch (activeFilter) {
@@ -302,6 +341,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
                                         <div className="flex gap-1 ml-2">
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handlePreviewPattern(pattern)}>
                                                 <Eye className="h-3 w-3"/>
+                                            </Button>
+                                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpenEditDialog(pattern)}>
+                                                <Pencil className="h-3 w-3"/>
                                             </Button>
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownloadPattern(pattern)}>
                                                 <Download className="h-3 w-3"/>
@@ -471,6 +513,48 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
                         patternSet={emailState.patternSet}
                     />
                 )}
+                <Dialog open={editState.isOpen} onOpenChange={(open) => { if (!open) setEditState({ isOpen: false, pattern: null, fields: {} }); }}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Edit Pattern Details</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-name">Pattern Name</Label>
+                                <Input
+                                    id="edit-name"
+                                    value={editState.fields.name || ''}
+                                    onChange={(e) => setEditState(prev => ({ ...prev, fields: { ...prev.fields, name: e.target.value } }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-class">Discipline / Class</Label>
+                                <Input
+                                    id="edit-class"
+                                    value={editState.fields.class_name || ''}
+                                    onChange={(e) => setEditState(prev => ({ ...prev, fields: { ...prev.fields, class_name: e.target.value } }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-set">Pattern Set Name</Label>
+                                <Input
+                                    id="edit-set"
+                                    value={editState.fields.pattern_set_name || ''}
+                                    onChange={(e) => setEditState(prev => ({ ...prev, fields: { ...prev.fields, pattern_set_name: e.target.value } }))}
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setEditState({ isOpen: false, pattern: null, fields: {} })}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleSaveEdit} disabled={isSavingEdit}>
+                                {isSavingEdit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Save Changes
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </>
         );
     };

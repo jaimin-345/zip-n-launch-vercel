@@ -34,6 +34,7 @@ import AdminPatternReviewPage from '@/pages/AdminPatternReviewPage';
 import AIPatternGeneratorStudioPage from '@/pages/AIPatternGeneratorStudioPage';
 import MediaLibraryPage from '@/pages/MediaLibraryPage';
 import MediaAssignmentsPage from '@/pages/MediaAssignmentsPage';
+import AdminSiteBrandingPage from '@/pages/AdminSiteBrandingPage';
 import { MediaConfigProvider } from '@/contexts/MediaConfigContext';
 import PastEventsPage from '@/pages/PastEventsPage';
 import StorePage from '@/pages/StorePage';
@@ -166,6 +167,7 @@ function App() {
                   <Route path="/admin/asset-intelligence" element={<AdminRoute><AssetIntelligenceCenterPage /></AdminRoute>} />
                   <Route path="/admin/media-library" element={<AdminRoute><MediaLibraryPage /></AdminRoute>} />
                   <Route path="/admin/media-assignments" element={<AdminRoute><MediaAssignmentsPage /></AdminRoute>} />
+                  <Route path="/admin/site-branding" element={<AdminRoute><AdminSiteBrandingPage /></AdminRoute>} />
                   <Route path="/admin/custom-pattern-set/:classType" element={<AdminRoute><CustomPatternSetPage /></AdminRoute>} />
                   <Route path="/admin/ai-scoresheet-manager" element={<AdminRoute><AIScoreSheetManagerPage /></AdminRoute>} />
                   <Route path="/admin/pattern-review" element={<AdminRoute><AdminPatternReviewPage /></AdminRoute>} />

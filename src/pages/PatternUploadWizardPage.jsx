@@ -49,8 +49,11 @@ const PatternUploadWizardPage = () => {
     divisionsData,
     hasPatterns,
     selectedAssociationIds,
+    uploadSlots,
     handleFileDrop,
+    handlePatternSkillLevel,
     handleRemovePattern,
+    handleMovePattern,
     handlePdfSplit,
     assignStagedPdf,
     removeStagedPdf,
@@ -227,8 +230,11 @@ const PatternUploadWizardPage = () => {
           <Step3_UploadAndOrganize
             formData={formData}
             setFormData={setFormData}
+            uploadSlots={uploadSlots}
             handleFileDrop={handleFileDrop}
             handleRemovePattern={handleRemovePattern}
+            handleMovePattern={handleMovePattern}
+            handlePatternSkillLevel={handlePatternSkillLevel}
             handlePdfSplit={handlePdfSplit}
             assignStagedPdf={assignStagedPdf}
             removeStagedPdf={removeStagedPdf}
@@ -251,6 +257,7 @@ const PatternUploadWizardPage = () => {
           <Step4_ManeuverAnnotation
             formData={formData}
             setFormData={setFormData}
+            uploadSlots={uploadSlots}
           />
         );
       case 5:
@@ -269,6 +276,7 @@ const PatternUploadWizardPage = () => {
             formData={formData}
             setFormData={setFormData}
             associationsData={associationsData}
+            uploadSlots={uploadSlots}
             onGoToStep={setCurrentStep}
           />
         );

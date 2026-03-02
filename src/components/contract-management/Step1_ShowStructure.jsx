@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Link2 } from 'lucide-react';
+import { applyLinkedProjectData } from '@/lib/contractUtils';
 
 export const Step1_ShowStructure = ({ formData, setFormData, associationsData = [], existingProjects = [] }) => {
   // Check for duplicate show name
@@ -30,16 +31,27 @@ export const Step1_ShowStructure = ({ formData, setFormData, associationsData = 
 
   const handleLinkProject = (projectId) => {
     if (projectId === 'none') {
-      setFormData((prev) => ({ ...prev, linkedProjectId: null }));
+      setFormData((prev) => ({
+        ...prev,
+        linkedProjectId: null,
+        showName: '',
+        showNumber: '',
+        associations: {},
+        subAssociationSelections: {},
+        primaryAffiliates: [],
+        customAssociations: [],
+        showDetails: { ...prev.showDetails, officials: {} },
+        contractSettings: {
+          ...prev.contractSettings,
+          effectiveDate: '',
+          expirationDate: '',
+        },
+      }));
       return;
     }
     const project = existingProjects.find((p) => p.id === projectId);
     if (project) {
-      setFormData((prev) => ({
-        ...prev,
-        linkedProjectId: projectId,
-        showName: project.project_name || prev.showName,
-      }));
+      setFormData((prev) => applyLinkedProjectData(prev, project));
     }
   };
 

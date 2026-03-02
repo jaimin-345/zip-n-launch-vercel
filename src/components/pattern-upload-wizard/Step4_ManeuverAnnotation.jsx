@@ -32,19 +32,20 @@ const getPatternFile = (pattern) => {
   return null;
 };
 
-export const Step4_ManeuverAnnotation = ({ formData, setFormData }) => {
+export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots }) => {
   const { toast } = useToast();
 
-  // Get uploaded patterns
+  // Get uploaded patterns (uses uploadSlots which adapts to discipline/hierarchy mode)
+  const slots = uploadSlots || formData.hierarchyOrder;
   const uploadedPatterns = useMemo(() => {
-    return formData.hierarchyOrder
+    return slots
       .filter(h => formData.patterns[h.id])
       .map(h => ({
         levelId: h.id,
         title: h.title,
         pattern: formData.patterns[h.id],
       }));
-  }, [formData.hierarchyOrder, formData.patterns]);
+  }, [slots, formData.patterns]);
 
   const [activePatternId, setActivePatternId] = useState(
     uploadedPatterns[0]?.levelId || null
@@ -621,7 +622,9 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData }) => {
                 <div className="flex flex-col items-center justify-center h-32 rounded-md border border-dashed bg-muted/30 gap-2">
                   <p className="text-sm text-muted-foreground">No maneuvers yet</p>
                   <p className="text-xs text-muted-foreground">
-                    Use Focus Mode → "Extract All Text" or "Auto-Extract from PDF"
+                    {uploadedPatterns.some(p => slots.find(s => s.id === p.levelId)?.isDisciplineSlot)
+                      ? 'Maneuvers are optional for jumping patterns — skip if not applicable.'
+                      : 'Use Focus Mode → "Extract All Text" or "Auto-Extract from PDF"'}
                   </p>
                 </div>
               ) : null}

@@ -346,14 +346,14 @@ const EventDetailPage = () => {
                       </div>
                     )}
 
-                    {/* Officials/Judges */}
+                    {/* Officials */}
                     {projectData.officials && projectData.officials.length > 0 && (
                       <div>
                         <h3 className="font-semibold text-primary mb-2">Officials</h3>
                         <div className="space-y-1">
-                          {projectData.officials.map((official, idx) => (
+                          {projectData.officials.filter(o => typeof o !== 'string' ? o.name?.trim() : o.trim()).map((official, idx) => (
                             <div key={idx} className="text-sm text-foreground">
-                              {typeof official === 'string' ? official : official.name || official.email || 'Official'}
+                              {typeof official === 'string' ? official : `${official.role || official.roleId || 'Official'}${official.name ? ': ' + official.name : ''}`}
                             </div>
                           ))}
                         </div>
@@ -363,34 +363,21 @@ const EventDetailPage = () => {
                     {/* Judges */}
                     {(() => {
                       const allJudges = [];
-                      
-                      // Collect judges from associationJudges
+
                       if (projectData.associationJudges) {
                         Object.values(projectData.associationJudges).forEach(data => {
                           if (data.judges && Array.isArray(data.judges)) {
                             data.judges.forEach(judge => {
-                              if (judge.name) {
-                                allJudges.push(judge.name);
+                              if (judge.name?.trim()) {
+                                allJudges.push(judge.name.trim());
                               }
                             });
                           }
                         });
                       }
-                      
-                      // Collect judges from officials
-                      if (projectData.officials && Array.isArray(projectData.officials)) {
-                        projectData.officials.forEach(official => {
-                          if (typeof official === 'string' && official.trim()) {
-                            allJudges.push(official.trim());
-                          } else if (official && official.name && official.name.trim()) {
-                            allJudges.push(official.name.trim());
-                          }
-                        });
-                      }
-                      
-                      // Remove duplicates
+
                       const uniqueJudges = [...new Set(allJudges)];
-                      
+
                       if (uniqueJudges.length > 0) {
                         return (
                           <div>
@@ -520,34 +507,21 @@ const EventDetailPage = () => {
                       {/* Judges Summary */}
                       {(() => {
                         const allJudges = [];
-                        
-                        // Collect judges from associationJudges
+
                         if (projectData.associationJudges) {
                           Object.values(projectData.associationJudges).forEach(data => {
                             if (data.judges && Array.isArray(data.judges)) {
                               data.judges.forEach(judge => {
-                                if (judge.name && judge.name.trim()) {
+                                if (judge.name?.trim()) {
                                   allJudges.push(judge.name.trim());
                                 }
                               });
                             }
                           });
                         }
-                        
-                        // Collect judges from officials
-                        if (projectData.officials && Array.isArray(projectData.officials)) {
-                          projectData.officials.forEach(official => {
-                            if (typeof official === 'string' && official.trim()) {
-                              allJudges.push(official.trim());
-                            } else if (official && official.name && official.name.trim()) {
-                              allJudges.push(official.name.trim());
-                            }
-                          });
-                        }
-                        
-                        // Remove duplicates
+
                         const uniqueJudges = [...new Set(allJudges)];
-                        
+
                         if (uniqueJudges.length > 0) {
                           return (
                             <div>

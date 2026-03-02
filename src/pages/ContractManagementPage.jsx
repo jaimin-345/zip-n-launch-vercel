@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
+import { applyLinkedProjectData } from '@/lib/contractUtils';
 
 // Step Components
 import { Step1_ShowStructure } from '@/components/contract-management/Step1_ShowStructure';
@@ -89,6 +90,8 @@ const ContractManagementPage = () => {
   const [associationsData, setAssociationsData] = useState([]);
   const [formData, setFormData] = useState(initialFormData);
   const skipReloadRef = useRef(false);
+  const formDataRef = useRef(formData);
+  const saveProjectRef = useRef(null);
 
   // Sync selectedAssociations (array) from associations (object) for Step 2 compatibility
   useEffect(() => {
@@ -100,6 +103,18 @@ const ContractManagementPage = () => {
       setFormData(prev => ({ ...prev, selectedAssociations: derived }));
     }
   }, [formData.associations]);
+
+  // Keep formData ref in sync for auto-save on unmount
+  useEffect(() => { formDataRef.current = formData; }, [formData]);
+
+  // Auto-save when user navigates away from the page
+  useEffect(() => {
+    return () => {
+      if (saveProjectRef.current) {
+        saveProjectRef.current({ silent: true });
+      }
+    };
+  }, []);
 
   // Load existing project or initial data
   useEffect(() => {
@@ -147,7 +162,25 @@ const ContractManagementPage = () => {
               saved.associations = {};
               saved.selectedAssociations.forEach(id => { saved.associations[id] = true; });
             }
-            setFormData(prev => ({ ...initialFormData, ...saved, id: sanitizedProjectId }));
+
+            let restoredData = { ...initialFormData, ...saved, id: sanitizedProjectId };
+
+            // Sync from linked project: if contract has a linkedProjectId,
+            // re-apply auto-fill from the linked project to pick up any
+            // fields that weren't populated when the contract was first created.
+            if (saved.linkedProjectId && projectsRes.data) {
+              const linkedProject = projectsRes.data.find(p => p.id === saved.linkedProjectId);
+              if (linkedProject) {
+                const officials = saved.showDetails?.officials;
+                const hasOfficials = officials && Object.keys(officials).length > 0;
+                if (!hasOfficials) {
+                  restoredData = applyLinkedProjectData(restoredData, linkedProject);
+                  restoredData.id = sanitizedProjectId;
+                }
+              }
+            }
+
+            setFormData(restoredData);
             setCurrentStep(saved.currentStep || 1);
             setCompletedSteps(new Set(saved.completedSteps || []));
           }
@@ -240,6 +273,9 @@ const ContractManagementPage = () => {
     }
   }, [formData, currentStep, completedSteps, sanitizedProjectId, toast, navigate, user]);
 
+  // Keep saveProject ref in sync for auto-save on unmount
+  useEffect(() => { saveProjectRef.current = saveProject; }, [saveProject]);
+
   // Manual save button
   const handleSaveProject = async () => {
     await saveProject();
@@ -253,7 +289,8 @@ const ContractManagementPage = () => {
     setCurrentStep(nextStep);
   };
 
-  const handlePrev = () => {
+  const handlePrev = async () => {
+    await saveProject({ silent: true });
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 

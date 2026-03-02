@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
   Info, CalendarDays, FileText,
-  DollarSign, LayoutGrid, Building2, BarChart2, Radio,
+  DollarSign, LayoutGrid, Building2, BarChart2, Radio, Award,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
@@ -106,8 +106,9 @@ const sections = [
     link: '/horse-show-manager/stalling-service-manager',
     items: [
       { icon: Radio, label: 'Equipment Management', link: '/admin/equipment-planning', line: 1 },
-      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 2 },
-      { icon: DollarSign, label: 'Horse Show Financials / Analytics', unimplemented: true, line: 3 },
+      { icon: Award, label: 'Awards Management', unimplemented: true, line: 2 },
+      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 3 },
+      { icon: DollarSign, label: 'Horse Show Financials / Analytics', unimplemented: true, line: 4 },
     ],
   },
 ];

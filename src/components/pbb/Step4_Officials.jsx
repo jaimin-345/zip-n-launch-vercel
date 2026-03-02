@@ -27,7 +27,6 @@ const EditableList = ({ title, icon, items, placeholder, onUpdate, fieldKey }) =
     const newItems = items.filter((_, i) => i !== index);
     onUpdate(fieldKey, newItems);
   };
-  //test
 
   return (
     <div className="p-4 border rounded-lg bg-background/50">

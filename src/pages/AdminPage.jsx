@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt, Wrench } from 'lucide-react';
+import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt, Wrench, Image } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
@@ -36,6 +36,7 @@ const AdminPage = () => {
     { name: 'Pattern Review', path: '/admin/pattern-review', icon: FileText, description: 'Review and approve submitted patterns.' },
     { name: 'Billing & Revenue', path: '/admin/billing-report', icon: Receipt, description: 'View all subscriptions, purchases, and revenue.' },
     { name: 'Equipment Planning', path: '/admin/equipment-planning', icon: Wrench, description: 'Equipment inventory, discipline planning, arena scheduling, distribution, check-in/out, reconciliation, and reports.' },
+    { name: 'Site Branding', path: '/admin/site-branding', icon: Image, description: 'Upload homepage background image and site logo.' },
   ];
 
   return (

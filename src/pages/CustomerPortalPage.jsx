@@ -1616,6 +1616,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [associationsData, setAssociationsData] = useState([]);
     const [patternBookDialogOpen, setPatternBookDialogOpen] = useState(false);
+    const [dialogInitialTab, setDialogInitialTab] = useState('patternBook');
     const [patternsList, setPatternsList] = useState([]);
     const [isLoadingPatternsList, setIsLoadingPatternsList] = useState(false);
     
@@ -1800,13 +1801,16 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                     
                     {/* Tabs */}
                     <div className="flex gap-2 mb-4">
-                        <button 
-                            onClick={() => setPatternBookDialogOpen(true)}
+                        <button
+                            onClick={() => { setDialogInitialTab('patternBook'); setPatternBookDialogOpen(true); }}
                             className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-full hover:bg-primary/90 cursor-pointer"
                         >
                             Pattern Book
                         </button>
-                        <button className="px-3 py-1.5 bg-transparent border border-primary/30 text-muted-foreground text-sm font-medium rounded-full hover:bg-primary/20">
+                        <button
+                            onClick={() => { setDialogInitialTab('results'); setPatternBookDialogOpen(true); }}
+                            className="px-3 py-1.5 bg-transparent border border-primary/30 text-muted-foreground text-sm font-medium rounded-full hover:bg-primary/20 cursor-pointer"
+                        >
                             Results
                         </button>
                     </div>
@@ -1967,13 +1971,14 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
             {/* Pattern Book Dialog */}
             <Dialog open={patternBookDialogOpen} onOpenChange={setPatternBookDialogOpen}>
                 <DialogContent className="w-[95vw] h-screen max-w-none max-h-none p-0 m-0 rounded-none overflow-hidden">
-                    <PatternBookDialogContent 
+                    <PatternBookDialogContent
                         project={project}
                         profile={profile}
                         user={user}
                         associationsData={associationsData}
                         onClose={() => setPatternBookDialogOpen(false)}
                         onRefresh={onRefresh}
+                        initialTab={dialogInitialTab}
                     />
                 </DialogContent>
             </Dialog>
@@ -1982,8 +1987,8 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
 };
 
 // Pattern Book Dialog Content Component
-const PatternBookDialogContent = ({ project, profile, user, associationsData, onClose, onRefresh }) => {
-    const [activeTab, setActiveTab] = useState('patternBook');
+const PatternBookDialogContent = ({ project, profile, user, associationsData, onClose, onRefresh, initialTab = 'patternBook' }) => {
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [activeSubTab, setActiveSubTab] = useState('patterns');
     const [patterns, setPatterns] = useState([]);
     const [scoresheets, setScoresheets] = useState([]);
@@ -7632,13 +7637,17 @@ const CustomerPortalPage = () => {
     }, [user]);
 
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
-    const showManagerProjects = projects.filter(p => p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder');
+    const showManagerProjects = projects.filter(p => {
+        const mode = (p.mode || '').toString().trim();
+        return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && mode.toLowerCase() !== 'archived';
+    });
     
     // Filter pattern books by status (case-insensitive comparison)
-    // Active Pattern Books Portal: Show all projects EXCEPT status === 'In progress' (regardless of mode)
+    // Active Pattern Books Portal: Show all projects EXCEPT status === 'In progress' AND mode !== 'archived'
     const activePatternBooks = patternBookProjects.filter(p => {
         const status = (p.status || 'Draft').toString().trim();
-        return status.toLowerCase() !== 'in progress';
+        const mode = (p.mode || '').toString().trim();
+        return status.toLowerCase() !== 'in progress' && mode.toLowerCase() !== 'archived';
     });
     
     // In Progress Pattern Books Portal: Show only projects with Status === 'In progress' AND mode !== 'archived'

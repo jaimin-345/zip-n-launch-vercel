@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Tag, FileUp, Info, GripVertical, FileText } from 'lucide-react';
@@ -15,6 +15,8 @@ const PatternUploader = ({
   patterns,
   handleFileDrop,
   handleRemovePattern,
+  handleMovePattern,
+  onSkillLevelChange,
   onHover,
   onLeave,
   onPreview,
@@ -33,6 +35,13 @@ const PatternUploader = ({
   );
 
   const [activeDragItem, setActiveDragItem] = useState(null);
+  const isDraggingStaged = activeDragItem?.type === 'staged';
+
+  // Slots that don't have a pattern assigned yet (for quick-assign dropdowns)
+  const availableSlots = useMemo(() =>
+    hierarchyOrder.filter(h => !patterns[h.id]),
+    [hierarchyOrder, patterns]
+  );
 
   const handleDragStart = (event) => {
     const { active } = event;
@@ -101,7 +110,7 @@ const PatternUploader = ({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-3 relative">
               <SortableContext items={hierarchyOrder.map(h => `slot-${h.id}`)} strategy={verticalListSortingStrategy}>
-                {hierarchyOrder.map(level => (
+                {hierarchyOrder.map((level, index) => (
                   <SortablePatternSlot
                     key={level.id}
                     id={level.id}
@@ -109,9 +118,15 @@ const PatternUploader = ({
                     pattern={patterns[level.id]}
                     onFileDrop={handleFileDrop}
                     onRemove={handleRemovePattern}
+                    onMovePattern={handleMovePattern}
+                    otherSlots={hierarchyOrder.filter(h => h.id !== level.id)}
                     onHover={onHover}
                     onLeave={onLeave}
                     onPreview={onPreview}
+                    isDisciplineSlot={!!level.isDisciplineSlot}
+                    onSkillLevelChange={onSkillLevelChange}
+                    isDraggingStaged={isDraggingStaged}
+                    slotIndex={index}
                   />
                 ))}
               </SortableContext>
@@ -139,6 +154,8 @@ const PatternUploader = ({
                     onPreview={onPreview}
                     onHover={onHover}
                     onLeave={onLeave}
+                    onAssign={assignStagedPdf}
+                    availableSlots={availableSlots}
                   />
                 </CardContent>
               </Card>

@@ -5,6 +5,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
+// Jumping disciplines get per-discipline upload slots instead of skill-level slots
+const JUMPING_DISCIPLINE_NAMES = new Set([
+  'Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping',
+]);
+
+const toSlotId = (name) => `disc-${name.toLowerCase().replace(/\s+/g, '-')}`;
+
 const initialFormData = {
   // Step 1: Name + Associations
   showName: '',           // Used as "Pattern Set Name" — matches AssociationSelection field name
@@ -197,8 +204,22 @@ export const usePatternUploadWizard = (projectId) => {
 
   const handleRemovePattern = useCallback((levelId) => {
     setFormData(prev => {
+      const pattern = prev.patterns[levelId];
       const newPatterns = { ...prev.patterns };
       delete newPatterns[levelId];
+
+      // Return the pattern to staging area instead of deleting
+      let newStagedPdfs = prev.stagedPdfs;
+      if (pattern && (pattern.file || pattern.dataUrl)) {
+        newStagedPdfs = [...prev.stagedPdfs, {
+          id: uuidv4(),
+          dataUrl: pattern.dataUrl,
+          originalFileName: pattern.file?.name || pattern.name || 'pattern.pdf',
+          displayName: pattern.name || pattern.file?.name || 'Unassigned Pattern',
+          pageNumber: 1,
+          file: pattern.file,
+        }];
+      }
 
       // Clean up linked accessory docs
       const newDocs = prev.accessoryDocs.map(doc => ({
@@ -217,13 +238,35 @@ export const usePatternUploadWizard = (projectId) => {
       return {
         ...prev,
         patterns: newPatterns,
+        stagedPdfs: newStagedPdfs,
         accessoryDocs: newDocs,
         patternManeuvers: newManeuvers,
         patternAnnotations: newAnnotations,
         patternVerbiage: newVerbiage,
       };
     });
-  }, []);
+    toast({ title: 'Pattern Unassigned', description: 'Returned to staging area.' });
+  }, [toast]);
+
+  const handleMovePattern = useCallback((fromSlotId, toSlotId) => {
+    if (fromSlotId === toSlotId) return;
+    setFormData(prev => {
+      const fromPattern = prev.patterns[fromSlotId];
+      if (!fromPattern) return prev;
+
+      // If target slot already has a pattern, swap them
+      const toPattern = prev.patterns[toSlotId];
+      return {
+        ...prev,
+        patterns: {
+          ...prev.patterns,
+          [toSlotId]: { ...fromPattern, id: toSlotId },
+          [fromSlotId]: toPattern ? { ...toPattern, id: fromSlotId } : undefined,
+        },
+      };
+    });
+    toast({ title: 'Pattern Moved' });
+  }, [toast]);
 
   // --- PDF splitting ---
   const handlePdfSplit = useCallback(async (file) => {
@@ -252,9 +295,14 @@ export const usePatternUploadWizard = (projectId) => {
   }, [toast]);
 
   const assignStagedPdf = useCallback((stagedPdfId, slotId) => {
+    let assignedName = '';
+    let slotTitle = '';
     setFormData(prev => {
       const stagedPdf = prev.stagedPdfs.find(p => p.id === stagedPdfId);
       if (!stagedPdf) return prev;
+      assignedName = stagedPdf.displayName || stagedPdf.originalFileName;
+      const slot = prev.hierarchyOrder.find(h => h.id === slotId);
+      slotTitle = slot?.title || slotId.replace(/^disc-/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       return {
         ...prev,
         patterns: {
@@ -269,7 +317,11 @@ export const usePatternUploadWizard = (projectId) => {
         stagedPdfs: prev.stagedPdfs.filter(p => p.id !== stagedPdfId),
       };
     });
-  }, []);
+    // Show toast after state update is queued
+    if (assignedName) {
+      toast({ title: 'Pattern Assigned', description: `"${assignedName}" → ${slotTitle}` });
+    }
+  }, [toast]);
 
   const removeStagedPdf = useCallback((stagedPdfId) => {
     setFormData(prev => ({
@@ -331,8 +383,8 @@ export const usePatternUploadWizard = (projectId) => {
     const levelName = division.level;
     setFormData(prev => {
       const newDivisions = JSON.parse(JSON.stringify(prev.patternDivisions));
-      prev.hierarchyOrder.forEach(hierarchyItem => {
-        const patternId = hierarchyItem.id;
+      // Iterate over all patterns that have uploads (mode-agnostic)
+      Object.keys(prev.patterns).forEach(patternId => {
         if (prev.patterns[patternId]) {
           if (!newDivisions[patternId]) newDivisions[patternId] = {};
           assocIds.forEach(assocId => {
@@ -528,6 +580,39 @@ export const usePatternUploadWizard = (projectId) => {
     [formData.associations]
   );
 
+  // Dynamic upload slots: discipline-based for Jumping group, skill-level for everything else
+  const uploadSlots = useMemo(() => {
+    const selectedNames = [...new Set(
+      (formData.selectedClasses || [])
+        .filter(k => k.includes('::'))
+        .map(k => k.split('::')[1])
+    )];
+    const jumpingSelected = selectedNames.filter(n => JUMPING_DISCIPLINE_NAMES.has(n));
+    if (jumpingSelected.length > 0) {
+      return jumpingSelected.map(name => ({
+        id: toSlotId(name),
+        title: name,
+        description: `Upload pattern for ${name}`,
+        isDisciplineSlot: true,
+      }));
+    }
+    return formData.hierarchyOrder;
+  }, [formData.selectedClasses, formData.hierarchyOrder]);
+
+  const handlePatternSkillLevel = useCallback((slotId, skillLevel) => {
+    setFormData(prev => {
+      const pattern = prev.patterns[slotId];
+      if (!pattern) return prev;
+      return {
+        ...prev,
+        patterns: {
+          ...prev.patterns,
+          [slotId]: { ...pattern, skillLevel: skillLevel || undefined },
+        },
+      };
+    });
+  }, []);
+
   return {
     step,
     setCurrentStep,
@@ -545,11 +630,14 @@ export const usePatternUploadWizard = (projectId) => {
     divisionsData,
     hasPatterns,
     selectedAssociationIds,
+    uploadSlots,
     resetForm,
     lastAutoSaved,
     // Pattern handlers
     handleFileDrop,
+    handlePatternSkillLevel,
     handleRemovePattern,
+    handleMovePattern,
     handlePdfSplit,
     assignStagedPdf,
     removeStagedPdf,

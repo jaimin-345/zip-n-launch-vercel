@@ -8,6 +8,7 @@ export const Step6_LicenseAndSubmit = ({
   formData,
   setFormData,
   associationsData,
+  uploadSlots,
   onGoToStep,
 }) => {
   const hasPatterns = Object.values(formData.patterns).some(p => p);
@@ -31,6 +32,7 @@ export const Step6_LicenseAndSubmit = ({
         <SubmissionSummary
           formData={formData}
           associationsData={associationsData}
+          uploadSlots={uploadSlots}
           onGoToStep={onGoToStep}
         />
 

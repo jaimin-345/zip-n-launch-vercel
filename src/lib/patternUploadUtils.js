@@ -1,6 +1,31 @@
 import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
+// Jumping disciplines get per-discipline upload slots instead of skill-level slots
+const JUMPING_DISCIPLINE_NAMES = new Set([
+  'Hunter Hack', 'Working Hunter', 'Equitation Over Fences', 'Jumping',
+]);
+
+const toSlotId = (name) => `disc-${name.toLowerCase().replace(/\s+/g, '-')}`;
+
+/** Compute the active upload slots for a given formData. */
+const getUploadSlots = (formData) => {
+  const selectedNames = [...new Set(
+    (formData.selectedClasses || [])
+      .filter(k => k.includes('::'))
+      .map(k => k.split('::')[1])
+  )];
+  const jumpingSelected = selectedNames.filter(n => JUMPING_DISCIPLINE_NAMES.has(n));
+  if (jumpingSelected.length > 0) {
+    return jumpingSelected.map(name => ({
+      id: toSlotId(name),
+      title: name,
+      isDisciplineSlot: true,
+    }));
+  }
+  return formData.hierarchyOrder;
+};
+
 /**
  * Submits a complete pattern set to Supabase.
  * Handles: file uploads, pattern records, associations, divisions,
@@ -12,8 +37,9 @@ export const submitPatternSet = async (formData, user) => {
   const classType = formData.selectedDiscipline || 'Custom';
   const selectedAssocIds = Object.keys(formData.associations).filter(k => formData.associations[k]);
 
-  // 1. Upload pattern files and build records
-  const patternEntries = formData.hierarchyOrder
+  // 1. Upload pattern files and build records (supports both hierarchy and discipline slots)
+  const uploadSlots = getUploadSlots(formData);
+  const patternEntries = uploadSlots
     .filter(h => formData.patterns[h.id])
     .map(h => ({
       hierarchyItem: h,
@@ -49,11 +75,11 @@ export const submitPatternSet = async (formData, user) => {
       file_url: publicUrl,
       file_path: filePath,
       user_id: user.id,
-      class_name: classType,
+      class_name: hierarchyItem.isDisciplineSlot ? hierarchyItem.title : classType,
       pattern_set_name: formData.showName,
       is_custom: true,
       review_status: 'pending',
-      hierarchy_order: formData.hierarchyOrder.findIndex(h => h.id === hierarchyItem.id),
+      hierarchy_order: uploadSlots.findIndex(h => h.id === hierarchyItem.id),
     });
   }
 

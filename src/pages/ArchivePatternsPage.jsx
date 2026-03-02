@@ -20,17 +20,17 @@ const ArchivePatternsPage = () => {
 
     useEffect(() => {
         if (user) {
-            checkAndAutoRestoreExpired();
+            checkAndAutoDeleteExpired();
             fetchArchivedProjects();
         }
     }, [user]);
 
-    // Automatically restore projects that have been archived for more than 30 days
-    const checkAndAutoRestoreExpired = async () => {
+    // Automatically delete projects that have been archived for more than 30 days
+    const checkAndAutoDeleteExpired = async () => {
         if (!user) return;
-        
+
         const thirtyDaysAgo = addDays(new Date(), -30);
-        
+
         const { data: expiredProjects, error } = await supabase
             .from('projects')
             .select('id')
@@ -39,11 +39,10 @@ const ArchivePatternsPage = () => {
             .lt('updated_at', thirtyDaysAgo.toISOString());
 
         if (!error && expiredProjects && expiredProjects.length > 0) {
-            // Update all expired projects to set mode = null
             const projectIds = expiredProjects.map(p => p.id);
             await supabase
                 .from('projects')
-                .update({ mode: null })
+                .delete()
                 .in('id', projectIds);
         }
     };
@@ -81,16 +80,16 @@ const ArchivePatternsPage = () => {
     const handlePermanentDelete = async (projectId) => {
         const { error } = await supabase
             .from('projects')
-            .update({ mode: null })
+            .delete()
             .eq('id', projectId);
 
         if (!error) {
-            toast({ title: "Project removed", description: "Project has been removed from archive" });
+            toast({ title: "Project deleted", description: "Project has been permanently deleted" });
             fetchArchivedProjects();
         } else {
-            toast({ 
-                title: "Error", 
-                description: "Failed to remove project from archive",
+            toast({
+                title: "Error",
+                description: "Failed to delete project",
                 variant: "destructive"
             });
         }
@@ -112,7 +111,7 @@ const ArchivePatternsPage = () => {
                         Archive Pattern
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Archived pattern books are stored for 30 days before being automatically restored.
+                        Archived pattern books are stored for 30 days before being permanently deleted.
                     </p>
                 </div>
 

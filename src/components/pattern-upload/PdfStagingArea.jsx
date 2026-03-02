@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useDraggable } from '@dnd-kit/core';
 import { Document, Page } from 'react-pdf';
-import { Upload, X, GripVertical, Loader2, Maximize, Pencil, Check } from 'lucide-react';
+import { Upload, X, GripVertical, Loader2, Maximize, Pencil, Check, ArrowRightToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename }) => {
+const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename, onAssign, availableSlots }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(pdf.displayName || '');
 
@@ -47,54 +48,73 @@ const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename })
             onMouseEnter={() => onHover(pdf)}
             onMouseLeave={onLeave}
         >
-            <div className="p-2 border rounded-lg bg-background flex items-center gap-2">
-                <div {...listeners} {...attributes} className="cursor-grab touch-none">
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div className="w-12 h-16 bg-secondary rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0">
-                    <Document file={pdf.dataUrl} loading={<Loader2 className="h-4 w-4 animate-spin" />}>
-                        <Page pageNumber={1} width={48} height={64} renderAnnotationLayer={false} renderTextLayer={false} />
-                    </Document>
-                </div>
-                <div className="flex-1 overflow-hidden min-w-0">
-                    {isEditing ? (
-                        <div className="flex items-center gap-1">
-                            <Input
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                onBlur={handleRenameConfirm}
-                                onKeyDown={handleKeyDown}
-                                className="h-6 text-xs px-1"
-                                autoFocus
-                            />
-                            <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={handleRenameConfirm}>
-                                <Check className="h-3 w-3" />
+            <div className="p-2 border rounded-lg bg-background space-y-1.5">
+                <div className="flex items-center gap-2">
+                    <div {...listeners} {...attributes} className="cursor-grab touch-none">
+                        <GripVertical className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="w-12 h-16 bg-secondary rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0">
+                        <Document file={pdf.dataUrl} loading={<Loader2 className="h-4 w-4 animate-spin" />}>
+                            <Page pageNumber={1} width={48} height={64} renderAnnotationLayer={false} renderTextLayer={false} />
+                        </Document>
+                    </div>
+                    <div className="flex-1 overflow-hidden min-w-0">
+                        {isEditing ? (
+                            <div className="flex items-center gap-1">
+                                <Input
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    onBlur={handleRenameConfirm}
+                                    onKeyDown={handleKeyDown}
+                                    className="h-6 text-xs px-1"
+                                    autoFocus
+                                />
+                                <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={handleRenameConfirm}>
+                                    <Check className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <p className="text-xs font-medium truncate">{pdf.displayName || pdf.originalFileName}</p>
+                        )}
+                        <Badge variant="outline" className="mt-0.5">Page {pdf.pageNumber}</Badge>
+                    </div>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        {!isEditing && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditName(pdf.displayName || ''); setIsEditing(true); }}>
+                                <Pencil className="h-3 w-3" />
                             </Button>
-                        </div>
-                    ) : (
-                        <p className="text-xs font-medium truncate">{pdf.displayName || pdf.originalFileName}</p>
-                    )}
-                    <Badge variant="outline" className="mt-0.5">Page {pdf.pageNumber}</Badge>
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    {!isEditing && (
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditName(pdf.displayName || ''); setIsEditing(true); }}>
-                            <Pencil className="h-3 w-3" />
+                        )}
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onPreview(pdf)}>
+                            <Maximize className="h-3 w-3" />
                         </Button>
-                    )}
-                    <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onPreview(pdf)}>
-                        <Maximize className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(pdf.id)}>
-                        <X className="h-3 w-3" />
-                    </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(pdf.id)}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </div>
+                {availableSlots && availableSlots.length > 0 && (
+                    <div className="flex items-center gap-1.5 pl-7">
+                        <ArrowRightToLine className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <Select onValueChange={(slotId) => onAssign(pdf.id, slotId)}>
+                            <SelectTrigger className="h-6 text-xs flex-1">
+                                <SelectValue placeholder="Assign to slot..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableSlots.map((slot) => (
+                                    <SelectItem key={slot.id} value={slot.id} className="text-xs">
+                                        {slot.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
             </div>
         </div>
     );
 };
 
-const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, onLeave, onRename }) => {
+const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, onLeave, onRename, onAssign, availableSlots }) => {
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: acceptedFiles => acceptedFiles.forEach(onPdfSplit),
         accept: { 'application/pdf': ['.pdf'] },
@@ -129,6 +149,8 @@ const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, 
                             onHover={onHover}
                             onLeave={onLeave}
                             onRename={onRename}
+                            onAssign={onAssign}
+                            availableSlots={availableSlots}
                         />
                     ))}
                 </div>

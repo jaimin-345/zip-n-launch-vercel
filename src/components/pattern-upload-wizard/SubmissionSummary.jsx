@@ -22,7 +22,7 @@ const SummarySection = ({ icon: Icon, title, children, onNavigate }) => (
   </div>
 );
 
-const SubmissionSummary = ({ formData, associationsData, onGoToStep }) => {
+const SubmissionSummary = ({ formData, associationsData, uploadSlots, onGoToStep }) => {
   const selectedAssocNames = Object.keys(formData.associations || {})
     .filter(k => formData.associations[k])
     .map(id => {
@@ -30,7 +30,8 @@ const SubmissionSummary = ({ formData, associationsData, onGoToStep }) => {
       return assoc?.abbreviation || assoc?.name || id;
     });
 
-  const uploadedPatterns = formData.hierarchyOrder
+  const slots = uploadSlots || formData.hierarchyOrder;
+  const uploadedPatterns = slots
     .filter(h => formData.patterns?.[h.id])
     .map(h => h.title);
 
