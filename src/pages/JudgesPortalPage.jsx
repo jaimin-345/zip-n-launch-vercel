@@ -507,6 +507,7 @@ const JudgesPortalPage = () => {
             setIsSavingProfile(false);
         }
     };
+    //test
     
     const toggleCardedAssociation = (assocId) => {
         setCardedAssociations(prev => 
