@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, ArrowLeft, PlusCircle, Edit, Trash2, Package } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, Package } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const PackageForm = ({ packageData, onSave, onCancel, isSaving }) => {
@@ -161,7 +161,7 @@ const AdminSponsorshipPackagesPage = () => {
                             <p className="text-muted-foreground">Manage sponsorship tiers and pricing.</p>
                         </div>
                         <div className="flex gap-2">
-                          <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin</Button></Link>
+                          <AdminBackButton />
                           <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Package</Button>
                         </div>
                     </div>

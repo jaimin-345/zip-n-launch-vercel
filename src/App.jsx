@@ -35,6 +35,7 @@ import AIPatternGeneratorStudioPage from '@/pages/AIPatternGeneratorStudioPage';
 import MediaLibraryPage from '@/pages/MediaLibraryPage';
 import MediaAssignmentsPage from '@/pages/MediaAssignmentsPage';
 import AdminSiteBrandingPage from '@/pages/AdminSiteBrandingPage';
+import AdminMarketingContentPage from '@/pages/AdminMarketingContentPage';
 import { MediaConfigProvider } from '@/contexts/MediaConfigContext';
 import PastEventsPage from '@/pages/PastEventsPage';
 import StorePage from '@/pages/StorePage';
@@ -68,6 +69,7 @@ import AdminDisciplineManagementPage from '@/pages/AdminDisciplineManagementPage
 import AdminAssociationManagementPage from '@/pages/AdminAssociationManagementPage';
 import AssociationAssetsPage from '@/pages/AssociationAssetsPage';
 import AdminShowManagementPage from '@/pages/AdminShowManagementPage';
+import AdminEventsManagementPage from '@/pages/AdminEventsManagementPage';
 import AdminSponsorshipPackagesPage from '@/pages/AdminSponsorshipPackagesPage';
 import PublicShowPage from '@/pages/PublicShowPage';
 import AdminDivisionManagementPage from '@/pages/AdminDivisionManagementPage';
@@ -168,6 +170,7 @@ function App() {
                   <Route path="/admin/media-library" element={<AdminRoute><MediaLibraryPage /></AdminRoute>} />
                   <Route path="/admin/media-assignments" element={<AdminRoute><MediaAssignmentsPage /></AdminRoute>} />
                   <Route path="/admin/site-branding" element={<AdminRoute><AdminSiteBrandingPage /></AdminRoute>} />
+                  <Route path="/admin/marketing-content" element={<AdminRoute><AdminMarketingContentPage /></AdminRoute>} />
                   <Route path="/admin/custom-pattern-set/:classType" element={<AdminRoute><CustomPatternSetPage /></AdminRoute>} />
                   <Route path="/admin/ai-scoresheet-manager" element={<AdminRoute><AIScoreSheetManagerPage /></AdminRoute>} />
                   <Route path="/admin/pattern-review" element={<AdminRoute><AdminPatternReviewPage /></AdminRoute>} />
@@ -178,6 +181,7 @@ function App() {
                   <Route path="/admin/scoresheet-upload" element={<AdminRoute><ScoresheetUploadPage /></AdminRoute>} />
                   <Route path="/admin/customer-asset-library" element={<AdminRoute><CustomerAssetLibraryPage /></AdminRoute>} />
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
+                  <Route path="/admin/events" element={<AdminRoute><AdminEventsManagementPage /></AdminRoute>} />
                   <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
                   <Route path="/admin/equipment" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></RoleBasedRoute>} />
                   <Route path="/admin/discipline-planner" element={<RoleBasedRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></RoleBasedRoute>} />

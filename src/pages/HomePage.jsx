@@ -9,11 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import Footer from '@/components/Footer';
 import { useMediaConfig } from '@/contexts/MediaConfigContext';
+import { useSiteBranding } from '@/contexts/SiteBrandingContext';
+import { useMarketingContent } from '@/contexts/MarketingContentContext';
 
 const HomePage = () => {
   const [liveShows, setLiveShows] = useState([]);
   const { toast } = useToast();
   const { config: mediaConfig } = useMediaConfig();
+  const { branding } = useSiteBranding();
+  const { content: marketingContent } = useMarketingContent();
 
   useEffect(() => {
     const sampleShows = [{
@@ -52,7 +56,7 @@ const HomePage = () => {
       description: "🚧 Live pattern book feature is not yet implemented."
     });
   };
-  const backgroundImageUrl = mediaConfig.home_page?.url;
+  const backgroundImageUrl = branding?.background_url || mediaConfig.home_page?.url;
   
   return (
     <div 
@@ -172,15 +176,56 @@ const HomePage = () => {
               Reach riders, trainers, and fans — in the arena and online.
             </p>
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 1</div>
-              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 2</div>
-              <div className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">Ad Placement 3</div>
+              {[1, 2, 3].map((num) => {
+                const ad = marketingContent.ads.find(a => a.slot === `ad_${num}` && a.is_active);
+                if (!ad) {
+                  return (
+                    <div key={num} className="h-40 bg-muted/50 border border-dashed border-border rounded-lg flex items-center justify-center text-muted-foreground text-sm">
+                      Ad Placement {num}
+                    </div>
+                  );
+                }
+                const card = (
+                  <div className="rounded-lg overflow-hidden border border-border bg-background">
+                    {ad.image_url ? (
+                      <div className="h-40">
+                        <img src={ad.image_url} alt={ad.title || `Ad ${num}`} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-40 flex flex-col items-center justify-center bg-muted/50 p-4 text-center">
+                        <p className="font-semibold text-foreground">{ad.title}</p>
+                      </div>
+                    )}
+                    {(ad.title || ad.description) && (
+                      <div className="px-3 py-2 text-center">
+                        {ad.title && <p className="font-semibold text-sm text-foreground">{ad.title}</p>}
+                        {ad.description && <p className="text-xs text-muted-foreground mt-0.5">{ad.description}</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+                return (
+                  <div key={num}>
+                    {ad.link_url ? (
+                      <a href={ad.link_url} target="_blank" rel="noopener noreferrer" className="block hover:shadow-lg transition-shadow duration-200">
+                        {card}
+                      </a>
+                    ) : card}
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-12">
-              <Button asChild size="lg">
-                <Link to="/advertisement">Become an Advertiser</Link>
-              </Button>
-            </div>
+
+            {marketingContent.announcements.filter(a => a.is_active).length > 0 && (
+              <div className="mt-8 space-y-3">
+                {marketingContent.announcements.filter(a => a.is_active).map(ann => (
+                  <div key={ann.id} className="bg-primary/10 border border-primary/20 rounded-lg p-4 text-center">
+                    <p className="font-semibold text-foreground">{ann.title}</p>
+                    {ann.description && <p className="text-sm text-muted-foreground mt-1">{ann.description}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </main>

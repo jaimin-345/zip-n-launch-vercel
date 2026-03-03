@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const FeeDocumentationPage = () => {
     const [extractions, setExtractions] = useState([]);
@@ -85,9 +86,7 @@ const FeeDocumentationPage = () => {
             </motion.div>
             
             <div className="text-center mt-12">
-                <Link to="/admin">
-                    <Button variant="outline">Back to Admin Dashboard</Button>
-                </Link>
+                <AdminBackButton />
             </div>
         </div>
         </div>

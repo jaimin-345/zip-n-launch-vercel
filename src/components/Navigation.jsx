@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, Archive, Activity, Shield, Gavel, Briefcase, Receipt } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
+import { useSiteBranding } from '@/contexts/SiteBrandingContext';
 
 import JudgeNotificationPanel from '@/components/JudgeNotificationPanel';
 import {
@@ -22,6 +23,8 @@ const Navigation = () => {
     const { user, signOut, isAdmin, openAuthModal } = useAuth();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const { branding } = useSiteBranding();
+    const logoSrc = branding?.logo_url || logoImage;
 
     const navItems = [
         { name: 'Home', path: '/', show: 'always' },
@@ -171,7 +174,7 @@ const Navigation = () => {
                 <div className="flex items-center justify-between h-20">
                     <Link to="/" className="flex-shrink-0">
                         <motion.div whileHover={{ scale: 1.05 }} className="flex items-center">
-                            <img className="h-12 w-auto max-w-[140px] object-contain" alt="EquiPatterns Logo" src={logoImage} />
+                            <img className="h-12 w-auto max-w-[140px] object-contain" alt="EquiPatterns Logo" src={logoSrc} />
                         </motion.div>
                     </Link>
 

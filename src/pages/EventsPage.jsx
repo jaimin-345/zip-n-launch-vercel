@@ -158,16 +158,16 @@ const EventCard = ({ event, onPatternBookClick }) => {
                                 )}
                             </div>
                         )}
-                        {event.showWebsite && (
+                        {(event.show_website || event.showWebsite) && (
                             <div className="flex items-center">
                                 <Globe className="h-4 w-4 mr-2" />
-                                <a href={event.showWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{event.showWebsite.replace(/^https?:\/\//, '')}</a>
+                                <a href={event.show_website || event.showWebsite} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{(event.show_website || event.showWebsite).replace(/^https?:\/\//, '')}</a>
                             </div>
                         )}
-                        {event.showFacebook && (
+                        {(event.show_facebook || event.showFacebook) && (
                             <div className="flex items-center">
                                 <Facebook className="h-4 w-4 mr-2" />
-                                <a href={event.showFacebook} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Facebook Event</a>
+                                <a href={event.show_facebook || event.showFacebook} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Facebook Event</a>
                             </div>
                         )}
                     </div>
@@ -198,7 +198,7 @@ const EventsPage = () => {
     const fetchEvents = async () => {
         setIsLoading(true);
         
-        // Fetch events from events table
+        // Fetch events from events table only
         const { data: eventsData, error: eventsError } = await supabase
             .from('events')
             .select('*')
@@ -208,46 +208,15 @@ const EventsPage = () => {
             toast({ title: 'Error fetching events', description: eventsError.message, variant: 'destructive' });
         }
 
-        // Fetch projects that are approved, locked, or published (excludes drafts)
-        const { data: publishedProjects, error: projectsError } = await supabase
-            .from('projects')
-            .select('*')
-            .in('status', ['published', 'Publication', 'approved', 'locked'])
-            .order('created_at', { ascending: false });
-
-        if (projectsError) {
-            toast({ title: 'Error fetching projects', description: projectsError.message, variant: 'destructive' });
-        }
-
-        // Convert projects to event-like format
-        const projectEvents = (publishedProjects || []).map(project => ({
-            id: project.id,
-            name: project.project_name || 'Untitled Show',
-            start_date: project.project_data?.startDate || project.created_at,
-            end_date: project.project_data?.endDate || project.created_at,
-            location: project.project_data?.showLocation || project.project_data?.location || null,
-            status: 'upcoming',
-            thumbnail_url: null,
-            pattern_book_id: project.id,
-            project: { id: project.id, status: project.status },
-            showWebsite: project.project_data?.showWebsite || null,
-            showFacebook: project.project_data?.showFacebook || null,
-            isFromProjects: true
+        // Convert snake_case to camelCase for display and use only events from events table
+        const formattedEvents = (eventsData || []).map(event => ({
+          ...event,
+          showWebsite: event.show_website || event.showWebsite,
+          showFacebook: event.show_facebook || event.showFacebook,
         }));
 
-        // Combine events from both sources, avoiding duplicates
-        const eventsFromTable = eventsData || [];
-        const combinedEvents = [...eventsFromTable];
-        
-        projectEvents.forEach(pe => {
-            const exists = combinedEvents.some(e => e.pattern_book_id === pe.id);
-            if (!exists) {
-                combinedEvents.push(pe);
-            }
-        });
-
-        setAllEvents(combinedEvents);
-        const live = combinedEvents.filter(e => e.status === 'live');
+        setAllEvents(formattedEvents);
+        const live = formattedEvents.filter(e => e.status === 'live');
         if (live.length > 0) {
             setSelectedShow(live[0]);
         }
@@ -256,6 +225,7 @@ const EventsPage = () => {
     fetchEvents();
   }, [toast]);
 
+  // Always use events from events table only
   const liveEvents = allEvents.filter(e => e.status === 'live');
   const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
   const recentEvents = allEvents.filter(e => e.status === 'recent');

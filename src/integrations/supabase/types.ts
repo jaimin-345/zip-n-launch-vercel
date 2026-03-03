@@ -2066,37 +2066,64 @@ export type Database = {
       }
       events: {
         Row: {
+          associations: Json | null
           created_at: string | null
+          disciplines: Json | null
           end_date: string
           id: string
+          judges: Json | null
           location: string | null
           name: string
+          officials: Json | null
           pattern_book_id: string | null
+          show_facebook: string | null
+          show_type: string | null
+          show_website: string | null
           start_date: string
           status: string | null
           thumbnail_url: string | null
+          venue_address: string | null
+          venue_name: string | null
         }
         Insert: {
+          associations?: Json | null
           created_at?: string | null
+          disciplines?: Json | null
           end_date: string
           id?: string
+          judges?: Json | null
           location?: string | null
           name: string
+          officials?: Json | null
           pattern_book_id?: string | null
+          show_facebook?: string | null
+          show_type?: string | null
+          show_website?: string | null
           start_date: string
           status?: string | null
           thumbnail_url?: string | null
+          venue_address?: string | null
+          venue_name?: string | null
         }
         Update: {
+          associations?: Json | null
           created_at?: string | null
+          disciplines?: Json | null
           end_date?: string
           id?: string
+          judges?: Json | null
           location?: string | null
           name?: string
+          officials?: Json | null
           pattern_book_id?: string | null
+          show_facebook?: string | null
+          show_type?: string | null
+          show_website?: string | null
           start_date?: string
           status?: string | null
           thumbnail_url?: string | null
+          venue_address?: string | null
+          venue_name?: string | null
         }
         Relationships: []
       }

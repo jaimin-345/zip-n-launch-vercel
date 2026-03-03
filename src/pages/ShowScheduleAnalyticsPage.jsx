@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const ShowScheduleAnalyticsPage = () => {
   return (
@@ -42,11 +43,9 @@ const ShowScheduleAnalyticsPage = () => {
                         <p className="text-sm text-muted-foreground">Compare estimated schedules against actuals (future feature) to improve planning.</p>
                     </div>
                 </div>
-                 <Link to="/admin" className="mt-6 inline-block">
-                    <Button variant="outline">
-                        Back to Admin Dashboard
-                    </Button>
-                </Link>
+                 <div className="mt-6 inline-block">
+                    <AdminBackButton />
+                 </div>
             </CardContent>
         </Card>
       </div>

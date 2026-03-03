@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Users, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, Save, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Users, Loader2, PlusCircle, Edit, Trash2, Search, Save, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const AssociationForm = ({ association, onSave, onCancel, isSaving }) => {
     const [formData, setFormData] = useState(association || { id: '', name: '', is_group: false, is_open_show: false, logo: '', abbreviation: '', color: '#000000', position: 'right' });
@@ -252,7 +252,7 @@ const AdminAssociationManagementPage = () => {
                 <main className="container mx-auto px-4 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-6 flex justify-between items-center">
-                            <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
+                            <AdminBackButton />
                             <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Association</Button>
                         </div>
                         <CardHeader className="text-center px-0 mb-8">

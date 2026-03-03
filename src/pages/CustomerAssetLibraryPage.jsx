@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Loader2, Search, User, Folder, FileText, Download, ArrowLeft } from 'lucide-react';
+import { Loader2, Search, User, Folder, FileText, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { getCustomers, getCustomerDetails } from '@/lib/customerAssetService';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -112,12 +113,7 @@ const CustomerAssetLibraryPage = () => {
         <main className="container mx-auto px-4 py-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <div className="flex items-center justify-between mb-8">
-                <Link to="/admin">
-                    <Button variant="outline">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Admin Portal
-                    </Button>
-                </Link>
+                <AdminBackButton />
                 <div className="text-center flex-grow">
                     <CardTitle className="text-4xl md:text-5xl font-bold">Customer Asset Library</CardTitle>
                     <CardDescription className="text-xl text-muted-foreground">A centralized view of all customer data and projects.</CardDescription>

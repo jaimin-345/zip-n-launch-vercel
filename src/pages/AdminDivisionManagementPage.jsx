@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { GitBranch, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { GitBranch, Loader2, PlusCircle, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const DivisionForm = ({ division, onSave, onCancel, isSaving, associations }) => {
     const [formData, setFormData] = useState({ name: '', sort_order: 0, association_id: '' });
@@ -108,7 +108,7 @@ const AdminDivisionManagementPage = () => {
                 <main className="container mx-auto px-4 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-6 flex justify-between items-center">
-                            <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
+                            <AdminBackButton />
                             <Button onClick={() => openDivisionForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Division</Button>
                         </div>
                         <CardHeader className="text-center px-0 mb-8">

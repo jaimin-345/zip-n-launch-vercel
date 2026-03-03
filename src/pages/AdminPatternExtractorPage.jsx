@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -231,14 +232,17 @@ const AdminPatternExtractorPage = () => {
         <Navigation />
         <main className="flex-grow p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            <header className="flex flex-col sm:flex-row items-center justify-between mb-8">
-              <motion.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white"
-              >
-                Pattern Extractor
-              </motion.h1>
+            <header className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+              <div className="flex items-center gap-3">
+                <AdminBackButton />
+                <motion.h1
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white"
+                >
+                  Pattern Extractor
+                </motion.h1>
+              </div>
               <Button onClick={() => setIsModalOpen(true)}>
                 <UploadCloud className="mr-2 h-4 w-4" /> Add New Pattern PDF
               </Button>

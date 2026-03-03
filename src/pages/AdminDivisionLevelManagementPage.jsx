@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Layers, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, ChevronLeft, ChevronRight, Download, File as FileIcon, UploadCloud } from 'lucide-react';
+import { Layers, Loader2, PlusCircle, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, File as FileIcon, UploadCloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
@@ -21,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDropzone } from 'react-dropzone';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const DivisionLevelForm = ({ level, onSave, onCancel, isSaving, divisions, availableMedia }) => {
     const [formData, setFormData] = useState({ name: '', sort_order: 0, division_id: '', pattern_media: null });
@@ -268,7 +269,7 @@ const AdminDivisionLevelManagementPage = () => {
                 <main className="container mx-auto px-4 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-6 flex justify-between items-center">
-                            <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
+                            <AdminBackButton />
                             <Button onClick={() => openLevelForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Level</Button>
                         </div>
                         <CardHeader className="text-center px-0 mb-8">

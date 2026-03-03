@@ -8,10 +8,8 @@ import {
   Mail,
   Calendar,
   Loader2,
-  KeyRound,
   LogIn
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,16 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -214,19 +205,7 @@ const AdminUserManagementPage = () => {
             transition={{ duration: 0.5 }}
           >
             <div className="mb-6">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                      <Link to="/admin"><KeyRound className="h-4 w-4" /></Link>
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>User Management</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+              <AdminBackButton />
             </div>
 
             <div className="text-center mb-8">

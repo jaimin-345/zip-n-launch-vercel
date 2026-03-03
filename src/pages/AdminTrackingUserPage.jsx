@@ -4,6 +4,7 @@ import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -702,6 +703,7 @@ const AdminTrackingUserPage = () => {
             <Navigation />
             <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <header className="mb-8">
+                    <AdminBackButton className="mb-4" />
                     <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
                         <Activity className="h-8 w-8 text-primary" />
                         Tracking User

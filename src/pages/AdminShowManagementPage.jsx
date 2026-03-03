@@ -6,8 +6,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Edit, Trash2, Eye, ArrowLeft, PlusCircle } from 'lucide-react';
+import { Loader2, Edit, Trash2, Eye, PlusCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
 import {
@@ -134,10 +135,7 @@ const AdminShowManagementPage = () => {
               <h1 className="text-3xl font-bold tracking-tight">Show Management</h1>
               <p className="text-muted-foreground">Oversee and manage all created horse shows.</p>
             </div>
-            <Button variant="outline" onClick={() => navigate('/admin')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Admin
-            </Button>
+            <AdminBackButton />
           </div>
 
           <Card>

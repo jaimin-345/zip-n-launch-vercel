@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Trash2, Loader2, Save, Search, Filter, Edit2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Plus, Trash2, Loader2, Save, Search, Filter, Edit2 } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -192,11 +192,7 @@ const AdminPatternLevelManagementPage = () => {
         <main className="container mx-auto px-4 py-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             <div className="mb-6">
-              <Link to="/admin">
-                <Button variant="outline">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                </Button>
-              </Link>
+              <AdminBackButton />
             </div>
 
             <CardHeader className="px-0 mb-6">

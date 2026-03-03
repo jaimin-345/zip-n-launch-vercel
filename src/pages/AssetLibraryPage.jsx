@@ -7,6 +7,7 @@ import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { addLogoToAssociations, getAssociationLogo, getDefaultAssociationIcon } from '@/lib/associationsData';
@@ -70,7 +71,6 @@ const AssetLibraryPage = () => {
         ...discipline,
         customPatternCount: patternCounts[discipline.name] || 0
       }));
-// test
       setAssociations(addLogoToAssociations(associationsData));
       setDisciplines(disciplinesWithCounts);
     } catch (err) {
@@ -161,7 +161,8 @@ const AssetLibraryPage = () => {
             transition={{ duration: 0.5 }}
           >
             {/* Breadcrumb Navigation */}
-            <div className="mb-6">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <AdminBackButton />
               <Breadcrumb>
                 <BreadcrumbList>
                   <BreadcrumbItem>

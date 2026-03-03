@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { KeyRound, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { KeyRound, Loader2, PlusCircle, Edit, Trash2, Search } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,6 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const RoleForm = ({ role, onSave, onCancel, isSaving }) => {
     const [formData, setFormData] = useState(role || { role_code: '', name: '', min_call_time_minutes: 0 });
@@ -235,7 +235,7 @@ const AdminRoleManagementPage = () => {
                 <main className="container mx-auto px-4 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-6 flex justify-between items-center">
-                            <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Admin</Button></Link>
+                            <AdminBackButton />
                             <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add New Role</Button>
                         </div>
                         <CardHeader className="text-center px-0 mb-8">

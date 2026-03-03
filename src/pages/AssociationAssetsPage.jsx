@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Upload, FileText, Image as ImageIcon, Loader2, ServerCrash, Trash2, Download, PlusCircle, Home } from 'lucide-react';
+import { Upload, FileText, Image as ImageIcon, Loader2, ServerCrash, Trash2, Download, PlusCircle, Home } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import {
@@ -284,11 +285,7 @@ const AssociationAssetsPage = () => {
             </div>
 
             <div className="mb-6 flex items-center justify-between">
-              <Link to="/admin/asset-library">
-                <Button variant="outline">
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Asset Library
-                </Button>
-              </Link>
+              <AdminBackButton to="/admin/asset-library" />
             </div>
 
             <CardHeader className="text-center px-0 mb-8">

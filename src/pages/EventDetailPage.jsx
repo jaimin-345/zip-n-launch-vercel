@@ -37,7 +37,15 @@ const EventDetailPage = () => {
         }
 
         if (eventData) {
-          setEvent(eventData);
+          // Convert database fields to display format
+          const displayEvent = {
+            ...eventData,
+            startDate: eventData.start_date,
+            endDate: eventData.end_date,
+            association: eventData.associations ? (Array.isArray(eventData.associations) ? eventData.associations.join(', ') : JSON.stringify(eventData.associations)) : null,
+            website: eventData.show_website || eventData.showWebsite,
+          };
+          setEvent(displayEvent);
           setIsLoading(false);
           return;
         }
@@ -288,8 +296,8 @@ const EventDetailPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            {/* Project Data Details - Show when event is from projects table */}
-            {event.isFromProjects && projectData && (
+            {/* Show Details - Show when event has details (from events table or projects table) */}
+            {((!event.isFromProjects && (event.venue_name || event.venue_address || event.show_type || event.associations || event.disciplines || event.officials || event.judges)) || (event.isFromProjects && projectData)) && (
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.2 }}>
                 <Card className="bg-secondary border-border">
                   <CardHeader>
@@ -297,8 +305,8 @@ const EventDetailPage = () => {
                     <CardDescription>Complete information about this show</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Show Name */}
-                    {projectData.showName && (
+                    {/* Show Name - from projectData */}
+                    {projectData?.showName && (
                       <div>
                         <h3 className="font-semibold text-primary mb-1">Show Name</h3>
                         <p className="text-foreground">{projectData.showName}</p>
@@ -306,78 +314,117 @@ const EventDetailPage = () => {
                     )}
 
                     {/* Show Type */}
-                    {projectData.showType && (
+                    {(event.show_type || projectData?.showType) && (
                       <div>
                         <h3 className="font-semibold text-primary mb-1">Show Type</h3>
-                        <Badge variant="outline">{projectData.showType}</Badge>
+                        <Badge variant="outline">{event.show_type || projectData.showType}</Badge>
                       </div>
                     )}
 
                     {/* Venue Information */}
-                    {(projectData.venueName || projectData.venueAddress) && (
+                    {(event.venue_name || event.venue_address || projectData?.venueName || projectData?.venueAddress) && (
                       <div>
                         <h3 className="font-semibold text-primary mb-1">Venue</h3>
-                        {projectData.venueName && <p className="text-foreground">{projectData.venueName}</p>}
-                        {projectData.venueAddress && <p className="text-muted-foreground text-sm">{projectData.venueAddress}</p>}
+                        {(event.venue_name || projectData?.venueName) && <p className="text-foreground">{event.venue_name || projectData.venueName}</p>}
+                        {(event.venue_address || projectData?.venueAddress) && <p className="text-muted-foreground text-sm">{event.venue_address || projectData.venueAddress}</p>}
                       </div>
                     )}
 
                     {/* Associations */}
-                    {projectData.associations && Object.keys(projectData.associations).length > 0 && (
-                      <div>
-                        <h3 className="font-semibold text-primary mb-2">Associations</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {Object.keys(projectData.associations).filter(key => projectData.associations[key]).map(assoc => (
-                            <Badge key={assoc} variant="outline">{assoc}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {(() => {
+                      let associations = [];
+                      if (event.associations) {
+                        associations = Array.isArray(event.associations) ? event.associations : [];
+                      } else if (projectData?.associations && Object.keys(projectData.associations).length > 0) {
+                        associations = Object.keys(projectData.associations).filter(key => projectData.associations[key]);
+                      }
+                      if (associations.length > 0) {
+                        return (
+                          <div>
+                            <h3 className="font-semibold text-primary mb-2">Associations</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {associations.map((assoc, idx) => (
+                                <Badge key={idx} variant="outline">{assoc}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Disciplines */}
-                    {projectData.disciplines && projectData.disciplines.length > 0 && (
-                      <div>
-                        <h3 className="font-semibold text-primary mb-2">Disciplines</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {projectData.disciplines.map((discipline, idx) => (
-                            <Badge key={idx} variant="outline">{discipline.name || discipline}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {(() => {
+                      let disciplines = [];
+                      if (event.disciplines) {
+                        disciplines = Array.isArray(event.disciplines) ? event.disciplines : [];
+                      } else if (projectData?.disciplines && projectData.disciplines.length > 0) {
+                        disciplines = projectData.disciplines;
+                      }
+                      if (disciplines.length > 0) {
+                        return (
+                          <div>
+                            <h3 className="font-semibold text-primary mb-2">Disciplines</h3>
+                            <div className="flex flex-wrap gap-2">
+                              {disciplines.map((discipline, idx) => (
+                                <Badge key={idx} variant="outline">{typeof discipline === 'string' ? discipline : (discipline.name || discipline)}</Badge>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Officials */}
-                    {projectData.officials && projectData.officials.length > 0 && (
-                      <div>
-                        <h3 className="font-semibold text-primary mb-2">Officials</h3>
-                        <div className="space-y-1">
-                          {projectData.officials.filter(o => typeof o !== 'string' ? o.name?.trim() : o.trim()).map((official, idx) => (
-                            <div key={idx} className="text-sm text-foreground">
-                              {typeof official === 'string' ? official : `${official.role || official.roleId || 'Official'}${official.name ? ': ' + official.name : ''}`}
+                    {(() => {
+                      let officials = [];
+                      if (event.officials) {
+                        if (typeof event.officials === 'object' && !Array.isArray(event.officials)) {
+                          // Convert object to array format
+                          officials = Object.entries(event.officials).map(([role, name]) => ({ role, name }));
+                        } else if (Array.isArray(event.officials)) {
+                          officials = event.officials;
+                        }
+                      } else if (projectData?.officials && projectData.officials.length > 0) {
+                        officials = projectData.officials;
+                      }
+                      if (officials.length > 0) {
+                        return (
+                          <div>
+                            <h3 className="font-semibold text-primary mb-2">Officials</h3>
+                            <div className="space-y-1">
+                              {officials.map((official, idx) => (
+                                <div key={idx} className="text-sm text-foreground">
+                                  {typeof official === 'string' 
+                                    ? official 
+                                    : `${official.role || official.roleId || 'Official'}${official.name ? ': ' + official.name : ''}`}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Judges */}
                     {(() => {
-                      const allJudges = [];
-
-                      if (projectData.associationJudges) {
+                      let judges = [];
+                      if (event.judges) {
+                        judges = Array.isArray(event.judges) ? event.judges : [];
+                      } else if (projectData?.associationJudges) {
                         Object.values(projectData.associationJudges).forEach(data => {
                           if (data.judges && Array.isArray(data.judges)) {
                             data.judges.forEach(judge => {
                               if (judge.name?.trim()) {
-                                allJudges.push(judge.name.trim());
+                                judges.push(judge.name.trim());
                               }
                             });
                           }
                         });
                       }
-
-                      const uniqueJudges = [...new Set(allJudges)];
-
+                      const uniqueJudges = [...new Set(judges)];
                       if (uniqueJudges.length > 0) {
                         return (
                           <div>
@@ -630,11 +677,13 @@ const EventDetailPage = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {getPatternStatus()}
-                  <Button asChild variant="outline" className="w-full">
-                    <a href={event.website} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" /> Visit Official Website
-                    </a>
-                  </Button>
+                  {(event.website || event.show_website || event.showWebsite) && (
+                    <Button asChild variant="outline" className="w-full">
+                      <a href={event.website || event.show_website || event.showWebsite} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" /> Visit Official Website
+                      </a>
+                    </Button>
+                  )}
                   <p className="text-xs text-muted-foreground pt-2 text-center">Share this event:</p>
                    <div className="flex justify-center gap-2">
                       <Button variant="outline" size="icon" onClick={() => handleShare('Twitter')}><Twitter className="h-4 w-4" /></Button>

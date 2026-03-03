@@ -4,8 +4,9 @@ import { Helmet } from 'react-helmet-async';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Download, Edit, Trash2, Eye, PlusCircle, Loader2 } from 'lucide-react';
+import { Download, Edit, Trash2, Eye, PlusCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
@@ -124,11 +125,7 @@ const CustomPatternSetPage = () => {
         <main className="container mx-auto px-4 py-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="flex items-center mb-8">
-              <Link to="/admin/asset-library">
-                <Button variant="outline" size="icon" className="mr-4">
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-              </Link>
+              <AdminBackButton to="/admin/asset-library" className="mr-4" />
               <div>
                 <h1 className="text-3xl font-bold">Custom Pattern Set: {classType}</h1>
                 <p className="text-muted-foreground">Manage all custom patterns uploaded for this discipline.</p>

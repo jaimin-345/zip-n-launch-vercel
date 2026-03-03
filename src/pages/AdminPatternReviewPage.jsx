@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
     import { Helmet } from 'react-helmet-async';
     import { motion } from 'framer-motion';
-    import { Check, X, Eye, FileText, User, Loader2, ArrowLeft, Download, Trash2, CheckCircle, Mail, ExternalLink, Filter, CheckSquare, Square, Pencil } from 'lucide-react';
+    import { Check, X, Eye, FileText, User, Loader2, Download, Trash2, CheckCircle, Mail, ExternalLink, Filter, CheckSquare, Square, Pencil } from 'lucide-react';
     import { Link } from 'react-router-dom';
     import Navigation from '@/components/Navigation';
     import { Button } from '@/components/ui/button';
+    import AdminBackButton from '@/components/admin/AdminBackButton';
     import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
     import { useToast } from '@/components/ui/use-toast';
     import { Badge } from '@/components/ui/badge';
@@ -397,11 +398,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
                     <main className="container mx-auto px-4 py-12">
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
                             <div className="mb-6">
-                                <Link to="/admin">
-                                    <Button variant="outline">
-                                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                                    </Button>
-                                </Link>
+                                <AdminBackButton />
                             </div>
                             <CardHeader className="text-center px-0 mb-8">
                                 <CardTitle className="text-4xl md:text-5xl font-bold">Pattern Review Queue</CardTitle>

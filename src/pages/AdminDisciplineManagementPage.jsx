@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { BookCopy, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookCopy, Loader2, PlusCircle, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const DisciplineForm = ({ discipline, onSave, onCancel, isSaving, associations }) => {
     const [formData, setFormData] = useState({ name: '', category: '', pattern_type: '', open_divisions: false, sort_order: 0, association_id: null, sub_association_type: null });
@@ -124,7 +125,7 @@ const AdminDisciplineManagementPage = () => {
                 <main className="container mx-auto px-4 py-12">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                         <div className="mb-6 flex justify-between items-center">
-                            <Link to="/admin"><Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button></Link>
+                            <AdminBackButton />
                             <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Discipline</Button>
                         </div>
                         <CardHeader className="text-center px-0 mb-8">

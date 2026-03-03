@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Upload, Trash2, Loader2, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Upload, Trash2, Loader2, Image as ImageIcon, Sparkles } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,10 +9,13 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
+import AdminBackButton from '@/components/admin/AdminBackButton';
+import { useSiteBranding } from '@/contexts/SiteBrandingContext';
 
-const BUCKET = 'site_branding';
+// Reuse an existing bucket used throughout the app to avoid "Bucket not found" errors.
+// Files are stored under the `site_branding/` prefix.
+const BUCKET = 'association_assets';
 
 const ImageUploadCard = ({ label, description, currentUrl, onUpload, onRemove, isUploading }) => {
   const handleFileChange = (e) => {
@@ -81,30 +84,8 @@ const ImageUploadCard = ({ label, description, currentUrl, onUpload, onRemove, i
 const AdminSiteBrandingPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [branding, setBranding] = useState({ background_url: '', logo_url: '' });
-  const [isLoading, setIsLoading] = useState(true);
   const [uploading, setUploading] = useState({ background: false, logo: false });
-
-  const fetchBranding = useCallback(async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from('site_branding')
-      .select('*')
-      .eq('id', 'main')
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      toast({ title: 'Error loading branding', description: error.message, variant: 'destructive' });
-    }
-    if (data) {
-      setBranding({ background_url: data.background_url || '', logo_url: data.logo_url || '' });
-    }
-    setIsLoading(false);
-  }, [toast]);
-
-  useEffect(() => {
-    fetchBranding();
-  }, [fetchBranding]);
+  const { branding, setBranding, loading: isLoading, tableMissing: isTableMissing, markTableMissing } = useSiteBranding();
 
   const uploadFile = async (file, field) => {
     const key = field === 'background_url' ? 'background' : 'logo';
@@ -126,13 +107,24 @@ const AdminSiteBrandingPage = () => {
 
       // Upload new file
       const fileExt = file.name.split('.').pop();
-      const filePath = `${key}_${uuidv4()}.${fileExt}`;
+      const filePath = `site_branding/${key}_${uuidv4()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from(BUCKET)
         .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        const msg = uploadError.message || '';
+        if (msg.toLowerCase().includes('bucket not found')) {
+          toast({
+            title: 'Upload failed',
+            description: `Storage bucket "${BUCKET}" was not found in Supabase. Please create it or update the bucket name in the app.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+        throw uploadError;
+      }
 
       const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
       const publicUrl = publicUrlData.publicUrl;
@@ -147,7 +139,24 @@ const AdminSiteBrandingPage = () => {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        const msg = dbError.message || '';
+        const tableMissing =
+          msg.toLowerCase().includes('could not find the table') ||
+          msg.toLowerCase().includes('site_branding');
+
+        if (tableMissing) {
+          markTableMissing();
+          toast({
+            title: 'Branding storage not set up',
+            description: 'The Supabase table "site_branding" does not exist yet. Please run the migration to enable Site Branding uploads.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        throw dbError;
+      }
 
       setBranding(prev => ({ ...prev, [field]: publicUrl }));
       toast({ title: `${key === 'background' ? 'Background image' : 'Logo'} updated` });
@@ -178,7 +187,24 @@ const AdminSiteBrandingPage = () => {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
 
-      if (error) throw error;
+      if (error) {
+        const msg = error.message || '';
+        const tableMissing =
+          msg.toLowerCase().includes('could not find the table') ||
+          msg.toLowerCase().includes('site_branding');
+
+        if (tableMissing) {
+          markTableMissing();
+          toast({
+            title: 'Branding storage not set up',
+            description: 'The Supabase table "site_branding" does not exist yet. Please run the migration to enable Site Branding uploads.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        throw error;
+      }
 
       setBranding(prev => ({ ...prev, [field]: '' }));
       toast({ title: `${key === 'background' ? 'Background image' : 'Logo'} removed` });
@@ -202,16 +228,26 @@ const AdminSiteBrandingPage = () => {
         <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
             <div className="flex items-center gap-3 mb-6">
-              <Link to="/admin">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
+              <AdminBackButton />
               <div>
-                <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Site Branding</h1>
-                <p className="text-lg text-muted-foreground mt-1">Upload the homepage background image and site logo.</p>
+                <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+                  Site Branding
+                </h1>
+                <p className="text-sm md:text-base text-muted-foreground">
+                  Upload the homepage background image and site logo.
+                </p>
               </div>
             </div>
+
+            {isTableMissing && (
+              <div className="mb-6 rounded-md border border-dashed border-yellow-400 bg-yellow-50 p-4 text-xs md:text-sm text-yellow-900">
+                <p className="font-semibold">Site branding storage is not configured yet.</p>
+                <p className="mt-1">
+                  The Supabase table <code className="font-mono text-[0.75rem]">site_branding</code> does not exist.
+                  Until it is created, this page will use empty defaults and uploads will not be saved.
+                </p>
+              </div>
+            )}
 
             {isLoading ? (
               <div className="flex justify-center items-center h-48">
@@ -246,3 +282,4 @@ const AdminSiteBrandingPage = () => {
 };
 
 export default AdminSiteBrandingPage;
+

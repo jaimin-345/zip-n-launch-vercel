@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 
 const FutureIdeasPage = () => {
   return (
@@ -62,9 +63,7 @@ const FutureIdeasPage = () => {
         </div>
 
         <div className="text-center mt-12">
-            <Link to="/admin">
-                <Button variant="outline">Back to Admin Dashboard</Button>
-            </Link>
+            <AdminBackButton />
         </div>
       </div>
     </div>

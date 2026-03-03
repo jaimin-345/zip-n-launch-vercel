@@ -8,6 +8,7 @@ import {
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -197,6 +198,7 @@ export default function AdminBillingReportPage() {
           >
             {/* Page Header */}
             <div>
+              <AdminBackButton className="mb-4" />
               <h1 className="text-3xl font-bold flex items-center gap-3">
                 <Receipt className="h-8 w-8" />
                 Billing & Revenue Report

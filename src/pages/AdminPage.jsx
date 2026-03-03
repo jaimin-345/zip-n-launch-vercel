@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt, Wrench, Image } from 'lucide-react';
+import { BookOpen, Users, BarChart2, DollarSign, Settings, Layers, Code, HardDrive, FileText, Bot, PenTool, Gauge, FileImage, Receipt, Wrench, Image, Calendar, Megaphone } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
@@ -23,7 +23,8 @@ const AdminPage = () => {
   const tools = [
     { name: 'User Management', path: '/admin/users', icon: Users, description: 'Manage users, roles, and permissions.' },
     { name: 'Role Management', path: '/admin/roles', icon: Settings, description: 'Configure user roles and their capabilities.' },
-    { name: 'Show Management', path: '/admin/show-management', icon: BookOpen, description: 'Oversee all shows and events.' },
+    { name: 'Show Management', path: '/admin/show-management', icon: BookOpen, description: 'Oversee all shows created by organizers.' },
+    { name: 'Event Management', path: '/admin/events', icon: Calendar, description: 'Control which events appear on the public Events page.' },
     { name: 'Association Management', path: '/admin/associations', icon: Layers, description: 'Manage recognized associations.' },
     { name: 'Discipline Management', path: '/admin/disciplines', icon: Code, description: 'Administer show disciplines.' },
     { name: 'Division Management', path: '/admin/divisions', icon: HardDrive, description: 'Organize and manage divisions.' },
@@ -37,6 +38,7 @@ const AdminPage = () => {
     { name: 'Billing & Revenue', path: '/admin/billing-report', icon: Receipt, description: 'View all subscriptions, purchases, and revenue.' },
     { name: 'Equipment Planning', path: '/admin/equipment-planning', icon: Wrench, description: 'Equipment inventory, discipline planning, arena scheduling, distribution, check-in/out, reconciliation, and reports.' },
     { name: 'Site Branding', path: '/admin/site-branding', icon: Image, description: 'Upload homepage background image and site logo.' },
+    { name: 'Marketing Content', path: '/admin/marketing-content', icon: Megaphone, description: 'Manage homepage ads, announcements, and promotional content.' },
   ];
 
   return (
