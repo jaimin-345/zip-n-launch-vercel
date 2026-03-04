@@ -206,8 +206,31 @@ const ContractManagementPage = () => {
       return null;
     }
 
+    if (!formData.showName?.trim()) {
+      toast({ title: 'Project Name Required', description: 'Please enter a show/project name before saving.', variant: 'destructive' });
+      return null;
+    }
+
     setIsSaving(true);
     try {
+      const trimmedName = formData.showName.trim();
+      let currentProjectId = sanitizedProjectId || formData.id;
+
+      // Check for duplicate project name
+      const { data: existing } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_type', 'contract')
+        .eq('project_name', trimmedName)
+        .eq('user_id', user.id);
+
+      const isDuplicate = existing?.some(p => p.id !== currentProjectId);
+      if (isDuplicate) {
+        toast({ title: 'Duplicate Name', description: `A contract project named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
+        setIsSaving(false);
+        return null;
+      }
+
       const stepToSave = stepOverride ?? currentStep;
       const updatedCompleted = new Set(completedSteps);
       updatedCompleted.add(currentStep);
@@ -220,14 +243,12 @@ const ContractManagementPage = () => {
       };
 
       const projectPayload = {
-        project_name: formData.showName || 'Untitled Contract Project',
+        project_name: trimmedName,
         project_type: 'contract',
         project_data: projectToSave,
         status: 'In progress',
         user_id: user.id,
       };
-
-      let currentProjectId = sanitizedProjectId || formData.id;
 
       if (currentProjectId) {
         const { error } = await supabase
@@ -336,11 +357,11 @@ const ContractManagementPage = () => {
       case 3:
         return <Step3_ContractTemplate formData={formData} setFormData={setFormData} />;
       case 4:
-        return <Step4_GenerateContracts formData={formData} setFormData={setFormData} />;
+        return <Step4_GenerateContracts formData={formData} setFormData={setFormData} onSave={saveProject} isSaving={isSaving} />;
       case 5:
         return <Step5_PreviewReview formData={formData} setFormData={setFormData} />;
       case 6:
-        return <Step6_CloseOut formData={formData} setFormData={setFormData} />;
+        return <Step6_CloseOut formData={formData} setFormData={setFormData} onSave={saveProject} isSaving={isSaving} />;
       default:
         return null;
     }

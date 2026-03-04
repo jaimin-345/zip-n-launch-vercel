@@ -63,14 +63,13 @@ const SubmissionSummary = ({ formData, associationsData, uploadSlots, onGoToStep
       <SummarySection icon={ListChecks} title="Disciplines" onNavigate={() => onGoToStep(2)}>
         {formData.selectedClasses?.length > 0 ? (
           <div className="flex flex-wrap gap-1 mt-0.5">
-            {formData.selectedClasses.map(key => {
-              const displayName = key.includes('::') ? key.split('::')[1] : key;
-              return (
-                <Badge key={key} variant="outline" className="text-xs">
-                  {displayName.replace(' at Halter', '')}
-                </Badge>
-              );
-            })}
+            {[...new Set(formData.selectedClasses.map(key =>
+              key.includes('::') ? key.split('::')[1] : key
+            ))].map(name => (
+              <Badge key={name} variant="outline" className="text-xs">
+                {name.replace(' at Halter', '')}
+              </Badge>
+            ))}
           </div>
         ) : (
           <span className="text-xs text-destructive">No disciplines selected</span>

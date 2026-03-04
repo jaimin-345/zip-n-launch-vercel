@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import PatternUploader from '@/components/pattern-upload/PatternUploader';
-import CommonDivisionsSelector from '@/components/pattern-upload/CommonDivisionsSelector';
+// import CommonDivisionsSelector from '@/components/pattern-upload/CommonDivisionsSelector';
 
 export const Step3_UploadAndOrganize = ({
   formData,
@@ -84,15 +84,6 @@ export const Step3_UploadAndOrganize = ({
           handlePinPattern={handlePinPattern}
         />
 
-        {hasDivisions && hasPatterns && (
-          <CommonDivisionsSelector
-            divisionsByAssociation={filteredDivisionsData}
-            onBulkDivisionChange={handleBulkDivisionChange}
-            patternDivisions={formData.patternDivisions}
-            hierarchyOrder={uploadSlots}
-            patterns={formData.patterns}
-          />
-        )}
       </CardContent>
     </motion.div>
   );

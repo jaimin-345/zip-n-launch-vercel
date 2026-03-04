@@ -108,37 +108,6 @@ const PatternUploader = ({
       <CardContent>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-3 relative">
-              <SortableContext items={hierarchyOrder.map(h => `slot-${h.id}`)} strategy={verticalListSortingStrategy}>
-                {hierarchyOrder.map((level, index) => (
-                  <SortablePatternSlot
-                    key={level.id}
-                    id={level.id}
-                    level={level}
-                    pattern={patterns[level.id]}
-                    onFileDrop={handleFileDrop}
-                    onRemove={handleRemovePattern}
-                    onMovePattern={handleMovePattern}
-                    otherSlots={hierarchyOrder.filter(h => h.id !== level.id)}
-                    onHover={onHover}
-                    onLeave={onLeave}
-                    onPreview={onPreview}
-                    isDisciplineSlot={!!level.isDisciplineSlot}
-                    onSkillLevelChange={onSkillLevelChange}
-                    isDraggingStaged={isDraggingStaged}
-                    slotIndex={index}
-                  />
-                ))}
-              </SortableContext>
-              <PatternPreview
-                previewItem={currentPreviewItem}
-                hierarchyOrder={hierarchyOrder}
-                onAssign={assignStagedPdf}
-                isStaged={!!currentPreviewItem && !!stagedPdfs.find(p => p.id === currentPreviewItem.id)}
-                onPin={handlePinPattern}
-                isPinned={!!pinnedPattern && pinnedPattern.id === currentPreviewItem?.id}
-              />
-            </div>
             <div className="lg:col-span-1 space-y-4">
               <Card>
                 <CardHeader className="p-4">
@@ -160,7 +129,38 @@ const PatternUploader = ({
                 </CardContent>
               </Card>
             </div>
+            <div className="lg:col-span-2 space-y-3">
+              <SortableContext items={hierarchyOrder.map(h => `slot-${h.id}`)} strategy={verticalListSortingStrategy}>
+                {hierarchyOrder.map((level, index) => (
+                  <SortablePatternSlot
+                    key={level.id}
+                    id={level.id}
+                    level={level}
+                    pattern={patterns[level.id]}
+                    onFileDrop={handleFileDrop}
+                    onRemove={handleRemovePattern}
+                    onMovePattern={handleMovePattern}
+                    otherSlots={hierarchyOrder.filter(h => h.id !== level.id)}
+                    onHover={onHover}
+                    onLeave={onLeave}
+                    onPreview={onPreview}
+                    isDisciplineSlot={!!level.isDisciplineSlot}
+                    onSkillLevelChange={onSkillLevelChange}
+                    isDraggingStaged={isDraggingStaged}
+                    slotIndex={index}
+                  />
+                ))}
+              </SortableContext>
+            </div>
           </div>
+          <PatternPreview
+            previewItem={currentPreviewItem}
+            hierarchyOrder={hierarchyOrder}
+            onAssign={assignStagedPdf}
+            isStaged={!!currentPreviewItem && !!stagedPdfs.find(p => p.id === currentPreviewItem.id)}
+            onPin={handlePinPattern}
+            isPinned={!!pinnedPattern && pinnedPattern.id === currentPreviewItem?.id}
+          />
           <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
             {activeDragItem?.type === 'staged' && activeDragItem.data && (
               <div className="p-3 border-2 border-primary rounded-lg bg-background shadow-xl flex items-center gap-2">

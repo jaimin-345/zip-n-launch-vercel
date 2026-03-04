@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CheckCircle, DollarSign, Save, Link2, Download, Send,
-  AlertTriangle, ShieldCheck, Archive, CalendarCheck, Users, FolderOpen, FileText,
+  AlertTriangle, ShieldCheck, Archive, CalendarCheck, FolderOpen, FileText,
+  PlayCircle, Loader2, ArrowRight,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { flattenPersonnel } from '@/lib/contractUtils';
@@ -33,8 +34,10 @@ const PAYMENT_STATUS_CONFIG = {
   confirmed: { label: 'Confirmed', className: 'bg-green-500/10 text-green-600 border-green-600/30', icon: ShieldCheck },
 };
 
-export const Step6_CloseOut = ({ formData, setFormData }) => {
+export const Step6_CloseOut = ({ formData, setFormData, onSave, isSaving }) => {
   const { toast } = useToast();
+  const [selectedPath, setSelectedPath] = useState(formData.projectStatus === 'live' ? 'live' : null);
+  const [savingLive, setSavingLive] = useState(false);
   const checkedItems = formData.closeOutChecklist || [];
   const paymentStatus = formData.paymentStatus || 'unpaid';
   const isPaymentConfirmed = paymentStatus === 'confirmed';
@@ -169,7 +172,24 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
   };
 
   const handleCompleteCloseOut = () => {
+    setFormData(prev => ({ ...prev, projectStatus: 'closed' }));
     toast({ title: 'Close Out Complete', description: 'All contracts have been finalized and closed out successfully.' });
+  };
+
+  const handleSaveLive = async () => {
+    if (!onSave) return;
+    setSavingLive(true);
+    try {
+      setFormData(prev => ({ ...prev, projectStatus: 'live' }));
+      await onSave({ silent: true });
+      toast({
+        title: 'Project Saved as Live',
+        description: 'Your project is saved and active. You can return anytime to manage contracts, track sending, and resume where you left off.',
+      });
+      setSelectedPath('live');
+    } finally {
+      setSavingLive(false);
+    }
   };
 
   const paymentCfg = PAYMENT_STATUS_CONFIG[paymentStatus] || PAYMENT_STATUS_CONFIG.unpaid;
@@ -185,14 +205,96 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
       <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <CheckCircle className="h-5 w-5 text-primary" />
-          Step 6: Close Out
+          Step 6: Save & Close Out
         </CardTitle>
         <CardDescription>
-          Confirm payment, finalize contracts, and complete the close out process.
+          Choose how to proceed — keep your project active for ongoing management, or finalize everything and close out.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="px-0 space-y-6">
+        {/* Two-Path Choice */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Option 1: Save as Live */}
+          <Card
+            className={`p-5 cursor-pointer transition-all hover:shadow-md ${
+              selectedPath === 'live'
+                ? 'border-blue-500 bg-blue-500/5 ring-2 ring-blue-500/20'
+                : 'hover:border-blue-500/50'
+            }`}
+            onClick={() => setSelectedPath('live')}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <PlayCircle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Save as Live Project</h4>
+                  <p className="text-xs text-muted-foreground">Keep project active & ongoing</p>
+                </div>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1.5 pl-1">
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-blue-500" />Save progress and return anytime</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-blue-500" />Continue sending & tracking contracts</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-blue-500" />Manage documents and signatures</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-blue-500" />Resume from where you left off</li>
+              </ul>
+              {selectedPath === 'live' && (
+                <Button
+                  className="w-full mt-2"
+                  onClick={(e) => { e.stopPropagation(); handleSaveLive(); }}
+                  disabled={savingLive || isSaving}
+                >
+                  {savingLive ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {formData.projectStatus === 'live' ? 'Saved as Live' : 'Save as Live Project'}
+                </Button>
+              )}
+              {formData.projectStatus === 'live' && (
+                <p className="text-xs text-blue-600 font-medium flex items-center gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Project is currently live
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Option 2: Complete Close Out */}
+          <Card
+            className={`p-5 cursor-pointer transition-all hover:shadow-md ${
+              selectedPath === 'closeout'
+                ? 'border-green-500 bg-green-500/5 ring-2 ring-green-500/20'
+                : 'hover:border-green-500/50'
+            }`}
+            onClick={() => setSelectedPath('closeout')}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Complete Close Out</h4>
+                  <p className="text-xs text-muted-foreground">Finalize & archive everything</p>
+                </div>
+              </div>
+              <ul className="text-xs text-muted-foreground space-y-1.5 pl-1">
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-green-500" />Confirm all payments are complete</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-green-500" />Verify all documents collected</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-green-500" />Save & link to personnel records</li>
+                <li className="flex items-start gap-2"><ArrowRight className="h-3 w-3 mt-0.5 shrink-0 text-green-500" />Download final package & archive</li>
+              </ul>
+            </div>
+          </Card>
+        </div>
+
+        {/* Close Out Details — only shown when Close Out path is selected */}
+        {selectedPath === 'closeout' && (
+        <>
         {/* Approval & Document Status Banners */}
         <div className="space-y-3">
           <Card className={`p-4 ${approvalStats.allApproved ? 'bg-green-500/5 border-green-500/30' : 'bg-amber-500/5 border-amber-500/30'}`}>
@@ -427,6 +529,8 @@ export const Step6_CloseOut = ({ formData, setFormData }) => {
             Complete Close Out
           </Button>
         </div>
+        </>
+        )}
       </CardContent>
     </motion.div>
   );

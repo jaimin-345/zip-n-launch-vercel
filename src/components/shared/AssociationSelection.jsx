@@ -94,14 +94,9 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
     setFormData(prev => {
         const currentPrimaries = prev.primaryAffiliates || [];
         const isPrimary = currentPrimaries.includes(assocId);
-        const newPrimaries = isPrimary 
+        const newPrimaries = isPrimary
             ? currentPrimaries.filter(id => id !== assocId)
             : [...currentPrimaries, assocId];
-        
-        const nsbaId = allAssociations.find(a => a.id.toLowerCase() === 'nsba')?.id;
-        if (nsbaId && prev.associations?.[nsbaId] && !newPrimaries.includes(nsbaId)) {
-            newPrimaries.push(nsbaId);
-        }
 
         return { ...prev, primaryAffiliates: newPrimaries };
     });
@@ -228,7 +223,6 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
   };
 
   const isPrimary = (formData.primaryAffiliates || []).includes(association.id);
-  const isNsba = association.id.toLowerCase() === 'nsba';
 
   return (
     <div 
@@ -244,11 +238,10 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
         </Label>
         {isSelected && (
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <Button 
-                variant={isPrimary ? "default" : "outline"} 
-                size="sm" 
+            <Button
+                variant={isPrimary ? "default" : "outline"}
+                size="sm"
                 onClick={(e) => handleSetPrimary(e, association.id)}
-                disabled={isNsba}
             >
               {isPrimary ? "Primary" : "Set Primary"}
             </Button>
@@ -258,11 +251,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
                         <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent>
-                        {isNsba ? (
-                            <p>NSBA is the default primary and cannot be changed.</p>
-                        ) : (
-                            <p>Marking an association as 'Primary' indicates that its official score sheets<br />should be used for all applicable classes. You can select multiple primary associations.</p>
-                        )}
+                        <p>Marking an association as 'Primary' indicates that its official score sheets<br />should be used for all applicable classes. You can select multiple primary associations.</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>

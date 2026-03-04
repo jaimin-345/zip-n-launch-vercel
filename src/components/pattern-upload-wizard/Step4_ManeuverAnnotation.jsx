@@ -397,21 +397,6 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots })
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-sm">Maneuver List</h3>
-                  {/* Validation badge */}
-                  {validationResult && (
-                    validationResult.isValid ? (
-                      <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Standard Format
-                      </span>
-                    ) : (
-                      <span
-                        className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 cursor-help"
-                        title={validationResult.issues.join('\n')}
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5" /> Needs Review
-                      </span>
-                    )
-                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button

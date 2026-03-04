@@ -592,9 +592,11 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                             </Button>
                           </div>
                           {folder.documents?.w9_form?.requestedAt && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p className="text-xs text-muted-foreground">
-                                Requested on {new Date(folder.documents.w9_form.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                {folder.documents.w9_form.sentWithContract
+                                  ? `Sent with contract on ${new Date(folder.documents.w9_form.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                  : `Requested on ${new Date(folder.documents.w9_form.requestedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
                               </p>
                               <Button
                                 size="sm"

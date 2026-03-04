@@ -85,8 +85,6 @@ const AssetLibraryPage = () => {
     }
   }, [toast]);
 
-  //test
-
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);

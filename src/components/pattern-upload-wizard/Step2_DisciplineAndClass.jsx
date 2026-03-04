@@ -126,7 +126,7 @@ const DisciplineSectionGrid = ({
       <div
         key={section.id}
         className={cn(
-          'space-y-1.5 rounded-md border bg-card p-3',
+          'space-y-1 rounded-md border bg-card p-2',
           isSectionLocked ? 'border-border/50 opacity-50' : 'border-border',
         )}
       >
@@ -137,9 +137,8 @@ const DisciplineSectionGrid = ({
               <Lock className="h-2.5 w-2.5" /> Exclusive
             </span>
           )}
-          <span className="text-xs text-muted-foreground italic">— {section.sublabel}</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 pl-3">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-2">
           {sectionDiscs.map(disc => {
             const key = `${disc.association_id}::${disc.name}`;
             const isSelected = selectedKeys.has(key);
@@ -164,12 +163,12 @@ const DisciplineSectionGrid = ({
   const isOtherLocked = activeSectionId && activeSectionId !== 'other';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {DISCIPLINE_SECTIONS.map(renderSection)}
       {uncategorized.length > 0 && (
-        <div className={cn('space-y-1.5', isOtherLocked && 'opacity-50')}>
+        <div className={cn('space-y-1', isOtherLocked && 'opacity-50')}>
           <h5 className="text-sm font-semibold text-foreground px-1">Other Disciplines</h5>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 pl-3">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-2">
             {uncategorized.map(disc => (
               <DisciplineCheckbox
                 key={disc.id}
@@ -203,15 +202,15 @@ const AssociationDisciplineGroup = ({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-3 px-3 py-2 bg-muted/50">
+      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-muted/50">
         {logoUrl ? (
-          <img src={logoUrl} alt={`${association.name} logo`} className="h-8 object-contain" />
+          <img src={logoUrl} alt={`${association.name} logo`} className="h-6 object-contain" />
         ) : (
-          <Icon className="h-8 w-8 text-muted-foreground" />
+          <Icon className="h-6 w-6 text-muted-foreground" />
         )}
-        <span className="text-base font-semibold">{association.name || association.id}</span>
+        <span className="text-sm font-semibold">{association.name || association.id}</span>
       </div>
-      <div className="p-3">
+      <div className="p-2">
         <DisciplineSectionGrid
           disciplines={customDisciplines}
           selectedKeys={selectedKeys}
@@ -400,7 +399,7 @@ export const Step2_DisciplineAndClass = ({ formData, setFormData, disciplineLibr
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {groupedByAssociation.map(({ association, disciplines }) => (
               <AssociationDisciplineGroup
                 key={association.id}

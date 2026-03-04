@@ -12,11 +12,15 @@ const EmployeeArenaSchedulingManagerPage = () => {
     const navigate = useNavigate();
     const { toast } = useToast();
 
-    const handleFeatureClick = (featureName) => {
-        toast({
-            title: featureName,
-            description: "This feature is coming soon!",
-        });
+    const handleFeatureClick = (feature) => {
+        if (feature.link) {
+            navigate(feature.link);
+        } else {
+            toast({
+                title: feature.name,
+                description: "This feature is coming soon!",
+            });
+        }
     };
 
     const features = [
@@ -34,13 +38,8 @@ const EmployeeArenaSchedulingManagerPage = () => {
             name: "Travel Management",
             icon: Plane,
             description: "Hotels, flights, and rental cars — your complete travel hub.",
+            link: "/horse-show-manager/travel-management",
         },
-        // Equipment Checkout moved to Horse Show Management section
-        // {
-        //     name: "Equipment Checkout",
-        //     icon: Radio,
-        //     description: "Check in/out radios, laptops, and gear with real-time status tracking.",
-        // },
         {
             name: "Communications Log",
             icon: MessageSquare,
@@ -97,7 +96,7 @@ const EmployeeArenaSchedulingManagerPage = () => {
                                         <CardDescription className="pt-2">{feature.description}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="mt-auto">
-                                        <Button className="w-full" onClick={() => handleFeatureClick(feature.name)}>
+                                        <Button className="w-full" onClick={() => handleFeatureClick(feature)}>
                                             Open
                                         </Button>
                                     </CardContent>

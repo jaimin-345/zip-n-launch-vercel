@@ -15,6 +15,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import {
   Info, User, Eye, Copy, RotateCcw, Edit3, Send,
   CheckCircle, Clock, XCircle, ShieldCheck, Maximize2, FileDown, Mail,
+  Save, Loader2, AlertTriangle,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { jsPDF } from 'jspdf';
@@ -72,11 +73,12 @@ const SignatureBadge = ({ status }) => {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export const Step4_GenerateContracts = ({ formData, setFormData }) => {
+export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSaving }) => {
   const { toast } = useToast();
-  const overrideTextareaRef = useRef(null);
-  const [editingMemberId, setEditingMemberId] = useState(null);
+  const fullScreenTextareaRef = useRef(null);
   const [fullScreenMemberId, setFullScreenMemberId] = useState(null);
+  const [fullScreenEditing, setFullScreenEditing] = useState(false);
+  const [savingMemberId, setSavingMemberId] = useState(null);
   const deliverySettings = formData.deliverySettings || {};
 
   const personnel = useMemo(() => flattenPersonnel(formData), [formData.showDetails?.officials]);
@@ -138,26 +140,70 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
     }));
   };
 
+  const updateMemberField = (member, field, value) => {
+    setFormData(prev => {
+      const officials = { ...prev.showDetails?.officials };
+      const assocRoles = { ...officials[member.assocId] };
+      const members = [...(assocRoles[member.roleId] || [])];
+      const idx = members.findIndex(m => m.id === member.id);
+      if (idx === -1) return prev;
+      members[idx] = { ...members[idx], [field]: value };
+      assocRoles[member.roleId] = members;
+      officials[member.assocId] = assocRoles;
+      return { ...prev, showDetails: { ...prev.showDetails, officials } };
+    });
+  };
+
   const handleSendForSignature = (memberId) => {
     const folder = employeeFolders[memberId];
     if (!folder) return;
 
-    setFormData(prev => ({
-      ...prev,
-      employeeFolders: {
-        ...prev.employeeFolders,
-        [memberId]: {
-          ...prev.employeeFolders[memberId],
-          signatureStatus: 'sent',
-          signatureSentAt: new Date().toISOString(),
-        },
-      },
-    }));
-
     const member = personnel.find(m => m.id === memberId);
+    if (!member?.email) {
+      toast({
+        title: 'Email Required',
+        description: `Please add an email address for ${member?.name || 'this employee'} before sending.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const includeW9 = (formData.deliverySettings?.includeW9Request ?? true);
+
+    setFormData(prev => {
+      const existingFolder = prev.employeeFolders[memberId];
+      const updatedFolder = {
+        ...existingFolder,
+        signatureStatus: 'sent',
+        signatureSentAt: new Date().toISOString(),
+      };
+
+      // Auto-mark W-9 as requested if included in contract email
+      if (includeW9 && updatedFolder.documents?.w9_form?.status !== 'complete') {
+        updatedFolder.documents = {
+          ...updatedFolder.documents,
+          w9_form: {
+            ...updatedFolder.documents?.w9_form,
+            requestedAt: new Date().toISOString(),
+            sentWithContract: true,
+            destinationEmail: member.email,
+          },
+        };
+      }
+
+      return {
+        ...prev,
+        employeeFolders: {
+          ...prev.employeeFolders,
+          [memberId]: updatedFolder,
+        },
+      };
+    });
+
+    const w9Note = includeW9 ? ' W-9 request included.' : '';
     toast({
       title: 'Contract Sent',
-      description: `Contract sent to ${member?.name || 'employee'} for signature. Document upload link included.`,
+      description: `Contract sent to ${member.name || 'employee'} (${member.email}).${w9Note}`,
     });
   };
 
@@ -201,22 +247,21 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
 
   const resetEditedContract = (memberId) => {
     updateFolder(memberId, 'editedContract', null);
-    setEditingMemberId(null);
   };
 
-  const insertPlaceholderOverride = (tag) => {
-    const textarea = overrideTextareaRef.current;
-    if (!textarea || !editingMemberId) return;
-    const folder = employeeFolders[editingMemberId];
-    const current = folder?.editedContract ?? folder?.resolvedContract ?? '';
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newText = current.substring(0, start) + tag + current.substring(end);
-    updateFolder(editingMemberId, 'editedContract', newText);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + tag.length, start + tag.length);
-    });
+  const handleSaveIndividual = async (memberId) => {
+    if (!onSave) return;
+    setSavingMemberId(memberId);
+    try {
+      await onSave({ silent: true });
+      const member = personnel.find(m => m.id === memberId);
+      toast({
+        title: 'Contract Saved',
+        description: `${member?.name || 'Employee'}'s contract has been saved.`,
+      });
+    } finally {
+      setSavingMemberId(null);
+    }
   };
 
   // ── PDF Download ──
@@ -321,6 +366,95 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
           </Card>
         )}
 
+        {/* Delivery & Notification Settings */}
+        {personnel.length > 0 && (
+        <Card className="p-5 space-y-4">
+          <h4 className="font-semibold flex items-center gap-2">
+            <Mail className="h-4 w-4 text-primary" />
+            Delivery & Notification Settings
+          </h4>
+
+          <Card className="p-3 bg-blue-500/5 border-blue-500/20">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-blue-500 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                Contract emails include a "Sign Contract + Upload Required Documents" link. When "Include W-9 request" is enabled, the W-9 form request is bundled into the same email — no separate follow-up needed.
+              </p>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Delivery Method</Label>
+              <Select
+                value={deliverySettings.deliveryMethod || 'email'}
+                onValueChange={(value) => handleDeliveryChange('deliveryMethod', value)}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="portal">Secure Portal</SelectItem>
+                  <SelectItem value="both">Email + Secure Portal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Email Subject Line</Label>
+              <Input
+                value={deliverySettings.emailSubject || ''}
+                onChange={(e) => handleDeliveryChange('emailSubject', e.target.value)}
+                placeholder="Sign Contract + Upload Required Documents"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Custom Email Message</Label>
+            <Textarea
+              value={deliverySettings.emailMessage || ''}
+              onChange={(e) => handleDeliveryChange('emailMessage', e.target.value)}
+              placeholder="Add a personal message to include with the contract delivery..."
+              className="min-h-[80px]"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-6">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="sendReminders"
+                checked={deliverySettings.sendReminders ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('sendReminders', checked)}
+              />
+              <Label htmlFor="sendReminders" className="text-sm">Send automatic reminders</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="requireSignature"
+                checked={deliverySettings.requireSignature ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('requireSignature', checked)}
+              />
+              <Label htmlFor="requireSignature" className="text-sm">Require e-signature</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="notifyOnComplete"
+                checked={deliverySettings.notifyOnComplete ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('notifyOnComplete', checked)}
+              />
+              <Label htmlFor="notifyOnComplete" className="text-sm">Notify when signed & docs uploaded</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="includeW9Request"
+                checked={deliverySettings.includeW9Request ?? true}
+                onCheckedChange={(checked) => handleDeliveryChange('includeW9Request', checked)}
+              />
+              <Label htmlFor="includeW9Request" className="text-sm">Include W-9 request with contract email</Label>
+            </div>
+          </div>
+        </Card>
+        )}
+
         {/* No Personnel Warning */}
         {personnel.length === 0 && (
           <Card className="p-4 bg-amber-500/10 border-amber-500/30">
@@ -346,7 +480,6 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
               const financials = calculateMemberFinancials(member);
               const travel = getTravelMethod(member);
               const contractText = folder.editedContract ?? folder.resolvedContract ?? '';
-              const isEditing = editingMemberId === member.id;
 
               return (
                 <AccordionItem key={member.id} value={member.id} className="border rounded-lg">
@@ -439,36 +572,17 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                           </div>
                         )}
 
-                        {/* Contract Editor / Preview */}
-                        {isEditing ? (
-                          <div className="space-y-3">
-                            <PlaceholderToolbar onInsert={insertPlaceholderOverride} />
-                            <Textarea
-                              ref={overrideTextareaRef}
-                              value={contractText}
-                              onChange={(e) => updateFolder(member.id, 'editedContract', e.target.value)}
-                              className="min-h-[280px] font-mono text-sm leading-relaxed"
-                            />
-                          </div>
-                        ) : (
-                          <div className="whitespace-pre-wrap font-mono text-xs p-4 bg-muted/30 rounded-lg border max-h-[600px] overflow-y-auto leading-relaxed">
-                            {renderResolvedPreview(contractText)}
-                          </div>
-                        )}
+                        {/* Contract Preview */}
+                        <div className="whitespace-pre-wrap font-mono text-xs p-4 bg-muted/30 rounded-lg border max-h-[600px] overflow-y-auto leading-relaxed">
+                          {renderResolvedPreview(contractText)}
+                        </div>
 
                         {/* Actions */}
-                        <div className="flex gap-2">
-                          {isEditing ? (
-                            <Button variant="outline" size="sm" onClick={() => setEditingMemberId(null)}>
-                              <Eye className="h-3.5 w-3.5 mr-1.5" />
-                              Preview
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" onClick={() => setEditingMemberId(member.id)}>
-                              <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-                              Edit
-                            </Button>
-                          )}
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm" onClick={() => { setFullScreenMemberId(member.id); setFullScreenEditing(true); }}>
+                            <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+                            Edit
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -480,7 +594,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setFullScreenMemberId(member.id)}
+                            onClick={() => { setFullScreenMemberId(member.id); setFullScreenEditing(false); }}
                           >
                             <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
                             Full Screen
@@ -509,6 +623,27 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
 
                       {/* ── Tab 2: Send & Track ── */}
                       <TabsContent value="send" className="mt-4 space-y-4">
+                        {/* Email Field */}
+                        <div className="p-4 border rounded-lg space-y-3">
+                          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Send To Email</Label>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <Input
+                              type="email"
+                              value={member.email || ''}
+                              onChange={(e) => updateMemberField(member, 'email', e.target.value)}
+                              placeholder="Enter email address..."
+                              className="flex-1"
+                            />
+                          </div>
+                          {!member.email && (
+                            <div className="flex items-center gap-2 text-amber-600">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              <p className="text-xs">Email is required to send contracts. Please add an email address.</p>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="p-4 border rounded-lg space-y-4">
                           <div className="flex items-center justify-between">
                             <h5 className="font-medium text-sm">Signature Status</h5>
@@ -530,7 +665,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                           <div className="flex flex-wrap gap-2">
                             {/* Send */}
                             {folder.signatureStatus === 'not_sent' && (
-                              <Button size="sm" onClick={() => handleSendForSignature(member.id)}>
+                              <Button size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email}>
                                 <Send className="h-3.5 w-3.5 mr-1.5" />
                                 Send for Signature
                               </Button>
@@ -539,7 +674,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
                             {/* Resend + Mark Signed */}
                             {(folder.signatureStatus === 'sent' || folder.signatureStatus === 'viewed') && (
                               <>
-                                <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)}>
+                                <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email}>
                                   <Send className="h-3.5 w-3.5 mr-1.5" />
                                   Resend
                                 </Button>
@@ -568,7 +703,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
 
                             {/* Declined */}
                             {folder.signatureStatus === 'declined' && (
-                              <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)}>
+                              <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email}>
                                 <Send className="h-3.5 w-3.5 mr-1.5" />
                                 Resend
                               </Button>
@@ -595,99 +730,81 @@ export const Step4_GenerateContracts = ({ formData, setFormData }) => {
             })}
           </Accordion>
         )}
-        {/* Delivery & Notification Settings */}
-        <Card className="p-5 space-y-4">
-          <h4 className="font-semibold flex items-center gap-2">
-            <Mail className="h-4 w-4 text-primary" />
-            Delivery & Notification Settings
-          </h4>
-
-          <Card className="p-3 bg-blue-500/5 border-blue-500/20">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 text-blue-500 shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Contract emails include a "Sign Contract + Upload Required Documents" link. Employees can sign and upload documents (W-9, Membership ID, Emergency Info) in one continuous flow.
-              </p>
-            </div>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Delivery Method</Label>
-              <Select
-                value={deliverySettings.deliveryMethod || 'email'}
-                onValueChange={(value) => handleDeliveryChange('deliveryMethod', value)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="portal">Secure Portal</SelectItem>
-                  <SelectItem value="both">Email + Secure Portal</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Email Subject Line</Label>
-              <Input
-                value={deliverySettings.emailSubject || ''}
-                onChange={(e) => handleDeliveryChange('emailSubject', e.target.value)}
-                placeholder="Sign Contract + Upload Required Documents"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Custom Email Message</Label>
-            <Textarea
-              value={deliverySettings.emailMessage || ''}
-              onChange={(e) => handleDeliveryChange('emailMessage', e.target.value)}
-              placeholder="Add a personal message to include with the contract delivery..."
-              className="min-h-[80px]"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-6">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="sendReminders"
-                checked={deliverySettings.sendReminders ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('sendReminders', checked)}
-              />
-              <Label htmlFor="sendReminders" className="text-sm">Send automatic reminders</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="requireSignature"
-                checked={deliverySettings.requireSignature ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('requireSignature', checked)}
-              />
-              <Label htmlFor="requireSignature" className="text-sm">Require e-signature</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="notifyOnComplete"
-                checked={deliverySettings.notifyOnComplete ?? true}
-                onCheckedChange={(checked) => handleDeliveryChange('notifyOnComplete', checked)}
-              />
-              <Label htmlFor="notifyOnComplete" className="text-sm">Notify when signed & docs uploaded</Label>
-            </div>
-          </div>
-        </Card>
       </CardContent>
 
       {/* Full Screen Contract Dialog */}
-      <Dialog open={!!fullScreenMemberId} onOpenChange={(open) => !open && setFullScreenMemberId(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
-          <DialogHeader>
+      <Dialog
+        open={!!fullScreenMemberId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFullScreenMemberId(null);
+            setFullScreenEditing(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col">
+          <DialogHeader className="flex flex-row items-center justify-between gap-4 shrink-0">
             <DialogTitle>
               Contract — {personnel.find(m => m.id === fullScreenMemberId)?.name || 'Employee'}
             </DialogTitle>
+            <div className="flex items-center gap-2 pr-8">
+              {fullScreenEditing ? (
+                <Button variant="outline" size="sm" onClick={() => setFullScreenEditing(false)}>
+                  <Eye className="h-3.5 w-3.5 mr-1.5" />
+                  Preview
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => setFullScreenEditing(true)}>
+                  <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+                  Edit
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={() => handleSaveIndividual(fullScreenMemberId)}
+                disabled={savingMemberId === fullScreenMemberId || isSaving}
+              >
+                {savingMemberId === fullScreenMemberId ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Save
+              </Button>
+            </div>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto whitespace-pre-wrap font-mono text-sm p-6 bg-muted/30 rounded-lg border leading-relaxed">
-            {fullScreenMemberId && employeeFolders[fullScreenMemberId] && renderResolvedPreview(
-              employeeFolders[fullScreenMemberId].editedContract ?? employeeFolders[fullScreenMemberId].resolvedContract ?? ''
-            )}
-          </div>
+          {fullScreenMemberId && employeeFolders[fullScreenMemberId] && (
+            fullScreenEditing ? (
+              <div className="flex-1 flex flex-col gap-3 min-h-0">
+                <PlaceholderToolbar onInsert={(tag) => {
+                  const textarea = fullScreenTextareaRef.current;
+                  if (!textarea) return;
+                  const folder = employeeFolders[fullScreenMemberId];
+                  const current = folder?.editedContract ?? folder?.resolvedContract ?? '';
+                  const start = textarea.selectionStart;
+                  const end = textarea.selectionEnd;
+                  const newText = current.substring(0, start) + tag + current.substring(end);
+                  updateFolder(fullScreenMemberId, 'editedContract', newText);
+                  requestAnimationFrame(() => {
+                    textarea.focus();
+                    textarea.setSelectionRange(start + tag.length, start + tag.length);
+                  });
+                }} />
+                <Textarea
+                  ref={fullScreenTextareaRef}
+                  value={employeeFolders[fullScreenMemberId].editedContract ?? employeeFolders[fullScreenMemberId].resolvedContract ?? ''}
+                  onChange={(e) => updateFolder(fullScreenMemberId, 'editedContract', e.target.value)}
+                  className="flex-1 font-mono text-sm leading-relaxed resize-none"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto whitespace-pre-wrap font-mono text-sm p-6 bg-muted/30 rounded-lg border leading-relaxed">
+                {renderResolvedPreview(
+                  employeeFolders[fullScreenMemberId].editedContract ?? employeeFolders[fullScreenMemberId].resolvedContract ?? ''
+                )}
+              </div>
+            )
+          )}
         </DialogContent>
       </Dialog>
     </motion.div>
