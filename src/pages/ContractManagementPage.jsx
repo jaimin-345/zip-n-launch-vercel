@@ -202,12 +202,12 @@ const ContractManagementPage = () => {
   // Save project to Supabase
   const saveProject = useCallback(async ({ silent = false, stepOverride = null } = {}) => {
     if (!user) {
-      toast({ title: 'Authentication Error', description: 'You must be logged in to save.', variant: 'destructive' });
+      if (!silent) toast({ title: 'Authentication Error', description: 'You must be logged in to save.', variant: 'destructive' });
       return null;
     }
 
     if (!formData.showName?.trim()) {
-      toast({ title: 'Project Name Required', description: 'Please enter a show/project name before saving.', variant: 'destructive' });
+      if (!silent) toast({ title: 'Project Name Required', description: 'Please enter a show/project name before saving.', variant: 'destructive' });
       return null;
     }
 
@@ -216,19 +216,21 @@ const ContractManagementPage = () => {
       const trimmedName = formData.showName.trim();
       let currentProjectId = sanitizedProjectId || formData.id;
 
-      // Check for duplicate project name
-      const { data: existing } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('project_type', 'contract')
-        .eq('project_name', trimmedName)
-        .eq('user_id', user.id);
+      // Check for duplicate project name (skip when linked to an existing project)
+      if (!formData.linkedProjectId) {
+        const { data: existing } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('project_type', 'contract')
+          .eq('project_name', trimmedName)
+          .eq('user_id', user.id);
 
-      const isDuplicate = existing?.some(p => p.id !== currentProjectId);
-      if (isDuplicate) {
-        toast({ title: 'Duplicate Name', description: `A contract project named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
-        setIsSaving(false);
-        return null;
+        const isDuplicate = existing?.some(p => p.id !== currentProjectId);
+        if (isDuplicate) {
+          if (!silent) toast({ title: 'Duplicate Name', description: `A contract project named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
+          setIsSaving(false);
+          return null;
+        }
       }
 
       const stepToSave = stepOverride ?? currentStep;
@@ -257,7 +259,7 @@ const ContractManagementPage = () => {
           .eq('id', currentProjectId);
 
         if (error) {
-          toast({ title: 'Error saving project', description: error.message, variant: 'destructive' });
+          if (!silent) toast({ title: 'Error saving project', description: error.message, variant: 'destructive' });
           return null;
         }
         if (!silent) {
@@ -273,7 +275,7 @@ const ContractManagementPage = () => {
           .single();
 
         if (error) {
-          toast({ title: 'Error creating project', description: error.message, variant: 'destructive' });
+          if (!silent) toast({ title: 'Error creating project', description: error.message, variant: 'destructive' });
           return null;
         }
 
@@ -287,7 +289,7 @@ const ContractManagementPage = () => {
         return newProjectId;
       }
     } catch (error) {
-      toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+      if (!silent) toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
       return null;
     } finally {
       setIsSaving(false);

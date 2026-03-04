@@ -158,8 +158,9 @@ const DisciplineSectionGrid = ({
     );
   };
 
-  // Catch-all for disciplines not in any predefined section
-  const uncategorized = disciplines.filter(d => !ALL_SECTION_NAMES.has(d.name));
+  // Catch-all for disciplines not in any predefined section (deduplicate by name)
+  const uncategorized = disciplines.filter(d => !ALL_SECTION_NAMES.has(d.name))
+    .filter((d, i, arr) => arr.findIndex(x => x.name === d.name) === i);
   const isOtherLocked = activeSectionId && activeSectionId !== 'other';
 
   return (

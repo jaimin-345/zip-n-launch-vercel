@@ -8,18 +8,20 @@ import { AlertTriangle, Link2 } from 'lucide-react';
 import { applyLinkedProjectData } from '@/lib/contractUtils';
 
 export const Step1_ShowStructure = ({ formData, setFormData, associationsData = [], existingProjects = [] }) => {
-  // Check for duplicate show name
+  // Check for duplicate show name (skip when linked to an existing project)
   const duplicateNameWarning = useMemo(() => {
+    if (formData.linkedProjectId) return null;
     const name = (formData.showName || '').trim().toLowerCase();
     if (!name) return null;
     const match = existingProjects.find(
       (p) => (p.project_name || '').trim().toLowerCase() === name && p.id !== formData.id
     );
     return match ? `A project named "${match.project_name}" already exists.` : null;
-  }, [formData.showName, existingProjects, formData.id]);
+  }, [formData.showName, existingProjects, formData.id, formData.linkedProjectId]);
 
-  // Check for duplicate show number
+  // Check for duplicate show number (skip when linked to an existing project)
   const duplicateNumberWarning = useMemo(() => {
+    if (formData.linkedProjectId) return null;
     const num = (formData.showNumber || '').trim().toLowerCase();
     if (!num) return null;
     const match = existingProjects.find((p) => {
@@ -27,7 +29,7 @@ export const Step1_ShowStructure = ({ formData, setFormData, associationsData = 
       return pNum === num && p.id !== formData.id;
     });
     return match ? `Show number already used by "${match.project_name}".` : null;
-  }, [formData.showNumber, existingProjects, formData.id]);
+  }, [formData.showNumber, existingProjects, formData.id, formData.linkedProjectId]);
 
   const handleLinkProject = (projectId) => {
     if (projectId === 'none') {
