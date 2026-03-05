@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Car } from 'lucide-react';
 
-const RentalCarsTab = ({ personnel, travelData, setTravelData }) => {
+const RentalCarsTab = ({ personnel, travelData, setTravelData, budgetFrozen }) => {
 
   const updateRentalCar = (memberId, field, value) => {
     setTravelData((prev) => ({
@@ -88,6 +88,8 @@ const RentalCarsTab = ({ personnel, travelData, setTravelData }) => {
                       placeholder="0.00"
                       value={rental.cost || ''}
                       onChange={(e) => updateRentalCar(member.id, 'cost', e.target.value)}
+                      disabled={budgetFrozen}
+                      className={budgetFrozen ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="space-y-1.5">

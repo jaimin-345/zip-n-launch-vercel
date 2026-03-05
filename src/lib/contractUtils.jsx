@@ -4,7 +4,7 @@ import { staffRoles } from '@/lib/staffingData';
 import { format, differenceInCalendarDays, isValid } from 'date-fns';
 import {
   DollarSign, Calendar, Plane, BaggageClaim, Car, Hotel, Fuel, Clock,
-  User, Mail, Phone, Award, Briefcase, Building2, Shield,
+  User, Mail, Phone, Award, Briefcase, Building2, Shield, MapPin,
 } from 'lucide-react';
 
 // ─── Auto-Fill Mapping (PBB/Show → Contract) ───────────────────────────────
@@ -133,6 +133,7 @@ The following expenses shall be reimbursed as outlined:
 - Rental Car: {{EXPENSE_RENTAL_CAR}}
 - Per Diem: {{EXPENSE_PER_DIEM}}
 - Hotel: {{EXPENSE_HOTEL}}
+- Mileage: {{EXPENSE_MILEAGE}}
 
 Total Reimbursable Expenses: {{TOTAL_EXPENSES}}
 Total Compensation (including expenses): {{TOTAL_COMPENSATION}}
@@ -188,6 +189,7 @@ export const PLACEHOLDER_GROUPS = [
       { tag: '{{EXPENSE_RENTAL_CAR}}', label: 'Rental Car', icon: Car },
       { tag: '{{EXPENSE_PER_DIEM}}', label: 'Per Diem', icon: DollarSign },
       { tag: '{{EXPENSE_HOTEL}}', label: 'Hotel', icon: Hotel },
+      { tag: '{{EXPENSE_MILEAGE}}', label: 'Mileage', icon: MapPin },
     ],
   },
   {
@@ -220,6 +222,23 @@ export const expenseTypeMeta = {
   rentalCar: { label: 'Rental Car', icon: Car, isPerDay: true },
   perDiem: { label: 'Per Diem', icon: DollarSign, isPerDay: true },
   hotel: { label: 'Hotel', icon: Hotel, isPerDay: true },
+  mileage: { label: 'Mileage', icon: MapPin, isMileage: true },
+};
+
+// ─── Budget Freeze ───────────────────────────────────────────────────────────
+
+export const isBudgetFrozen = (formData) => {
+  const folders = formData?.employeeFolders;
+  if (!folders || typeof folders !== 'object') return false;
+  return Object.values(folders).some(
+    (f) => f.signatureStatus && f.signatureStatus !== 'not_sent'
+  );
+};
+
+export const isMemberFrozen = (memberId, formData) => {
+  const folder = formData?.employeeFolders?.[memberId];
+  if (!folder) return false;
+  return !!folder.signatureStatus && folder.signatureStatus !== 'not_sent';
 };
 
 // ─── Helper Functions ──────────────────────────────────────────────────────────
@@ -281,7 +300,7 @@ export const calculateMemberFinancials = (member) => {
     for (const [expId, expense] of Object.entries(member.reimbursable_expenses)) {
       if (expense.reimbursed) {
         const meta = expenseTypeMeta[expId];
-        const amount = meta?.isPerDay
+        const amount = (meta?.isPerDay || meta?.isMileage)
           ? (parseFloat(expense.total) || 0)
           : (parseFloat(expense.max_value) || 0);
         expenseBreakdown[expId] = amount;
@@ -351,6 +370,7 @@ export const resolvePlaceholders = (templateText, member, formData) => {
     '{{EXPENSE_RENTAL_CAR}}': expenseLabel('rentalCar'),
     '{{EXPENSE_PER_DIEM}}': expenseLabel('perDiem'),
     '{{EXPENSE_HOTEL}}': expenseLabel('hotel'),
+    '{{EXPENSE_MILEAGE}}': expenseLabel('mileage'),
     '{{TOTAL_EXPENSES}}': currency(financials.totalExpenses),
     '{{TOTAL_COMPENSATION}}': currency(financials.totalCompensation),
     '{{EFFECTIVE_DATE}}': formatDate(contractSettings.effectiveDate),

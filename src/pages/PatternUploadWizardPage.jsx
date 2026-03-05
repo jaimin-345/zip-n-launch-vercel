@@ -74,9 +74,6 @@ const PatternUploadWizardPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveConfirmation, setSaveConfirmation] = useState(null);
   const [previewingPattern, setPreviewingPattern] = useState(null);
-  const [hoveredPattern, setHoveredPattern] = useState(null);
-  const [pinnedPattern, setPinnedPattern] = useState(null);
-  const hoverTimeoutRef = useRef(null);
   const saveTimerRef = useRef(null);
 
   // Auto-dismiss save confirmation after 5 seconds
@@ -85,23 +82,6 @@ const PatternUploadWizardPage = () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, []);
-
-  const handleHover = (item) => {
-    if (pinnedPattern) return;
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => setHoveredPattern(item), 300);
-  };
-
-  const handleLeave = () => {
-    if (pinnedPattern) return;
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setHoveredPattern(null);
-  };
-
-  const handlePinPattern = (item) => {
-    setPinnedPattern(prev => prev && prev.id === item.id ? null : item);
-    setHoveredPattern(null);
-  };
 
   const handleNext = async () => {
     setCompletedSteps(prev => new Set([...prev, currentStep]));
@@ -243,13 +223,8 @@ const PatternUploadWizardPage = () => {
             handleDivisionGroupChange={handleDivisionGroupChange}
             handleBulkDivisionChange={handleBulkDivisionChange}
             divisionsData={divisionsData}
-            onHover={handleHover}
-            onLeave={handleLeave}
-            onPreview={setPreviewingPattern}
-            hoveredPattern={hoveredPattern}
-            pinnedPattern={pinnedPattern}
-            handlePinPattern={handlePinPattern}
             selectedAssociationIds={selectedAssociationIds}
+            onPreview={setPreviewingPattern}
           />
         );
       case 4:

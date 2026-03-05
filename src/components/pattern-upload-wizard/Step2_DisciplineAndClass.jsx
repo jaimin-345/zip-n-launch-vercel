@@ -126,19 +126,17 @@ const DisciplineSectionGrid = ({
       <div
         key={section.id}
         className={cn(
-          'space-y-1 rounded-md border bg-card p-2',
+          'space-y-0.5 rounded-md border bg-card px-2 py-1.5',
           isSectionLocked ? 'border-border/50 opacity-50' : 'border-border',
         )}
       >
         <div className="flex items-center gap-2 px-1">
           <h5 className="text-sm font-semibold text-foreground">{section.label}</h5>
           {isSingleSection && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5">
-              <Lock className="h-2.5 w-2.5" /> Exclusive
-            </span>
+            <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
           )}
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-2">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 pl-2">
           {sectionDiscs.map(disc => {
             const key = `${disc.association_id}::${disc.name}`;
             const isSelected = selectedKeys.has(key);
@@ -169,7 +167,7 @@ const DisciplineSectionGrid = ({
       {uncategorized.length > 0 && (
         <div className={cn('space-y-1', isOtherLocked && 'opacity-50')}>
           <h5 className="text-sm font-semibold text-foreground px-1">Other Disciplines</h5>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 pl-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pl-2">
             {uncategorized.map(disc => (
               <DisciplineCheckbox
                 key={disc.id}
@@ -203,7 +201,7 @@ const AssociationDisciplineGroup = ({
 
   return (
     <div className="border rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-2.5 py-1.5 bg-muted/50">
+      <div className="flex items-center gap-2 px-2.5 py-1 bg-muted/50">
         {logoUrl ? (
           <img src={logoUrl} alt={`${association.name} logo`} className="h-6 object-contain" />
         ) : (
@@ -211,7 +209,7 @@ const AssociationDisciplineGroup = ({
         )}
         <span className="text-sm font-semibold">{association.name || association.id}</span>
       </div>
-      <div className="p-2">
+      <div className="p-1.5">
         <DisciplineSectionGrid
           disciplines={customDisciplines}
           selectedKeys={selectedKeys}
@@ -400,7 +398,7 @@ export const Step2_DisciplineAndClass = ({ formData, setFormData, disciplineLibr
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {groupedByAssociation.map(({ association, disciplines }) => (
               <AssociationDisciplineGroup
                 key={association.id}

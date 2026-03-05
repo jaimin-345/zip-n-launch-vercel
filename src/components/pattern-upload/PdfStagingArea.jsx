@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useDraggable } from '@dnd-kit/core';
 import { Document, Page } from 'react-pdf';
-import { Upload, X, GripVertical, Loader2, Maximize, Pencil, Check, ArrowRightToLine } from 'lucide-react';
+import { Upload, X, GripVertical, Loader2, Pencil, Check, ArrowRightToLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename, onAssign, availableSlots }) => {
+const StagedPdfItem = ({ pdf, onRemove, onRename, onAssign, availableSlots }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(pdf.displayName || '');
 
@@ -45,8 +45,6 @@ const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename, o
             ref={setNodeRef}
             style={style}
             className="relative group"
-            onMouseEnter={() => onHover(pdf)}
-            onMouseLeave={onLeave}
         >
             <div className="p-2 border rounded-lg bg-background space-y-1.5">
                 <div className="flex items-center gap-2">
@@ -84,9 +82,6 @@ const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename, o
                                 <Pencil className="h-3 w-3" />
                             </Button>
                         )}
-                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => onPreview(pdf)}>
-                            <Maximize className="h-3 w-3" />
-                        </Button>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(pdf.id)}>
                             <X className="h-3 w-3" />
                         </Button>
@@ -114,7 +109,7 @@ const StagedPdfItem = ({ pdf, onRemove, onPreview, onHover, onLeave, onRename, o
     );
 };
 
-const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, onLeave, onRename, onAssign, availableSlots }) => {
+const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onRename, onAssign, availableSlots }) => {
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         onDrop: acceptedFiles => acceptedFiles.forEach(onPdfSplit),
         accept: { 'application/pdf': ['.pdf'] },
@@ -145,9 +140,6 @@ const PdfStagingArea = ({ stagedPdfs, onPdfSplit, onRemove, onPreview, onHover, 
                             key={pdf.id}
                             pdf={pdf}
                             onRemove={onRemove}
-                            onPreview={onPreview}
-                            onHover={onHover}
-                            onLeave={onLeave}
                             onRename={onRename}
                             onAssign={onAssign}
                             availableSlots={availableSlots}

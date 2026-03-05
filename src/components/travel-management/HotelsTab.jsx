@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Hotel } from 'lucide-react';
 
-const HotelsTab = ({ personnel, travelData, setTravelData }) => {
+const HotelsTab = ({ personnel, travelData, setTravelData, budgetFrozen }) => {
 
   const updateHotel = (memberId, field, value) => {
     setTravelData((prev) => ({
@@ -97,6 +97,8 @@ const HotelsTab = ({ personnel, travelData, setTravelData }) => {
                       placeholder="0.00"
                       value={hotel.cost || ''}
                       onChange={(e) => updateHotel(member.id, 'cost', e.target.value)}
+                      disabled={budgetFrozen}
+                      className={budgetFrozen ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="space-y-1.5">

@@ -6,28 +6,24 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Info, User, DollarSign, Trophy, Search, Check, Shield } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, DollarSign, Search, Check, Shield, HeartHandshake } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import { GeneralVenueStep } from '@/components/show-structure/GeneralVenueStep';
 import { AssociationStep } from '@/components/show-structure/AssociationStep';
-import { OfficialsStaffStep } from '@/components/show-structure/OfficialsStaffStep';
-import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
-import { EntrySchedulingStep } from '@/components/show-structure/EntrySchedulingStep';
-import { AwardsSponsorshipStep } from '@/components/show-structure/AwardsSponsorshipStep';
+import { FeesSponsorsStep } from '@/components/show-structure/FeesSponsorsStep';
+import { SponsorsStep } from '@/components/show-structure/SponsorsStep';
 import { ReviewStep } from '@/components/show-structure/ReviewStep';
 
 
+const WIZARD_STEPS = [
+    { id: 1, name: 'Associations', icon: Shield },
+    { id: 2, name: 'Fee Structure', icon: DollarSign },
+    { id: 3, name: 'Sponsors', icon: HeartHandshake },
+    { id: 4, name: 'Review', icon: Search },
+];
+
 const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
-    const steps = [
-        { id: 1, name: 'Associations', icon: Shield },
-        { id: 2, name: 'General & Venue', icon: Info },
-        { id: 3, name: 'Officials & Staff', icon: User },
-        { id: 4, name: 'Fee Structure', icon: DollarSign },
-        { id: 5, name: 'Entry & Scheduling', icon: User },
-        { id: 6, name: 'Awards & Sponsors', icon: Trophy },
-        { id: 7, name: 'Review', icon: Search },
-    ];
+    const steps = WIZARD_STEPS;
 
     return (
         <div className="flex justify-between items-start mb-8 px-4 overflow-x-auto pb-4">
@@ -70,20 +66,15 @@ const ShowStructurePage = () => {
     const [completedSteps, setCompletedSteps] = useState(new Set());
 
      const setCurrentStep = (stepNumber) => {
-        if (completedSteps.has(stepNumber) || stepNumber <= Math.max(...Array.from(completedSteps), 0) + 1) {
-            setCompletedSteps(prev => new Set([...prev, currentStep]));
-            setCurrentStepState(stepNumber);
-        }
+        setCompletedSteps(prev => new Set([...prev, currentStep]));
+        setCurrentStepState(stepNumber);
     };
     
     const steps = [
         { id: 1, component: AssociationStep },
-        { id: 2, component: GeneralVenueStep },
-        { id: 3, component: OfficialsStaffStep },
-        { id: 4, component: FeeStructureStep },
-        { id: 5, component: EntrySchedulingStep },
-        { id: 6, component: AwardsSponsorshipStep },
-        { id: 7, component: ReviewStep },
+        { id: 2, component: FeesSponsorsStep },
+        { id: 3, component: SponsorsStep },
+        { id: 4, component: ReviewStep },
     ];
 
     const nextStep = () => {
@@ -137,10 +128,6 @@ const ShowStructurePage = () => {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Manager
                         </Button>
-                        <Button onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            {isSaving ? 'Saving...' : 'Save All Details'}
-                        </Button>
                     </div>
 
                     <ShowInfoSteps 
@@ -149,7 +136,11 @@ const ShowStructurePage = () => {
                         setCurrentStep={setCurrentStep} 
                     />
                     
-                    <Card className="mt-8">
+                    <h1 className="text-2xl font-bold mt-8 mb-4">
+                        Step {currentStep}: {WIZARD_STEPS.find(s => s.id === currentStep)?.name}
+                    </h1>
+
+                    <Card>
                         <AnimatePresence mode="wait">
                             {CurrentStepComponent && <CurrentStepComponent 
                                 key={currentStep} 
@@ -162,13 +153,19 @@ const ShowStructurePage = () => {
                         </AnimatePresence>
                     </Card>
 
-                    <div className="mt-8 flex justify-between">
+                    <div className="mt-8 flex justify-between items-center">
                         <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
-                            Back
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Button>
-                        <Button onClick={nextStep} disabled={currentStep === steps.length}>
-                            Next
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button variant="secondary" onClick={handleSave} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                {isSaving ? 'Saving...' : 'Save Details'}
+                            </Button>
+                            <Button onClick={nextStep} disabled={currentStep === steps.length}>
+                                Next
+                            </Button>
+                        </div>
                     </div>
                 </main>
             </div>

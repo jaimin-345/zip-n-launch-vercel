@@ -18,8 +18,6 @@ const SortablePatternSlot = ({
   onRemove,
   onMovePattern,
   otherSlots,
-  onHover,
-  onLeave,
   onPreview,
   isDisciplineSlot,
   onSkillLevelChange,
@@ -67,8 +65,6 @@ const SortablePatternSlot = ({
         pattern ? "bg-card" : "bg-muted/20",
         showDropHighlight && "border-primary/60 bg-primary/5 ring-2 ring-primary/20"
       )}
-      onMouseEnter={() => onHover({ id, type: 'hierarchy', file: pattern?.file, dataUrl: pattern?.dataUrl })}
-      onMouseLeave={onLeave}
     >
       <CardHeader className="flex flex-row items-center justify-between p-3 border-b">
         <div className="flex items-center space-x-2">

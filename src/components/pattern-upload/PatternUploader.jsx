@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import SortablePatternSlot from '@/components/pattern-upload/SortablePatternSlot';
-import PatternPreview from '@/components/pattern-upload/PatternPreview';
 import PdfStagingArea from '@/components/pattern-upload/PdfStagingArea';
 
 const PatternUploader = ({
@@ -17,17 +16,12 @@ const PatternUploader = ({
   handleRemovePattern,
   handleMovePattern,
   onSkillLevelChange,
-  onHover,
-  onLeave,
   onPreview,
-  hoveredPattern,
   stagedPdfs,
   handlePdfSplit,
   assignStagedPdf,
   removeStagedPdf,
   renameStagedPdf,
-  pinnedPattern,
-  handlePinPattern,
 }) => {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -84,8 +78,6 @@ const PatternUploader = ({
     setActiveDragItem(null);
   };
 
-  const currentPreviewItem = pinnedPattern || hoveredPattern;
-
   const hierarchyInfoText = "Group divisions/classes that will share the same pattern. The hierarchy order sets the pattern order in your book, and the division order within a group sets the title block display. This also helps generate correct score sheets.";
 
   return (
@@ -103,7 +95,7 @@ const PatternUploader = ({
                 <PopoverContent className="text-sm w-80">{hierarchyInfoText}</PopoverContent>
             </Popover>
         </CardTitle>
-        <CardDescription>Drag and drop your PDF patterns, then assign suitable divisions and levels for each one. Hover to preview.</CardDescription>
+        <CardDescription>Drag and drop your PDF patterns, then assign suitable divisions and levels for each one.</CardDescription>
       </CardHeader>
       <CardContent>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
@@ -120,9 +112,6 @@ const PatternUploader = ({
                     onPdfSplit={handlePdfSplit}
                     onRemove={removeStagedPdf}
                     onRename={renameStagedPdf}
-                    onPreview={onPreview}
-                    onHover={onHover}
-                    onLeave={onLeave}
                     onAssign={assignStagedPdf}
                     availableSlots={availableSlots}
                   />
@@ -141,8 +130,6 @@ const PatternUploader = ({
                     onRemove={handleRemovePattern}
                     onMovePattern={handleMovePattern}
                     otherSlots={hierarchyOrder.filter(h => h.id !== level.id)}
-                    onHover={onHover}
-                    onLeave={onLeave}
                     onPreview={onPreview}
                     isDisciplineSlot={!!level.isDisciplineSlot}
                     onSkillLevelChange={onSkillLevelChange}
@@ -153,14 +140,6 @@ const PatternUploader = ({
               </SortableContext>
             </div>
           </div>
-          <PatternPreview
-            previewItem={currentPreviewItem}
-            hierarchyOrder={hierarchyOrder}
-            onAssign={assignStagedPdf}
-            isStaged={!!currentPreviewItem && !!stagedPdfs.find(p => p.id === currentPreviewItem.id)}
-            onPin={handlePinPattern}
-            isPinned={!!pinnedPattern && pinnedPattern.id === currentPreviewItem?.id}
-          />
           <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
             {activeDragItem?.type === 'staged' && activeDragItem.data && (
               <div className="p-3 border-2 border-primary rounded-lg bg-background shadow-xl flex items-center gap-2">

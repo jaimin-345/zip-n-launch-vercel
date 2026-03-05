@@ -6,17 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plane, Hotel, Car, LayoutDashboard, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plane, Hotel, Car, MapPin, LayoutDashboard, Save, Loader2, Download } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/lib/supabaseClient';
-import { flattenPersonnel } from '@/lib/contractUtils';
+import { flattenPersonnel, isBudgetFrozen } from '@/lib/contractUtils';
+import { BudgetFrozenBanner } from '@/components/contract-management/BudgetFrozenBanner';
+import { exportTravelToExcel } from '@/lib/travelExport';
 
 import OverviewTab from '@/components/travel-management/OverviewTab';
 import FlightsTab from '@/components/travel-management/FlightsTab';
 import HotelsTab from '@/components/travel-management/HotelsTab';
 import RentalCarsTab from '@/components/travel-management/RentalCarsTab';
+import MileageTab from '@/components/travel-management/MileageTab';
 
 const TravelManagementPage = () => {
   const navigate = useNavigate();
@@ -31,6 +34,7 @@ const TravelManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showName, setShowName] = useState('');
+  const [budgetFrozen, setBudgetFrozen] = useState(false);
 
   // Load contract projects from Supabase
   useEffect(() => {
@@ -78,6 +82,7 @@ const TravelManagementPage = () => {
     setPersonnel(flatPersonnel);
     setContractSettings(formData.contractSettings || {});
     setShowName(formData.showName || project.project_name || '');
+    setBudgetFrozen(isBudgetFrozen(formData));
 
     // Load saved travel data, then auto-fill defaults for any new personnel
     const saved = formData.travelData || {};
@@ -86,14 +91,40 @@ const TravelManagementPage = () => {
     const merged = { ...saved };
 
     for (const member of flatPersonnel) {
+      const expenses = member.reimbursable_expenses || {};
+      const airfareExp = expenses.airfare;
+      const hotelExp = expenses.hotel;
+      const rentalCarExp = expenses.rentalCar;
+      const mileageExp = expenses.mileage;
+
       if (!merged[member.id]) {
-        // Auto-fill: use employee employment dates or event dates, shift -1/+1 day
-        const start = member.employment_start_date || eventStart;
-        const end = member.employment_end_date || eventEnd;
+        // New member: create entry with dates from contract
+        const start = airfareExp?.start_date || member.employment_start_date || eventStart;
+        const end = airfareExp?.end_date || member.employment_end_date || eventEnd;
         merged[member.id] = {
           travelStart: start ? shiftDate(start, -1) : '',
           travelEnd: end ? shiftDate(end, 1) : '',
         };
+      }
+
+      // Always sync contract expense data into travel entry if not already set
+      const entry = merged[member.id];
+      if (!entry.flight?.cost && airfareExp?.reimbursed) {
+        entry.flight = { ...entry.flight, cost: parseFloat(airfareExp.max_value) || 0 };
+      }
+      if (!entry.hotel?.cost && hotelExp?.reimbursed) {
+        entry.hotel = {
+          ...entry.hotel,
+          cost: parseFloat(hotelExp.total) || parseFloat(hotelExp.max_value) || 0,
+          checkIn: entry.hotel?.checkIn || hotelExp.start_date || '',
+          checkOut: entry.hotel?.checkOut || hotelExp.end_date || '',
+        };
+      }
+      if (!entry.rentalCar?.cost && rentalCarExp?.reimbursed) {
+        entry.rentalCar = { ...entry.rentalCar, cost: parseFloat(rentalCarExp.total) || parseFloat(rentalCarExp.max_value) || 0 };
+      }
+      if (!entry.mileage?.cost && mileageExp?.reimbursed) {
+        entry.mileage = { ...entry.mileage, cost: parseFloat(mileageExp.total) || 0 };
       }
     }
 
@@ -150,10 +181,16 @@ const TravelManagementPage = () => {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={handleSave} disabled={isSaving || !selectedProjectId}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Travel Data
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" disabled={!selectedProjectId || personnel.length === 0} onClick={() => exportTravelToExcel({ personnel, travelData, showName })}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Excel
+                </Button>
+                <Button onClick={handleSave} disabled={isSaving || !selectedProjectId}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Travel Data
+                </Button>
+              </div>
             </div>
 
             <h1 className="text-3xl font-extrabold tracking-tight mb-1 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-sky-400">
@@ -208,6 +245,7 @@ const TravelManagementPage = () => {
           {/* Tabs */}
           {selectedProjectId && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              {budgetFrozen && <div className="mb-4"><BudgetFrozenBanner /></div>}
               <Tabs defaultValue="overview">
                 <TabsList className="mb-4">
                   <TabsTrigger value="overview" className="gap-1.5">
@@ -226,6 +264,10 @@ const TravelManagementPage = () => {
                     <Car className="h-4 w-4" />
                     Rental Cars
                   </TabsTrigger>
+                  <TabsTrigger value="mileage" className="gap-1.5">
+                    <MapPin className="h-4 w-4" />
+                    Mileage
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview">
@@ -242,6 +284,7 @@ const TravelManagementPage = () => {
                     personnel={personnel}
                     travelData={travelData}
                     setTravelData={setTravelData}
+                    budgetFrozen={budgetFrozen}
                   />
                 </TabsContent>
 
@@ -250,6 +293,7 @@ const TravelManagementPage = () => {
                     personnel={personnel}
                     travelData={travelData}
                     setTravelData={setTravelData}
+                    budgetFrozen={budgetFrozen}
                   />
                 </TabsContent>
 
@@ -258,6 +302,16 @@ const TravelManagementPage = () => {
                     personnel={personnel}
                     travelData={travelData}
                     setTravelData={setTravelData}
+                    budgetFrozen={budgetFrozen}
+                  />
+                </TabsContent>
+
+                <TabsContent value="mileage">
+                  <MileageTab
+                    personnel={personnel}
+                    travelData={travelData}
+                    setTravelData={setTravelData}
+                    budgetFrozen={budgetFrozen}
                   />
                 </TabsContent>
               </Tabs>

@@ -457,7 +457,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   const getTitle = () => {
     if (context === 'pattern-upload') return `Step ${stepNumber}: Pattern Set Name & Associations`;
     if (context === 'pbb') return `Step ${stepNumber}: Book & Association Details`;
-    if (context === 'showInfo') return "Select Association / Affiliation";
+    if (context === 'showInfo') return "Associations";
     if (context === 'hub') return `Step ${stepNumber}: Select Association`;
     if (context === 'contract') return `Step ${stepNumber}: Select Association / Affiliation`;
     return `Step ${stepNumber}: Show Structure`;
@@ -483,10 +483,12 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
 
   return (
     <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-xl">{getTitle()}</CardTitle>
-        <CardDescription className="text-sm">{getDescription()}</CardDescription>
-      </CardHeader>
+      {context !== 'showInfo' && (
+        <CardHeader className="pb-3">
+          <CardTitle className="text-xl">{getTitle()}</CardTitle>
+          <CardDescription className="text-sm">{getDescription()}</CardDescription>
+        </CardHeader>
+      )}
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">

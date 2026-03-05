@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plane } from 'lucide-react';
 import { currency } from '@/lib/contractUtils';
 
-const FlightsTab = ({ personnel, travelData, setTravelData }) => {
+const FlightsTab = ({ personnel, travelData, setTravelData, budgetFrozen }) => {
 
   const updateFlight = (memberId, field, value) => {
     setTravelData((prev) => ({
@@ -113,6 +113,8 @@ const FlightsTab = ({ personnel, travelData, setTravelData }) => {
                       placeholder="0.00"
                       value={flight.cost || ''}
                       onChange={(e) => updateFlight(member.id, 'cost', e.target.value)}
+                      disabled={budgetFrozen}
+                      className={budgetFrozen ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="space-y-1.5">

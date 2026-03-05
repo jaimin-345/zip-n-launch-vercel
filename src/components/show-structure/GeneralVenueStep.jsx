@@ -103,6 +103,25 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
 
     const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
+    const handleArenaNameChange = (index, value) => {
+        setFormData(prev => {
+            const arenas = [...(prev.showDetails?.venue?.arenas || [])];
+            arenas[index] = { ...(arenas[index] || {}), id: `arena-${index + 1}`, name: value };
+            return {
+                ...prev,
+                showDetails: {
+                    ...prev.showDetails,
+                    venue: {
+                        ...(prev.showDetails?.venue || {}),
+                        arenas,
+                    },
+                },
+            };
+        });
+    };
+
+    const arenaCount = parseInt(formData.showDetails?.venue?.numberOfArenas) || 0;
+
     const openMap = (mapType) => {
         const address = formData.showDetails?.venue?.address;
         if (!address) return;
@@ -116,7 +135,7 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 2: General & Venue Information</CardTitle>
+                <CardTitle>Step 2: General Information</CardTitle>
                 <CardDescription>Enter the basic details for your show, populated from your association selections.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -250,6 +269,40 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                         </div>
                         
                         <div>
+                            <Label>Facility Details</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
+                                <Input type="number" min="0" value={formData.showDetails?.venue?.numberOfStalls || ''} onChange={(e) => handleDetailChange('venue', 'numberOfStalls', e.target.value)} placeholder="Number of Stalls" />
+                                <Input type="number" min="0" value={formData.showDetails?.venue?.numberOfRVSpots || ''} onChange={(e) => handleDetailChange('venue', 'numberOfRVSpots', e.target.value)} placeholder="Number of RV Spots" />
+                                <Input type="number" min="0" value={formData.showDetails?.venue?.numberOfArenas || ''} onChange={(e) => handleDetailChange('venue', 'numberOfArenas', e.target.value)} placeholder="Number of Arenas" />
+                            </div>
+                        </div>
+
+                        {arenaCount > 0 && (
+                            <div>
+                                <Label>Arena Names</Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 mt-2">
+                                    {Array.from({ length: arenaCount }, (_, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <span className="text-sm text-muted-foreground whitespace-nowrap w-20">Arena {i + 1}</span>
+                                            <Input
+                                                value={formData.showDetails?.venue?.arenas?.[i]?.name || ''}
+                                                onChange={(e) => handleArenaNameChange(i, e.target.value)}
+                                                placeholder={`e.g., Main Arena`}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {renderTextarea('venue', 'directions', 'Directions / Parking Instructions', 'e.g., Trailer parking is located at the north entrance...')}
+                    </div>
+                </div>
+
+                <div className="p-6 border rounded-lg bg-background/50">
+                    <h4 className="font-semibold text-xl mb-4 text-primary">Lodging</h4>
+                    <div className="space-y-4">
+                        <div>
                             <Label>Host Hotel</Label>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 items-center">
                                 <Textarea value={formData.showDetails?.venue?.hostHotel || ''} onChange={(e) => handleDetailChange('venue', 'hostHotel', e.target.value)} placeholder="Hotel name & info (e.g., Stay at The Equestrian Inn, use code HORSESHOW25...)" />
@@ -271,8 +324,6 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                                 </div>
                             </div>
                         </div>
-
-                        {renderTextarea('venue', 'directions', 'Directions / Parking Instructions', 'e.g., Trailer parking is located at the north entrance...')}
                     </div>
                 </div>
             </CardContent>

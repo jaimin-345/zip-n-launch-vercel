@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
-import { applyLinkedProjectData } from '@/lib/contractUtils';
+import { applyLinkedProjectData, isBudgetFrozen } from '@/lib/contractUtils';
 
 // Step Components
 import { Step1_ShowStructure } from '@/components/contract-management/Step1_ShowStructure';
@@ -326,6 +326,14 @@ const ContractManagementPage = () => {
   };
 
   const handleResetStep = () => {
+    if (currentStep === 2 && isBudgetFrozen(formData)) {
+      toast({
+        title: 'Staff Partially Locked',
+        description: 'Step 2 cannot be reset because one or more contracts have been sent. Staff with sent contracts are locked.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setFormData(prev => {
       switch (currentStep) {
         case 1:

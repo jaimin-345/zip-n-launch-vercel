@@ -20,13 +20,8 @@ export const Step3_UploadAndOrganize = ({
   handleDivisionGroupChange,
   handleBulkDivisionChange,
   divisionsData,
-  onHover,
-  onLeave,
-  onPreview,
-  hoveredPattern,
-  pinnedPattern,
-  handlePinPattern,
   selectedAssociationIds,
+  onPreview,
 }) => {
   // Filter divisionsData to only selected associations
   const filteredDivisionsData = useMemo(() => {
@@ -71,17 +66,12 @@ export const Step3_UploadAndOrganize = ({
           handleRemovePattern={handleRemovePattern}
           handleMovePattern={handleMovePattern}
           onSkillLevelChange={handlePatternSkillLevel}
-          onHover={onHover}
-          onLeave={onLeave}
           onPreview={onPreview}
-          hoveredPattern={hoveredPattern}
           stagedPdfs={formData.stagedPdfs}
           handlePdfSplit={handlePdfSplit}
           assignStagedPdf={assignStagedPdf}
           removeStagedPdf={removeStagedPdf}
           renameStagedPdf={renameStagedPdf}
-          pinnedPattern={pinnedPattern}
-          handlePinPattern={handlePinPattern}
         />
 
       </CardContent>

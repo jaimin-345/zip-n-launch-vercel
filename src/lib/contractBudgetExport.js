@@ -17,6 +17,7 @@ const EXPENSE_COLUMNS = [
   { key: 'rentalCar',      label: 'Rental Car' },
   { key: 'perDiem',        label: 'Per Diem' },
   { key: 'hotel',          label: 'Hotel' },
+  { key: 'mileage',        label: 'Mileage' },
 ];
 
 // Numeric columns that get summed in the totals row
@@ -76,6 +77,7 @@ export const exportBudgetToExcel = (formData) => {
     { wch: 12 }, // Rental Car
     { wch: 12 }, // Per Diem
     { wch: 12 }, // Hotel
+    { wch: 12 }, // Mileage
     { wch: 14 }, // Expenses
     { wch: 14 }, // Total
   ];

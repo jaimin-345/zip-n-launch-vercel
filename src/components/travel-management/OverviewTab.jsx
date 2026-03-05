@@ -1,36 +1,52 @@
-import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Plane, Hotel, Car, DollarSign, Users, Calendar, ExternalLink } from 'lucide-react';
+import { Plane, Hotel, Car, DollarSign, Users, Calendar, MapPin } from 'lucide-react';
 import { currency } from '@/lib/contractUtils';
 
-const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings }) => {
+const OverviewTab = ({ personnel, travelData, contractSettings }) => {
 
   const getPersonTravel = (memberId) => travelData[memberId] || {};
 
-  const getFlightCost = (memberId) => {
-    const travel = getPersonTravel(memberId);
-    return parseFloat(travel.flight?.cost) || 0;
+  // Get expense amount from contract reimbursable_expenses
+  const getContractExpense = (member, expenseKey) => {
+    const expense = member.reimbursable_expenses?.[expenseKey];
+    if (!expense?.reimbursed) return 0;
+    // Per-day expenses use 'total', lump-sum use 'max_value'
+    return parseFloat(expense.total) || parseFloat(expense.max_value) || 0;
   };
 
-  const getHotelCost = (memberId) => {
-    const travel = getPersonTravel(memberId);
-    return parseFloat(travel.hotel?.cost) || 0;
+  const getFlightCost = (member) => {
+    const travel = getPersonTravel(member.id);
+    const travelCost = parseFloat(travel.flight?.cost) || 0;
+    return travelCost || getContractExpense(member, 'airfare');
   };
 
-  const getRentalCost = (memberId) => {
-    const travel = getPersonTravel(memberId);
-    return parseFloat(travel.rentalCar?.cost) || 0;
+  const getHotelCost = (member) => {
+    const travel = getPersonTravel(member.id);
+    const travelCost = parseFloat(travel.hotel?.cost) || 0;
+    return travelCost || getContractExpense(member, 'hotel');
   };
 
-  const getTotalCost = (memberId) =>
-    getFlightCost(memberId) + getHotelCost(memberId) + getRentalCost(memberId);
+  const getRentalCost = (member) => {
+    const travel = getPersonTravel(member.id);
+    const travelCost = parseFloat(travel.rentalCar?.cost) || 0;
+    return travelCost || getContractExpense(member, 'rentalCar');
+  };
 
-  const grandTotalFlights = personnel.reduce((s, m) => s + getFlightCost(m.id), 0);
-  const grandTotalHotels = personnel.reduce((s, m) => s + getHotelCost(m.id), 0);
-  const grandTotalRentals = personnel.reduce((s, m) => s + getRentalCost(m.id), 0);
-  const grandTotal = grandTotalFlights + grandTotalHotels + grandTotalRentals;
+  const getMileageCost = (member) => {
+    const travel = getPersonTravel(member.id);
+    const travelCost = parseFloat(travel.mileage?.cost) || 0;
+    return travelCost || getContractExpense(member, 'mileage');
+  };
+
+  const getTotalCost = (member) =>
+    getFlightCost(member) + getHotelCost(member) + getRentalCost(member) + getMileageCost(member);
+
+  const grandTotalFlights = personnel.reduce((s, m) => s + getFlightCost(m), 0);
+  const grandTotalHotels = personnel.reduce((s, m) => s + getHotelCost(m), 0);
+  const grandTotalRentals = personnel.reduce((s, m) => s + getRentalCost(m), 0);
+  const grandTotalMileage = personnel.reduce((s, m) => s + getMileageCost(m), 0);
+  const grandTotal = grandTotalFlights + grandTotalHotels + grandTotalRentals + grandTotalMileage;
 
   const completedCount = personnel.filter((m) => {
     const t = getPersonTravel(m.id);
@@ -40,7 +56,7 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
   return (
     <div className="space-y-6">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4 pb-4 text-center">
             <Users className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
@@ -67,6 +83,13 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
             <Car className="h-5 w-5 mx-auto mb-1 text-green-500" />
             <p className="text-2xl font-bold">{currency(grandTotalRentals)}</p>
             <p className="text-xs text-muted-foreground">Rental Cars</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-4 text-center">
+            <MapPin className="h-5 w-5 mx-auto mb-1 text-purple-500" />
+            <p className="text-2xl font-bold">{currency(grandTotalMileage)}</p>
+            <p className="text-xs text-muted-foreground">Mileage</p>
           </CardContent>
         </Card>
         <Card>
@@ -106,6 +129,7 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
                   <th className="text-right px-4 py-3 font-medium">Flight</th>
                   <th className="text-right px-4 py-3 font-medium">Hotel</th>
                   <th className="text-right px-4 py-3 font-medium">Rental Car</th>
+                  <th className="text-right px-4 py-3 font-medium">Mileage</th>
                   <th className="text-right px-4 py-3 font-medium">Total</th>
                   <th className="text-center px-4 py-3 font-medium">Status</th>
                 </tr>
@@ -113,7 +137,7 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
               <tbody>
                 {personnel.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <td colSpan={10} className="text-center py-8 text-muted-foreground">
                       No personnel found. Add staff in Contract Management first.
                     </td>
                   </tr>
@@ -122,8 +146,9 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
                     const travel = getPersonTravel(member.id);
                     const travelStart = travel.travelStart || '';
                     const travelEnd = travel.travelEnd || '';
-                    const hasDetails = travel.flight?.airline || travel.hotel?.hotelName || travel.rentalCar?.company;
-                    const total = getTotalCost(member.id);
+                    const hasBooking = travel.flight?.airline || travel.hotel?.hotelName || travel.rentalCar?.company;
+                    const hasExpenses = getTotalCost(member) > 0;
+                    const total = getTotalCost(member);
 
                     return (
                       <tr key={member.id} className="border-b hover:bg-muted/30 transition-colors">
@@ -131,13 +156,16 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
                         <td className="px-4 py-3 text-muted-foreground">{member.roleName}</td>
                         <td className="px-4 py-3">{travelStart || '—'}</td>
                         <td className="px-4 py-3">{travelEnd || '—'}</td>
-                        <td className="px-4 py-3 text-right">{getFlightCost(member.id) ? currency(getFlightCost(member.id)) : '—'}</td>
-                        <td className="px-4 py-3 text-right">{getHotelCost(member.id) ? currency(getHotelCost(member.id)) : '—'}</td>
-                        <td className="px-4 py-3 text-right">{getRentalCost(member.id) ? currency(getRentalCost(member.id)) : '—'}</td>
+                        <td className="px-4 py-3 text-right">{getFlightCost(member) ? currency(getFlightCost(member)) : '—'}</td>
+                        <td className="px-4 py-3 text-right">{getHotelCost(member) ? currency(getHotelCost(member)) : '—'}</td>
+                        <td className="px-4 py-3 text-right">{getRentalCost(member) ? currency(getRentalCost(member)) : '—'}</td>
+                        <td className="px-4 py-3 text-right">{getMileageCost(member) ? currency(getMileageCost(member)) : '—'}</td>
                         <td className="px-4 py-3 text-right font-medium">{total ? currency(total) : '—'}</td>
                         <td className="px-4 py-3 text-center">
-                          {hasDetails ? (
+                          {hasBooking ? (
                             <Badge className="bg-green-500/10 text-green-600 border-green-500/30">Booked</Badge>
+                          ) : hasExpenses ? (
+                            <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/30">Budgeted</Badge>
                           ) : (
                             <Badge variant="secondary">Pending</Badge>
                           )}
@@ -154,6 +182,7 @@ const OverviewTab = ({ personnel, travelData, setTravelData, contractSettings })
                     <td className="px-4 py-3 text-right">{currency(grandTotalFlights)}</td>
                     <td className="px-4 py-3 text-right">{currency(grandTotalHotels)}</td>
                     <td className="px-4 py-3 text-right">{currency(grandTotalRentals)}</td>
+                    <td className="px-4 py-3 text-right">{currency(grandTotalMileage)}</td>
                     <td className="px-4 py-3 text-right">{currency(grandTotal)}</td>
                     <td />
                   </tr>

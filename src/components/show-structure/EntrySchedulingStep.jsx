@@ -33,8 +33,8 @@ export const EntrySchedulingStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 5: Entry, Rules & Scheduling Notes</CardTitle>
-                <CardDescription>Provide details about entries, rules, and schedule.</CardDescription>
+                <CardTitle>Step 6: Scheduling</CardTitle>
+                <CardDescription>Provide details about entries, rules, scheduling, health requirements, and special events.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                  <div className="p-4 border rounded-lg bg-background/50">
@@ -75,6 +75,28 @@ export const EntrySchedulingStep = ({ formData, setFormData }) => {
                         {renderTextarea('scheduling', 'dragTimes', 'Drag Times / Breaks', 'e.g., After every 5 classes...')}
                         {renderTextarea('scheduling', 'concurrentNotes', 'Concurrent Class Notes', 'Dual-approved or dual-group classes info...')}
                         {renderTextarea('scheduling', 'quietHours', 'Quiet Hours', 'e.g., 10 PM to 6 AM')}
+                    </div>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-background/50">
+                    <h4 className="font-semibold text-lg mb-3">Health, Safety & Legal</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderTextarea('healthSafety', 'healthReqs', 'Equine Health Requirements', 'Negative Coggins, vaccinations, vet inspection...')}
+                        {renderTextarea('healthSafety', 'emergencyContacts', 'Emergency Contacts', 'Vet on call, farrier, EMT, show office phone...')}
+                        {renderTextarea('healthSafety', 'liability', 'Liability Release Statement', 'Standard assumption of risk language...')}
+                        {renderTextarea('healthSafety', 'insurance', 'Insurance Requirements', 'If breed or venue requires...')}
+                        {renderTextarea('healthSafety', 'facilityRules', 'Facility Rules', 'No dogs off leash, golf cart restrictions, smoking policy...')}
+                    </div>
+                </div>
+
+                <div className="p-4 border rounded-lg bg-background/50">
+                    <h4 className="font-semibold text-lg mb-3">Special Events</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderTextarea('specialEvents', 'clinics', 'Clinics / Schooling Sessions', 'Details, times, costs...')}
+                        {renderTextarea('specialEvents', 'socialEvents', 'Exhibitor Party / Social Events', 'Date, time, location...')}
+                        {renderTextarea('specialEvents', 'meetings', 'Youth / Amateur Meetings', 'Details...')}
+                        {renderTextarea('specialEvents', 'fundraisers', 'Silent Auctions / Fundraisers', 'Details...')}
+                        {renderTextarea('specialEvents', 'banquets', 'Banquets / Awards Dinners', 'Details...')}
                     </div>
                 </div>
             </CardContent>
