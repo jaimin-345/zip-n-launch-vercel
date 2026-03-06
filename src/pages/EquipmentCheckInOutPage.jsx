@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Loader2, ArrowLeft, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Package, MapPin, History, Trash2, Printer } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,7 +48,7 @@ const CheckInTab = ({ distributionPlan, arenaState, globalState, inventory, onCh
           <div>
             <p className="font-semibold text-amber-800 dark:text-amber-200">No Distribution Plan</p>
             <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">Generate a distribution plan first to see what equipment is expected at this arena.</p>
-            <Link to="/admin/distribution-plan" className="text-sm text-primary hover:underline mt-2 inline-block">
+            <Link to="/horse-show-manager/distribution-plan" className="text-sm text-primary hover:underline mt-2 inline-block">
               Go to Distribution Plan
             </Link>
           </div>
@@ -570,6 +570,7 @@ const HistoryTab = ({ transactions, arenas, selectedArena, onVoid, isSaving }) =
 
 // ---- Main Page ----
 const EquipmentCheckInOutPage = () => {
+  const navigate = useNavigate();
   const {
     shows, isShowsLoading, selectedShow, setSelectedShow, fetchUserShows,
     arenas, isArenasLoading, selectedArena, setSelectedArena, fetchArenas,
@@ -606,9 +607,9 @@ const EquipmentCheckInOutPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8"
       >
-        <Link to="/admin/equipment-planning" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
-          <ArrowLeft className="h-4 w-4 mr-1" /> Equipment Planning
-        </Link>
+        <Button variant="outline" className="mb-6" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+        </Button>
 
         <div className="text-center mb-8">
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -655,7 +656,7 @@ const EquipmentCheckInOutPage = () => {
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 ) : arenas.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No arenas found.{' '}
-                    <Link to="/admin/arena-sessions" className="text-primary hover:underline">Create arenas first</Link>.
+                    <Link to="/horse-show-manager/arena-sessions" className="text-primary hover:underline">Create arenas first</Link>.
                   </p>
                 ) : (
                   <Select value={selectedArena || ''} onValueChange={handleArenaChange}>
@@ -716,8 +717,8 @@ const EquipmentCheckInOutPage = () => {
                   <Printer className="h-4 w-4 mr-2" /> Print Arena Kit List
                 </Button>
                 <div className="flex items-center gap-3">
-                  <Link to="/admin/distribution-plan" className="text-sm text-primary hover:underline">Distribution Plan</Link>
-                  <Link to="/admin/equipment-requirements" className="text-sm text-primary hover:underline">Requirements</Link>
+                  <Link to="/horse-show-manager/distribution-plan" className="text-sm text-primary hover:underline">Distribution Plan</Link>
+                  <Link to="/horse-show-manager/equipment-requirements" className="text-sm text-primary hover:underline">Requirements</Link>
                 </div>
               </CardContent>
             </Card>

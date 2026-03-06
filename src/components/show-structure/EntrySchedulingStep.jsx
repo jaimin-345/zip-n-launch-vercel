@@ -33,8 +33,8 @@ export const EntrySchedulingStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 6: Scheduling</CardTitle>
-                <CardDescription>Provide details about entries, rules, scheduling, health requirements, and special events.</CardDescription>
+                <CardTitle>Step 7: Entry & Scheduling</CardTitle>
+                <CardDescription>Entries, scheduling, health requirements, facility rules, safety policies, and special events.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                  <div className="p-4 border rounded-lg bg-background/50">

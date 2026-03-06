@@ -71,8 +71,8 @@ export const AwardsSponsorshipStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 5: Awards & Recognition</CardTitle>
-                <CardDescription>Define awards, budgets, and recognition for your show.</CardDescription>
+                <CardTitle>Step 6: Awards</CardTitle>
+                <CardDescription>Define awards, budgets, and recognition for your show. Class awards can be auto-generated from your uploaded schedule.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="p-4 border rounded-lg bg-background/50">

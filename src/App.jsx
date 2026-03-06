@@ -106,6 +106,14 @@ import EquipmentPlanningHubPage from '@/pages/EquipmentPlanningHubPage';
 import LocationsPage from '@/pages/LocationsPage';
 import ReconciliationPage from '@/pages/ReconciliationPage';
 import EquipmentReportsPage from '@/pages/EquipmentReportsPage';
+import CreateHorseShowWizardPage from '@/pages/CreateHorseShowWizardPage';
+import ShowFinancialDashboardPage from '@/pages/ShowFinancialDashboardPage';
+import ShowFinancialPickerPage from '@/pages/ShowFinancialPickerPage';
+import ShowStructurePickerPage from '@/pages/ShowStructurePickerPage';
+import EmployeeBudgetingToolPage from '@/pages/EmployeeBudgetingToolPage';
+import VenueArenaSetupPage from '@/pages/VenueArenaSetupPage';
+import EmployeeSchedulingPage from '@/pages/EmployeeSchedulingPage';
+import AwardsManagementPage from '@/pages/AwardsManagementPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -184,16 +192,16 @@ function App() {
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
                   <Route path="/admin/events" element={<AdminRoute><AdminEventsManagementPage /></AdminRoute>} />
                   <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
-                  <Route path="/admin/equipment" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></RoleBasedRoute>} />
-                  <Route path="/admin/discipline-planner" element={<RoleBasedRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></RoleBasedRoute>} />
-                  <Route path="/admin/arena-sessions" element={<RoleBasedRoute requiredPermission="equipment:manage"><ArenaSessionsPage /></RoleBasedRoute>} />
-                  <Route path="/admin/equipment-requirements" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentRequirementsPage /></RoleBasedRoute>} />
-                  <Route path="/admin/distribution-plan" element={<RoleBasedRoute requiredPermission="equipment:manage"><DistributionPlanPage /></RoleBasedRoute>} />
-                  <Route path="/admin/equipment-check-in-out" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentCheckInOutPage /></RoleBasedRoute>} />
-                  <Route path="/admin/equipment-planning" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></RoleBasedRoute>} />
-                  <Route path="/admin/locations" element={<RoleBasedRoute requiredPermission="equipment:manage"><LocationsPage /></RoleBasedRoute>} />
-                  <Route path="/admin/reconciliation" element={<RoleBasedRoute requiredPermission="equipment:manage"><ReconciliationPage /></RoleBasedRoute>} />
-                  <Route path="/admin/equipment-reports" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentReportsPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/discipline-planner" element={<RoleBasedRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/arena-sessions" element={<RoleBasedRoute requiredPermission="equipment:manage"><ArenaSessionsPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment-requirements" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentRequirementsPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/distribution-plan" element={<RoleBasedRoute requiredPermission="equipment:manage"><DistributionPlanPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment-check-in-out" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentCheckInOutPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment-planning" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/locations" element={<RoleBasedRoute requiredPermission="equipment:manage"><LocationsPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/reconciliation" element={<RoleBasedRoute requiredPermission="equipment:manage"><ReconciliationPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment-reports" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentReportsPage /></RoleBasedRoute>} />
 
                   <Route path="/customer-portal" element={<CustomerPortalPage />} />
                   <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
@@ -209,16 +217,24 @@ function App() {
                   <Route path="/horse-show-manager" element={<RoleBasedRoute requiredPermission="shows:manage:own"><HorseShowManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/create" element={<RoleBasedRoute requiredPermission="shows:create"><CreateShowPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/edit/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-structure" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/create-show" element={<RoleBasedRoute requiredPermission="shows:create"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/create-show/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/show-structure" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePickerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/show-structure/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/show-dashboard/:showId" element={<RoleBasedRoute requiredPermission="shows:view"><ShowDashboardPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/financials" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowFinancialPickerPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/financials/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowFinancialDashboardPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/stalling-service-manager" element={<RoleBasedRoute requiredPermission="shows:manage:own"><StallingServiceManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-scheduling" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeArenaSchedulingManagerPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/employee-budgeting" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeBudgetingToolPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/venue-arena-setup" element={<RoleBasedRoute requiredPermission="shows:manage:own"><VenueArenaSetupPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/employee-scheduling/assign" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeSchedulingPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-management" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeManagementPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-management/contracts" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ContractManagementPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-management/contracts/:projectId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ContractManagementPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/travel-management" element={<RoleBasedRoute requiredPermission="shows:manage:own"><TravelManagementPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/awards-presenters" element={<RoleBasedRoute requiredPermission="shows:manage:own"><AwardsPresenterManagerPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/awards-management" element={<RoleBasedRoute requiredPermission="shows:manage:own"><AwardsManagementPage /></RoleBasedRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
                   <Route path="/upload-patterns/my-uploads" element={<RoleBasedRoute requiredPermission="patterns:upload"><MyPatternUploadsPage /></RoleBasedRoute>} />

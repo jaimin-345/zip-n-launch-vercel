@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { FileBarChart, Loader2, ArrowLeft, ClipboardList, AlertTriangle, Truck, FileText, Download } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -46,6 +46,7 @@ const reportTypes = [
 ];
 
 const EquipmentReportsPage = () => {
+  const navigate = useNavigate();
   const {
     shows, isShowsLoading, selectedShow,
     reportData, isLoading, isGenerating,
@@ -65,9 +66,9 @@ const EquipmentReportsPage = () => {
       <Navigation />
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link to="/admin/equipment-planning" className="text-primary hover:underline text-sm flex items-center gap-1">
-            <ArrowLeft className="h-4 w-4" /> Equipment Planning
-          </Link>
+          <Button variant="outline" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+          </Button>
         </div>
 
         <header className="mb-8">

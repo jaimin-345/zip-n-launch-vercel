@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import {
-  Info, CalendarDays, FileText,
+  Info, CalendarDays, FileText, ClipboardList,
   DollarSign, LayoutGrid, Building2, BarChart2, Radio, Award,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -86,8 +86,9 @@ const sections = [
     title: 'Create New Show',
     link: '/horse-show-manager/create',
     items: [
-      { icon: CalendarDays, label: 'Show Schedule', link: '/horse-show-manager/create' },
+      { icon: ClipboardList, label: 'Create Horse Show', link: '/horse-show-manager/create-show' },
       { icon: Info, label: 'Show Structure', link: '/horse-show-manager/show-structure' },
+      // { icon: CalendarDays, label: 'Show Schedule', link: '/horse-show-manager/create' },
     ],
   },
   {
@@ -96,7 +97,7 @@ const sections = [
     link: '/horse-show-manager/employee-management',
     items: [
       { icon: FileText, label: 'Contract Management', link: '/horse-show-manager/employee-management/contracts' },
-      { icon: DollarSign, label: 'Employee Budgeting Tool', unimplemented: true },
+      { icon: DollarSign, label: 'Employee Budgeting Tool', link: '/horse-show-manager/employee-budgeting' },
       { icon: LayoutGrid, label: 'Employee / Arena Scheduling', link: '/horse-show-manager/employee-scheduling' },
     ],
   },
@@ -105,10 +106,10 @@ const sections = [
     title: 'Horse Show Management',
     link: '/horse-show-manager/stalling-service-manager',
     items: [
-      { icon: Radio, label: 'Equipment Management', link: '/admin/equipment-planning', line: 1 },
-      { icon: Award, label: 'Awards Management', unimplemented: true, line: 2 },
-      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 3 },
-      { icon: DollarSign, label: 'Horse Show Financials / Analytics', unimplemented: true, line: 4 },
+      { icon: Radio, label: 'Equipment Management', link: '/horse-show-manager/equipment-planning', line: 1 },
+      { icon: Award, label: 'Awards Management', link: '/horse-show-manager/awards-management', line: 2 },
+      { icon: DollarSign, label: 'Horse Show Financials / Analytics', link: '/horse-show-manager/financials', line: 3 },
+      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 4 },
     ],
   },
 ];

@@ -1,64 +1,65 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { ArrowLeft, Package, Ruler, CalendarDays, Truck, MapPin, ClipboardCheck, RefreshCcw, FileBarChart, Calculator } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 
 const sections = [
   {
     name: 'Master Equipment List',
-    path: '/admin/equipment',
+    path: '/horse-show-manager/equipment',
     icon: Package,
     description: 'Manage your complete equipment inventory. Add, edit, and track all items by category and condition.',
     step: '1',
   },
   {
     name: 'Discipline & Class Planner',
-    path: '/admin/discipline-planner',
+    path: '/horse-show-manager/discipline-planner',
     icon: Ruler,
     description: 'Define equipment profiles for disciplines and create reusable class templates.',
     step: '2',
   },
   {
     name: 'Arena Schedule & Equipment Needs',
-    path: '/admin/arena-sessions',
+    path: '/horse-show-manager/arena-sessions',
     icon: CalendarDays,
     description: 'Build arena sessions, assign class templates, and auto-calculate equipment requirements.',
     step: '3',
-    subLink: { label: 'Equipment Requirements', path: '/admin/equipment-requirements', icon: Calculator },
+    subLink: { label: 'Equipment Requirements', path: '/horse-show-manager/equipment-requirements', icon: Calculator },
   },
   {
     name: 'Distribution Plan',
-    path: '/admin/distribution-plan',
+    path: '/horse-show-manager/distribution-plan',
     icon: Truck,
     description: 'Auto-generate equipment distribution to arenas based on calculated requirements.',
     step: '4',
   },
   {
     name: 'Locations',
-    path: '/admin/locations',
+    path: '/horse-show-manager/locations',
     icon: MapPin,
     description: 'Define locations where equipment is stored, staged, or used during shows.',
     step: '5',
   },
   {
     name: 'Check-In / Check-Out',
-    path: '/admin/equipment-check-in-out',
+    path: '/horse-show-manager/equipment-check-in-out',
     icon: ClipboardCheck,
     description: 'Track equipment check-ins, check-outs, and transfers between arenas during events.',
     step: '6',
   },
   {
     name: 'Reconciliation / Clean-Up',
-    path: '/admin/reconciliation',
+    path: '/horse-show-manager/reconciliation',
     icon: RefreshCcw,
     description: 'Compare planned vs actual, identify missing or damaged items, and reset for the next show.',
     step: '7',
   },
   {
     name: 'Reports',
-    path: '/admin/equipment-reports',
+    path: '/horse-show-manager/equipment-reports',
     icon: FileBarChart,
     description: 'Generate printable arena kit lists, daily summaries, shortage reports, and distribution reports.',
     step: '8',
@@ -66,15 +67,17 @@ const sections = [
 ];
 
 const EquipmentPlanningHubPage = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Helmet><title>Equipment Planning - EquiPatterns</title></Helmet>
       <Navigation />
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
-          <Link to="/admin" className="text-primary hover:underline text-sm flex items-center gap-1">
-            <ArrowLeft className="h-4 w-4" /> Admin Dashboard
-          </Link>
+          <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Manager
+          </Button>
         </div>
 
         <header className="mb-8">

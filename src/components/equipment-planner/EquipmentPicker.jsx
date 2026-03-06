@@ -61,7 +61,7 @@ const EquipmentPicker = ({ open, onOpenChange, onSelect, excludeIds = [], fetchU
             <div className="text-center py-8 text-muted-foreground">
               <p>{searchTerm ? 'No equipment matches your search.' : 'No equipment in your inventory yet.'}</p>
               <p className="text-sm mt-2">
-                <Link to="/admin/equipment" className="text-primary underline" onClick={() => onOpenChange(false)}>
+                <Link to="/horse-show-manager/equipment" className="text-primary underline" onClick={() => onOpenChange(false)}>
                   Add equipment first
                 </Link>
               </p>

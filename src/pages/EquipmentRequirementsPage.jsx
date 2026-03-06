@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Calculator, Loader2, ArrowLeft, AlertTriangle, CheckCircle2, Package, CalendarDays, BarChart3, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -306,6 +306,7 @@ const ShortageDetection = ({ showResults }) => {
 
 // ---- Main Page ----
 const EquipmentRequirementsPage = () => {
+  const navigate = useNavigate();
   const {
     shows, isShowsLoading, selectedShow, setSelectedShow, fetchUserShows,
     isCalculating, lastCalculatedAt, missingDataMessage,
@@ -333,9 +334,9 @@ const EquipmentRequirementsPage = () => {
         className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8"
       >
         {/* Back Link */}
-        <Link to="/admin/equipment-planning" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6">
-          <ArrowLeft className="h-4 w-4 mr-1" /> Equipment Planning
-        </Link>
+        <Button variant="outline" className="mb-6" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+        </Button>
 
         {/* Hero */}
         <div className="text-center mb-8">
@@ -393,7 +394,7 @@ const EquipmentRequirementsPage = () => {
                   )}
                 </div>
                 {hasResults && (
-                  <Link to="/admin/arena-sessions" className="text-sm text-primary hover:underline">
+                  <Link to="/horse-show-manager/arena-sessions" className="text-sm text-primary hover:underline">
                     Edit Arena Sessions
                   </Link>
                 )}
@@ -416,7 +417,7 @@ const EquipmentRequirementsPage = () => {
                   <div>
                     <p className="font-semibold text-amber-800 dark:text-amber-200">Setup Required</p>
                     <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{missingDataMessage.text}</p>
-                    <Link to="/admin/arena-sessions" className="text-sm text-primary hover:underline mt-2 inline-block">
+                    <Link to="/horse-show-manager/arena-sessions" className="text-sm text-primary hover:underline mt-2 inline-block">
                       Go to Arena Sessions
                     </Link>
                   </div>
@@ -525,9 +526,9 @@ const EquipmentRequirementsPage = () => {
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Make sure you have{' '}
-                  <Link to="/admin/arena-sessions" className="text-primary underline">arena sessions with assigned classes</Link>{' '}
+                  <Link to="/horse-show-manager/arena-sessions" className="text-primary underline">arena sessions with assigned classes</Link>{' '}
                   and{' '}
-                  <Link to="/admin/discipline-planner" className="text-primary underline">equipment profiles configured</Link>.
+                  <Link to="/horse-show-manager/discipline-planner" className="text-primary underline">equipment profiles configured</Link>.
                 </p>
               </div>
             )}

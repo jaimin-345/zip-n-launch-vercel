@@ -28,11 +28,13 @@ const EmployeeArenaSchedulingManagerPage = () => {
             name: "Employee Management",
             icon: Users,
             description: "Manage all staff, roles, and certifications.",
+            link: "/horse-show-manager/employee-scheduling/assign",
         },
         {
             name: "Venue & Arena Setup",
             icon: Building,
             description: "Configure show venues and specific arenas.",
+            link: "/horse-show-manager/venue-arena-setup",
         },
         {
             name: "Travel Management",

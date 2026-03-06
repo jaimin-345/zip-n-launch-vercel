@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -7,6 +6,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const initialFormData = {
   showName: '',
+  showNumber: null,
   showType: 'multi-day',
   associations: {},
   customAssociations: [],
@@ -28,6 +28,12 @@ const initialFormData = {
   showBill: null,
   layoutSettings: null,
   showStatus: 'draft',
+  sponsorLevels: [
+    { id: 'platinum', name: 'Platinum', amount: 5000, color: '#E5E4E2', benefits: 'Main arena banner, program cover logo, PA announcements, VIP passes' },
+    { id: 'gold', name: 'Gold', amount: 2500, color: '#FFD700', benefits: 'Class sponsorship, program logo, banner placement' },
+    { id: 'silver', name: 'Silver', amount: 1000, color: '#C0C0C0', benefits: 'Program listing, shared banner space' },
+  ],
+  sponsors: [],
 };
 
 export const useShowBuilder = (showId) => {
@@ -38,7 +44,6 @@ export const useShowBuilder = (showId) => {
   const [disciplineLibrary, setDisciplineLibrary] = useState([]);
   const [associationsData, setAssociationsData] = useState([]);
   const [divisionsData, setDivisionsData] = useState({});
-  const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -123,6 +128,28 @@ export const useShowBuilder = (showId) => {
       return null;
     }
 
+    // Validate: show name is required
+    const trimmedName = (formData.showName || '').trim();
+    if (!trimmedName) {
+      toast({ title: 'Show Name Required', description: 'Please enter a show name before saving.', variant: 'destructive' });
+      return null;
+    }
+
+    // Validate: check for duplicate show names (only for new shows or name changes)
+    let currentShowId = showId || formData.id;
+    const dupQuery = supabase
+      .from('projects')
+      .select('id', { count: 'exact', head: true })
+      .eq('project_type', 'show')
+      .eq('user_id', user.id)
+      .ilike('project_name', trimmedName);
+    if (currentShowId) dupQuery.neq('id', currentShowId);
+    const { count: dupCount } = await dupQuery;
+    if (dupCount > 0) {
+      toast({ title: 'Duplicate Show Name', description: `A show named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
+      return null;
+    }
+
     const effectiveStatus = statusOverride || formData.showStatus || 'draft';
 
     // Update formData with the status if overridden
@@ -132,20 +159,19 @@ export const useShowBuilder = (showId) => {
 
     const showDataToSave = {
       ...formData,
+      showName: trimmedName,
       showStatus: effectiveStatus,
       currentStep: step,
       completedSteps: Array.from(completedSteps),
     };
 
     const showPayload = {
-      project_name: formData.showName || 'Untitled Show',
+      project_name: trimmedName,
       project_type: 'show',
       project_data: showDataToSave,
       status: effectiveStatus,
       user_id: user.id,
     };
-
-    let currentShowId = showId || formData.id;
 
     if (currentShowId) {
       const { data, error } = await supabase
@@ -162,10 +188,22 @@ export const useShowBuilder = (showId) => {
       toast({ title: 'Show Saved!', description: 'Your progress has been successfully saved.' });
       return data;
     } else {
+      // Generate sequential show number
+      const { count } = await supabase
+        .from('projects')
+        .select('id', { count: 'exact', head: true })
+        .eq('project_type', 'show');
+      const showNumber = (count || 0) + 1;
+
       const newId = uuidv4();
+      const payloadWithNumber = {
+        ...showPayload,
+        id: newId,
+        project_data: { ...showPayload.project_data, showNumber },
+      };
       const { data, error } = await supabase
         .from('projects')
-        .insert([{ ...showPayload, id: newId }])
+        .insert([payloadWithNumber])
         .select('id')
         .single();
 
@@ -173,15 +211,14 @@ export const useShowBuilder = (showId) => {
         toast({ title: 'Error creating show', description: error.message, variant: 'destructive' });
         return null;
       }
-      
+
       const newShowId = data.id;
-      setFormData(prev => ({ ...prev, id: newShowId }));
-      navigate(`/horse-show-manager/edit/${newShowId}`, { replace: true });
+      setFormData(prev => ({ ...prev, id: newShowId, showNumber }));
       return data;
     }
-  }, [formData, step, completedSteps, showId, toast, navigate, user]);
+  }, [formData, step, completedSteps, showId, toast, user]);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 7));
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 8));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
   const setCurrentStep = (newStep) => setStep(newStep);
 

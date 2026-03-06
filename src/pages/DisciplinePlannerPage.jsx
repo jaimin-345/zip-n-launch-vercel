@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Ruler, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, Copy, Package, Layers, FolderPlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -168,6 +168,7 @@ const ClassTemplateForm = ({ template, disciplines, onSave, onCancel, isSaving }
 
 // ---- Main Page ----
 const DisciplinePlannerPage = () => {
+  const navigate = useNavigate();
   const {
     disciplines, isDisciplinesLoading, disciplineSearch, setDisciplineSearch,
     selectedDiscipline, setSelectedDiscipline, fetchDisciplines,
@@ -289,9 +290,9 @@ const DisciplinePlannerPage = () => {
 
             {/* Top bar */}
             <div className="flex items-center justify-between mb-6">
-              <Link to="/admin/equipment-planning" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Equipment Planning
-              </Link>
+              <Button variant="outline" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+              </Button>
             </div>
 
             {/* Hero */}

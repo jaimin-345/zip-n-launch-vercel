@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Package, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, ChevronLeft, ChevronRight, Wrench, Layers, Filter } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -186,6 +186,7 @@ const EquipmentForm = ({ item, onSave, onCancel, isSaving, allCategories, addCus
 };
 
 const EquipmentManagementPage = () => {
+  const navigate = useNavigate();
   const {
     items, count, isLoading, totalPages, summaryStats,
     searchTerm, setSearchTerm,
@@ -228,9 +229,9 @@ const EquipmentManagementPage = () => {
 
             {/* Top bar */}
             <div className="flex items-center justify-between mb-6">
-              <Link to="/admin/equipment-planning" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Equipment Planning
-              </Link>
+              <Button variant="outline" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+              </Button>
               <Button onClick={() => openForm()}>
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Equipment
               </Button>

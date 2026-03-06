@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { CalendarDays, Loader2, PlusCircle, Edit, Trash2, ArrowLeft, Search, ChevronDown, ChevronUp } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -152,7 +152,7 @@ const ClassTemplatePicker = ({ open, onOpenChange, onSelect, excludeIds = [], fe
             <div className="text-center py-8 text-muted-foreground">
               <p>{searchTerm ? 'No templates match your search.' : 'No class templates yet.'}</p>
               <p className="text-sm mt-2">
-                <Link to="/admin/discipline-planner" className="text-primary underline" onClick={() => onOpenChange(false)}>Create templates first</Link>
+                <Link to="/horse-show-manager/discipline-planner" className="text-primary underline" onClick={() => onOpenChange(false)}>Create templates first</Link>
               </p>
             </div>
           ) : (
@@ -183,6 +183,7 @@ const ClassTemplatePicker = ({ open, onOpenChange, onSelect, excludeIds = [], fe
 
 // ---- Main Page ----
 const ArenaSessionsPage = () => {
+  const navigate = useNavigate();
   const {
     shows, isShowsLoading, selectedShow, setSelectedShow, fetchUserShows, getShowDates,
     arenas, isArenasLoading, selectedArena, setSelectedArena,
@@ -245,9 +246,9 @@ const ArenaSessionsPage = () => {
 
             {/* Top bar */}
             <div className="flex items-center justify-between mb-6">
-              <Link to="/admin/equipment-planning" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Equipment Planning
-              </Link>
+              <Button variant="outline" onClick={() => navigate('/horse-show-manager/equipment-planning')}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Equipment Planning
+              </Button>
             </div>
 
             {/* Hero */}

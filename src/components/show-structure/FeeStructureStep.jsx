@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2, Calendar, Layers, Banknote, GripVertical, BadgeCent, Building2, Shield, ClipboardList, Settings, Trophy, Users, Megaphone, Wrench, UtensilsCrossed, Download, TrendingUp, TrendingDown, HeartHandshake } from 'lucide-react';
@@ -21,6 +20,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { isBudgetFrozen } from '@/lib/contractUtils';
+import { BudgetFrozenBanner } from '@/components/contract-management/BudgetFrozenBanner';
+import { Lock } from 'lucide-react';
 
 const standardFees = [
     { standard_id: 'stall_fee', name: 'Stall Fee', type: 'ancillary', amount: 295, payment_timing: 'pre_entry', tier: 1, is_standard: true, notes: 'Non-refundable, paid up front' },
@@ -182,6 +184,7 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
     const selectedAssociations = Object.keys(associations).filter(id => associations[id]);
     const { toast } = useToast();
     const [allAssociationsData, setAllAssociationsData] = useState([]);
+    const budgetLocked = isBudgetFrozen(formData);
 
     useEffect(() => {
         const fetchAssociations = async () => {
@@ -263,77 +266,21 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
         }
     };
 
-    const sponsorshipRevenue = formData.sponsorshipRevenue || [];
-
-    const addSponsorshipItem = () => {
-        setFormData(prev => ({
-            ...prev,
-            sponsorshipRevenue: [...(prev.sponsorshipRevenue || []), { id: uuidv4(), name: '', amount: '', notes: '' }],
-        }));
-    };
-
-    const updateSponsorshipItem = (id, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            sponsorshipRevenue: (prev.sponsorshipRevenue || []).map(item => item.id === id ? { ...item, [field]: value } : item),
-        }));
-    };
-
-    const removeSponsorshipItem = (id) => {
-        setFormData(prev => ({
-            ...prev,
-            sponsorshipRevenue: (prev.sponsorshipRevenue || []).filter(item => item.id !== id),
-        }));
-    };
-
-    const handleDetailChange = (section, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            showDetails: {
-                ...prev.showDetails,
-                [section]: {
-                    ...(prev.showDetails?.[section] || {}),
-                    [field]: value
-                }
-            }
-        }));
-    };
+    const sponsors = formData.sponsors || [];
+    const sponsorLevels = formData.sponsorLevels || [];
 
     const totalFeeRevenue = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
-    const totalSponsorshipRevenue = useMemo(() => sponsorshipRevenue.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsorshipRevenue]);
+    const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
     const totalRevenue = totalFeeRevenue + totalSponsorshipRevenue;
-
-    const expenses = formData.showExpenses || [];
-    const awardExpenses = formData.awardExpenses || [];
-    const classAwards = formData.classAwards || {};
-
-    const totalShowExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
-    const totalAwardExpenses = useMemo(() => awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0), [awardExpenses]);
-    const totalClassAwards = useMemo(() => Object.values(classAwards).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0), [classAwards]);
-    const totalExpenses = totalShowExpenses + totalAwardExpenses + totalClassAwards;
-
-    const addExpense = (categoryId) => {
-        const newExpense = { id: uuidv4(), name: '', amount: '', category: categoryId, timing: 'before_show', notes: '' };
-        setFormData(prev => ({ ...prev, showExpenses: [...(prev.showExpenses || []), newExpense] }));
-    };
-
-    const updateExpense = (id, field, value) => {
-        setFormData(prev => ({ ...prev, showExpenses: (prev.showExpenses || []).map(e => e.id === id ? { ...e, [field]: value } : e) }));
-    };
-
-    const removeExpense = (id) => {
-        setFormData(prev => ({ ...prev, showExpenses: (prev.showExpenses || []).filter(e => e.id !== id) }));
-    };
-
-    const netProfitLoss = totalRevenue - totalExpenses;
 
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 4: Revenue & Expenses</CardTitle>
-                <CardDescription>Define your show's income sources and operational costs to build a complete budget.</CardDescription>
+                <CardTitle>Step 4: Fees & Sponsors (Revenue)</CardTitle>
+                <CardDescription>Define your show's income sources — entry fees, stall fees, association fees, and sponsorship revenue.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
+                {budgetLocked && <BudgetFrozenBanner />}
 
                 {/* ========== SECTION A: REVENUE ========== */}
                 <div className="space-y-6">
@@ -368,8 +315,8 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                                     <p className="text-center text-muted-foreground py-4">All relevant standard fees have been added, or no associations selected.</p>
                                 )}
                             </div>
-                            <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full">
-                                <PlusCircle className="h-4 w-4 mr-2" /> Add a Completely Custom Fee
+                            <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full" disabled={budgetLocked}>
+                                {budgetLocked ? <Lock className="h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />} Add a Completely Custom Fee
                             </Button>
                         </CardContent>
                     </Card>
@@ -395,66 +342,50 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                     <Card className="bg-background/30">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><HeartHandshake className="h-6 w-6 text-emerald-600"/> Sponsorship Revenue</CardTitle>
-                            <CardDescription>Track income from sponsors, exhibitors, and other revenue sources.</CardDescription>
+                            <CardDescription>Sponsors are managed in the Sponsors step of the Create Show wizard. Below is a summary.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-2">
-                                {sponsorshipRevenue.map(item => (
-                                    <div key={item.id} className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                                        <Input
-                                            value={item.name}
-                                            onChange={(e) => updateSponsorshipItem(item.id, 'name', e.target.value)}
-                                            placeholder="Sponsor name"
-                                            className="flex-1"
-                                        />
-                                        <Input
-                                            type="number"
-                                            value={item.amount}
-                                            onChange={(e) => updateSponsorshipItem(item.id, 'amount', e.target.value)}
-                                            placeholder="Amount ($)"
-                                            className="w-32"
-                                        />
-                                        <Input
-                                            value={item.notes || ''}
-                                            onChange={(e) => updateSponsorshipItem(item.id, 'notes', e.target.value)}
-                                            placeholder="Notes"
-                                            className="flex-1 hidden md:block"
-                                        />
-                                        <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={() => removeSponsorshipItem(item.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                            {sponsors.length > 0 ? (
+                                <div className="space-y-3">
+                                    {sponsorLevels.map(level => {
+                                        const levelSponsors = sponsors.filter(s => s.levelId === level.id);
+                                        if (levelSponsors.length === 0) return null;
+                                        const levelTotal = levelSponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+                                        return (
+                                            <div key={level.id} className="flex items-center justify-between p-3 border rounded-md bg-background">
+                                                <div>
+                                                    <p className="font-semibold">{level.name} <span className="text-xs text-muted-foreground ml-1">({levelSponsors.length} sponsor{levelSponsors.length !== 1 ? 's' : ''})</span></p>
+                                                    <p className="text-xs text-muted-foreground">{levelSponsors.map(s => s.name).filter(Boolean).join(', ') || 'No names entered'}</p>
+                                                </div>
+                                                <p className="font-semibold text-emerald-600">${levelTotal.toLocaleString()}</p>
+                                            </div>
+                                        );
+                                    })}
+                                    {(() => {
+                                        const unassigned = sponsors.filter(s => !s.levelId || !sponsorLevels.find(l => l.id === s.levelId));
+                                        if (unassigned.length === 0) return null;
+                                        const unassignedTotal = unassigned.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+                                        return (
+                                            <div className="flex items-center justify-between p-3 border rounded-md bg-background">
+                                                <div>
+                                                    <p className="font-semibold text-muted-foreground">Unassigned <span className="text-xs ml-1">({unassigned.length})</span></p>
+                                                    <p className="text-xs text-muted-foreground">{unassigned.map(s => s.name).filter(Boolean).join(', ') || 'No names entered'}</p>
+                                                </div>
+                                                <p className="font-semibold text-emerald-600">${unassignedTotal.toLocaleString()}</p>
+                                            </div>
+                                        );
+                                    })()}
+                                    <div className="text-right pt-2">
+                                        <p className="text-sm font-semibold text-emerald-600">Total Sponsorship Revenue: ${totalSponsorshipRevenue.toLocaleString()}</p>
                                     </div>
-                                ))}
-                            </div>
-                            <Button variant="outline" size="sm" className="w-full mt-3" onClick={addSponsorshipItem}>
-                                <PlusCircle className="h-4 w-4 mr-2" /> Add Sponsorship Item
-                            </Button>
-                            {totalSponsorshipRevenue > 0 && (
-                                <div className="mt-3 text-right">
-                                    <p className="text-sm font-semibold text-emerald-600">Total Sponsorship Revenue: ${totalSponsorshipRevenue.toFixed(2)}</p>
+                                </div>
+                            ) : (
+                                <div className="text-center py-6 border-2 border-dashed rounded-lg">
+                                    <HeartHandshake className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                                    <p className="text-muted-foreground">No sponsors added yet.</p>
+                                    <p className="text-sm text-muted-foreground">Add sponsors in the Create Show wizard (Sponsors step).</p>
                                 </div>
                             )}
-                            <div className="mt-6 pt-4 border-t space-y-4">
-                                <p className="text-sm text-muted-foreground">Sponsorship details for the show bill / program:</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="sponsorship-presentingSponsors">Presenting Sponsors</Label>
-                                        <Textarea id="sponsorship-presentingSponsors" value={formData.showDetails?.sponsorship?.presentingSponsors || ''} onChange={e => handleDetailChange('sponsorship', 'presentingSponsors', e.target.value)} placeholder="Top-tier logo placement details..." />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="sponsorship-classSponsors">Class Sponsors</Label>
-                                        <Textarea id="sponsorship-classSponsors" value={formData.showDetails?.sponsorship?.classSponsors || ''} onChange={e => handleDetailChange('sponsorship', 'classSponsors', e.target.value)} placeholder="Specific awards/class announcements..." />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="sponsorship-vendors">Commercial Exhibitors / Vendors</Label>
-                                        <Textarea id="sponsorship-vendors" value={formData.showDetails?.sponsorship?.vendors || ''} onChange={e => handleDetailChange('sponsorship', 'vendors', e.target.value)} placeholder="Booth listings, locations..." />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="sponsorship-qrLinks">QR Codes / Links</Label>
-                                        <Textarea id="sponsorship-qrLinks" value={formData.showDetails?.sponsorship?.qrLinks || ''} onChange={e => handleDetailChange('sponsorship', 'qrLinks', e.target.value)} placeholder="Sponsor offers, raffle entries, vendor coupons..." />
-                                    </div>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
 
@@ -464,205 +395,6 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                         </div>
                     )}
                 </div>
-
-                {/* ========== SECTION B: EXPENSES ========== */}
-                <div className="space-y-6">
-                    <div className="flex items-center gap-3 p-4 rounded-lg border-l-4 border-red-500 bg-red-500/5">
-                        <TrendingDown className="h-6 w-6 text-red-600" />
-                        <div>
-                            <h3 className="text-lg font-bold text-red-700 dark:text-red-400">B. Expenses (Money Going Out)</h3>
-                            <p className="text-sm text-muted-foreground">Staff pay, arena rental, awards, marketing, equipment, and all operational costs.</p>
-                        </div>
-                    </div>
-
-                    <Card className="bg-background/30">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Banknote className="h-6 w-6 text-red-600"/> Show Expenses</CardTitle>
-                            <CardDescription>Track operational costs for running the show.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <Accordion type="multiple" className="space-y-2">
-                                {expenseCategories.map(category => {
-                                    const CategoryIcon = category.icon;
-                                    const categoryExpenses = expenses.filter(e => e.category === category.id);
-                                    const categoryTotal = categoryExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-                                    return (
-                                        <AccordionItem key={category.id} value={category.id} className="border rounded-lg px-4 bg-background/50">
-                                            <AccordionTrigger className="hover:no-underline">
-                                                <div className="flex items-center justify-between w-full pr-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <CategoryIcon className="h-5 w-5 text-red-600" />
-                                                        <span className="font-semibold">{category.title}</span>
-                                                        {categoryExpenses.length > 0 && (
-                                                            <span className="text-xs bg-red-500/10 text-red-600 px-2 py-0.5 rounded-full">{categoryExpenses.length} item{categoryExpenses.length !== 1 ? 's' : ''}</span>
-                                                        )}
-                                                    </div>
-                                                    {categoryTotal > 0 && (
-                                                        <span className="text-sm font-medium text-muted-foreground">${categoryTotal.toFixed(2)}</span>
-                                                    )}
-                                                </div>
-                                            </AccordionTrigger>
-                                            <AccordionContent className="pt-2 pb-4">
-                                                <p className="text-sm text-muted-foreground mb-3">e.g., {category.examples}</p>
-                                                <div className="space-y-2">
-                                                    {categoryExpenses.map(expense => (
-                                                        <div key={expense.id} className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                                                            <Input
-                                                                value={expense.name}
-                                                                onChange={(e) => updateExpense(expense.id, 'name', e.target.value)}
-                                                                placeholder="Expense name"
-                                                                className="flex-1"
-                                                            />
-                                                            <Select value={expense.timing || 'before_show'} onValueChange={(val) => updateExpense(expense.id, 'timing', val)}>
-                                                                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="before_show">Before Show</SelectItem>
-                                                                    <SelectItem value="during_show">During Show</SelectItem>
-                                                                    <SelectItem value="after_show">After Show</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <Input
-                                                                type="number"
-                                                                value={expense.amount}
-                                                                onChange={(e) => updateExpense(expense.id, 'amount', e.target.value)}
-                                                                placeholder="Amount ($)"
-                                                                className="w-32"
-                                                            />
-                                                            <Input
-                                                                value={expense.notes}
-                                                                onChange={(e) => updateExpense(expense.id, 'notes', e.target.value)}
-                                                                placeholder="Notes"
-                                                                className="flex-1 hidden md:block"
-                                                            />
-                                                            <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={() => removeExpense(expense.id)}>
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <Button variant="outline" size="sm" className="w-full mt-3" onClick={() => addExpense(category.id)}>
-                                                    <PlusCircle className="h-4 w-4 mr-2" /> Add Line Item
-                                                </Button>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    );
-                                })}
-                            </Accordion>
-                            {totalExpenses > 0 && (
-                                <div className="mt-3 text-right">
-                                    <p className="text-sm font-semibold text-red-600">Total Expenses: ${totalExpenses.toFixed(2)}</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* ========== BUDGET SUMMARY / P&L ========== */}
-                {(fees.length > 0 || sponsorshipRevenue.length > 0 || expenses.length > 0) && (
-                    <div className="border rounded-lg overflow-hidden">
-                        <div className="px-4 py-3 bg-muted/50 border-b flex items-center justify-between">
-                            <h4 className="font-semibold text-base">Budget Summary</h4>
-                            <Button variant="outline" size="sm" onClick={() => exportShowBudgetToExcel(formData)}>
-                                <Download className="h-4 w-4 mr-2" /> Export Spreadsheet
-                            </Button>
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b bg-emerald-500/5">
-                                        <th className="text-left px-4 py-2 font-medium text-emerald-700 dark:text-emerald-400" colSpan={2}>REVENUE</th>
-                                        <th className="text-right px-4 py-2 font-medium text-emerald-700 dark:text-emerald-400">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {fees.filter(f => f.name && f.amount).map(fee => (
-                                        <tr key={fee.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{fee.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">{timingCategories.find(c => c.id === fee.payment_timing)?.title || fee.payment_timing}</td>
-                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(fee.amount).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {fees.length > 0 && (
-                                        <tr className="bg-emerald-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Fee Revenue</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${totalFeeRevenue.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    {sponsorshipRevenue.filter(s => s.name && s.amount).map(item => (
-                                        <tr key={item.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{item.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">Sponsorship</td>
-                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(item.amount).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {sponsorshipRevenue.length > 0 && (
-                                        <tr className="bg-emerald-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Sponsorship</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${totalSponsorshipRevenue.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    <tr className="bg-emerald-500/10 font-bold">
-                                        <td className="px-4 py-3" colSpan={2}>TOTAL REVENUE</td>
-                                        <td className="px-4 py-3 text-right text-emerald-700 dark:text-emerald-400">${totalRevenue.toFixed(2)}</td>
-                                    </tr>
-                                </tbody>
-                                <thead>
-                                    <tr className="border-b bg-red-500/5">
-                                        <th className="text-left px-4 py-2 font-medium text-red-700 dark:text-red-400" colSpan={2}>EXPENSES</th>
-                                        <th className="text-right px-4 py-2 font-medium text-red-700 dark:text-red-400">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {expenses.filter(e => e.name && e.amount).map(expense => (
-                                        <tr key={expense.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{expense.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">{expenseCategories.find(c => c.id === expense.category)?.title || expense.category}</td>
-                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(expense.amount).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {totalShowExpenses > 0 && (
-                                        <tr className="bg-red-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Show Expenses</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${totalShowExpenses.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    {awardExpenses.filter(a => a.name && a.amount).map(award => (
-                                        <tr key={award.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{award.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">Awards</td>
-                                            <td className="px-4 py-2 text-right font-medium">${((parseFloat(award.amount) || 0) * (parseInt(award.qty) || 1)).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {totalClassAwards > 0 && (
-                                        <tr className="border-b last:border-0">
-                                            <td className="px-4 py-2">Class Awards Budget</td>
-                                            <td className="px-4 py-2 text-muted-foreground">Awards</td>
-                                            <td className="px-4 py-2 text-right font-medium">${totalClassAwards.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    {(totalAwardExpenses > 0 || totalClassAwards > 0) && (
-                                        <tr className="bg-red-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Award Expenses</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${(totalAwardExpenses + totalClassAwards).toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    <tr className="bg-red-500/10 font-bold">
-                                        <td className="px-4 py-3" colSpan={2}>TOTAL EXPENSES</td>
-                                        <td className="px-4 py-3 text-right text-red-700 dark:text-red-400">${totalExpenses.toFixed(2)}</td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr className="bg-muted/50 font-bold text-base">
-                                        <td className="px-4 py-4" colSpan={2}>PROJECTED PROFIT / LOSS</td>
-                                        <td className={cn("px-4 py-4 text-right", netProfitLoss >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
-                                            {netProfitLoss >= 0 ? '' : '-'}${Math.abs(netProfitLoss).toFixed(2)}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                )}
 
             </CardContent>
         </motion.div>
