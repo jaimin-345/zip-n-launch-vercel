@@ -131,7 +131,7 @@ const ContractManagementPage = () => {
           supabase
             .from('projects')
             .select('id, project_name, project_type, project_data, created_at')
-            .in('project_type', ['show', 'pattern_book'])
+            .in('project_type', ['show', 'pattern_book', 'contract'])
             .order('created_at', { ascending: false }),
           supabase
             .from('associations')

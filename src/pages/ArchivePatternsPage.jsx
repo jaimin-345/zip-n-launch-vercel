@@ -24,7 +24,6 @@ const ArchivePatternsPage = () => {
             fetchArchivedProjects();
         }
     }, [user]);
-    //test
 
     // Automatically delete projects that have been archived for more than 30 days
     const checkAndAutoDeleteExpired = async () => {

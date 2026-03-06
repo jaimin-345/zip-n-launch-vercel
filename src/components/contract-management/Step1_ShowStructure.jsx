@@ -14,9 +14,12 @@ export const Step1_ShowStructure = ({ formData, setFormData, associationsData = 
     const name = (formData.showName || '').trim().toLowerCase();
     if (!name) return null;
     const match = existingProjects.find(
-      (p) => (p.project_name || '').trim().toLowerCase() === name && p.id !== formData.id
+      (p) => {
+        const pName = (p.project_data?.showName || p.project_name || '').trim().toLowerCase();
+        return pName === name && p.id !== formData.id;
+      }
     );
-    return match ? `A project named "${match.project_name}" already exists.` : null;
+    return match ? `A project named "${match.project_data?.showName || match.project_name}" already exists.` : null;
   }, [formData.showName, existingProjects, formData.id, formData.linkedProjectId]);
 
   // Check for duplicate show number (skip when linked to an existing project)
@@ -94,10 +97,10 @@ export const Step1_ShowStructure = ({ formData, setFormData, associationsData = 
 
       {/* Validation Warnings */}
       {duplicateNameWarning && (
-        <Card className="p-3 bg-amber-500/10 border-amber-500/30">
+        <Card className="p-3 bg-red-500/10 border-red-500/30">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-            <p className="text-sm text-amber-600">{duplicateNameWarning}</p>
+            <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
+            <p className="text-sm text-red-600 font-medium">{duplicateNameWarning} Please use a different name.</p>
           </div>
         </Card>
       )}
