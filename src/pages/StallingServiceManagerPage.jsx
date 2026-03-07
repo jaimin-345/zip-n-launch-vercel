@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Loader2, Home, Hash, Calendar, ChevronRight, FolderOpen,
+    ArrowLeft, Loader2, Home, Hash, Calendar, FolderOpen,
     MapPin, Plus, Trash2, Save, Check, X, Search, Users, DollarSign,
     Building2, Warehouse, Car, ShoppingCart, Edit2, AlertCircle, Wand2,
 } from 'lucide-react';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
@@ -42,53 +43,7 @@ const STATUS_COLORS = {
     checked_out: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
 };
 
-// ── Show Picker ──
-
-const ShowPicker = ({ shows, onSelect }) => {
-    const navigate = useNavigate();
-    if (shows.length === 0) {
-        return (
-            <Card>
-                <CardContent className="py-16 text-center">
-                    <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Shows Found</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Create a horse show first.</p>
-                    <Button onClick={() => navigate('/horse-show-manager/create-show')}>Create Horse Show</Button>
-                </CardContent>
-            </Card>
-        );
-    }
-    return (
-        <div className="space-y-3">
-            {shows.map((show, i) => {
-                const pd = show.project_data || {};
-                return (
-                    <motion.div key={show.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                        <button type="button" className="w-full text-left" onClick={() => onSelect(show)}>
-                            <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
-                                <CardContent className="py-4 px-5">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="font-semibold text-base truncate">{show.project_name || 'Untitled'}</h3>
-                                                {pd.showNumber && <Badge variant="secondary" className="text-xs"><Hash className="h-3 w-3 mr-0.5" />#{pd.showNumber}</Badge>}
-                                            </div>
-                                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                                {pd.venueName && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{pd.venueName}</span>}
-                                                {pd.startDate && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{pd.startDate}</span>}
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="h-5 w-5 text-muted-foreground ml-4" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </button>
-                    </motion.div>
-                );
-            })}
-        </div>
-    );
-};
+// ── Show Picker removed — using LinkToExistingShow ──
 
 // ── Barn/Area Card ──
 
@@ -724,33 +679,35 @@ const StallingServiceManagerPage = () => {
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="flex items-center gap-3 mb-8">
-                        {selectedShow ? (
-                            <Button variant="outline" size="icon" onClick={() => setSelectedShow(null)}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
                         <div>
                             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                                 <Home className="h-6 w-6 text-primary" />
                                 Stalling Service
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                {selectedShow
-                                    ? `Manage stalls, pricing, and bookings for ${selectedShow.project_name}.`
-                                    : 'Select a show to manage stalling services.'
-                                }
+                                Manage stalls, pricing, and bookings for your show.
                             </p>
                         </div>
                     </div>
 
-                    {selectedShow ? (
+                    <div className="mb-6">
+                        <LinkToExistingShow
+                            existingProjects={shows}
+                            linkedProjectId={selectedShow?.id || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') { setSelectedShow(null); return; }
+                                const show = shows.find(s => s.id === projectId);
+                                if (show) setSelectedShow(show);
+                            }}
+                            description="Link to an existing show to manage its stalling services."
+                        />
+                    </div>
+
+                    {selectedShow && (
                         <StallingDashboard show={selectedShow} onSave={handleSave} isSaving={isSaving} />
-                    ) : (
-                        <ShowPicker shows={shows} onSelect={setSelectedShow} />
                     )}
                 </main>
             </div>

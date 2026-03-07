@@ -102,6 +102,7 @@ export const usePatternBookBuilder = (projectId) => {
   const [disciplineLibrary, setDisciplineLibrary] = useState([]);
   const [associationsData, setAssociationsData] = useState([]);
   const [divisionsData, setDivisionsData] = useState({});
+  const [existingProjects, setExistingProjects] = useState([]);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -130,10 +131,15 @@ export const usePatternBookBuilder = (projectId) => {
     const fetchInitialData = async () => {
       setIsLoading(true);
       try {
-        const [disciplinesRes, associationsRes, divisionsRes] = await Promise.all([
+        const projectsQuery = user
+          ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [], error: null });
+
+        const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([
           supabase.from('disciplines').select('*').order('sort_order'),
           supabase.from('associations').select('*').order('position').order('name'),
-          supabase.from('divisions').select('*, division_levels(*)').order('sort_order')
+          supabase.from('divisions').select('*, division_levels(*)').order('sort_order'),
+          projectsQuery,
         ]);
 
         if (disciplinesRes.error) throw disciplinesRes.error;
@@ -163,6 +169,7 @@ export const usePatternBookBuilder = (projectId) => {
           return acc;
         }, {});
         setDivisionsData(divisionsByAssoc);
+        if (projectsRes.data) setExistingProjects(projectsRes.data);
 
         if (sanitizedProjectId) {
           const { data: projectData, error: projectError } = await supabase
@@ -492,5 +499,6 @@ export const usePatternBookBuilder = (projectId) => {
     resetCurrentStep,
     refreshDisciplineLibrary,
     unlockSection,
+    existingProjects,
   };
 };

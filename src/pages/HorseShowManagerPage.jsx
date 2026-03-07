@@ -84,11 +84,11 @@ const sections = [
   {
     icon: FolderCreateIcon,
     title: 'Create New Show',
-    link: '/horse-show-manager/create',
+    link: '/horse-show-manager/schedule-builder',
     items: [
-      { icon: ClipboardList, label: 'Create Horse Show', link: '/horse-show-manager/create-show' },
-      { icon: Info, label: 'Show Structure', link: '/horse-show-manager/show-structure' },
-      // { icon: CalendarDays, label: 'Show Schedule', link: '/horse-show-manager/create' },
+      { icon: CalendarDays, label: 'Horse Show Schedule Builder', link: '/horse-show-manager/schedule-builder' },
+      { icon: Info, label: 'Show Structure & Expenses', link: '/horse-show-manager/show-structure-expenses' },
+      { icon: DollarSign, label: 'Fee Structure & Sponsors', link: '/horse-show-manager/fee-structure' },
     ],
   },
   {

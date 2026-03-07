@@ -230,7 +230,7 @@ const LicensingCard = () => (
 );
 
 // --- Main Step Component ---
-export const Step6_Preview = ({ formData, setFormData, associationsData, createOrUpdateShow }) => {
+export const Step6_Preview = ({ formData, setFormData, associationsData, createOrUpdateShow, stepNumber = 7, stepTitle = 'Save & Manage Your Show' }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
@@ -267,7 +267,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
     if (!formData.showBill) {
       toast({
         title: 'No Show Bill Data',
-        description: 'Please build your schedule in Step 5 before exporting.',
+        description: 'Please build your schedule in the previous step before exporting.',
         variant: 'destructive',
       });
       return;
@@ -285,7 +285,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
   return (
     <motion.div key="step7" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>7. Save & Manage Your Show</CardTitle>
+        <CardTitle>{`${stepNumber}. ${stepTitle}`}</CardTitle>
         <CardDescription>
           Save your show, manage status, and publish when ready.
           <span className="block mt-1 text-xs text-muted-foreground/70">

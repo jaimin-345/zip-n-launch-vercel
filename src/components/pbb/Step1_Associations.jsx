@@ -2,12 +2,49 @@ import React from 'react';
 import { Lock, Unlock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AssociationSelection } from '@/components/shared/AssociationSelection';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
-export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = false, isLocked = false, onUnlock, ...props }) => {
+export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = false, isLocked = false, onUnlock, existingProjects = [], formData, setFormData, ...props }) => {
   const effectiveReadOnly = isReadOnly || isLocked;
+
+  const handleLinkProject = (projectId) => {
+    if (projectId === 'none') {
+      setFormData((prev) => ({
+        ...prev,
+        linkedProjectId: null,
+        showName: '',
+        showNumber: '',
+        associations: {},
+        customAssociations: [],
+        primaryAffiliates: [],
+      }));
+      return;
+    }
+    const project = existingProjects.find((p) => p.id === projectId);
+    if (project?.project_data) {
+      const pd = project.project_data;
+      setFormData((prev) => ({
+        ...prev,
+        linkedProjectId: projectId,
+        showName: pd.showName || prev.showName,
+        showNumber: pd.showNumber || prev.showNumber,
+        associations: pd.associations || prev.associations,
+        customAssociations: pd.customAssociations || prev.customAssociations,
+        primaryAffiliates: pd.primaryAffiliates || prev.primaryAffiliates,
+      }));
+    }
+  };
 
   return (
     <>
+      <div className="mb-4">
+        <LinkToExistingShow
+          existingProjects={existingProjects}
+          linkedProjectId={formData?.linkedProjectId || null}
+          onLink={handleLinkProject}
+          description="Link to an existing show or pattern book project to auto-fill show details."
+        />
+      </div>
       {isLocked && !isReadOnly && (
         <div className="flex items-center justify-between p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
           <div className="flex items-center gap-2">
@@ -23,7 +60,7 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
           )}
         </div>
       )}
-      <AssociationSelection {...props} context={isHub ? "hub" : "pbb"} selectedPurposeName={selectedPurposeName} isReadOnly={effectiveReadOnly} />
+      <AssociationSelection {...props} formData={formData} setFormData={setFormData} context={isHub ? "hub" : "pbb"} selectedPurposeName={selectedPurposeName} isReadOnly={effectiveReadOnly} />
     </>
   );
 };

@@ -74,7 +74,7 @@ const ShowFinancialPickerPage = () => {
                                 <p className="text-sm text-muted-foreground mb-6">
                                     Create a horse show first, then come back here to view financials.
                                 </p>
-                                <Button onClick={() => navigate('/horse-show-manager/create-show')}>
+                                <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>
                                     Create Horse Show
                                 </Button>
                             </CardContent>

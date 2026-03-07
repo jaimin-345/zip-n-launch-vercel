@@ -433,7 +433,7 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
 };
 
 // --- Main Step Component ---
-export const Step5_Schedule = ({ formData, setFormData, associationsData }) => {
+export const Step5_Schedule = ({ formData, setFormData, associationsData, stepNumber = 6, stepTitle = 'Design & Finalize Layout' }) => {
   const { toast } = useToast();
 
   // Initialize showBill if needed
@@ -486,7 +486,7 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData }) => {
     return (
       <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
         <CardHeader>
-          <CardTitle>6. Design & Finalize Layout</CardTitle>
+          <CardTitle>{`${stepNumber}. ${stepTitle}`}</CardTitle>
           <CardDescription>
             Customize how your show bill will look when printed or exported to PDF.
             <span className="block mt-1 text-xs text-muted-foreground/70">This step only changes presentation — class structure is already locked.</span>
@@ -505,7 +505,7 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData }) => {
   return (
     <motion.div key="step6" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>6. Design & Finalize Layout</CardTitle>
+        <CardTitle>{`${stepNumber}. ${stepTitle}`}</CardTitle>
         <CardDescription>
           Customize how your show bill will look when printed or exported to PDF.
           <span className="block mt-1 text-xs text-muted-foreground/70">This step only changes presentation — class structure is already locked.</span>
@@ -516,7 +516,7 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData }) => {
           <div className="flex items-center gap-2 p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
             <p className="text-sm text-amber-700 dark:text-amber-400">
-              {unplacedClasses.length} class{unplacedClasses.length > 1 ? 'es' : ''} not yet placed in the schedule. Go back to Step 5 to organize.
+              {unplacedClasses.length} class{unplacedClasses.length > 1 ? 'es' : ''} not yet placed in the schedule. Go back to the previous step to organize.
             </p>
           </div>
         )}

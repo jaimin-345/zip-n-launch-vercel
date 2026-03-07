@@ -28,7 +28,7 @@ function formatShortDate(dateStr) {
     return format(d, 'EEE, MMM d');
 }
 
-export const Step3_ArenasAndDates = ({ formData, setFormData }) => {
+export const Step3_ArenasAndDates = ({ formData, setFormData, stepNumber = 3, stepTitle = 'Arenas & Dates of Use' }) => {
     const competitionDates = getDateRange(formData.startDate, formData.endDate);
     const arenas = formData.arenas || [];
 
@@ -74,14 +74,14 @@ export const Step3_ArenasAndDates = ({ formData, setFormData }) => {
         return (
             <motion.div key="step3-arenas" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                 <CardHeader>
-                    <CardTitle>Step 3: Arenas & Dates of Use</CardTitle>
+                    <CardTitle>{`Step ${stepNumber}: ${stepTitle}`}</CardTitle>
                     <CardDescription>Define which arenas are active on which competition days.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="text-center py-10 border-2 border-dashed rounded-lg">
                         <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
                         <p className="text-muted-foreground font-medium">No competition dates set yet.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Go back to Step 2 to set your start and end dates.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Go back to the previous step to set your start and end dates.</p>
                     </div>
                 </CardContent>
             </motion.div>
@@ -91,7 +91,7 @@ export const Step3_ArenasAndDates = ({ formData, setFormData }) => {
     return (
         <motion.div key="step3-arenas" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 3: Arenas & Dates of Use</CardTitle>
+                <CardTitle>{`Step ${stepNumber}: ${stepTitle}`}</CardTitle>
                 <CardDescription>Define which arenas are active on which competition days. This data will be used by the schedule builder.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

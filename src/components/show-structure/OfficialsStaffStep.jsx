@@ -111,8 +111,11 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId, mem
         onUpdate(member.id, 'reimbursable_expenses', newExpenses);
     };
 
-    const employmentDays = useMemo(() => calculateDays(member.employment_start_date, member.employment_end_date), [member.employment_start_date, member.employment_end_date]);
+    const autoDays = useMemo(() => calculateDays(member.employment_start_date, member.employment_end_date), [member.employment_start_date, member.employment_end_date]);
+    const employmentDays = member.days_worked != null && member.days_worked !== '' ? parseFloat(member.days_worked) || 0 : autoDays;
     const totalDayFee = useMemo(() => (employmentDays * (parseFloat(member.day_fee) || 0)), [employmentDays, member.day_fee]);
+    const totalHourlyFee = useMemo(() => (parseFloat(member.hours_worked) || 0) * (parseFloat(member.hourly_rate) || 0), [member.hours_worked, member.hourly_rate]);
+    const totalOvertimeFee = useMemo(() => (parseFloat(member.overtime_hours) || 0) * (parseFloat(member.overtime_rate_per_hour) || 0), [member.overtime_hours, member.overtime_rate_per_hour]);
 
     const totalCost = useMemo(() => {
         let expensesTotal = 0;
@@ -129,8 +132,8 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId, mem
                 }
             }
         }
-        return totalDayFee + expensesTotal;
-    }, [totalDayFee, member.reimbursable_expenses]);
+        return totalDayFee + totalHourlyFee + totalOvertimeFee + expensesTotal;
+    }, [totalDayFee, totalHourlyFee, totalOvertimeFee, member.reimbursable_expenses]);
 
     return (
         <Accordion type="single" collapsible className="w-full border rounded-md bg-background">
@@ -216,37 +219,57 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, role, associationId, mem
                     <>
                         <div className="border-t pt-4 mt-4">
                             <h5 className="font-semibold text-md mb-2">Compensation</h5>
+                            {/* Daily Rate */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-1">
-                                    <Label>Days</Label>
-                                    <Input type="number" value={employmentDays} readOnly disabled className="bg-muted"/>
+                                    <Label htmlFor={`days-${member.id}`}>Days Worked</Label>
+                                    <Input id={`days-${member.id}`} type="number" step="0.5" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.days_worked != null && member.days_worked !== '' ? member.days_worked : autoDays} onChange={(e) => onUpdate(member.id, 'days_worked', e.target.value)} placeholder="e.g., 2.5" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor={`dayfee-${member.id}`}>Cost/Day</Label>
+                                    <Label htmlFor={`dayfee-${member.id}`}>Daily Rate</Label>
                                     <Input id={`dayfee-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.day_fee || ''} onChange={(e) => onUpdate(member.id, 'day_fee', e.target.value)} placeholder="e.g., 500" />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label>Total</Label>
+                                    <Label>Day Total</Label>
                                     <Input type="number" value={totalDayFee.toFixed(2)} readOnly disabled className="bg-muted"/>
                                 </div>
                             </div>
+                            {/* Hourly Rate */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                                <div className="flex items-center space-x-2 pt-6">
-                                    <Switch id={`overtime-${member.id}`} disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} checked={member.has_overtime || false} onCheckedChange={(checked) => onUpdate(member.id, 'has_overtime', checked)} />
-                                    <Label htmlFor={`overtime-${member.id}`}>Overtime Applies</Label>
+                                <div className="space-y-1">
+                                    <Label htmlFor={`hours-${member.id}`}>Hours</Label>
+                                    <Input id={`hours-${member.id}`} type="number" step="0.5" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.hours_worked || ''} onChange={(e) => onUpdate(member.id, 'hours_worked', e.target.value)} placeholder="e.g., 8" />
                                 </div>
-                                {member.has_overtime && (
-                                    <>
-                                        <div className="space-y-1">
-                                            <Label htmlFor={`overtime-hours-${member.id}`}>Overtime after (hours)</Label>
-                                            <Input id={`overtime-hours-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_hours_threshold || '10'} onChange={(e) => onUpdate(member.id, 'overtime_hours_threshold', e.target.value)} placeholder="e.g., 10" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor={`overtime-rate-${member.id}`}>Overtime Cost/Hour</Label>
-                                            <Input id={`overtime-rate-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_rate_per_hour || ''} onChange={(e) => onUpdate(member.id, 'overtime_rate_per_hour', e.target.value)} placeholder="e.g., 75" />
-                                        </div>
-                                    </>
-                                )}
+                                <div className="space-y-1">
+                                    <Label htmlFor={`hourlyrate-${member.id}`}>Hourly Rate</Label>
+                                    <Input id={`hourlyrate-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.hourly_rate || ''} onChange={(e) => onUpdate(member.id, 'hourly_rate', e.target.value)} placeholder="e.g., 25" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Hourly Total</Label>
+                                    <Input type="number" value={totalHourlyFee.toFixed(2)} readOnly disabled className="bg-muted"/>
+                                </div>
+                            </div>
+                            {/* Overtime */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div className="space-y-1">
+                                    <Label htmlFor={`overtime-hours-${member.id}`}>Overtime Hours</Label>
+                                    <Input id={`overtime-hours-${member.id}`} type="number" step="0.5" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_hours || ''} onChange={(e) => onUpdate(member.id, 'overtime_hours', e.target.value)} placeholder="e.g., 4" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor={`overtime-rate-${member.id}`}>Overtime Rate</Label>
+                                    <Input id={`overtime-rate-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_rate_per_hour || ''} onChange={(e) => onUpdate(member.id, 'overtime_rate_per_hour', e.target.value)} placeholder="e.g., 75" />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label>Overtime Total</Label>
+                                    <Input type="number" value={totalOvertimeFee.toFixed(2)} readOnly disabled className="bg-muted"/>
+                                </div>
+                            </div>
+                            {/* Grand Total */}
+                            <div className="mt-4 flex items-center justify-end gap-2">
+                                <Label className="font-semibold">Total Compensation:</Label>
+                                <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalCost)}
+                                </span>
                             </div>
                         </div>
 
@@ -448,19 +471,21 @@ export const OfficialsStaffStep = ({ formData, setFormData }) => {
             if (!newOfficials[assocId]) newOfficials[assocId] = {};
             if (!newOfficials[assocId][roleId]) newOfficials[assocId][roleId] = [];
             
-            const newMember = { 
-                id: uuidv4(), 
+            const newMember = {
+                id: uuidv4(),
                 association_id: assocId,
                 role_id: roleId,
-                name: '', 
+                name: '',
                 email: '',
                 phone: '',
                 cards_held: '',
                 employment_start_date: null,
                 employment_end_date: null,
+                days_worked: null,
                 day_fee: null,
-                has_overtime: false,
-                overtime_hours_threshold: 10,
+                hours_worked: null,
+                hourly_rate: null,
+                overtime_hours: null,
                 overtime_rate_per_hour: null,
                 reimbursable_expenses: {},
             };
@@ -526,9 +551,12 @@ export const OfficialsStaffStep = ({ formData, setFormData }) => {
             return isHotel ? diff : diff + 1;
         };
 
-        const employmentDays = calculateDays(member.employment_start_date, member.employment_end_date);
-        const totalDayFee = employmentDays * (parseFloat(member.day_fee) || 0);
-        
+        const autoDays = calculateDays(member.employment_start_date, member.employment_end_date);
+        const days = member.days_worked != null && member.days_worked !== '' ? parseFloat(member.days_worked) || 0 : autoDays;
+        const totalDayFee = days * (parseFloat(member.day_fee) || 0);
+        const totalHourlyFee = (parseFloat(member.hours_worked) || 0) * (parseFloat(member.hourly_rate) || 0);
+        const totalOvertimeFee = (parseFloat(member.overtime_hours) || 0) * (parseFloat(member.overtime_rate_per_hour) || 0);
+
         let expensesTotal = 0;
         if (member.reimbursable_expenses) {
             for (const key in member.reimbursable_expenses) {
@@ -543,7 +571,7 @@ export const OfficialsStaffStep = ({ formData, setFormData }) => {
                 }
             }
         }
-        return totalDayFee + expensesTotal;
+        return totalDayFee + totalHourlyFee + totalOvertimeFee + expensesTotal;
     };
 
     const calculateAssociationTotalCost = (assocId) => {
@@ -587,9 +615,11 @@ export const OfficialsStaffStep = ({ formData, setFormData }) => {
                     employment_start_date: member.employment_start_date || null,
                     employment_end_date: member.employment_end_date || null,
                     cards_held: '',
+                    days_worked: null,
                     day_fee: null,
-                    has_overtime: false,
-                    overtime_hours_threshold: 10,
+                    hours_worked: null,
+                    hourly_rate: null,
+                    overtime_hours: null,
                     overtime_rate_per_hour: null,
                     reimbursable_expenses: {},
                     ...(roleId === 'CUSTOM' && { custom_role_name: member.custom_role_name || '' })

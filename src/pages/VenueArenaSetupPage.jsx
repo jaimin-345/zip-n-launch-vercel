@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
 import { staffRoles, roleGroups } from '@/lib/staffingData';
 import { useToast } from '@/components/ui/use-toast';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
 // ── Default staff positions per arena ──
 
@@ -56,7 +57,7 @@ const ShowPicker = ({ shows, onSelect }) => {
                     <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Shows Found</h3>
                     <p className="text-sm text-muted-foreground mb-6">Create a horse show first to set up venues and arenas.</p>
-                    <Button onClick={() => navigate('/horse-show-manager/create-show')}>Create Horse Show</Button>
+                    <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>Create Horse Show</Button>
                 </CardContent>
             </Card>
         );
@@ -539,33 +540,38 @@ const VenueArenaSetupPage = () => {
                 <Navigation />
                 <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="flex items-center gap-3 mb-8">
-                        {selectedShow ? (
-                            <Button variant="outline" size="icon" onClick={() => setSelectedShow(null)}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager/employee-scheduling')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager/employee-scheduling')}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
                         <div>
                             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                                 <Building2 className="h-6 w-6 text-primary" />
                                 Venue & Arena Setup
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                {selectedShow
-                                    ? `Configure venues, arenas, and auto-generate staff positions for ${selectedShow.project_name}.`
-                                    : 'Select a show to configure its venue and arenas.'
-                                }
+                                Configure venues, arenas, and auto-generate staff positions.
                             </p>
                         </div>
                     </div>
 
-                    {selectedShow ? (
-                        <VenueArenaSetup show={selectedShow} onSave={handleSave} isSaving={isSaving} />
-                    ) : (
-                        <ShowPicker shows={shows} onSelect={setSelectedShow} />
+                    <LinkToExistingShow
+                        existingProjects={shows}
+                        linkedProjectId={selectedShow?.id || null}
+                        onLink={(projectId) => {
+                            if (projectId === 'none') {
+                                setSelectedShow(null);
+                            } else {
+                                const show = shows.find(s => s.id === projectId);
+                                if (show) setSelectedShow(show);
+                            }
+                        }}
+                        description="Link to a show to configure its venue and arena setup."
+                    />
+
+                    {selectedShow && (
+                        <div className="mt-6">
+                            <VenueArenaSetup show={selectedShow} onSave={handleSave} isSaving={isSaving} />
+                        </div>
                     )}
                 </main>
             </div>

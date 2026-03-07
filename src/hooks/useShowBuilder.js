@@ -44,21 +44,30 @@ export const useShowBuilder = (showId) => {
   const [disciplineLibrary, setDisciplineLibrary] = useState([]);
   const [associationsData, setAssociationsData] = useState([]);
   const [divisionsData, setDivisionsData] = useState({});
+  const [existingProjects, setExistingProjects] = useState([]);
   const { toast } = useToast();
   const { user } = useAuth();
 
   const fetchInitialData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [disciplinesRes, associationsRes, divisionsRes] = await Promise.all([
+      const projectsQuery = user
+        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null });
+
+      const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([
         supabase.from('disciplines').select('*').order('sort_order'),
         supabase.from('associations').select('*').order('position').order('name'),
-        supabase.from('divisions').select('*, division_levels(*)').order('sort_order')
+        supabase.from('divisions').select('*, division_levels(*)').order('sort_order'),
+        projectsQuery,
       ]);
 
       if (disciplinesRes.error) throw disciplinesRes.error;
       if (associationsRes.error) throw associationsRes.error;
       if (divisionsRes.error) throw divisionsRes.error;
+      if (projectsRes.error) throw projectsRes.error;
+
+      setExistingProjects(projectsRes.data || []);
 
       const formattedDisciplines = disciplinesRes.data.map(d => ({
         ...d,
@@ -136,7 +145,7 @@ export const useShowBuilder = (showId) => {
     }
 
     // Validate: check for duplicate show names (only for new shows or name changes)
-    let currentShowId = showId || formData.id;
+    let currentShowId = showId || formData.id || formData.linkedProjectId;
     const dupQuery = supabase
       .from('projects')
       .select('id', { count: 'exact', head: true })
@@ -237,5 +246,6 @@ export const useShowBuilder = (showId) => {
     associationsData,
     divisionsData,
     resetDisciplines,
+    existingProjects,
   };
 };

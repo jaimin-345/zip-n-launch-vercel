@@ -46,7 +46,7 @@ const ShowStructurePickerPage = () => {
     return (
         <>
             <Helmet>
-                <title>Show Structure - Select a Show</title>
+                <title>Show Structure & Expenses - Select a Show</title>
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
@@ -58,10 +58,10 @@ const ShowStructurePickerPage = () => {
                         <div>
                             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                                 <Info className="h-6 w-6 text-primary" />
-                                Show Structure
+                                Show Structure & Expenses
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                Select a show to edit its structure, fees, and details.
+                                Select a show to edit its structure, expenses, and details.
                             </p>
                         </div>
                     </div>
@@ -74,7 +74,7 @@ const ShowStructurePickerPage = () => {
                                 <p className="text-sm text-muted-foreground mb-6">
                                     Create a horse show first, then come back here to edit its structure.
                                 </p>
-                                <Button onClick={() => navigate('/horse-show-manager/create-show')}>
+                                <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Create Horse Show
                                 </Button>
@@ -83,7 +83,7 @@ const ShowStructurePickerPage = () => {
                     ) : (
                         <div className="space-y-3">
                             <div className="flex justify-end mb-2">
-                                <Button size="sm" onClick={() => navigate('/horse-show-manager/create-show')}>
+                                <Button size="sm" onClick={() => navigate('/horse-show-manager/schedule-builder')}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Create New Show
                                 </Button>
@@ -104,7 +104,7 @@ const ShowStructurePickerPage = () => {
                                         <button
                                             type="button"
                                             className="w-full text-left"
-                                            onClick={() => navigate(`/horse-show-manager/show-structure/${show.id}`)}
+                                            onClick={() => navigate(`/horse-show-manager/show-structure-expenses/${show.id}`)}
                                         >
                                             <Card className="hover:border-primary/50 hover:shadow-md transition-all cursor-pointer">
                                                 <CardContent className="py-4 px-5">

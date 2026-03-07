@@ -112,7 +112,11 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, assoc
     };
 
     const employmentDays = useMemo(() => calculateDays(member.employment_start_date, member.employment_end_date), [member.employment_start_date, member.employment_end_date]);
-    const totalDayFee = useMemo(() => (employmentDays * (parseFloat(member.day_fee) || 0)), [employmentDays, member.day_fee]);
+    const effectiveDays = member.compensation_days != null && member.compensation_days !== '' ? (parseFloat(member.compensation_days) || 0) : employmentDays;
+    const totalDayFee = useMemo(() => (effectiveDays * (parseFloat(member.day_fee) || 0)), [effectiveDays, member.day_fee]);
+    const totalHourlyFee = useMemo(() => member.has_hourly ? ((parseFloat(member.hourly_hours) || 0) * (parseFloat(member.hourly_cost_per_hour) || 0)) : 0, [member.has_hourly, member.hourly_hours, member.hourly_cost_per_hour]);
+    const totalOvertimeFee = useMemo(() => member.has_overtime ? ((parseFloat(member.overtime_hours) || 0) * (parseFloat(member.overtime_rate_per_hour) || 0)) : 0, [member.has_overtime, member.overtime_hours, member.overtime_rate_per_hour]);
+    const totalCompensation = useMemo(() => totalDayFee + totalHourlyFee + totalOvertimeFee, [totalDayFee, totalHourlyFee, totalOvertimeFee]);
 
     const totalCost = useMemo(() => {
         let expensesTotal = 0;
@@ -129,8 +133,8 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, assoc
                 }
             }
         }
-        return totalDayFee + expensesTotal;
-    }, [totalDayFee, member.reimbursable_expenses]);
+        return totalCompensation + expensesTotal;
+    }, [totalCompensation, member.reimbursable_expenses]);
 
     return (
         <Accordion type="single" collapsible className="w-full border rounded-md bg-background">
@@ -223,8 +227,8 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, assoc
                             <h5 className="font-semibold text-md mb-2">Compensation</h5>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="space-y-1">
-                                    <Label>Days</Label>
-                                    <Input type="number" value={employmentDays} readOnly disabled className="bg-muted"/>
+                                    <Label htmlFor={`days-${member.id}`}>Days</Label>
+                                    <Input id={`days-${member.id}`} type="number" step="any" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.compensation_days != null && member.compensation_days !== '' ? member.compensation_days : employmentDays} onChange={(e) => onUpdate(member.id, 'compensation_days', e.target.value)} placeholder="e.g., 2.5" />
                                 </div>
                                 <div className="space-y-1">
                                     <Label htmlFor={`dayfee-${member.id}`}>Cost/Day</Label>
@@ -232,8 +236,26 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, assoc
                                 </div>
                                 <div className="space-y-1">
                                     <Label>Total</Label>
-                                    <Input type="number" value={totalDayFee.toFixed(2)} readOnly disabled className="bg-muted"/>
+                                    <Input type="number" value={totalCompensation.toFixed(2)} readOnly disabled className="bg-muted"/>
                                 </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div className="flex items-center space-x-2 pt-6">
+                                    <Switch id={`hourly-${member.id}`} disabled={memberFrozen} checked={member.has_hourly || false} onCheckedChange={(checked) => onUpdate(member.id, 'has_hourly', checked)} />
+                                    <Label htmlFor={`hourly-${member.id}`}>Hourly Applies</Label>
+                                </div>
+                                {member.has_hourly && (
+                                    <>
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`hourly-hours-${member.id}`}>Hours</Label>
+                                            <Input id={`hourly-hours-${member.id}`} type="number" step="any" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.hourly_hours || ''} onChange={(e) => onUpdate(member.id, 'hourly_hours', e.target.value)} placeholder="e.g., 8" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`hourly-rate-${member.id}`}>Cost/Hour</Label>
+                                            <Input id={`hourly-rate-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.hourly_cost_per_hour || ''} onChange={(e) => onUpdate(member.id, 'hourly_cost_per_hour', e.target.value)} placeholder="e.g., 25" />
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                 <div className="flex items-center space-x-2 pt-6">
@@ -243,14 +265,20 @@ const StaffMemberInput = ({ member, onUpdate, onRemove, onDuplicate, role, assoc
                                 {member.has_overtime && (
                                     <>
                                         <div className="space-y-1">
-                                            <Label htmlFor={`overtime-hours-${member.id}`}>Overtime after (hours)</Label>
-                                            <Input id={`overtime-hours-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_hours_threshold || '10'} onChange={(e) => onUpdate(member.id, 'overtime_hours_threshold', e.target.value)} placeholder="e.g., 10" />
+                                            <Label htmlFor={`overtime-threshold-${member.id}`}>Overtime after (hours)</Label>
+                                            <Input id={`overtime-threshold-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_hours_threshold || '10'} onChange={(e) => onUpdate(member.id, 'overtime_hours_threshold', e.target.value)} placeholder="e.g., 10" />
                                         </div>
                                         <div className="space-y-1">
                                             <Label htmlFor={`overtime-rate-${member.id}`}>Overtime Cost/Hour</Label>
                                             <Input id={`overtime-rate-${member.id}`} type="number" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_rate_per_hour || ''} onChange={(e) => onUpdate(member.id, 'overtime_rate_per_hour', e.target.value)} placeholder="e.g., 75" />
                                         </div>
                                     </>
+                                )}
+                                {member.has_overtime && (
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`overtime-hours-${member.id}`}>Overtime Hours</Label>
+                                        <Input id={`overtime-hours-${member.id}`} type="number" step="any" disabled={memberFrozen} className={cn(memberFrozen && "bg-muted")} value={member.overtime_hours || ''} onChange={(e) => onUpdate(member.id, 'overtime_hours', e.target.value)} placeholder="e.g., 5" />
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -454,20 +482,25 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
             if (!newOfficials[assocId]) newOfficials[assocId] = {};
             if (!newOfficials[assocId][roleId]) newOfficials[assocId][roleId] = [];
             
-            const newMember = { 
-                id: uuidv4(), 
+            const newMember = {
+                id: uuidv4(),
                 association_id: assocId,
                 role_id: roleId,
-                name: '', 
+                name: '',
                 email: '',
                 phone: '',
                 cards_held: '',
                 employment_start_date: null,
                 employment_end_date: null,
+                compensation_days: null,
                 day_fee: null,
+                has_hourly: false,
+                hourly_hours: null,
+                hourly_cost_per_hour: null,
                 has_overtime: false,
                 overtime_hours_threshold: 10,
                 overtime_rate_per_hour: null,
+                overtime_hours: null,
                 reimbursable_expenses: {},
             };
 
@@ -549,8 +582,11 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
         };
 
         const employmentDays = calculateDays(member.employment_start_date, member.employment_end_date);
-        const totalDayFee = employmentDays * (parseFloat(member.day_fee) || 0);
-        
+        const effectiveDays = member.compensation_days != null && member.compensation_days !== '' ? (parseFloat(member.compensation_days) || 0) : employmentDays;
+        const totalDayFee = effectiveDays * (parseFloat(member.day_fee) || 0);
+        const totalHourlyFee = member.has_hourly ? ((parseFloat(member.hourly_hours) || 0) * (parseFloat(member.hourly_cost_per_hour) || 0)) : 0;
+        const totalOvertimeFee = member.has_overtime ? ((parseFloat(member.overtime_hours) || 0) * (parseFloat(member.overtime_rate_per_hour) || 0)) : 0;
+
         let expensesTotal = 0;
         if (member.reimbursable_expenses) {
             for (const key in member.reimbursable_expenses) {
@@ -565,7 +601,7 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
                 }
             }
         }
-        return totalDayFee + expensesTotal;
+        return totalDayFee + totalHourlyFee + totalOvertimeFee + expensesTotal;
     };
 
     const calculateAssociationTotalCost = (assocId) => {
@@ -609,10 +645,15 @@ export const Step2_OfficialsStaff = ({ formData, setFormData }) => {
                     employment_start_date: member.employment_start_date || null,
                     employment_end_date: member.employment_end_date || null,
                     cards_held: '',
+                    compensation_days: null,
                     day_fee: null,
+                    has_hourly: false,
+                    hourly_hours: null,
+                    hourly_cost_per_hour: null,
                     has_overtime: false,
                     overtime_hours_threshold: 10,
                     overtime_rate_per_hour: null,
+                    overtime_hours: null,
                     reimbursable_expenses: {},
                     ...(roleId === 'CUSTOM' && { custom_role_name: member.custom_role_name || '' })
                 }));

@@ -13,13 +13,14 @@ import {
     ArrowLeft, Loader2, DollarSign, TrendingUp, TrendingDown, Hash,
     ChevronRight, FolderOpen, Calendar, Users, Building2,
     HeartHandshake, Banknote, PiggyBank, Target, Receipt,
-    Trophy, Briefcase, BarChart3,
+    Trophy, Briefcase, BarChart3, Link2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
 import { calculateProjections, DEFAULT_ASSUMPTIONS } from '@/lib/showFinancialProjections';
 import { flattenPersonnel, calculateMemberFinancials } from '@/lib/contractUtils';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
 const currency = (val) => {
     const num = parseFloat(val);
@@ -88,7 +89,7 @@ const ShowPicker = ({ shows, onSelect }) => {
                     <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Shows Found</h3>
                     <p className="text-sm text-muted-foreground mb-6">Create a horse show first to use the budgeting tool.</p>
-                    <Button onClick={() => navigate('/horse-show-manager/create-show')}>Create Horse Show</Button>
+                    <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>Create Horse Show</Button>
                 </CardContent>
             </Card>
         );
@@ -506,30 +507,38 @@ const EmployeeBudgetingToolPage = () => {
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="flex items-center gap-3 mb-8">
-                        {selectedShow ? (
-                            <Button variant="outline" size="icon" onClick={() => setSelectedShow(null)}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        )}
+                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
                         <div>
                             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                                 <DollarSign className="h-6 w-6 text-primary" />
                                 Employee Budgeting Tool
                             </h1>
                             <p className="text-sm text-muted-foreground">
-                                {selectedShow ? 'Revenue forecast, expense tracking, and profit analysis.' : 'Select a show to view its budget.'}
+                                Revenue forecast, expense tracking, and profit analysis.
                             </p>
                         </div>
                     </div>
 
-                    {selectedShow ? (
-                        <BudgetDashboard show={selectedShow} contractProject={linkedContract} />
-                    ) : (
-                        <ShowPicker shows={shows} onSelect={setSelectedShow} />
+                    <LinkToExistingShow
+                        existingProjects={shows}
+                        linkedProjectId={selectedShow?.id || null}
+                        onLink={(projectId) => {
+                            if (projectId === 'none') {
+                                setSelectedShow(null);
+                            } else {
+                                const show = shows.find(s => s.id === projectId);
+                                if (show) setSelectedShow(show);
+                            }
+                        }}
+                        description="Link to a show to view its budget, revenue forecast, and profit analysis."
+                    />
+
+                    {selectedShow && (
+                        <div className="mt-6">
+                            <BudgetDashboard show={selectedShow} contractProject={linkedContract} />
+                        </div>
                     )}
                 </main>
             </div>

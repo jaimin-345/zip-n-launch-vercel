@@ -107,9 +107,10 @@ import LocationsPage from '@/pages/LocationsPage';
 import ReconciliationPage from '@/pages/ReconciliationPage';
 import EquipmentReportsPage from '@/pages/EquipmentReportsPage';
 import CreateHorseShowWizardPage from '@/pages/CreateHorseShowWizardPage';
+import ScheduleBuilderPage from '@/pages/ScheduleBuilderPage';
 import ShowFinancialDashboardPage from '@/pages/ShowFinancialDashboardPage';
-import ShowFinancialPickerPage from '@/pages/ShowFinancialPickerPage';
-import ShowStructurePickerPage from '@/pages/ShowStructurePickerPage';
+// ShowFinancialPickerPage removed — using LinkToExistingShow in dashboard
+
 import EmployeeBudgetingToolPage from '@/pages/EmployeeBudgetingToolPage';
 import VenueArenaSetupPage from '@/pages/VenueArenaSetupPage';
 import EmployeeSchedulingPage from '@/pages/EmployeeSchedulingPage';
@@ -217,12 +218,14 @@ function App() {
                   <Route path="/horse-show-manager" element={<RoleBasedRoute requiredPermission="shows:manage:own"><HorseShowManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/create" element={<RoleBasedRoute requiredPermission="shows:create"><CreateShowPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/edit/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/create-show" element={<RoleBasedRoute requiredPermission="shows:create"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/create-show/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-structure" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePickerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-structure/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/schedule-builder" element={<RoleBasedRoute requiredPermission="shows:create"><ScheduleBuilderPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/schedule-builder/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ScheduleBuilderPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/show-structure-expenses" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/show-structure-expenses/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowStructurePage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/fee-structure" element={<RoleBasedRoute requiredPermission="shows:create"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/fee-structure/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><CreateHorseShowWizardPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/show-dashboard/:showId" element={<RoleBasedRoute requiredPermission="shows:view"><ShowDashboardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/financials" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowFinancialPickerPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/financials" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowFinancialDashboardPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/financials/:showId" element={<RoleBasedRoute requiredPermission="shows:manage:own"><ShowFinancialDashboardPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/stalling-service-manager" element={<RoleBasedRoute requiredPermission="shows:manage:own"><StallingServiceManagerPage /></RoleBasedRoute>} />
                   <Route path="/horse-show-manager/employee-scheduling" element={<RoleBasedRoute requiredPermission="shows:manage:own"><EmployeeArenaSchedulingManagerPage /></RoleBasedRoute>} />

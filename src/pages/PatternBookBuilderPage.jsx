@@ -118,6 +118,7 @@ const PatternBookBuilderPage = () => {
         resetCurrentStep,
         refreshDisciplineLibrary,
         unlockSection,
+        existingProjects,
     } = usePatternBookBuilder(projectId);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -389,7 +390,7 @@ const PatternBookBuilderPage = () => {
         const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
         switch (currentStep) {
-            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isReadOnly} isLocked={isStep1Locked} onUnlock={() => setShowUnlockDialog(true)} />;
+            case 1: return <Step1_Associations formData={formData} setFormData={setFormData} associationsData={associationsData} onShowTypeChange={handleShowTypeChange} isPBB={true} isReadOnly={isReadOnly} isLocked={isStep1Locked} onUnlock={() => setShowUnlockDialog(true)} existingProjects={existingProjects} />;
             case 2: return <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} isReadOnly={isReadOnly} onRefreshDisciplines={refreshDisciplineLibrary} />;
             case 3: return (
                 <>

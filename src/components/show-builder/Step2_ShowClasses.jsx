@@ -163,7 +163,7 @@ const LevelCheckbox = ({ assocId, disc, groupName, level, formData, setFormData,
 
 // ─── Main component ─────────────────────────────────────────────
 
-export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, associationsData, divisionsData }) => {
+export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, associationsData, divisionsData, stepNumber = 4, stepTitle = 'Build Your Class List' }) => {
     const selectedAssocIds = useMemo(() =>
         Object.keys(formData.associations || {}).filter(id => formData.associations[id]),
         [formData.associations]
@@ -204,13 +204,13 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
         return (
             <motion.div key="step4-classes" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                 <CardHeader>
-                    <CardTitle>Step 4: Build Your Class List</CardTitle>
+                    <CardTitle>{`Step ${stepNumber}: ${stepTitle}`}</CardTitle>
                     <CardDescription>Choose disciplines, divisions, and levels. The system will automatically generate the classes for your show.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="text-center py-10 border-2 border-dashed rounded-lg">
                         <p className="text-muted-foreground font-medium">No associations selected yet.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Go back to Step 1 to choose your associations.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Go back to the first step to choose your associations.</p>
                     </div>
                 </CardContent>
             </motion.div>
@@ -220,7 +220,7 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
     return (
         <motion.div key="step4-classes" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 4: Build Your Class List</CardTitle>
+                <CardTitle>{`Step ${stepNumber}: ${stepTitle}`}</CardTitle>
                 <CardDescription>Choose disciplines, divisions, and levels. The system will automatically generate the classes for your show.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

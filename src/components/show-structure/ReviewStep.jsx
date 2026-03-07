@@ -35,7 +35,7 @@ const ReviewField = ({ label, value }) => {
     );
 };
 
-export const ReviewStep = ({ formData, setCurrentStep }) => {
+export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
     const { fees = [], associations = {} } = formData;
     const { toast } = useToast();
     const [associationsData, setAssociationsData] = useState([]);
@@ -55,8 +55,8 @@ export const ReviewStep = ({ formData, setCurrentStep }) => {
     const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
     const totalFeeRevenue = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
-    const sponsorshipRevenue = formData.sponsorshipRevenue || [];
-    const totalSponsorshipRevenue = useMemo(() => sponsorshipRevenue.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsorshipRevenue]);
+    const sponsors = formData.sponsors || [];
+    const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
     const totalRevenue = totalFeeRevenue + totalSponsorshipRevenue;
     const expenses = formData.showExpenses || [];
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
@@ -67,24 +67,72 @@ export const ReviewStep = ({ formData, setCurrentStep }) => {
     const selectedAssociations = Object.keys(associations || {}).filter(id => associations[id]);
     const details = formData.showDetails || {};
 
-    return (
-        <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-            <CardHeader>
-                <CardTitle>Step 8: Review</CardTitle>
-                <CardDescription>Review all details before saving. Click Edit to jump to any section.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-2">
-                 <Accordion type="multiple" defaultValue={['Associations']} className="w-full">
-                    {/* Step 1 */}
-                    <ReviewSection title="1. Associations" onEditClick={() => setCurrentStep(1)}>
+    const isFull = variant === 'full';
+
+    const FeesAndSponsorsContent = () => (
+        <div className="space-y-3">
+            {fees.length > 0 ? fees.map(fee => (
+                <div key={fee.id} className="p-2 border-b">
+                    <p><span className="font-semibold text-foreground">{fee.name}:</span> ${fee.amount}</p>
+                    {fee.association_specific && <p className="text-xs">For: {getAssociationName(fee.association_specific)}</p>}
+                </div>
+            )) : <p>No fees defined.</p>}
+            {totalFeeRevenue > 0 && (
+                <div className="p-2 rounded-lg bg-emerald-500/5">
+                    <div className="flex justify-between text-sm font-bold">
+                        <span>Total Fee Revenue</span>
+                        <span className="text-emerald-600">${totalFeeRevenue.toFixed(2)}</span>
+                    </div>
+                </div>
+            )}
+            {sponsors.filter(s => s.name).length > 0 && (
+                <>
+                    <p className="font-semibold text-foreground pt-2">Sponsorship Revenue</p>
+                    {sponsors.filter(s => s.name).map(s => (
+                        <div key={s.id} className="p-2 border-b">
+                            <p><span className="font-semibold text-foreground">{s.name}:</span> ${s.amount}</p>
+                        </div>
+                    ))}
+                    <div className="p-2 rounded-lg bg-emerald-500/5">
+                        <div className="flex justify-between text-sm font-bold">
+                            <span>Total Sponsorship</span>
+                            <span className="text-emerald-600">${totalSponsorshipRevenue.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+
+    // Build review sections based on variant
+    const sections = isFull ? [
+        { num: 1, title: 'Associations', step: 1 },
+        { num: 2, title: 'General & Venue', step: 2 },
+        { num: 3, title: 'Officials & Staff', step: 3 },
+        { num: 4, title: 'Fees & Sponsors (Revenue)', step: 4 },
+        { num: 5, title: 'Show Expenses', step: 5 },
+        { num: 6, title: 'Awards', step: 6 },
+        { num: 7, title: 'Entry & Scheduling', step: 7 },
+    ] : [
+        { num: 1, title: 'Associations', step: 1 },
+        { num: 2, title: 'Fees & Sponsors (Revenue)', step: 2 },
+        { num: 3, title: 'Sponsors', step: 3 },
+    ];
+
+    const renderSectionContent = (title) => {
+        switch (title) {
+            case 'Associations':
+                return (
+                    <>
                         {selectedAssociations.length > 0
                             ? selectedAssociations.map(id => getAssociationName(id)).join(', ')
                             : 'No associations selected.'}
                         <ReviewField label="Show Name" value={formData.showName} />
-                    </ReviewSection>
-
-                    {/* Step 2 */}
-                    <ReviewSection title="2. General & Venue" onEditClick={() => setCurrentStep(2)}>
+                    </>
+                );
+            case 'General & Venue':
+                return (
+                    <>
                         <ReviewField label="Facility" value={details.venue?.facilityName} />
                         <ReviewField label="Address" value={details.venue?.address} />
                         <ReviewField label="Stalls" value={details.venue?.numberOfStalls} />
@@ -93,75 +141,38 @@ export const ReviewStep = ({ formData, setCurrentStep }) => {
                         <ReviewField label="Host Hotel" value={details.venue?.hostHotel} />
                         <ReviewField label="Show Manager" value={details.general?.managerName} />
                         <ReviewField label="Show Secretary" value={details.general?.secretaryName} />
-                    </ReviewSection>
-
-                    {/* Step 3 */}
-                    <ReviewSection title="3. Officials & Staff" onEditClick={() => setCurrentStep(3)}>
-                        {(formData.staff || []).length > 0
-                            ? <p>{formData.staff.length} staff member{formData.staff.length !== 1 ? 's' : ''} configured.</p>
-                            : <p>No staff configured.</p>}
-                    </ReviewSection>
-
-                    {/* Step 4 */}
-                    <ReviewSection title="4. Fees & Sponsors (Revenue)" onEditClick={() => setCurrentStep(4)}>
-                        <div className="space-y-3">
-                            {fees.length > 0 ? fees.map(fee => (
-                                <div key={fee.id} className="p-2 border-b">
-                                    <p><span className="font-semibold text-foreground">{fee.name}:</span> ${fee.amount}</p>
-                                    {fee.association_specific && <p className="text-xs">For: {getAssociationName(fee.association_specific)}</p>}
-                                </div>
-                            )) : <p>No fees defined.</p>}
-                            {totalFeeRevenue > 0 && (
-                                <div className="p-2 rounded-lg bg-emerald-500/5">
+                    </>
+                );
+            case 'Officials & Staff':
+                return (formData.staff || []).length > 0
+                    ? <p>{formData.staff.length} staff member{formData.staff.length !== 1 ? 's' : ''} configured.</p>
+                    : <p>No staff configured.</p>;
+            case 'Fees & Sponsors (Revenue)':
+                return <FeesAndSponsorsContent />;
+            case 'Show Expenses':
+                return (
+                    <div className="space-y-3">
+                        {expenses.length > 0 ? (
+                            <>
+                                {expenses.filter(e => e.name).map(e => (
+                                    <div key={e.id} className="p-2 border-b">
+                                        <p><span className="font-semibold text-foreground">{e.name}:</span> ${e.amount}</p>
+                                        <p className="text-xs">{e.timing?.replace('_', ' ')} {e.category ? `/ ${e.category}` : ''}</p>
+                                    </div>
+                                ))}
+                                <div className="p-2 rounded-lg bg-red-500/5">
                                     <div className="flex justify-between text-sm font-bold">
-                                        <span>Total Fee Revenue</span>
-                                        <span className="text-emerald-600">${totalFeeRevenue.toFixed(2)}</span>
+                                        <span>Total Expenses</span>
+                                        <span className="text-red-600">${totalExpenses.toFixed(2)}</span>
                                     </div>
                                 </div>
-                            )}
-                            {sponsorshipRevenue.filter(s => s.name).length > 0 && (
-                                <>
-                                    <p className="font-semibold text-foreground pt-2">Sponsorship Revenue</p>
-                                    {sponsorshipRevenue.filter(s => s.name).map(s => (
-                                        <div key={s.id} className="p-2 border-b">
-                                            <p><span className="font-semibold text-foreground">{s.name}:</span> ${s.amount}</p>
-                                        </div>
-                                    ))}
-                                    <div className="p-2 rounded-lg bg-emerald-500/5">
-                                        <div className="flex justify-between text-sm font-bold">
-                                            <span>Total Sponsorship</span>
-                                            <span className="text-emerald-600">${totalSponsorshipRevenue.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </ReviewSection>
-
-                    {/* Step 5 */}
-                    <ReviewSection title="5. Show Expenses" onEditClick={() => setCurrentStep(5)}>
-                        <div className="space-y-3">
-                            {expenses.length > 0 ? (
-                                <>
-                                    {expenses.filter(e => e.name).map(e => (
-                                        <div key={e.id} className="p-2 border-b">
-                                            <p><span className="font-semibold text-foreground">{e.name}:</span> ${e.amount}</p>
-                                            <p className="text-xs">{e.timing?.replace('_', ' ')} {e.category ? `/ ${e.category}` : ''}</p>
-                                        </div>
-                                    ))}
-                                    <div className="p-2 rounded-lg bg-red-500/5">
-                                        <div className="flex justify-between text-sm font-bold">
-                                            <span>Total Expenses</span>
-                                            <span className="text-red-600">${totalExpenses.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : <p>No expenses defined.</p>}
-                        </div>
-                    </ReviewSection>
-
-                    {/* Step 6 */}
-                    <ReviewSection title="6. Awards" onEditClick={() => setCurrentStep(6)}>
+                            </>
+                        ) : <p>No expenses defined.</p>}
+                    </div>
+                );
+            case 'Awards':
+                return (
+                    <>
                         <ReviewField label="High Point / All-Around" value={details.awards?.highPoint} />
                         <ReviewField label="Circuit Awards" value={details.awards?.circuitAwards} />
                         <ReviewField label="Special Awards" value={details.awards?.specialAwards} />
@@ -173,17 +184,41 @@ export const ReviewStep = ({ formData, setCurrentStep }) => {
                                 </div>
                             </div>
                         )}
-                    </ReviewSection>
-
-                    {/* Step 7 */}
-                    <ReviewSection title="7. Entry & Scheduling" onEditClick={() => setCurrentStep(7)}>
+                    </>
+                );
+            case 'Entry & Scheduling':
+                return (
+                    <>
                         <ReviewField label="Entry Deadlines" value={details.entry?.deadlines} />
                         <ReviewField label="Scratch Policy" value={details.entry?.scratchPolicy} />
                         <ReviewField label="Health Requirements" value={details.healthSafety?.healthReqs} />
                         <ReviewField label="Emergency Contacts" value={details.healthSafety?.emergencyContacts} />
                         <ReviewField label="Facility Rules" value={details.healthSafety?.facilityRules} />
                         <ReviewField label="Liability Release" value={details.healthSafety?.liability} />
-                    </ReviewSection>
+                    </>
+                );
+            case 'Sponsors':
+                return sponsors.length > 0
+                    ? <p>{sponsors.length} sponsor{sponsors.length !== 1 ? 's' : ''} added. Total: ${totalSponsorshipRevenue.toFixed(2)}</p>
+                    : <p>No sponsors added.</p>;
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+            <CardHeader>
+                <CardTitle>Review</CardTitle>
+                <CardDescription>Review all details before saving. Click Edit to jump to any section.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2">
+                 <Accordion type="multiple" defaultValue={['Associations']} className="w-full">
+                    {sections.map(({ num, title, step }) => (
+                        <ReviewSection key={title} title={`${num}. ${title}`} onEditClick={() => setCurrentStep(step)}>
+                            {renderSectionContent(title)}
+                        </ReviewSection>
+                    ))}
                 </Accordion>
 
                 {/* Budget Summary */}
@@ -197,10 +232,12 @@ export const ReviewStep = ({ formData, setCurrentStep }) => {
                                 <span>Total Revenue</span>
                                 <span className="font-semibold text-emerald-600">${totalRevenue.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span>Total Expenses</span>
-                                <span className="font-semibold text-red-600">${(totalExpenses + totalAwardExpenses).toFixed(2)}</span>
-                            </div>
+                            {(isFull || totalExpenses > 0 || totalAwardExpenses > 0) && (
+                                <div className="flex justify-between text-sm">
+                                    <span>Total Expenses</span>
+                                    <span className="font-semibold text-red-600">${(totalExpenses + totalAwardExpenses).toFixed(2)}</span>
+                                </div>
+                            )}
                             <div className="border-t pt-2 flex justify-between text-sm font-bold">
                                 <span>Projected Profit / Loss</span>
                                 <span className={cn(netProfitLoss >= 0 ? "text-emerald-600" : "text-red-600")}>

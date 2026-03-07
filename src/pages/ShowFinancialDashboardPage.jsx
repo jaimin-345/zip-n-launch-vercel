@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
@@ -12,9 +12,12 @@ import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft, Loader2, DollarSign, TrendingUp, TrendingDown, Target,
-    Users, Hash, BarChart3, Banknote, PiggyBank, AlertTriangle, ChevronRight,
+    Users, Hash, BarChart3, Banknote, PiggyBank, AlertTriangle,
     HeartHandshake, Receipt, Trophy, ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
+import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
 import { calculateProjections, DEFAULT_ASSUMPTIONS } from '@/lib/showFinancialProjections';
 
@@ -138,7 +141,27 @@ const AssumptionInput = ({ label, field, value, onChange, type = 'number', suffi
 const ShowFinancialDashboardPage = () => {
     const { showId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const { formData, isLoading } = useShowBuilder(showId);
+    const [shows, setShows] = useState([]);
+    const [showsLoading, setShowsLoading] = useState(!showId);
+    const [selectedShowId, setSelectedShowId] = useState(showId || null);
+
+    useEffect(() => {
+        if (showId) return;
+        const fetchShows = async () => {
+            if (!user) { setShowsLoading(false); return; }
+            const { data } = await supabase
+                .from('projects')
+                .select('id, project_name, project_type, project_data, status')
+                .eq('project_type', 'show')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+            if (data) setShows(data);
+            setShowsLoading(false);
+        };
+        fetchShows();
+    }, [user, showId]);
 
     const [assumptions, setAssumptions] = useState(DEFAULT_ASSUMPTIONS);
 
@@ -151,7 +174,7 @@ const ShowFinancialDashboardPage = () => {
     const fmt = (n) => `$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
     const fmtSigned = (n) => `${n >= 0 ? '' : '-'}${fmt(n)}`;
 
-    if (isLoading) {
+    if (isLoading || showsLoading) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -159,8 +182,9 @@ const ShowFinancialDashboardPage = () => {
         );
     }
 
+    const hasShow = showId || selectedShowId;
     const { revenue, costs, profit, timing, scenarios, breakEven } = projections;
-    const maxRevBar = Math.max(revenue.fees.total, revenue.sponsors.projected, 1);
+    const maxRevBar = Math.max(revenue?.fees?.total || 0, revenue?.sponsors?.projected || 0, 1);
 
     return (
         <>
@@ -174,7 +198,7 @@ const ShowFinancialDashboardPage = () => {
                     {/* Header */}
                     <div className="flex items-center justify-between mb-6">
                         <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate(showId ? `/horse-show-manager/show-structure/${showId}` : '/horse-show-manager')}>
+                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
@@ -182,18 +206,28 @@ const ShowFinancialDashboardPage = () => {
                                     <BarChart3 className="h-6 w-6 text-primary" />
                                     Financial Projections
                                 </h1>
-                                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                    {formData.showName || 'Untitled Show'}
-                                    {formData.showNumber && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            <Hash className="h-3 w-3 mr-0.5" />#{formData.showNumber}
-                                        </Badge>
-                                    )}
+                                <p className="text-sm text-muted-foreground">
+                                    View financial projections and analytics for your show.
                                 </p>
                             </div>
                         </div>
                     </div>
 
+                    {!showId && (
+                        <div className="mb-6">
+                            <LinkToExistingShow
+                                existingProjects={shows}
+                                linkedProjectId={selectedShowId}
+                                onLink={(projectId) => {
+                                    if (projectId === 'none') { setSelectedShowId(null); return; }
+                                    navigate(`/horse-show-manager/financials/${projectId}`);
+                                }}
+                                description="Link to an existing show to view its financial projections."
+                            />
+                        </div>
+                    )}
+
+                    {hasShow && (<>
                     {/* KPI Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                         <StatCard
@@ -553,6 +587,7 @@ const ShowFinancialDashboardPage = () => {
                             </Card>
                         </div>
                     </div>
+                    </>)}
                 </main>
             </div>
         </>

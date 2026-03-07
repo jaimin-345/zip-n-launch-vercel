@@ -6,14 +6,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Loader2, Info, User, DollarSign, Trophy, Search, Check, Shield, ClipboardList, TrendingDown, CalendarDays, Hash, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Info, User, Trophy, Search, Check, Shield, TrendingDown, CalendarDays, Hash, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
 import { AssociationStep } from '@/components/show-structure/AssociationStep';
 import { GeneralVenueStep } from '@/components/show-structure/GeneralVenueStep';
 import { OfficialsStaffStep } from '@/components/show-structure/OfficialsStaffStep';
-import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
 import { ShowExpensesStep } from '@/components/show-structure/ShowExpensesStep';
 import { AwardsSponsorshipStep } from '@/components/show-structure/AwardsSponsorshipStep';
 import { EntrySchedulingStep } from '@/components/show-structure/EntrySchedulingStep';
@@ -24,11 +24,10 @@ const WIZARD_STEPS = [
     { id: 1, name: 'Associations', icon: Shield },
     { id: 2, name: 'General & Venue', icon: Info },
     { id: 3, name: 'Officials & Staff', icon: User },
-    { id: 4, name: 'Fees & Sponsors', icon: DollarSign },
-    { id: 5, name: 'Show Expenses', icon: TrendingDown },
-    { id: 6, name: 'Awards', icon: Trophy },
-    { id: 7, name: 'Entry & Scheduling', icon: CalendarDays },
-    { id: 8, name: 'Review', icon: Search },
+    { id: 4, name: 'Show Expenses', icon: TrendingDown },
+    { id: 5, name: 'Awards', icon: Trophy },
+    { id: 6, name: 'Entry & Scheduling', icon: CalendarDays },
+    { id: 7, name: 'Review', icon: Search },
 ];
 
 const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
@@ -67,7 +66,7 @@ const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
 const ShowStructurePage = () => {
     const { showId } = useParams();
     const navigate = useNavigate();
-    const { formData, setFormData, createOrUpdateShow, isLoading: isDataLoading, associationsData, divisionsData } = useShowBuilder(showId);
+    const { formData, setFormData, createOrUpdateShow, isLoading: isDataLoading, associationsData, divisionsData, existingProjects } = useShowBuilder(showId);
     const [isSaving, setIsSaving] = useState(false);
     const [currentStep, setCurrentStepState] = useState(1);
     const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -81,11 +80,10 @@ const ShowStructurePage = () => {
         { id: 1, component: AssociationStep },
         { id: 2, component: GeneralVenueStep },
         { id: 3, component: OfficialsStaffStep },
-        { id: 4, component: FeeStructureStep },
-        { id: 5, component: ShowExpensesStep },
-        { id: 6, component: AwardsSponsorshipStep },
-        { id: 7, component: EntrySchedulingStep },
-        { id: 8, component: ReviewStep },
+        { id: 4, component: ShowExpensesStep },
+        { id: 5, component: AwardsSponsorshipStep },
+        { id: 6, component: EntrySchedulingStep },
+        { id: 7, component: ReviewStep },
     ];
 
     const nextStep = () => {
@@ -106,7 +104,7 @@ const ShowStructurePage = () => {
         try {
             const project = await createOrUpdateShow();
             if (project && !showId) {
-                navigate(`/horse-show-manager/show-structure/${project.id}`, { replace: true });
+                navigate(`/horse-show-manager/show-structure-expenses/${project.id}`, { replace: true });
             }
         } catch (error) {
             // Error is handled in hook
@@ -128,8 +126,8 @@ const ShowStructurePage = () => {
     return (
         <>
             <Helmet>
-                <title>Show Structure & Fees</title>
-                <meta name="description" content="Manage all the critical details, fees, and budgeting for your horse show." />
+                <title>Show Structure & Expenses</title>
+                <meta name="description" content="Manage all operational costs and structure for your horse show." />
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
@@ -139,6 +137,7 @@ const ShowStructurePage = () => {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to Manager
                         </Button>
+                        <h1 className="text-2xl font-bold text-foreground">Show Structure & Expenses</h1>
                         <div className="flex items-center gap-4">
                             {showId && (
                                 <Button variant="outline" size="sm" onClick={() => navigate(`/horse-show-manager/financials/${showId}`)}>
@@ -147,9 +146,9 @@ const ShowStructurePage = () => {
                                 </Button>
                             )}
                             <div className="text-right">
-                                <h1 className="text-xl font-bold text-foreground">
+                                <h2 className="text-lg font-bold text-foreground">
                                     {formData.showName || 'Untitled Show'}
-                                </h1>
+                                </h2>
                                 <div className="flex items-center justify-end gap-2 mt-1">
                                     {formData.showNumber && (
                                         <Badge variant="secondary" className="text-xs">
@@ -173,6 +172,41 @@ const ShowStructurePage = () => {
                         setCurrentStep={setCurrentStep}
                     />
 
+                    <LinkToExistingShow
+                        existingProjects={existingProjects}
+                        linkedProjectId={formData.linkedProjectId || null}
+                        onLink={(projectId) => {
+                            if (projectId === 'none') {
+                                setFormData(prev => ({ ...prev, linkedProjectId: null }));
+                            } else {
+                                const project = existingProjects.find(p => p.id === projectId);
+                                const pd = project?.project_data || {};
+                                setFormData(prev => ({
+                                    ...prev,
+                                    linkedProjectId: projectId,
+                                    showName: pd.showName || prev.showName,
+                                    showNumber: pd.showNumber || prev.showNumber,
+                                    associations: pd.associations || prev.associations,
+                                    customAssociations: pd.customAssociations || prev.customAssociations,
+                                    disciplines: pd.disciplines || prev.disciplines,
+                                    startDate: pd.startDate || prev.startDate,
+                                    endDate: pd.endDate || prev.endDate,
+                                    venueAddress: pd.venueAddress || prev.venueAddress,
+                                    venueName: pd.venueName || prev.venueName,
+                                    arenas: pd.arenas || prev.arenas,
+                                    officials: pd.officials || prev.officials,
+                                    staff: pd.staff || prev.staff,
+                                    sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
+                                    sponsors: pd.sponsors || prev.sponsors,
+                                }));
+                            }
+                        }}
+                        onDuplicated={(newProject) => {
+                            navigate(`/horse-show-manager/show-structure-expenses/${newProject.id}`, { replace: true });
+                        }}
+                        description="Link to an existing show to auto-fill structure and expense details."
+                    />
+
                     <Card className="mt-8">
                         <AnimatePresence mode="wait">
                             {CurrentStepComponent && <CurrentStepComponent
@@ -182,6 +216,7 @@ const ShowStructurePage = () => {
                                 setCurrentStep={setCurrentStep}
                                 associationsData={associationsData}
                                 divisionsData={divisionsData}
+                                existingProjects={existingProjects}
                             />}
                         </AnimatePresence>
                     </Card>

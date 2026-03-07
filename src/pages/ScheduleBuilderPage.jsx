@@ -1,33 +1,121 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Save, Loader2, Shield, DollarSign, HeartHandshake, Search, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowLeft, ArrowRight, Save, Loader2, Info, LayoutGrid, Layers, CalendarDays, Search, Check, Calendar as CalendarIcon } from 'lucide-react';
+import { cn, parseLocalDate } from '@/lib/utils';
+import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
+import { AssociationSelection } from '@/components/shared/AssociationSelection';
 
-import { AssociationStep } from '@/components/show-structure/AssociationStep';
-import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
-import { SponsorsStep } from '@/components/show-structure/SponsorsStep';
-import { ReviewStep } from '@/components/show-structure/ReviewStep';
+import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
+import { Step2_ShowClasses } from '@/components/show-builder/Step2_ShowClasses';
+import { Step5_Schedule } from '@/components/show-builder/Step5_Schedule';
+import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
+
+// Combined Show Info step: associations + dates + venue
+const ShowInfoStep = ({ formData, setFormData, associationsData, existingProjects }) => {
+    const handleUpdate = (key, value) => {
+        setFormData(prev => ({ ...prev, [key]: value }));
+    };
+    const handleDateChange = (field, date) => {
+        if (date) handleUpdate(field, format(date, 'yyyy-MM-dd'));
+    };
+
+    return (
+        <motion.div key="show-info" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+            <AssociationSelection
+                formData={formData}
+                setFormData={setFormData}
+                associationsData={associationsData}
+                existingProjects={existingProjects}
+                context="showBuilder"
+                stepNumber={1}
+            />
+            <CardContent className="space-y-4 pt-2 pb-6">
+                <h3 className="text-base font-semibold border-t pt-4">Event Dates & Venue</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <Label>Start Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn("w-full justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={formData.startDate ? parseLocalDate(formData.startDate) : undefined}
+                                    onSelect={(date) => handleDateChange('startDate', date)}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div>
+                        <Label>End Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn("w-full justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={formData.endDate ? parseLocalDate(formData.endDate) : undefined}
+                                    onSelect={(date) => handleDateChange('endDate', date)}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div>
+                        <Label>Venue Name & Address</Label>
+                        <Input
+                            value={formData.venueAddress || ''}
+                            onChange={(e) => handleUpdate('venueAddress', e.target.value)}
+                            placeholder="E.g., Grand Oak Arena, 123 Stable Rd"
+                        />
+                    </div>
+                </div>
+            </CardContent>
+        </motion.div>
+    );
+};
 
 const WIZARD_STEPS = [
-    { id: 1, name: 'Associations', icon: Shield },
-    { id: 2, name: 'Fee Structure', icon: DollarSign },
-    { id: 3, name: 'Sponsors', icon: HeartHandshake },
-    { id: 4, name: 'Review', icon: Search },
+    { id: 1, name: 'Show Info', icon: Info },
+    { id: 2, name: 'Arena Setup', icon: LayoutGrid },
+    { id: 3, name: 'Class Builder', icon: Layers },
+    { id: 4, name: 'Schedule Builder', icon: CalendarDays },
+    { id: 5, name: 'Review', icon: Search },
 ];
 
 const STEP_COMPONENTS = [
-    { id: 1, component: AssociationStep },
-    { id: 2, component: FeeStructureStep },
-    { id: 3, component: SponsorsStep },
-    { id: 4, component: ReviewStep },
+    { id: 1, component: ShowInfoStep },
+    { id: 2, component: Step3_ArenasAndDates, props: { stepNumber: 2, stepTitle: 'Arena Setup' } },
+    { id: 3, component: Step2_ShowClasses, props: { stepNumber: 3, stepTitle: 'Class Builder' } },
+    { id: 4, component: Step5_Schedule, props: { stepNumber: 4, stepTitle: 'Schedule Builder' } },
+    { id: 5, component: Step6_Preview, props: { stepNumber: 5, stepTitle: 'Review' } },
 ];
 
 const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => (
@@ -80,13 +168,14 @@ const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => (
 
 const AUTO_SAVE_DELAY = 3000;
 
-const CreateHorseShowWizardPage = () => {
+const ScheduleBuilderPage = () => {
     const { showId } = useParams();
     const navigate = useNavigate();
     const { toast } = useToast();
     const {
         formData, setFormData, createOrUpdateShow,
         isLoading: isDataLoading, associationsData, divisionsData, existingProjects,
+        disciplineLibrary, resetDisciplines,
     } = useShowBuilder(showId);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -96,9 +185,8 @@ const CreateHorseShowWizardPage = () => {
     const autoSaveTimer = useRef(null);
     const lastSavedData = useRef(null);
 
-    // Auto-save: debounce formData changes
     const performAutoSave = useCallback(async () => {
-        if (!formData.id && !showId) return; // Don't auto-save brand new unsaved shows
+        if (!formData.id && !showId) return;
         setAutoSaveStatus('saving');
         try {
             await createOrUpdateShow();
@@ -148,7 +236,7 @@ const CreateHorseShowWizardPage = () => {
             const project = await createOrUpdateShow();
             lastSavedData.current = JSON.stringify(formData);
             if (project && !showId) {
-                navigate(`/horse-show-manager/fee-structure/${project.id}`, { replace: true });
+                navigate(`/horse-show-manager/schedule-builder/${project.id}`, { replace: true });
             }
         } catch {
             // Error handled in hook
@@ -157,7 +245,9 @@ const CreateHorseShowWizardPage = () => {
         }
     };
 
-    const CurrentStepComponent = STEP_COMPONENTS.find(s => s.id === currentStep)?.component;
+    const currentStepConfig = STEP_COMPONENTS.find(s => s.id === currentStep);
+    const CurrentStepComponent = currentStepConfig?.component;
+    const currentStepProps = currentStepConfig?.props || {};
 
     if (isDataLoading) {
         return (
@@ -170,26 +260,24 @@ const CreateHorseShowWizardPage = () => {
     return (
         <>
             <Helmet>
-                <title>Fee Structure & Sponsors</title>
-                <meta name="description" content="Manage entry fees, stall fees, and sponsorship packages for your horse show." />
+                <title>Horse Show Schedule Builder</title>
+                <meta name="description" content="Build your horse show schedule step-by-step." />
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    {/* Header */}
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3">
                             <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
                                 <ArrowLeft className="h-4 w-4" />
                             </Button>
                             <div>
-                                <h1 className="text-2xl font-bold text-foreground">Fee Structure & Sponsors</h1>
+                                <h1 className="text-2xl font-bold text-foreground">Horse Show Schedule Builder</h1>
                                 <p className="text-sm text-muted-foreground">
                                     Step {currentStep} of {WIZARD_STEPS.length} — {WIZARD_STEPS[currentStep - 1]?.name}
                                 </p>
                             </div>
                         </div>
-                        {/* Auto-save indicator */}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             {autoSaveStatus === 'saving' && (
                                 <span className="flex items-center gap-1">
@@ -207,14 +295,12 @@ const CreateHorseShowWizardPage = () => {
                         </div>
                     </div>
 
-                    {/* Step Indicator */}
                     <StepIndicator
                         currentStep={currentStep}
                         completedSteps={completedSteps}
                         onStepClick={setCurrentStep}
                     />
 
-                    {/* Link to Existing Show */}
                     <LinkToExistingShow
                         existingProjects={existingProjects}
                         linkedProjectId={formData.linkedProjectId || null}
@@ -231,19 +317,24 @@ const CreateHorseShowWizardPage = () => {
                                     showNumber: pd.showNumber || prev.showNumber,
                                     associations: pd.associations || prev.associations,
                                     customAssociations: pd.customAssociations || prev.customAssociations,
-                                    sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
-                                    sponsors: pd.sponsors || prev.sponsors,
+                                    disciplines: pd.disciplines || prev.disciplines,
+                                    startDate: pd.startDate || prev.startDate,
+                                    endDate: pd.endDate || prev.endDate,
+                                    venueAddress: pd.venueAddress || prev.venueAddress,
+                                    venueName: pd.venueName || prev.venueName,
+                                    arenas: pd.arenas || prev.arenas,
+                                    officials: pd.officials || prev.officials,
+                                    staff: pd.staff || prev.staff,
                                 }));
                                 toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
                             }
                         }}
                         onDuplicated={(newProject) => {
-                            navigate(`/horse-show-manager/fee-structure/${newProject.id}`, { replace: true });
+                            navigate(`/horse-show-manager/schedule-builder/${newProject.id}`, { replace: true });
                         }}
-                        description="Link to an existing show to auto-fill fee structure and sponsor details."
+                        description="Link to an existing show to auto-fill details, or duplicate a previous show."
                     />
 
-                    {/* Step Content */}
                     <Card className="mt-4">
                         <AnimatePresence mode="wait">
                             {CurrentStepComponent && (
@@ -255,13 +346,14 @@ const CreateHorseShowWizardPage = () => {
                                     associationsData={associationsData}
                                     divisionsData={divisionsData}
                                     existingProjects={existingProjects}
-                                    variant="create"
+                                    disciplineLibrary={disciplineLibrary}
+                                    resetDisciplines={resetDisciplines}
+                                    {...currentStepProps}
                                 />
                             )}
                         </AnimatePresence>
                     </Card>
 
-                    {/* Navigation Footer */}
                     <div className="mt-8 flex justify-between items-center">
                         <Button
                             variant="outline"
@@ -292,9 +384,9 @@ const CreateHorseShowWizardPage = () => {
                                             const project = await createOrUpdateShow();
                                             lastSavedData.current = JSON.stringify(formData);
                                             const id = project?.id || showId || formData.id;
-                                            toast({ title: 'Fee Structure Saved!', description: 'Your fee structure and sponsors have been saved.' });
+                                            toast({ title: 'Schedule Saved!', description: 'Your show schedule has been saved successfully.' });
                                             if (id) {
-                                                navigate(`/horse-show-manager/fee-structure/${id}`, { replace: true });
+                                                navigate(`/horse-show-manager/schedule-builder/${id}`, { replace: true });
                                             }
                                         } catch {
                                             // Error handled in hook
@@ -320,4 +412,4 @@ const CreateHorseShowWizardPage = () => {
     );
 };
 
-export default CreateHorseShowWizardPage;
+export default ScheduleBuilderPage;

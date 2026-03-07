@@ -276,7 +276,7 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 4: Fees & Sponsors (Revenue)</CardTitle>
+                <CardTitle>Fees & Sponsors (Revenue)</CardTitle>
                 <CardDescription>Define your show's income sources — entry fees, stall fees, association fees, and sponsorship revenue.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
