@@ -3,7 +3,8 @@ import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, ArrowLeft, Plane } from 'lucide-react';
+import { FileText, Plane } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 
@@ -17,24 +18,7 @@ const EmployeeManagementPage = () => {
       <div className="min-h-screen bg-background">
         <Navigation />
         <main className="container mx-auto px-4 py-8">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            className="mb-8"
-          >
-            <Button variant="ghost" asChild className="mb-4">
-              <Link to="/horse-show-manager">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Horse Show Manager
-              </Link>
-            </Button>
-            <h1 className="text-4xl font-extrabold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-sky-400">
-              Employee Management
-            </h1>
-            <p className="text-lg text-muted-foreground">
-              Manage employees, contracts, and staff documentation.
-            </p>
-          </motion.div>
+          <PageHeader title="Employee Management" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <motion.div

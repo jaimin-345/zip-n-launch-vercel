@@ -6,7 +6,8 @@ import { useToast } from '@/components/ui/use-toast';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Users, Building, Plane, MessageSquare, ArrowLeft, Save } from 'lucide-react';
+import { Users, Building, Plane, MessageSquare, Save } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 const EmployeeArenaSchedulingManagerPage = () => {
     const navigate = useNavigate();
@@ -72,12 +73,7 @@ const EmployeeArenaSchedulingManagerPage = () => {
                 <Navigation />
 
                 <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="flex justify-between items-center mb-6">
-                        <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Manager
-                        </Button>
-                    </div>
+                    <PageHeader title="Employee & Arena Scheduling" />
                     {/* Module cards — 2-3 column centered grid */}
                     <motion.div
                         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"

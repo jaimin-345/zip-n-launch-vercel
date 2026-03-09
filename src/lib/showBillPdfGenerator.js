@@ -39,7 +39,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
 
   // Renumber with the layout's numbering mode
   const sb = JSON.parse(JSON.stringify(showBill));
-  sb.settings = { ...sb.settings, numberingMode: ls.numberingMode };
+  sb.settings = { ...sb.settings, numberingMode: ls.numberingMode, startClassNumber: ls.startClassNumber || 1 };
   const numberedBill = renumberShowBill(sb);
 
   const doc = new jsPDF('p', 'pt', 'letter');
@@ -95,7 +95,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
         uniqueAssocs.add(assoc?.abbreviation || cls.assocId);
       }
     });
-    return Array.from(uniqueAssocs).join(' & ');
+    return Array.from(uniqueAssocs).map(a => `[${a}]`).join(' ');
   };
 
   // ============================================================
@@ -272,7 +272,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
             }
 
             const titleText = item.title || classDetails[0]?.name || 'Untitled';
-            const fullLine = assocStr ? `${titleText} & ${assocStr}` : titleText;
+            const fullLine = assocStr ? `${titleText}  ${assocStr}` : titleText;
             doc.setFont(undefined, 'normal');
             doc.text(fullLine, margin + 32, y, { maxWidth: contentWidth - 40 });
             y += lineH;
@@ -291,7 +291,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
             classDetails.forEach(cls => {
               checkPageBreak(lineH - 1);
               const assoc = associationsData?.find(a => a.id === cls.assocId);
-              const assocTag = ls.showAssociations && assoc ? ` & ${assoc.abbreviation}` : '';
+              const assocTag = ls.showAssociations && assoc ? `  [${assoc.abbreviation}]` : '';
               doc.text(`     ${cls.name}${assocTag}`, margin + 36, y);
               y += lineH - 1;
             });

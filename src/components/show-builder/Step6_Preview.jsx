@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseLocalDate } from '@/lib/utils';
-import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info, Globe, Facebook } from 'lucide-react';
+import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getAllClassItems } from '@/lib/showBillUtils';
@@ -106,14 +106,15 @@ const ProjectInfoCard = ({ formData, user, setFormData }) => {
 };
 
 // --- Center Panel: Action Buttons ---
-const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, isSaving }) => {
-  const isLocked = currentStatus === 'locked' || currentStatus === 'published';
+const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, onFinalizeShow, isSaving }) => {
+  const isFinalized = currentStatus === 'published';
+  const isLocked = currentStatus === 'locked' || isFinalized;
 
   return (
     <div className="space-y-3">
       <h3 className="text-base font-semibold mb-1">Manage Show</h3>
       <p className="text-xs text-muted-foreground mb-4">
-        Save, approve, and publish your show when ready.
+        Save, approve & lock, and finalize your show when ready.
       </p>
 
       {/* Save Draft */}
@@ -122,7 +123,7 @@ const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, isS
         size="lg"
         className="w-full justify-start text-sm h-12"
         onClick={() => onStatusChange('draft')}
-        disabled={isSaving}
+        disabled={isSaving || isLocked}
       >
         {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
         <div className="text-left">
@@ -131,47 +132,37 @@ const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, isS
         </div>
       </Button>
 
-      {/* Approve Show */}
-      <Button
-        variant="outline"
-        size="lg"
-        className="w-full justify-start text-sm h-12 border-green-200 hover:bg-green-50 hover:border-green-300"
-        onClick={() => onStatusChange('approved')}
-        disabled={isSaving || isLocked}
-      >
-        <ShieldCheck className="mr-3 h-5 w-5 text-green-600" />
-        <div className="text-left">
-          <span className="font-semibold text-green-700">Approve Show</span>
-          <span className="block text-xs text-muted-foreground">Mark approved — still editable</span>
-        </div>
-      </Button>
-
-      {/* Lock Show */}
+      {/* Approve & Lock (combined) */}
       <Button
         variant="outline"
         size="lg"
         className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
         onClick={() => onStatusChange('locked')}
-        disabled={isSaving || currentStatus === 'published'}
+        disabled={isSaving || isLocked}
       >
-        <Lock className="mr-3 h-5 w-5 text-blue-600" />
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
+          <div className="mr-3 relative">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
+          </div>
+        )}
         <div className="text-left">
-          <span className="font-semibold text-blue-700">Lock Show</span>
-          <span className="block text-xs text-muted-foreground">Disable editing — export & view only</span>
+          <span className="font-semibold text-blue-700">Approve & Lock</span>
+          <span className="block text-xs text-muted-foreground">Approve and lock editing — export & view only</span>
         </div>
       </Button>
 
-      {/* Publish Show */}
+      {/* Finalize Show */}
       <Button
         size="lg"
         className="w-full justify-start text-sm h-12 bg-purple-600 hover:bg-purple-700 text-white"
-        onClick={() => onStatusChange('published')}
-        disabled={isSaving}
+        onClick={onFinalizeShow}
+        disabled={isSaving || isFinalized}
       >
-        <Rocket className="mr-3 h-5 w-5" />
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
         <div className="text-left">
-          <span className="font-semibold">Publish Show</span>
-          <span className="block text-xs text-purple-200">Final state — official show bill</span>
+          <span className="font-semibold">Finalize Show</span>
+          <span className="block text-xs text-purple-200">Publish official show bill — final state</span>
         </div>
       </Button>
 
@@ -229,10 +220,161 @@ const LicensingCard = () => (
   </div>
 );
 
+// --- Admin & Owner Assignment Section ---
+const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
+  const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || '';
+  const loggedInUserEmail = user?.email || '';
+  const loggedInUserPhone = user?.user_metadata?.phone || user?.user_metadata?.mobile || profile?.phone || profile?.mobile || '';
+
+  const defaultAdminOwner = {
+    adminName: loggedInUserName,
+    adminEmail: loggedInUserEmail,
+    adminPhone: loggedInUserPhone,
+    ownerName: loggedInUserName,
+    ownerEmail: loggedInUserEmail,
+    ownerPhone: loggedInUserPhone,
+  };
+  const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
+
+  const handleUpdate = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      adminOwner: {
+        ...(prev.adminOwner || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  const isLocked = formData.showStatus === 'locked' || formData.showStatus === 'published';
+
+  return (
+    <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <Crown className="h-5 w-5 text-red-600" />
+          Admin & Owner Assignment
+        </h3>
+      </div>
+      <p className="text-sm text-muted-foreground">Must assign Admin and Owner (EquiPatterns members). Both default to creator but can be delegated.</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Admin Assignment */}
+        <div className="space-y-3 p-3 bg-background rounded-md border">
+          <div className="flex items-center gap-2">
+            <UserCog className="h-4 w-4 text-primary" />
+            <Label className="font-semibold">Admin (Required)</Label>
+          </div>
+          <Input
+            placeholder="Admin Name"
+            value={adminOwner.adminName || ''}
+            onChange={(e) => handleUpdate('adminName', e.target.value)}
+            disabled={isLocked}
+          />
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Email"
+                className="pl-9"
+                value={adminOwner.adminEmail || ''}
+                onChange={(e) => handleUpdate('adminEmail', e.target.value)}
+                disabled={isLocked}
+              />
+            </div>
+            <div className="flex-1 relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Phone"
+                className="pl-9"
+                value={adminOwner.adminPhone || ''}
+                onChange={(e) => handleUpdate('adminPhone', e.target.value)}
+                disabled={isLocked}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Owner Assignment */}
+        <div className="space-y-3 p-3 bg-background rounded-md border">
+          <div className="flex items-center gap-2">
+            <Crown className="h-4 w-4 text-amber-500" />
+            <Label className="font-semibold">Owner (Required)</Label>
+          </div>
+          <Input
+            placeholder="Owner Name"
+            value={adminOwner.ownerName || ''}
+            onChange={(e) => handleUpdate('ownerName', e.target.value)}
+            disabled={isLocked}
+          />
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Email"
+                className="pl-9"
+                value={adminOwner.ownerEmail || ''}
+                onChange={(e) => handleUpdate('ownerEmail', e.target.value)}
+                disabled={isLocked}
+              />
+            </div>
+            <div className="flex-1 relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Phone"
+                className="pl-9"
+                value={adminOwner.ownerPhone || ''}
+                onChange={(e) => handleUpdate('ownerPhone', e.target.value)}
+                disabled={isLocked}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Optional Second Admin */}
+      <div className="space-y-3 p-3 bg-background rounded-md border">
+        <div className="flex items-center gap-2">
+          <UserCog className="h-4 w-4 text-muted-foreground" />
+          <Label className="font-medium text-muted-foreground">Second Admin (Optional)</Label>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+          <Input
+            placeholder="Name"
+            value={adminOwner.secondAdminName || ''}
+            onChange={(e) => handleUpdate('secondAdminName', e.target.value)}
+            disabled={isLocked}
+          />
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Email"
+              className="pl-9"
+              value={adminOwner.secondAdminEmail || ''}
+              onChange={(e) => handleUpdate('secondAdminEmail', e.target.value)}
+              disabled={isLocked}
+            />
+          </div>
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Phone"
+              className="pl-9"
+              value={adminOwner.secondAdminPhone || ''}
+              onChange={(e) => handleUpdate('secondAdminPhone', e.target.value)}
+              disabled={isLocked}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main Step Component ---
 export const Step6_Preview = ({ formData, setFormData, associationsData, createOrUpdateShow, stepNumber = 7, stepTitle = 'Save & Manage Your Show' }) => {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
 
   const allClassItems = useMemo(() => getAllClassItems(formData), [formData]);
@@ -262,6 +404,36 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
       setIsSaving(false);
     }
   }, [createOrUpdateShow, toast]);
+
+  const handleFinalizeShow = useCallback(async () => {
+    if (!formData.showBill) {
+      toast({
+        title: 'Missing Schedule',
+        description: 'Please build your schedule before finalizing the show.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const project = await createOrUpdateShow('published');
+      if (project) {
+        await generateShowBillPdf(formData.showBill, allClassItems, associationsData, formData.layoutSettings);
+        toast({
+          title: 'Show Finalized!',
+          description: 'Your show has been published and the final PDF has been generated.',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Finalize Failed',
+        description: 'Could not finalize show. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [createOrUpdateShow, formData.showBill, formData.layoutSettings, allClassItems, associationsData, toast]);
 
   const handleExportPdf = useCallback(async () => {
     if (!formData.showBill) {
@@ -293,7 +465,10 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
           </span>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        {/* Admin & Owner Assignment */}
+        <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} />
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Panel: Project Info */}
           <div className="lg:col-span-3">
@@ -307,6 +482,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
               currentStatus={currentStatus}
               onStatusChange={handleStatusChange}
               onExportPdf={handleExportPdf}
+              onFinalizeShow={handleFinalizeShow}
               isSaving={isSaving}
             />
           </div>

@@ -11,10 +11,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Loader2, DollarSign, TrendingUp, TrendingDown, Target,
+    Loader2, DollarSign, TrendingUp, TrendingDown, Target,
     Users, Hash, BarChart3, Banknote, PiggyBank, AlertTriangle,
     HeartHandshake, Receipt, Trophy, ArrowUpRight, ArrowDownRight, Minus,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -195,23 +196,7 @@ const ShowFinancialDashboardPage = () => {
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div>
-                                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                                    <BarChart3 className="h-6 w-6 text-primary" />
-                                    Financial Projections
-                                </h1>
-                                <p className="text-sm text-muted-foreground">
-                                    View financial projections and analytics for your show.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <PageHeader title="Financial Projections" />
 
                     {!showId && (
                         <div className="mb-6">

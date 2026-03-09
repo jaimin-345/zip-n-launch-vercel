@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Trophy, Calendar, ClipboardList, Gift, Truck, CheckCircle, Mail } from 'lucide-react';
+import { Trophy, Calendar, ClipboardList, Gift, Truck, CheckCircle, Mail } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -81,24 +82,7 @@ const AwardsPresenterManagerPage = () => {
             <div className="min-h-screen bg-gradient-to-b from-background to-blue-50 dark:from-background dark:to-blue-900/20">
                 <Navigation />
                 <main className="container mx-auto px-4 py-12">
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
-                        <div className="flex items-center justify-between mb-8">
-                            <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Manager
-                            </Button>
-                            <div className="text-center">
-                                <h1 className="text-4xl font-bold tracking-tight flex items-center justify-center gap-3">
-                                    <Trophy className="h-10 w-10 text-primary" />
-                                    Awards & Presenters Scheduler
-                                </h1>
-                                <p className="mt-2 text-lg text-muted-foreground">
-                                    Ensure a polished, professional show experience with seamless awards coordination.
-                                </p>
-                            </div>
-                            <div className="w-36"></div>
-                        </div>
-                    </motion.div>
+                    <PageHeader title="Awards & Presenters Scheduler" />
 
                     <Card>
                         <CardContent className="p-0">

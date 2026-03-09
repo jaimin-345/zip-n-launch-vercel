@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Building2, Users, FileText, Send, FolderOpen, CheckCircle, Save, Loader2, RotateCcw, FileSignature } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
@@ -386,11 +387,7 @@ const ContractManagementPage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navigation />
         <main className="container mx-auto px-4 py-4">
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-4">
-            <FileSignature className="mx-auto h-12 w-12 text-primary mb-2" />
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">Contract Management</h1>
-            <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate and manage contracts for show officials and staff.</p>
-          </motion.div>
+          <PageHeader title="Contract Management" />
           <div className="max-w-7xl mx-auto">
             <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} />
             <Card className="glass-effect">

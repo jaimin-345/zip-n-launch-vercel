@@ -25,12 +25,38 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
       const pd = project.project_data;
       setFormData((prev) => ({
         ...prev,
+        // Set the project id so save updates this project instead of creating new
+        id: projectId,
         linkedProjectId: projectId,
+        // Step 1: Associations & show info
         showName: pd.showName || prev.showName,
         showNumber: pd.showNumber || prev.showNumber,
         associations: pd.associations || prev.associations,
         customAssociations: pd.customAssociations || prev.customAssociations,
         primaryAffiliates: pd.primaryAffiliates || prev.primaryAffiliates,
+        subAssociationSelections: pd.subAssociationSelections || prev.subAssociationSelections,
+        selected4HCity: pd.selected4HCity || prev.selected4HCity,
+        targetAudience: pd.targetAudience || prev.targetAudience,
+        // Step 2: Disciplines
+        disciplines: pd.disciplines || prev.disciplines,
+        // Step 3: Class configuration (divisionOrder, patternGroups, etc. are inside disciplines)
+        // Step 4: Show details - dates, venue, judges, staff
+        startDate: pd.startDate || prev.startDate,
+        endDate: pd.endDate || prev.endDate,
+        venueName: pd.venueName || prev.venueName,
+        venueAddress: pd.venueAddress || prev.venueAddress,
+        officials: pd.officials || prev.officials,
+        associationJudges: pd.associationJudges || prev.associationJudges,
+        staff: pd.staff || prev.staff,
+        schedule: pd.schedule || prev.schedule,
+        // Step 5: Pattern selections
+        patternSelections: pd.patternSelections || prev.patternSelections,
+        disciplinePatterns: pd.disciplinePatterns || prev.disciplinePatterns,
+        // Other saved data
+        groupDueDates: pd.groupDueDates || prev.groupDueDates,
+        groupStaff: pd.groupStaff || prev.groupStaff,
+        groupJudges: pd.groupJudges || prev.groupJudges,
+        showClassNumbers: pd.showClassNumbers ?? prev.showClassNumbers,
       }));
     }
   };

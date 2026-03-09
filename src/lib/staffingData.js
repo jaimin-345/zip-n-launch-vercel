@@ -14,6 +14,8 @@ export const staffRoles = {
     SHOW_STEWARD: { id: 'SHOW_STEWARD', name: 'Show Steward', icon: Shield, hasCards: true, group: 'judging' },
     SCRIBE_RING_STEWARD: { id: 'SCRIBE_RING_STEWARD', name: 'Scribe / Ring Steward', icon: Edit, group: 'judging' },
     SCORE_RUNNER: { id: 'SCORE_RUNNER', name: 'Score Runner', icon: Users, group: 'judging' },
+    SCOREKEEPER: { id: 'SCOREKEEPER', name: 'Scorekeeper', icon: Percent, group: 'judging' },
+    TABULATOR: { id: 'TABULATOR', name: 'Tabulator', icon: List, group: 'judging' },
     SCORER: { id: 'SCORER', name: 'Scorer/Tabulator', icon: Percent, group: 'judging' },
     TIMER: { id: 'TIMER', name: 'Timer', icon: Clock, group: 'judging' },
     START_FINISH_TIMER: { id: 'START_FINISH_TIMER', name: 'Start/Finish Timers', icon: Flag, group: 'judging' },
@@ -76,7 +78,7 @@ export const delegationTasks = {
     ]
 };
 
-const standardManagementRoles = ['SHOW_MANAGER', 'SHOW_SECRETARY', 'OFFICE_ASSISTANT', 'ANNOUNCER', 'GATE_MANAGER'];
+const standardManagementRoles = ['SHOW_MANAGER', 'SHOW_SECRETARY', 'OFFICE_ASSISTANT', 'ANNOUNCER', 'GATE_MANAGER', 'SCOREKEEPER', 'TABULATOR'];
 const standardMediaRoles = ['PHOTOGRAPHER', 'VIDEOGRAPHER', 'SOCIAL_MEDIA_SPECIALIST', 'LIVESTREAM_PRODUCER'];
 const standardAwardsRoles = ['AWARDS_COORDINATOR', 'AWARDS_RUNNER'];
 

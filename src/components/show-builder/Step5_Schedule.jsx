@@ -17,6 +17,7 @@ import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
 const DEFAULT_LAYOUT = {
   showNumbers: true,
   numberingMode: 'global',
+  startClassNumber: 1,
   showAssociations: true,
   showDayHeaders: true,
   showArenaHeaders: true,
@@ -56,17 +57,30 @@ const LayoutControls = ({ settings, onChange, onExportPdf, onReset }) => {
                 <Switch id="showNumbers" checked={settings.showNumbers} onCheckedChange={(v) => update('showNumbers', v)} />
               </div>
               {settings.showNumbers && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Numbering mode</Label>
-                  <Select value={settings.numberingMode} onValueChange={(v) => update('numberingMode', v)}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="global">Global (sequential)</SelectItem>
-                      <SelectItem value="per-day">Per Day</SelectItem>
-                      <SelectItem value="per-arena">Per Arena</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Numbering mode</Label>
+                    <Select value={settings.numberingMode} onValueChange={(v) => update('numberingMode', v)}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">Global (sequential)</SelectItem>
+                        <SelectItem value="per-day">Per Day</SelectItem>
+                        <SelectItem value="per-arena">Per Arena</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Start class number</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={settings.startClassNumber || 1}
+                      onChange={(e) => update('startClassNumber', Math.max(1, parseInt(e.target.value) || 1))}
+                      className="h-8 text-sm"
+                      placeholder="1"
+                    />
+                  </div>
+                </>
               )}
             </AccordionContent>
           </AccordionItem>
@@ -234,7 +248,7 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
   const dayFontSize = FONT_SIZE_DAY_MAP[settings.fontSize] || FONT_SIZE_DAY_MAP.medium;
   const itemPadding = ITEM_PADDING_MAP[settings.lineSpacing] || ITEM_PADDING_MAP.normal;
 
-  const getAssocString = (classIds) => {
+  const getAssocTags = (classIds) => {
     const uniqueAssocs = new Set();
     (classIds || []).forEach(cid => {
       const cls = allClassItems.find(c => c.id === cid);
@@ -243,15 +257,15 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
         uniqueAssocs.add(assoc?.abbreviation || cls.assocId);
       }
     });
-    return Array.from(uniqueAssocs).join(' & ');
+    return Array.from(uniqueAssocs);
   };
 
   // Renumber based on current settings
   const numberedBill = useMemo(() => {
     const sb = JSON.parse(JSON.stringify(showBill));
-    sb.settings = { ...sb.settings, numberingMode: settings.numberingMode };
+    sb.settings = { ...sb.settings, numberingMode: settings.numberingMode, startClassNumber: settings.startClassNumber || 1 };
     return renumberShowBill(sb);
-  }, [showBill, settings.numberingMode]);
+  }, [showBill, settings.numberingMode, settings.startClassNumber]);
 
   return (
     <div className="bg-white text-black rounded-lg mx-auto max-w-[680px] px-10 py-8 min-h-[600px] print:shadow-none"
@@ -370,19 +384,19 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
 
                   if (item.type === 'classBox') {
                     const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid)).filter(Boolean);
-                    const assocStr = settings.showAssociations ? getAssocString(item.classes) : '';
+                    const assocTags = settings.showAssociations ? getAssocTags(item.classes) : [];
 
                     if (classDetails.length <= 1) {
                       const titleText = item.title || classDetails[0]?.name || 'Untitled';
                       return (
-                        <div key={item.id} className={`flex items-baseline gap-2 ${itemPadding}`}>
+                        <div key={item.id} className={`flex items-center gap-2 ${itemPadding}`}>
                           {settings.showNumbers && item.number && (
                             <span className={`${fontSize} font-bold text-gray-800 w-8 text-right shrink-0`}>{item.number}.</span>
                           )}
-                          <span className={`${fontSize}`}>
-                            {titleText}
-                            {assocStr && <span className="text-gray-500 ml-1">& {assocStr}</span>}
-                          </span>
+                          <span className={`${fontSize}`}>{titleText}</span>
+                          {assocTags.map(tag => (
+                            <span key={tag} className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{tag}</span>
+                          ))}
                         </div>
                       );
                     }
@@ -398,11 +412,13 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
                         <div className="pl-10 space-y-0.5">
                           {classDetails.map(cls => {
                             const assoc = associationsData?.find(a => a.id === cls.assocId);
-                            const assocTag = settings.showAssociations && assoc ? ` & ${assoc.abbreviation}` : '';
                             return (
-                              <p key={cls.id} className={`${fontSize} text-gray-700`}>
-                                {cls.name}{assocTag}
-                              </p>
+                              <div key={cls.id} className={`flex items-center gap-1.5 ${fontSize} text-gray-700`}>
+                                <span>{cls.name}</span>
+                                {settings.showAssociations && assoc && (
+                                  <span className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{assoc.abbreviation}</span>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -436,13 +452,13 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
 export const Step5_Schedule = ({ formData, setFormData, associationsData, stepNumber = 6, stepTitle = 'Design & Finalize Layout' }) => {
   const { toast } = useToast();
 
-  // Initialize showBill if needed
+  // Initialize showBill if needed (auto-populates all classes)
   useEffect(() => {
     if (!formData.showBill) {
       const initial = initializeShowBill(formData);
       setFormData(prev => ({ ...prev, showBill: initial }));
     }
-  }, [formData.showBill, formData, setFormData]);
+  }, [!formData.showBill]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize layoutSettings from showBill.settings or defaults
   useEffect(() => {
@@ -455,6 +471,7 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData, stepNu
           showNumbers: fromBill.showNumbers ?? DEFAULT_LAYOUT.showNumbers,
           showAssociations: fromBill.showAssociations ?? DEFAULT_LAYOUT.showAssociations,
           numberingMode: fromBill.numberingMode ?? DEFAULT_LAYOUT.numberingMode,
+          startClassNumber: fromBill.startClassNumber ?? DEFAULT_LAYOUT.startClassNumber,
         },
       }));
     }
@@ -513,11 +530,20 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData, stepNu
       </CardHeader>
       <CardContent>
         {unplacedClasses.length > 0 && (
-          <div className="flex items-center gap-2 p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-            <p className="text-sm text-amber-700 dark:text-amber-400">
-              {unplacedClasses.length} class{unplacedClasses.length > 1 ? 'es' : ''} not yet placed in the schedule. Go back to the previous step to organize.
-            </p>
+          <div className="flex items-center justify-between gap-2 p-3 mb-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                {unplacedClasses.length} class{unplacedClasses.length > 1 ? 'es' : ''} not yet placed in the schedule.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => {
+              const rebuilt = initializeShowBill(formData);
+              setFormData(prev => ({ ...prev, showBill: rebuilt }));
+              toast({ title: 'Schedule Rebuilt', description: 'All classes have been placed into the schedule.' });
+            }}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Rebuild Schedule
+            </Button>
           </div>
         )}
 

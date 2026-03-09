@@ -292,52 +292,79 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                         </div>
                     </div>
 
-                    <Card className="bg-background/30">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-emerald-600"/> Fee Catalog</CardTitle>
-                            <CardDescription>Add standard industry fees to your show bill or create a new custom fee.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-3">
-                                {availableStandardFees.length > 0 ? (
-                                    availableStandardFees.map(fee => (
-                                        <div key={fee.standard_id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-secondary/20">
-                                            <div>
-                                                <p className="font-semibold">{fee.name}</p>
-                                                <p className="text-sm text-muted-foreground">{fee.notes}</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* LEFT COLUMN — Fee Catalog */}
+                        <Card className="bg-background/30 self-start lg:sticky lg:top-4">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-emerald-600"/> Fee Catalog</CardTitle>
+                                <CardDescription>Add standard industry fees or create a custom fee.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+                                    {availableStandardFees.length > 0 ? (
+                                        availableStandardFees.map(fee => (
+                                            <div key={fee.standard_id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-secondary/20 transition-colors">
+                                                <div className="min-w-0 mr-3">
+                                                    <p className="font-semibold text-sm">{fee.name}</p>
+                                                    {fee.notes && <p className="text-xs text-muted-foreground truncate">{fee.notes}</p>}
+                                                </div>
+                                                <Button size="sm" variant="outline" onClick={() => addFee(fee)} disabled={budgetLocked} className="flex-shrink-0">
+                                                    <PlusCircle className="h-4 w-4 mr-1.5" /> Add
+                                                </Button>
                                             </div>
-                                            <Button size="sm" variant="outline" onClick={() => addFee(fee)}>
-                                                <PlusCircle className="h-4 w-4 mr-2" /> Add
-                                            </Button>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p className="text-center text-muted-foreground py-4">All relevant standard fees have been added, or no associations selected.</p>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-6 text-sm">All relevant standard fees have been added.</p>
+                                    )}
+                                </div>
+                                <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full" disabled={budgetLocked}>
+                                    {budgetLocked ? <Lock className="h-4 w-4 mr-1.5" /> : <PlusCircle className="h-4 w-4 mr-1.5" />} Add Custom Fee
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        {/* RIGHT COLUMN — Assigned Fees by Category */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="font-semibold text-lg">Assigned Fees</h3>
+                                {totalFeeRevenue > 0 && (
+                                    <span className="text-sm font-semibold text-emerald-600">Total: ${totalFeeRevenue.toFixed(2)}</span>
                                 )}
                             </div>
-                            <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full" disabled={budgetLocked}>
-                                {budgetLocked ? <Lock className="h-4 w-4 mr-2" /> : <PlusCircle className="h-4 w-4 mr-2" />} Add a Completely Custom Fee
-                            </Button>
-                        </CardContent>
-                    </Card>
 
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {timingCategories.map(category => (
-                                <FeeCategory
-                                    key={category.id}
-                                    id={category.id}
-                                    title={category.title}
-                                    description={category.description}
-                                    fees={fees.filter(f => f.payment_timing === category.id)}
-                                    onUpdate={updateFee}
-                                    onRemove={removeFee}
-                                    associations={selectedAssociations}
-                                    allAssociationsData={allAssociationsData}
-                                />
-                            ))}
+                            {fees.length === 0 ? (
+                                <Card className="bg-background/30">
+                                    <CardContent className="py-16 text-center">
+                                        <Banknote className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                                        <p className="text-muted-foreground font-medium">No fees added yet.</p>
+                                        <p className="text-sm text-muted-foreground mt-1">Click "Add" on fees from the catalog to assign them.</p>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                    <div className="space-y-4">
+                                        {timingCategories.map(category => {
+                                            const categoryFees = fees.filter(f => f.payment_timing === category.id);
+                                            if (categoryFees.length === 0) return null;
+                                            return (
+                                                <FeeCategory
+                                                    key={category.id}
+                                                    id={category.id}
+                                                    title={category.title}
+                                                    description={category.description}
+                                                    fees={categoryFees}
+                                                    onUpdate={updateFee}
+                                                    onRemove={removeFee}
+                                                    associations={selectedAssociations}
+                                                    allAssociationsData={allAssociationsData}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                </DndContext>
+                            )}
                         </div>
-                    </DndContext>
+                    </div>
 
                     <Card className="bg-background/30">
                         <CardHeader>
@@ -418,10 +445,9 @@ const FeeCategory = ({ id, title, description, fees, onUpdate, onRemove, associa
                             <SortableFeeItem key={fee.id} fee={fee} onUpdate={onUpdate} onRemove={onRemove} associations={associations} allAssociationsData={allAssociationsData} />
                         ))
                     ) : (
-                        <div className="text-center py-10 border-2 border-dashed rounded-lg flex flex-col items-center justify-center h-full">
-                            <Banknote className="h-8 w-8 text-muted-foreground mb-3" />
-                            <p className="text-muted-foreground font-medium">No fees in this category.</p>
-                            <p className="text-sm text-muted-foreground">Drag fees here to assign.</p>
+                        <div className="text-center py-6 border-2 border-dashed rounded-lg flex flex-col items-center justify-center">
+                            <Banknote className="h-6 w-6 text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">No fees in this category yet.</p>
                         </div>
                     )}
                     </div>

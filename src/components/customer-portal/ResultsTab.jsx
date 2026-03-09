@@ -15,7 +15,8 @@ import {
 import {
     Accordion, AccordionContent, AccordionItem, AccordionTrigger
 } from '@/components/ui/accordion';
-import { PlusCircle, Pencil, Trash2, Trophy, ListChecks, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PlusCircle, Pencil, Trash2, Trophy, ListChecks, Loader2, ListPlus } from 'lucide-react';
 
 const LEVEL_OPTIONS = [
     { id: 'ALL', label: 'All Levels' },
@@ -357,11 +358,162 @@ const AddClassDialog = ({ open, onOpenChange, editingClass, availableDivisions, 
 };
 
 // ---------------------------------------------------------------------------
+// BulkAddClassesDialog
+// ---------------------------------------------------------------------------
+const BulkAddClassesDialog = ({ open, onOpenChange, availableDivisions, affiliations, onBulkSave, isSaving }) => {
+    const [text, setText] = React.useState('');
+    const [division, setDivision] = React.useState('');
+    const [customDivision, setCustomDivision] = React.useState('');
+    const [level, setLevel] = React.useState('ALL');
+    const [associationId, setAssociationId] = React.useState('');
+    const [noPattern, setNoPattern] = React.useState(true);
+
+    React.useEffect(() => {
+        if (open) {
+            setText('');
+            setDivision('');
+            setCustomDivision('');
+            setLevel('ALL');
+            setAssociationId('');
+            setNoPattern(true);
+        }
+    }, [open]);
+
+    const parsedLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const resolvedDivision = division === '__custom__' ? customDivision.trim() : division;
+    const isValid = parsedLines.length > 0 && resolvedDivision;
+
+    const handleSubmit = () => {
+        if (!isValid) return;
+        const classes = parsedLines.map(name => ({
+            id: `mc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name,
+            division: resolvedDivision,
+            level,
+            associationId: associationId || null,
+            notes: noPattern ? 'No pattern required' : '',
+            noPattern,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            results: null,
+        }));
+        onBulkSave(classes);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <ListPlus className="h-5 w-5" />
+                        Bulk Add Classes
+                    </DialogTitle>
+                    <DialogDescription>
+                        Paste or type class names, one per line. All will share the division and level you select below.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                    <div>
+                        <Label htmlFor="bulk-class-names" className="text-sm font-medium">Class Names (one per line)</Label>
+                        <Textarea
+                            id="bulk-class-names"
+                            placeholder={`Ranch Riding Junior\nRanch Riding Senior\nShow Hack\nPleasure Driving`}
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            rows={6}
+                            className="mt-1.5 font-mono text-sm"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-sm">Division *</Label>
+                            <Select value={division} onValueChange={setDivision}>
+                                <SelectTrigger><SelectValue placeholder="Select division" /></SelectTrigger>
+                                <SelectContent>
+                                    {availableDivisions.map(d => (
+                                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                                    ))}
+                                    <SelectItem value="__custom__">Custom...</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {division === '__custom__' && (
+                                <Input value={customDivision} onChange={e => setCustomDivision(e.target.value)} placeholder="Custom division" className="mt-1" />
+                            )}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-sm">Level</Label>
+                            <Select value={level} onValueChange={setLevel}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {LEVEL_OPTIONS.map(opt => (
+                                        <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <Label className="text-sm">Association (optional)</Label>
+                        <Select value={associationId || '__none__'} onValueChange={v => setAssociationId(v === '__none__' ? '' : v)}>
+                            <SelectTrigger><SelectValue placeholder="Select association" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="__none__">None</SelectItem>
+                                {affiliations.map(a => (
+                                    <SelectItem key={a.id} value={a.abbreviation || a.id}>
+                                        {a.abbreviation || a.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <Checkbox id="bulk-no-pattern" checked={noPattern} onCheckedChange={setNoPattern} />
+                        <Label htmlFor="bulk-no-pattern" className="font-normal text-sm">
+                            Non-pattern classes (no pattern configuration required)
+                        </Label>
+                    </div>
+
+                    {parsedLines.length > 0 && (
+                        <div className="p-3 bg-muted/50 rounded-md border">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-medium">Preview</span>
+                                <Badge variant="secondary">{parsedLines.length} classes</Badge>
+                            </div>
+                            <div className="max-h-32 overflow-y-auto space-y-0.5">
+                                {parsedLines.map((line, i) => (
+                                    <div key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                        <span className="font-bold text-primary w-5 text-right">{i + 1}.</span>
+                                        <span>{line}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
+                    <Button onClick={handleSubmit} disabled={!isValid || isSaving}>
+                        {isSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                        Add {parsedLines.length} {parsedLines.length === 1 ? 'Class' : 'Classes'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+// ---------------------------------------------------------------------------
 // ResultsTab — Main Component
 // ---------------------------------------------------------------------------
 const ResultsTab = ({ projectData, projectId, onSave, toast, associationsData, affiliations }) => {
     const [resultsEnabled, setResultsEnabled] = useState(projectData.resultsEnabled || false);
     const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [bulkAddOpen, setBulkAddOpen] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -430,6 +582,16 @@ const ResultsTab = ({ projectData, projectId, onSave, toast, associationsData, a
         toast({ title: 'Class removed', description: `"${cls.name}" has been removed.` });
     }, [manualClasses, projectData, persistData, toast]);
 
+    const handleBulkSave = useCallback(async (classes) => {
+        const updated = [...manualClasses, ...classes];
+        await persistData({ ...projectData, manualClasses: updated });
+        setBulkAddOpen(false);
+        toast({
+            title: `${classes.length} classes added`,
+            description: `Bulk added ${classes.length} manual class${classes.length === 1 ? '' : 'es'}.`,
+        });
+    }, [manualClasses, projectData, persistData, toast]);
+
     return (
         <div className="p-6 space-y-6">
             {/* Toggle */}
@@ -459,13 +621,23 @@ const ResultsTab = ({ projectData, projectId, onSave, toast, associationsData, a
                             <Badge variant="secondary">{autoClasses.length} from patterns</Badge>
                             <Badge variant="outline">{manualClasses.length} manual</Badge>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => { setEditingClass(null); setAddDialogOpen(true); }}
-                        >
-                            <PlusCircle className="h-4 w-4 mr-1" /> Add Class
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => { setEditingClass(null); setAddDialogOpen(true); }}
+                            >
+                                <PlusCircle className="h-4 w-4 mr-1" /> Add Class
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setBulkAddOpen(true)}
+                                className="border-primary/30 text-primary hover:bg-primary/5"
+                            >
+                                <ListPlus className="h-4 w-4 mr-1" /> Bulk Add
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Class list */}
@@ -534,6 +706,16 @@ const ResultsTab = ({ projectData, projectId, onSave, toast, associationsData, a
                 availableDivisions={availableDivisions}
                 affiliations={affiliations}
                 onSave={handleSaveClass}
+                isSaving={isSaving}
+            />
+
+            {/* Bulk Add Dialog */}
+            <BulkAddClassesDialog
+                open={bulkAddOpen}
+                onOpenChange={setBulkAddOpen}
+                availableDivisions={availableDivisions}
+                affiliations={affiliations}
+                onBulkSave={handleBulkSave}
                 isSaving={isSaving}
             />
         </div>

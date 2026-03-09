@@ -192,6 +192,45 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
       );
     }
 
+    // 4-H - State/City Selection (skip for showBuilder and pbb — handled in Step 2 FourHCitySelector)
+    if (association.id === '4-H' && context !== 'showBuilder' && context !== 'pbb') {
+      const selected4HCity = formData.selected4HCity || '';
+      // Extract available cities from discipline library if provided
+      const disciplineLib = allAssociations._disciplineLibrary || [];
+      const availableCities = [...new Set(
+        disciplineLib.filter(d => d.association_id === '4-H' && d.city).map(d => d.city)
+      )].sort();
+
+      // If no discipline library, use a fallback list of known states
+      const cities = availableCities.length > 0 ? availableCities : ['Colorado', 'Texas', 'Ohio', 'California', 'Oklahoma'];
+
+      return (
+        <div className="mt-2 space-y-2 px-3 pb-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Select State</Label>
+            <p className="text-xs text-muted-foreground/70 mb-1">
+              4-H disciplines vary by state. Please select your state to view available disciplines.
+            </p>
+            <Select value={selected4HCity || ''} onValueChange={(value) => {
+              setFormData(prev => ({
+                ...prev,
+                selected4HCity: value,
+                // Clear previously selected 4-H disciplines when state changes
+                disciplines: (prev.disciplines || []).filter(d => d.association_id !== '4-H')
+              }));
+            }}>
+              <SelectTrigger className="max-w-xs"><SelectValue placeholder="Select a state..." /></SelectTrigger>
+              <SelectContent>
+                {cities.map(city => (
+                  <SelectItem key={city} value={city}>{city}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      );
+    }
+
     // NRHA and NRCHA - Approval Type and Dual-Approved With (no Show Category)
     if (association.id.toLowerCase() === 'nrha' || association.id.toLowerCase() === 'nrcha') {
       const assocKey = association.id.toLowerCase();
@@ -275,7 +314,7 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
   );
 };
 
-export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName, isReadOnly = false, stepNumber = 1 }) => {
+export const AssociationSelection = ({ formData, setFormData, associationsData, onShowTypeChange, context = 'default', selectedPurposeName, isReadOnly = false, stepNumber = 1, disciplineLibrary }) => {
     
   const handleAssociationSelection = (assocId, isChecked) => {
     if (isReadOnly) return;
@@ -474,6 +513,8 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const allAssociations = associationsData || [];
+  // Attach disciplineLibrary so sub-components can access it for 4-H city extraction
+  allAssociations._disciplineLibrary = disciplineLibrary || [];
   const leftAssociations = allAssociations
     .filter(a => a.position === 'left')
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));

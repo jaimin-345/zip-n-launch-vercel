@@ -132,7 +132,7 @@ export const usePatternBookBuilder = (projectId) => {
       setIsLoading(true);
       try {
         const projectsQuery = user
-          ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).order('created_at', { ascending: false })
+          ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).in('project_type', ['show', 'pattern_book']).order('created_at', { ascending: false })
           : Promise.resolve({ data: [], error: null });
 
         const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([
@@ -344,7 +344,7 @@ export const usePatternBookBuilder = (projectId) => {
       user_id: user.id,
     };
 
-    let currentProjectId = sanitizedProjectId || formData.id;
+    let currentProjectId = sanitizedProjectId || formData.id || formData.linkedProjectId;
 
     if (currentProjectId) {
       const { error } = await supabase
@@ -360,8 +360,13 @@ export const usePatternBookBuilder = (projectId) => {
       // Auto-lock Step 1 and structure after save
       setFormData(prev => ({
         ...prev,
+        id: currentProjectId,
         lockedSections: { ...prev.lockedSections, step1: true, structure: true }
       }));
+      // If URL doesn't have the project ID yet, navigate to it
+      if (!sanitizedProjectId) {
+        navigate(`/pattern-book-builder/${currentProjectId}`, { replace: true });
+      }
       return currentProjectId;
     } else {
       const newId = uuidv4();

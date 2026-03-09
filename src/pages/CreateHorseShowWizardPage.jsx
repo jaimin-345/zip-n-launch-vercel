@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight, Save, Loader2, Shield, DollarSign, HeartHandshak
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 import { AssociationStep } from '@/components/show-structure/AssociationStep';
 import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
@@ -176,36 +177,10 @@ const CreateHorseShowWizardPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div>
-                                <h1 className="text-2xl font-bold text-foreground">Fee Structure & Sponsors</h1>
-                                <p className="text-sm text-muted-foreground">
-                                    Step {currentStep} of {WIZARD_STEPS.length} — {WIZARD_STEPS[currentStep - 1]?.name}
-                                </p>
-                            </div>
-                        </div>
-                        {/* Auto-save indicator */}
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {autoSaveStatus === 'saving' && (
-                                <span className="flex items-center gap-1">
-                                    <Loader2 className="h-3 w-3 animate-spin" /> Saving...
-                                </span>
-                            )}
-                            {autoSaveStatus === 'saved' && (
-                                <span className="flex items-center gap-1 text-green-600">
-                                    <Check className="h-3 w-3" /> Saved
-                                </span>
-                            )}
-                            {autoSaveStatus === 'error' && (
-                                <span className="text-destructive">Auto-save failed</span>
-                            )}
-                        </div>
-                    </div>
+                    <PageHeader
+                        title="Fee Structure & Sponsors"
+                        subtitle={`Step ${currentStep} of ${WIZARD_STEPS.length} — ${WIZARD_STEPS[currentStep - 1]?.name}`}
+                    />
 
                     {/* Step Indicator */}
                     <StepIndicator

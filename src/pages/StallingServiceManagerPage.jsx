@@ -13,10 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Loader2, Home, Hash, Calendar, FolderOpen,
+    Loader2, Home, Hash, Calendar, FolderOpen,
     MapPin, Plus, Trash2, Save, Check, X, Search, Users, DollarSign,
-    Building2, Warehouse, Car, ShoppingCart, Edit2, AlertCircle, Wand2,
+    Building2, Warehouse, Car, ShoppingCart, Edit2, AlertCircle, Wand2, Moon,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -31,7 +32,26 @@ const STALL_TYPES = [
     { id: 'premium', name: 'Premium Stall', icon: Home, defaultPrice: 125, defaultSize: '12x12' },
     { id: 'grooming', name: 'Grooming Stall', icon: Home, defaultPrice: 50, defaultSize: '10x10' },
     { id: 'tack', name: 'Tack Stall', icon: Warehouse, defaultPrice: 60, defaultSize: '10x10' },
-    { id: 'rv', name: 'RV Spot', icon: Car, defaultPrice: 45, defaultSize: 'Full hookup' },
+];
+
+const RV_HOOKUP_TYPES = [
+    { id: 'full', name: 'Full Hookup' },
+    { id: 'electric_only', name: 'Electric Only' },
+    { id: 'day_parking', name: 'Day Parking' },
+];
+
+const RV_POWER_TYPES = [
+    { id: '50amp', name: '50 Amp' },
+    { id: '35amp', name: '35 Amp' },
+    { id: '25amp', name: '25 Amp' },
+];
+
+const SUPPLY_PRESETS = [
+    { name: 'Hay (Grass)', unit: 'bale', defaultPrice: 15 },
+    { name: 'Hay (Alfalfa)', unit: 'bale', defaultPrice: 20 },
+    { name: 'Hay (Mixed)', unit: 'bale', defaultPrice: 18 },
+    { name: 'Shavings', unit: 'bag', defaultPrice: 12 },
+    { name: 'Stall Mat Rental', unit: 'per stall', defaultPrice: 25 },
 ];
 
 const BOOKING_STATUSES = ['confirmed', 'pending', 'cancelled', 'checked_in', 'checked_out'];
@@ -43,7 +63,15 @@ const STATUS_COLORS = {
     checked_out: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
 };
 
-// ── Show Picker removed — using LinkToExistingShow ──
+// ── Helpers ──
+
+function getShowNights(pd) {
+    if (!pd?.startDate) return 0;
+    const start = new Date(pd.startDate);
+    const end = pd.endDate ? new Date(pd.endDate) : start;
+    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    return Math.max(diff, 1); // At least 1 night
+}
 
 // ── Barn/Area Card ──
 
@@ -181,6 +209,175 @@ const BarnCard = ({ barn, onUpdate, onRemove }) => {
     );
 };
 
+// ── RV Area Card ──
+
+const RvAreaCard = ({ rvArea, onUpdate, onRemove }) => {
+    const [expanded, setExpanded] = useState(true);
+
+    return (
+        <Card className="border-l-4 border-l-cyan-500">
+            <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                        <Car className="h-4 w-4 text-cyan-600" />
+                        <Input
+                            value={rvArea.name}
+                            onChange={(e) => onUpdate('name', e.target.value)}
+                            className="h-8 text-base font-semibold border-none shadow-none px-0 focus-visible:ring-0 max-w-xs"
+                            placeholder="RV area name..."
+                        />
+                        <Badge variant="outline" className="text-xs">
+                            {rvArea.spotCount || 0} spots
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpanded(!expanded)}>
+                            {expanded ? <X className="h-3.5 w-3.5" /> : <Edit2 className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={onRemove}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            {expanded && (
+                <CardContent className="space-y-3 pt-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1">
+                            <Label className="text-xs">Spot Count</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                value={rvArea.spotCount || 0}
+                                onChange={(e) => onUpdate('spotCount', parseInt(e.target.value) || 0)}
+                                className="h-8 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Price / Night ($)</Label>
+                            <Input
+                                type="number"
+                                min={0}
+                                value={rvArea.pricePerNight || ''}
+                                onChange={(e) => onUpdate('pricePerNight', parseFloat(e.target.value) || 0)}
+                                className="h-8 text-xs"
+                                placeholder="$0"
+                            />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Hookup Type</Label>
+                            <Select value={rvArea.hookupType || 'full'} onValueChange={(val) => onUpdate('hookupType', val)}>
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {RV_HOOKUP_TYPES.map(t => (
+                                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs">Power Type</Label>
+                            <Select value={rvArea.powerType || '50amp'} onValueChange={(val) => onUpdate('powerType', val)}>
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {RV_POWER_TYPES.map(t => (
+                                        <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs">Notes</Label>
+                        <Textarea
+                            value={rvArea.notes || ''}
+                            onChange={(e) => onUpdate('notes', e.target.value)}
+                            className="text-xs min-h-[50px]"
+                            placeholder="Water hookups, dump station, etc."
+                        />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                checked={rvArea.hasWater || false}
+                                onCheckedChange={(checked) => onUpdate('hasWater', checked)}
+                            />
+                            <Label className="text-xs">Water</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                checked={rvArea.hasSewer || false}
+                                onCheckedChange={(checked) => onUpdate('hasSewer', checked)}
+                            />
+                            <Label className="text-xs">Sewer</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                checked={rvArea.hasWifi || false}
+                                onCheckedChange={(checked) => onUpdate('hasWifi', checked)}
+                            />
+                            <Label className="text-xs">Wi-Fi</Label>
+                        </div>
+                    </div>
+                </CardContent>
+            )}
+        </Card>
+    );
+};
+
+// ── Supply Item Card ──
+
+const SupplyItemCard = ({ item, onUpdate, onRemove }) => {
+    return (
+        <div className="flex items-center gap-3 p-3 border rounded-lg bg-background border-l-4 border-l-amber-500">
+            <ShoppingCart className="h-4 w-4 text-amber-600 flex-shrink-0" />
+            <Input
+                value={item.name}
+                onChange={(e) => onUpdate('name', e.target.value)}
+                className="h-8 text-sm font-medium border-none shadow-none px-0 focus-visible:ring-0 flex-1 min-w-0"
+                placeholder="Supply name..."
+            />
+            <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="space-y-0">
+                    <Input
+                        type="number"
+                        min={0}
+                        value={item.price || ''}
+                        onChange={(e) => onUpdate('price', parseFloat(e.target.value) || 0)}
+                        className="h-8 text-xs w-20"
+                        placeholder="$ Price"
+                    />
+                </div>
+                <div className="space-y-0">
+                    <Input
+                        value={item.unit || ''}
+                        onChange={(e) => onUpdate('unit', e.target.value)}
+                        className="h-8 text-xs w-24"
+                        placeholder="per unit"
+                    />
+                </div>
+                <div className="space-y-0">
+                    <Input
+                        type="number"
+                        min={0}
+                        value={item.stockQty || ''}
+                        onChange={(e) => onUpdate('stockQty', parseInt(e.target.value) || 0)}
+                        className="h-8 text-xs w-20"
+                        placeholder="Stock"
+                    />
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={onRemove}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+            </div>
+        </div>
+    );
+};
+
 // ── Booking Row ──
 
 const BookingRow = ({ booking, barns, onUpdate, onRemove }) => {
@@ -256,8 +453,11 @@ const BookingRow = ({ booking, barns, onUpdate, onRemove }) => {
 const StallingDashboard = ({ show, onSave, isSaving }) => {
     const pd = show.project_data || {};
     const { toast } = useToast();
+    const showNights = getShowNights(pd);
 
     const [barns, setBarns] = useState(() => pd.stallingService?.barns || []);
+    const [rvAreas, setRvAreas] = useState(() => pd.stallingService?.rvAreas || []);
+    const [supplies, setSupplies] = useState(() => pd.stallingService?.supplies || []);
     const [bookings, setBookings] = useState(() => pd.stallingService?.bookings || []);
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -293,15 +493,14 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
     };
 
     const autoGenerateBarns = () => {
-        if (barns.length > 0) {
-            toast({ title: 'Already configured', description: 'Clear existing barns first or add individually.' });
+        if (barns.length > 0 || rvAreas.length > 0 || supplies.length > 0) {
+            toast({ title: 'Already configured', description: 'Clear existing items first or add individually.' });
             return;
         }
         const defaultBarns = [
             { name: 'Barn A', type: 'standard', count: 20, price: 75 },
             { name: 'Barn B', type: 'standard', count: 20, price: 75 },
             { name: 'Tack Stalls', type: 'tack', count: 10, price: 60 },
-            { name: 'RV Parking', type: 'rv', count: 15, price: 45 },
         ];
         const generated = defaultBarns.map(b => {
             const typeInfo = STALL_TYPES.find(t => t.id === b.type) || STALL_TYPES[0];
@@ -317,14 +516,79 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
                     number: `${b.name.charAt(0)}${i + 1}`,
                     bookingId: null,
                 })),
-                hasElectricity: b.type === 'rv',
-                hasWater: b.type === 'rv',
+                hasElectricity: false,
+                hasWater: false,
                 hasFans: false,
                 notes: '',
             };
         });
         setBarns(generated);
-        toast({ title: 'Barns Generated', description: '4 default areas created with 65 total stalls/spots.' });
+        // Auto-generate an RV area
+        setRvAreas([{
+            id: uuidv4(),
+            name: 'RV Parking',
+            spotCount: 15,
+            pricePerNight: 45,
+            hookupType: 'full',
+            powerType: '50amp',
+            hasWater: true,
+            hasSewer: false,
+            hasWifi: false,
+            notes: '',
+        }]);
+        // Auto-generate common supplies
+        setSupplies(SUPPLY_PRESETS.map(p => ({
+            id: uuidv4(),
+            name: p.name,
+            price: p.defaultPrice,
+            unit: p.unit,
+            stockQty: 0,
+        })));
+        toast({ title: 'Auto-Generated', description: '3 barns, 1 RV area, and 5 supply items created.' });
+    };
+
+    // ── RV Area CRUD ──
+    const addRvArea = () => {
+        const idx = rvAreas.length + 1;
+        setRvAreas(prev => [...prev, {
+            id: uuidv4(),
+            name: `RV Area ${idx}`,
+            spotCount: 10,
+            pricePerNight: 45,
+            hookupType: 'full',
+            powerType: '50amp',
+            hasWater: true,
+            hasSewer: false,
+            hasWifi: false,
+            notes: '',
+        }]);
+    };
+
+    const updateRvArea = (rvId, field, value) => {
+        setRvAreas(prev => prev.map(r => r.id === rvId ? { ...r, [field]: value } : r));
+    };
+
+    const removeRvArea = (rvId) => {
+        setRvAreas(prev => prev.filter(r => r.id !== rvId));
+    };
+
+    // ── Supply CRUD ──
+    const addSupply = (preset = null) => {
+        setSupplies(prev => [...prev, {
+            id: uuidv4(),
+            name: preset?.name || 'New Supply',
+            price: preset?.defaultPrice || 0,
+            unit: preset?.unit || 'each',
+            stockQty: 0,
+        }]);
+    };
+
+    const updateSupply = (supplyId, field, value) => {
+        setSupplies(prev => prev.map(s => s.id === supplyId ? { ...s, [field]: value } : s));
+    };
+
+    const removeSupply = (supplyId) => {
+        setSupplies(prev => prev.filter(s => s.id !== supplyId));
     };
 
     // ── Booking CRUD ──
@@ -335,7 +599,7 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
             horseName: '',
             trainerName: '',
             stallId: '',
-            nights: 3,
+            nights: showNights || 3,
             status: 'pending',
             notes: '',
             amount: 0,
@@ -362,9 +626,11 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
 
     // ── Stats ──
     const totalStalls = barns.reduce((sum, b) => sum + (b.stallCount || 0), 0);
+    const totalRvSpots = rvAreas.reduce((sum, r) => sum + (r.spotCount || 0), 0);
     const totalBookings = bookings.length;
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in').length;
-    const occupancyRate = totalStalls > 0 ? Math.round((confirmedBookings / totalStalls) * 100) : 0;
+    const totalUnits = totalStalls + totalRvSpots;
+    const occupancyRate = totalUnits > 0 ? Math.round((confirmedBookings / totalUnits) * 100) : 0;
 
     const projectedRevenue = useMemo(() => {
         let total = 0;
@@ -385,16 +651,20 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
     }, [bookings, barns]);
 
     const handleSave = () => {
-        onSave({ barns, bookings });
+        onSave({ barns, rvAreas, supplies, bookings });
     };
 
     return (
         <div className="space-y-6">
             {/* KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <div className="rounded-xl border p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Total Stalls</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Stalls</p>
                     <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{totalStalls}</p>
+                </div>
+                <div className="rounded-xl border p-4 bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200">
+                    <p className="text-xs font-medium text-muted-foreground uppercase">RV Spots</p>
+                    <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-300">{totalRvSpots}</p>
                 </div>
                 <div className="rounded-xl border p-4 bg-purple-50 dark:bg-purple-950/20 border-purple-200">
                     <p className="text-xs font-medium text-muted-foreground uppercase">Bookings</p>
@@ -414,6 +684,72 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
                 </div>
             </div>
 
+            {/* Stall Fee Summary */}
+            {(barns.length > 0 || rvAreas.length > 0) && showNights > 0 && (
+                <div className="rounded-xl border p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-indigo-200 dark:border-indigo-800">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Moon className="h-4 w-4 text-indigo-600" />
+                        <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">Stall Fee Calculator</h3>
+                        <Badge variant="outline" className="text-[10px] ml-auto">
+                            {pd.startDate && new Date(pd.startDate).toLocaleDateString()} — {pd.endDate && new Date(pd.endDate).toLocaleDateString()}
+                        </Badge>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-xs text-muted-foreground uppercase">
+                                    <th className="text-left px-2 py-1 font-medium">Barn / Area</th>
+                                    <th className="text-right px-2 py-1 font-medium">Price / Night</th>
+                                    <th className="text-center px-2 py-1 font-medium">Nights</th>
+                                    <th className="text-right px-2 py-1 font-medium">Per Stall Total</th>
+                                    <th className="text-center px-2 py-1 font-medium">Stalls</th>
+                                    <th className="text-right px-2 py-1 font-medium">Max Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {barns.map(barn => {
+                                    const perStall = (barn.pricePerNight || 0) * showNights;
+                                    const maxRev = perStall * (barn.stallCount || 0);
+                                    return (
+                                        <tr key={barn.id} className="border-t border-indigo-100 dark:border-indigo-800/50">
+                                            <td className="px-2 py-1.5 font-medium">{barn.name}</td>
+                                            <td className="px-2 py-1.5 text-right">${(barn.pricePerNight || 0).toFixed(0)}</td>
+                                            <td className="px-2 py-1.5 text-center">{showNights}</td>
+                                            <td className="px-2 py-1.5 text-right font-semibold">${perStall.toFixed(0)}</td>
+                                            <td className="px-2 py-1.5 text-center">{barn.stallCount || 0}</td>
+                                            <td className="px-2 py-1.5 text-right font-bold text-indigo-700 dark:text-indigo-300">${maxRev.toLocaleString()}</td>
+                                        </tr>
+                                    );
+                                })}
+                                {rvAreas.map(rv => {
+                                    const perSpot = (rv.pricePerNight || 0) * showNights;
+                                    const maxRev = perSpot * (rv.spotCount || 0);
+                                    return (
+                                        <tr key={rv.id} className="border-t border-indigo-100 dark:border-indigo-800/50">
+                                            <td className="px-2 py-1.5 font-medium">{rv.name} <span className="text-xs text-cyan-600">(RV)</span></td>
+                                            <td className="px-2 py-1.5 text-right">${(rv.pricePerNight || 0).toFixed(0)}</td>
+                                            <td className="px-2 py-1.5 text-center">{showNights}</td>
+                                            <td className="px-2 py-1.5 text-right font-semibold">${perSpot.toFixed(0)}</td>
+                                            <td className="px-2 py-1.5 text-center">{rv.spotCount || 0}</td>
+                                            <td className="px-2 py-1.5 text-right font-bold text-indigo-700 dark:text-indigo-300">${maxRev.toLocaleString()}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot>
+                                <tr className="border-t-2 border-indigo-200 dark:border-indigo-700 font-bold">
+                                    <td className="px-2 py-1.5" colSpan={4}>Total</td>
+                                    <td className="px-2 py-1.5 text-center">{totalUnits}</td>
+                                    <td className="px-2 py-1.5 text-right text-indigo-700 dark:text-indigo-300">
+                                        ${(barns.reduce((sum, b) => sum + ((b.stallCount || 0) * (b.pricePerNight || 0) * showNights), 0) + rvAreas.reduce((sum, r) => sum + ((r.spotCount || 0) * (r.pricePerNight || 0) * showNights), 0)).toLocaleString()}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             <Tabs defaultValue="inventory">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <TabsList>
@@ -428,35 +764,138 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
                 </div>
 
                 {/* ── Stall Inventory Tab ── */}
-                <TabsContent value="inventory" className="space-y-4 mt-4">
-                    <div className="flex items-center gap-3">
-                        <Button onClick={addBarn} variant="outline">
-                            <Plus className="h-4 w-4 mr-2" /> Add Barn / Area
-                        </Button>
-                        <Button onClick={autoGenerateBarns} variant="outline">
-                            <Wand2 className="h-4 w-4 mr-2" /> Auto-Generate
-                        </Button>
+                <TabsContent value="inventory" className="space-y-8 mt-4">
+
+                    {/* — Barn / Stall Areas — */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-5 w-5 text-primary" />
+                                <h3 className="text-base font-semibold">Barn / Stall Areas</h3>
+                                <Badge variant="outline" className="text-xs">{barns.length} area{barns.length !== 1 ? 's' : ''}</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button onClick={addBarn} variant="outline" size="sm">
+                                    <Plus className="h-4 w-4 mr-1.5" /> Add Barn Area
+                                </Button>
+                                <Button onClick={autoGenerateBarns} variant="outline" size="sm">
+                                    <Wand2 className="h-4 w-4 mr-1.5" /> Auto-Generate
+                                </Button>
+                            </div>
+                        </div>
+
+                        {barns.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-10 text-center">
+                                    <Warehouse className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">No barns configured. Click "Add Barn Area" or "Auto-Generate" to get started.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="space-y-4">
+                                {barns.map(barn => (
+                                    <BarnCard
+                                        key={barn.id}
+                                        barn={barn}
+                                        onUpdate={(field, value) => updateBarn(barn.id, field, value)}
+                                        onRemove={() => removeBarn(barn.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    {barns.length === 0 ? (
-                        <Card>
-                            <CardContent className="py-12 text-center">
-                                <Warehouse className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-                                <p className="text-muted-foreground">No barns/areas configured. Click "Add Barn" or "Auto-Generate" to get started.</p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="space-y-4">
-                            {barns.map(barn => (
-                                <BarnCard
-                                    key={barn.id}
-                                    barn={barn}
-                                    onUpdate={(field, value) => updateBarn(barn.id, field, value)}
-                                    onRemove={() => removeBarn(barn.id)}
-                                />
+                    {/* — RV Areas — */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Car className="h-5 w-5 text-cyan-600" />
+                                <h3 className="text-base font-semibold">RV / Camping Areas</h3>
+                                <Badge variant="outline" className="text-xs">{rvAreas.length} area{rvAreas.length !== 1 ? 's' : ''}</Badge>
+                            </div>
+                            <Button onClick={addRvArea} variant="outline" size="sm">
+                                <Plus className="h-4 w-4 mr-1.5" /> Add RV Area
+                            </Button>
+                        </div>
+
+                        {rvAreas.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-10 text-center">
+                                    <Car className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">No RV areas configured. Click "Add RV Area" to get started.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="space-y-4">
+                                {rvAreas.map(rv => (
+                                    <RvAreaCard
+                                        key={rv.id}
+                                        rvArea={rv}
+                                        onUpdate={(field, value) => updateRvArea(rv.id, field, value)}
+                                        onRemove={() => removeRvArea(rv.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* — Supplies / Feed Sales — */}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ShoppingCart className="h-5 w-5 text-amber-600" />
+                                <h3 className="text-base font-semibold">Supplies / Feed Sales</h3>
+                                <Badge variant="outline" className="text-xs">{supplies.length} item{supplies.length !== 1 ? 's' : ''}</Badge>
+                            </div>
+                            <Button onClick={() => addSupply()} variant="outline" size="sm">
+                                <Plus className="h-4 w-4 mr-1.5" /> Add Supply Item
+                            </Button>
+                        </div>
+
+                        {/* Quick-add presets */}
+                        <div className="flex flex-wrap gap-1.5">
+                            {SUPPLY_PRESETS.filter(p => !supplies.some(s => s.name === p.name)).map(preset => (
+                                <Button
+                                    key={preset.name}
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => addSupply(preset)}
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> {preset.name}
+                                </Button>
                             ))}
                         </div>
-                    )}
+
+                        {supplies.length === 0 ? (
+                            <Card>
+                                <CardContent className="py-10 text-center">
+                                    <ShoppingCart className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                                    <p className="text-sm text-muted-foreground">No supplies added. Use the quick-add buttons above or click "Add Supply Item".</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <div className="space-y-2">
+                                {/* Column labels */}
+                                <div className="flex items-center gap-3 px-3 text-[10px] font-semibold text-muted-foreground uppercase">
+                                    <span className="w-4 flex-shrink-0" />
+                                    <span className="flex-1">Item Name</span>
+                                    <span className="w-20 text-right">Price</span>
+                                    <span className="w-24">Unit</span>
+                                    <span className="w-20">Stock Qty</span>
+                                    <span className="w-7" />
+                                </div>
+                                {supplies.map(item => (
+                                    <SupplyItemCard
+                                        key={item.id}
+                                        item={item}
+                                        onUpdate={(field, value) => updateSupply(item.id, field, value)}
+                                        onRemove={() => removeSupply(item.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </TabsContent>
 
                 {/* ── Bookings Tab ── */}
@@ -537,67 +976,129 @@ const StallingDashboard = ({ show, onSave, isSaving }) => {
                 </TabsContent>
 
                 {/* ── Pricing Summary Tab ── */}
-                <TabsContent value="pricing" className="mt-4">
+                <TabsContent value="pricing" className="mt-4 space-y-4">
                     <Card>
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base flex items-center gap-2">
                                 <DollarSign className="h-4 w-4 text-primary" /> Pricing & Revenue Summary
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            {barns.length === 0 ? (
-                                <p className="text-sm text-muted-foreground text-center py-6">Add barns/areas to see pricing summary.</p>
+                        <CardContent className="space-y-6">
+                            {barns.length === 0 && rvAreas.length === 0 && supplies.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-6">Add barns, RV areas, or supplies to see pricing summary.</p>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b bg-muted/30">
-                                                <th className="text-left px-3 py-2 font-medium">Barn / Area</th>
-                                                <th className="text-center px-3 py-2 font-medium">Type</th>
-                                                <th className="text-center px-3 py-2 font-medium">Count</th>
-                                                <th className="text-right px-3 py-2 font-medium">Price/Night</th>
-                                                <th className="text-center px-3 py-2 font-medium">Booked</th>
-                                                <th className="text-right px-3 py-2 font-medium">Max Revenue (3 nights)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {barns.map(barn => {
-                                                const typeInfo = STALL_TYPES.find(t => t.id === barn.stallType) || STALL_TYPES[0];
-                                                const bookedCount = bookings.filter(b => {
-                                                    if (b.status === 'cancelled') return false;
-                                                    return (barn.stalls || []).some(s => s.id === b.stallId);
-                                                }).length;
-                                                const maxRev = (barn.stallCount || 0) * (barn.pricePerNight || 0) * 3;
-                                                return (
-                                                    <tr key={barn.id} className="border-b last:border-0">
-                                                        <td className="px-3 py-2 font-medium">{barn.name}</td>
-                                                        <td className="px-3 py-2 text-center text-muted-foreground">{typeInfo.name}</td>
-                                                        <td className="px-3 py-2 text-center">{barn.stallCount || 0}</td>
-                                                        <td className="px-3 py-2 text-right">${(barn.pricePerNight || 0).toFixed(2)}</td>
-                                                        <td className="px-3 py-2 text-center">
-                                                            <Badge variant={bookedCount > 0 ? 'default' : 'outline'} className="text-xs">
-                                                                {bookedCount}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right font-semibold">${maxRev.toLocaleString()}</td>
+                                <>
+                                    {/* Barns & RV table */}
+                                    {(barns.length > 0 || rvAreas.length > 0) && (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="border-b bg-muted/30">
+                                                        <th className="text-left px-3 py-2 font-medium">Area</th>
+                                                        <th className="text-center px-3 py-2 font-medium">Type</th>
+                                                        <th className="text-center px-3 py-2 font-medium">Count</th>
+                                                        <th className="text-right px-3 py-2 font-medium">Price/Night</th>
+                                                        <th className="text-center px-3 py-2 font-medium">Booked</th>
+                                                        <th className="text-right px-3 py-2 font-medium">Max Revenue ({showNights || 3} nights)</th>
                                                     </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr className="bg-muted/30 font-semibold">
-                                                <td className="px-3 py-2">Total</td>
-                                                <td className="px-3 py-2" />
-                                                <td className="px-3 py-2 text-center">{totalStalls}</td>
-                                                <td className="px-3 py-2" />
-                                                <td className="px-3 py-2 text-center">{confirmedBookings}</td>
-                                                <td className="px-3 py-2 text-right">
-                                                    ${barns.reduce((sum, b) => sum + ((b.stallCount || 0) * (b.pricePerNight || 0) * 3), 0).toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
-                                </div>
+                                                </thead>
+                                                <tbody>
+                                                    {barns.map(barn => {
+                                                        const typeInfo = STALL_TYPES.find(t => t.id === barn.stallType) || STALL_TYPES[0];
+                                                        const bookedCount = bookings.filter(b => {
+                                                            if (b.status === 'cancelled') return false;
+                                                            return (barn.stalls || []).some(s => s.id === b.stallId);
+                                                        }).length;
+                                                        const maxRev = (barn.stallCount || 0) * (barn.pricePerNight || 0) * (showNights || 3);
+                                                        return (
+                                                            <tr key={barn.id} className="border-b last:border-0">
+                                                                <td className="px-3 py-2 font-medium">{barn.name}</td>
+                                                                <td className="px-3 py-2 text-center text-muted-foreground">{typeInfo.name}</td>
+                                                                <td className="px-3 py-2 text-center">{barn.stallCount || 0}</td>
+                                                                <td className="px-3 py-2 text-right">${(barn.pricePerNight || 0).toFixed(2)}</td>
+                                                                <td className="px-3 py-2 text-center">
+                                                                    <Badge variant={bookedCount > 0 ? 'default' : 'outline'} className="text-xs">
+                                                                        {bookedCount}
+                                                                    </Badge>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right font-semibold">${maxRev.toLocaleString()}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                    {rvAreas.map(rv => {
+                                                        const hookupInfo = RV_HOOKUP_TYPES.find(t => t.id === rv.hookupType) || RV_HOOKUP_TYPES[0];
+                                                        const maxRev = (rv.spotCount || 0) * (rv.pricePerNight || 0) * (showNights || 3);
+                                                        return (
+                                                            <tr key={rv.id} className="border-b last:border-0">
+                                                                <td className="px-3 py-2 font-medium">{rv.name}</td>
+                                                                <td className="px-3 py-2 text-center text-cyan-600">{hookupInfo.name}</td>
+                                                                <td className="px-3 py-2 text-center">{rv.spotCount || 0}</td>
+                                                                <td className="px-3 py-2 text-right">${(rv.pricePerNight || 0).toFixed(2)}</td>
+                                                                <td className="px-3 py-2 text-center">
+                                                                    <Badge variant="outline" className="text-xs">-</Badge>
+                                                                </td>
+                                                                <td className="px-3 py-2 text-right font-semibold">${maxRev.toLocaleString()}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                                <tfoot>
+                                                    <tr className="bg-muted/30 font-semibold">
+                                                        <td className="px-3 py-2">Total</td>
+                                                        <td className="px-3 py-2" />
+                                                        <td className="px-3 py-2 text-center">{totalUnits}</td>
+                                                        <td className="px-3 py-2" />
+                                                        <td className="px-3 py-2 text-center">{confirmedBookings}</td>
+                                                        <td className="px-3 py-2 text-right">
+                                                            ${(barns.reduce((sum, b) => sum + ((b.stallCount || 0) * (b.pricePerNight || 0) * (showNights || 3)), 0) + rvAreas.reduce((sum, r) => sum + ((r.spotCount || 0) * (r.pricePerNight || 0) * (showNights || 3)), 0)).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    )}
+
+                                    {/* Supplies pricing */}
+                                    {supplies.length > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                                                <ShoppingCart className="h-4 w-4 text-amber-600" /> Supplies Pricing
+                                            </h4>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead>
+                                                        <tr className="border-b bg-muted/30">
+                                                            <th className="text-left px-3 py-2 font-medium">Item</th>
+                                                            <th className="text-right px-3 py-2 font-medium">Price</th>
+                                                            <th className="text-center px-3 py-2 font-medium">Unit</th>
+                                                            <th className="text-center px-3 py-2 font-medium">Stock</th>
+                                                            <th className="text-right px-3 py-2 font-medium">Stock Value</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {supplies.map(item => (
+                                                            <tr key={item.id} className="border-b last:border-0">
+                                                                <td className="px-3 py-2 font-medium">{item.name}</td>
+                                                                <td className="px-3 py-2 text-right">${(item.price || 0).toFixed(2)}</td>
+                                                                <td className="px-3 py-2 text-center text-muted-foreground">{item.unit || '-'}</td>
+                                                                <td className="px-3 py-2 text-center">{item.stockQty || 0}</td>
+                                                                <td className="px-3 py-2 text-right font-semibold">${((item.price || 0) * (item.stockQty || 0)).toLocaleString()}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                    <tfoot>
+                                                        <tr className="bg-muted/30 font-semibold">
+                                                            <td className="px-3 py-2" colSpan={4}>Total Stock Value</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                ${supplies.reduce((sum, s) => sum + ((s.price || 0) * (s.stockQty || 0)), 0).toLocaleString()}
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
 
                             {projectedRevenue > 0 && (
@@ -641,13 +1142,13 @@ const StallingServiceManagerPage = () => {
         fetchShows();
     }, [user]);
 
-    const handleSave = async ({ barns, bookings }) => {
+    const handleSave = async ({ barns, rvAreas, supplies, bookings }) => {
         if (!selectedShow) return;
         setIsSaving(true);
         try {
             const updatedData = {
                 ...selectedShow.project_data,
-                stallingService: { barns, bookings },
+                stallingService: { barns, rvAreas, supplies, bookings },
             };
             const { error } = await supabase
                 .from('projects')
@@ -678,20 +1179,7 @@ const StallingServiceManagerPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="flex items-center gap-3 mb-8">
-                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                                <Home className="h-6 w-6 text-primary" />
-                                Stalling Service
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                Manage stalls, pricing, and bookings for your show.
-                            </p>
-                        </div>
-                    </div>
+                    <PageHeader title="Stalling Service" />
 
                     <div className="mb-6">
                         <LinkToExistingShow

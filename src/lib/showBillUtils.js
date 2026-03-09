@@ -22,7 +22,8 @@ export function getAllClassItems(formData) {
       const [assocId, ...divisionParts] = divisionId.split('-');
       const divisionName = divisionParts.join('-');
       const customTitle = discipline.divisionPrintTitles?.[divisionId];
-      const name = customTitle || (divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName);
+      const rawDivision = divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName;
+      const name = customTitle || (discipline.name ? `${discipline.name} ${rawDivision}` : rawDivision);
       return {
         id: divisionId,
         name,
@@ -92,7 +93,19 @@ export function initializeShowBill(formData) {
     days.forEach(day => { day.arenas = [{ ...defaultArena, items: [] }]; });
   }
 
-  return {
+  // Auto-populate all selected classes into the first arena of the first day
+  const allClasses = getAllClassItems(formData);
+  if (allClasses.length > 0 && days.length > 0 && days[0].arenas.length > 0) {
+    days[0].arenas[0].items = allClasses.map(cls => ({
+      type: 'classBox',
+      id: uuidv4(),
+      number: 0,
+      title: cls.name,
+      classes: [cls.id],
+    }));
+  }
+
+  const result = {
     header: {
       showName: formData.showName || '',
       dates: formData.startDate && formData.endDate
@@ -111,6 +124,8 @@ export function initializeShowBill(formData) {
     },
     closedArenas: {},
   };
+
+  return renumberShowBill(result);
 }
 
 // Create a new show bill item
@@ -129,26 +144,63 @@ export function createShowBillItem(type, overrides = {}) {
 export function renumberShowBill(showBill) {
   if (!showBill) return showBill;
   const mode = showBill.settings?.numberingMode || 'global';
+  const startNumber = showBill.settings?.startClassNumber || 1;
   const closed = showBill.closedArenas || {};
   const newShowBill = JSON.parse(JSON.stringify(showBill));
-  let globalCounter = 1;
+  let globalCounter = startNumber;
 
   for (const day of newShowBill.days) {
-    let dayCounter = 1;
+    let dayCounter = startNumber;
     for (const arena of day.arenas) {
       if (closed[`${day.id}::${arena.id}`]) continue;
-      let arenaCounter = 1;
+      let arenaCounter = startNumber;
       for (const item of arena.items) {
         if (item.type === 'classBox') {
-          if (mode === 'global') item.number = globalCounter++;
-          else if (mode === 'per-day') item.number = dayCounter++;
-          else if (mode === 'per-arena') item.number = arenaCounter++;
+          // Second Go items get parent number + 'A' suffix, skip normal numbering
+          if (item.isSecondGo && item.parentNumber) {
+            item.number = `${item.parentNumber}A`;
+            continue;
+          }
+          const currentNumber = mode === 'global' ? globalCounter++
+            : mode === 'per-day' ? dayCounter++
+            : arenaCounter++;
+          item.number = currentNumber;
+          // Update any Second Go items that follow this parent
+          // (handled in a second pass below)
         }
       }
     }
   }
+
+  // Second pass: assign Second Go numbers based on their parent's actual number
+  for (const day of newShowBill.days) {
+    for (const arena of day.arenas) {
+      if (closed[`${day.id}::${arena.id}`]) continue;
+      for (const item of arena.items) {
+        if (item.type === 'classBox' && item.isSecondGo && item.parentItemId) {
+          // Find parent item's number
+          const parentNum = findItemNumber(newShowBill, item.parentItemId);
+          if (parentNum !== null) {
+            item.number = `${parentNum}A`;
+          }
+        }
+      }
+    }
+  }
+
   newShowBill.nextClassNumber = globalCounter;
   return newShowBill;
+}
+
+// Helper: find an item's number by its id
+function findItemNumber(showBill, itemId) {
+  for (const day of showBill.days) {
+    for (const arena of day.arenas) {
+      const item = arena.items.find(i => i.id === itemId);
+      if (item) return item.number;
+    }
+  }
+  return null;
 }
 
 // Find the arena containing an item

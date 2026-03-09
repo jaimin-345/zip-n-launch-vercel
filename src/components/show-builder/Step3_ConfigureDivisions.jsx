@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GripVertical, Undo2, Redo2, CalendarDays, X } from 'lucide-react';
+import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import ClassPalette from '@/components/show-builder/show-bill/ClassPalette';
 import {
@@ -24,11 +25,13 @@ import {
 const MAX_UNDO = 50;
 
 // ─── Compact sortable class card inside an arena ────────────────
-const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, isSelected, onToggleSelection }) => {
+const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, onUpdateTitle, onAddSecondGo, isSelected, onToggleSelection }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: item.id,
         data: { origin: 'arena', item },
     });
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(item.title || '');
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -37,6 +40,28 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, is
 
     const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid)).filter(Boolean);
     const firstAssoc = classDetails[0] && associationsData?.find(a => a.id === classDetails[0].assocId);
+
+    const handleStartEdit = () => {
+        setEditValue(item.title || '');
+        setIsEditing(true);
+    };
+
+    const handleFinishEdit = () => {
+        setIsEditing(false);
+        const trimmed = editValue.trim();
+        if (trimmed && trimmed !== item.title) {
+            onUpdateTitle?.(item.id, trimmed);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleFinishEdit();
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+        }
+    };
 
     return (
         <div
@@ -59,9 +84,41 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, is
                 <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
             <span className="font-bold text-primary shrink-0 w-6 text-right">{item.number || '?'}.</span>
-            <span className="truncate flex-grow font-medium">{item.title || 'Untitled'}</span>
+            {isEditing ? (
+                <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleFinishEdit}
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    className="flex-grow font-medium bg-white dark:bg-background border border-primary/40 rounded px-1 py-0 text-sm outline-none focus:ring-1 focus:ring-primary"
+                    onPointerDown={(e) => e.stopPropagation()}
+                />
+            ) : (
+                <span
+                    className="truncate flex-grow font-medium cursor-text hover:underline hover:decoration-dotted"
+                    onDoubleClick={handleStartEdit}
+                    title="Double-click to edit"
+                >
+                    {item.title || 'Untitled'}
+                </span>
+            )}
+            {item.isSecondGo && (
+                <Badge variant="secondary" className="text-[10px] px-1 py-0 shrink-0">2nd Go</Badge>
+            )}
             {firstAssoc && (
                 <span className="text-xs text-muted-foreground shrink-0">({firstAssoc.abbreviation})</span>
+            )}
+            {!item.isSecondGo && (
+                <button
+                    type="button"
+                    className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-primary/10 flex items-center justify-center"
+                    onClick={() => onAddSecondGo?.(item.id)}
+                    title="Add Second Go"
+                >
+                    <CopyPlus className="h-3 w-3 text-primary" />
+                </button>
             )}
             <button
                 type="button"
@@ -75,7 +132,7 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, is
 };
 
 // ─── Arena drop zone with close toggle ──────────────────────────
-const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemoveItem, isClosed, onToggleClosed, selectedArenaItemIds, onToggleArenaItemSelection }) => {
+const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemoveItem, onUpdateTitle, onAddSecondGo, isClosed, onToggleClosed, selectedArenaItemIds, onToggleArenaItemSelection }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `droppable-${dayId}-${arena.id}`,
         data: { dayId, arenaId: arena.id, origin: 'arena-zone' },
@@ -127,6 +184,8 @@ const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemov
                                         allClassItems={allClassItems}
                                         associationsData={associationsData}
                                         onRemove={onRemoveItem}
+                                        onUpdateTitle={onUpdateTitle}
+                                        onAddSecondGo={onAddSecondGo}
                                         isSelected={selectedArenaItemIds?.has(item.id)}
                                         onToggleSelection={onToggleArenaItemSelection}
                                     />
@@ -261,6 +320,44 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         if (arena) {
             arena.items = arena.items.filter(i => i.id !== itemId);
         }
+        setShowBill(renumberShowBill(sb));
+    }, [showBill, setShowBill]);
+
+    // Update an item's title
+    const handleUpdateItemTitle = useCallback((itemId, newTitle) => {
+        const loc = findItemLocation(showBill, itemId);
+        if (!loc) return;
+        const sb = JSON.parse(JSON.stringify(showBill));
+        const day = sb.days.find(d => d.id === loc.dayId);
+        const arena = day?.arenas.find(a => a.id === loc.arenaId);
+        if (arena) {
+            const item = arena.items.find(i => i.id === itemId);
+            if (item) item.title = newTitle;
+        }
+        setShowBill(sb);
+    }, [showBill, setShowBill]);
+
+    // Add Second Go for a class item
+    const handleAddSecondGo = useCallback((itemId) => {
+        const loc = findItemLocation(showBill, itemId);
+        if (!loc) return;
+        const sb = JSON.parse(JSON.stringify(showBill));
+        const day = sb.days.find(d => d.id === loc.dayId);
+        const arena = day?.arenas.find(a => a.id === loc.arenaId);
+        if (!arena) return;
+        const parentItem = arena.items[loc.index];
+        const secondGoItem = {
+            type: 'classBox',
+            id: uuidv4(),
+            number: 0,
+            title: `${parentItem.title} (Second Go)`,
+            classes: [...(parentItem.classes || [])],
+            isSecondGo: true,
+            parentItemId: parentItem.id,
+            parentNumber: parentItem.number,
+        };
+        // Insert right after the parent
+        arena.items.splice(loc.index + 1, 0, secondGoItem);
         setShowBill(renumberShowBill(sb));
     }, [showBill, setShowBill]);
 
@@ -497,6 +594,8 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                                         allClassItems={allClassItems}
                                                         associationsData={associationsData}
                                                         onRemoveItem={handleRemoveItem}
+                                                        onUpdateTitle={handleUpdateItemTitle}
+                                                        onAddSecondGo={handleAddSecondGo}
                                                         isClosed={isClosed}
                                                         onToggleClosed={() => handleToggleArenaClosed(activeDay.id, arena.id)}
                                                         selectedArenaItemIds={selectedArenaItemIds}

@@ -7,33 +7,32 @@ import { Button } from '@/components/ui/button';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import ShowBuilderSteps from '@/components/show-builder/ShowBuilderSteps';
 import { Step1_ShowAssociations } from '@/components/show-builder/Step1_ShowAssociations';
-import { Step2_ShowClasses } from '@/components/show-builder/Step2_ShowClasses';
+import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
+import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
 import { Step3_ConfigureDivisions } from '@/components/show-builder/Step3_ConfigureDivisions';
 import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
-import { Step5_Schedule } from '@/components/show-builder/Step5_Schedule';
 import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
+import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Save, Loader2, BookCopy } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 const CreateShowPage = () => {
     const { showId } = useParams();
-    const { step: currentStep, setCurrentStep, nextStep, prevStep, formData, setFormData, completedSteps, createOrUpdateShow, isLoading, disciplineLibrary, associationsData, divisionsData, resetDisciplines } = useShowBuilder(showId);
+    const { step: currentStep, setCurrentStep, nextStep, prevStep, formData, setFormData, completedSteps, setCompletedSteps, createOrUpdateShow, isLoading, disciplineLibrary, associationsData, divisionsData, resetDisciplines, refreshDisciplineLibrary } = useShowBuilder(showId);
     const { toast } = useToast();
     const navigate = useNavigate();
 
     const handleSave = async () => {
         try {
             const project = await createOrUpdateShow();
-            if (project && (!showId || showId !== project.id)) {
+            if (!project) return; // validation failed (name required, duplicate, etc.)
+            if (!showId || showId !== project.id) {
                 navigate(`/horse-show-manager/edit/${project.id}`, { replace: true });
             }
-             toast({
-                title: 'Progress Saved!',
-                description: 'Your show information has been successfully saved.',
-            });
         } catch (error) {
              toast({
                 title: 'Save Failed',
@@ -43,13 +42,18 @@ const CreateShowPage = () => {
         }
     };
 
+    const handleNext = () => {
+        setCompletedSteps(prev => new Set([...prev, currentStep]));
+        nextStep();
+    };
+
     const steps = [
         { id: 1, name: 'Show Structure', component: Step1_ShowAssociations },
-        { id: 2, name: 'Core Details', component: Step4_ShowDetails },
-        { id: 3, name: 'Arenas & Dates', component: Step3_ArenasAndDates },
-        { id: 4, name: 'Build Classes', component: Step2_ShowClasses },
-        { id: 5, name: 'Organize Schedule', component: Step3_ConfigureDivisions },
-        { id: 6, name: 'Design & Finalize Layout', component: Step5_Schedule },
+        { id: 2, name: 'Select Disciplines', component: Step2_ClassesAndDivisions },
+        { id: 3, name: 'Configure Classes', component: 'ClassConfiguration' },
+        { id: 4, name: 'Show Details', component: Step4_ShowDetails },
+        { id: 5, name: 'Arenas & Dates', component: Step3_ArenasAndDates },
+        { id: 6, name: 'Organize Schedule', component: Step3_ConfigureDivisions },
         { id: 7, name: 'Save & Manage', component: Step6_Preview },
     ];
 
@@ -64,15 +68,7 @@ const CreateShowPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="container mx-auto px-4 py-8">
-                    <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-8">
-                        <BookCopy className="mx-auto h-16 w-16 text-primary mb-4" />
-                        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground">
-                            {showId ? 'Edit Show' : 'Create a New Show'}
-                        </h1>
-                        <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-                            Effortlessly build your complete horse show from start to finish.
-                        </p>
-                    </motion.div>
+                    <PageHeader title={showId ? 'Edit Show' : 'Create a New Show'} />
                     
                     <div className="max-w-7xl mx-auto">
                         <ShowBuilderSteps
@@ -87,6 +83,22 @@ const CreateShowPage = () => {
                                     <CardContent className="flex items-center justify-center p-16">
                                         <Loader2 className="h-12 w-12 animate-spin text-primary" />
                                     </CardContent>
+                                ) : CurrentStepComponent === 'ClassConfiguration' ? (
+                                    <div key={currentStep}>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-xl">Step 3: Configure Classes</CardTitle>
+                                            <CardDescription className="text-sm">Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <ClassConfiguration
+                                                formData={formData}
+                                                setFormData={setFormData}
+                                                isOpenShowMode={formData.showType === 'open-unaffiliated' || !!formData.associations?.['open-show']}
+                                                associationsData={associationsData}
+                                                divisionsData={divisionsData}
+                                            />
+                                        </CardContent>
+                                    </div>
                                 ) : CurrentStepComponent ? (
                                     <CurrentStepComponent
                                         key={currentStep}
@@ -97,6 +109,7 @@ const CreateShowPage = () => {
                                         divisionsData={divisionsData}
                                         resetDisciplines={resetDisciplines}
                                         createOrUpdateShow={createOrUpdateShow}
+                                        onRefreshDisciplines={refreshDisciplineLibrary}
                                     />
                                 ) : (
                                     <CardContent className="flex items-center justify-center p-16">
@@ -116,7 +129,7 @@ const CreateShowPage = () => {
                                     {currentStep === steps.length ? (
                                          <Button onClick={() => alert("Finalize!")} >Finalize Show</Button>
                                     ) : (
-                                        <Button onClick={nextStep}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                                        <Button onClick={handleNext}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
                                     )}
                                 </div>
                             </CardFooter>

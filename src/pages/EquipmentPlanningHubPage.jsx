@@ -1,9 +1,9 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, Package, Ruler, CalendarDays, Truck, MapPin, ClipboardCheck, RefreshCcw, FileBarChart, Calculator } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Package, Ruler, CalendarDays, Truck, MapPin, ClipboardCheck, RefreshCcw, FileBarChart, Calculator } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import Navigation from '@/components/Navigation';
 
 const sections = [
@@ -67,27 +67,12 @@ const sections = [
 ];
 
 const EquipmentPlanningHubPage = () => {
-  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Helmet><title>Equipment Planning - EquiPatterns</title></Helmet>
       <Navigation />
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Manager
-          </Button>
-        </div>
-
-        <header className="mb-8">
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Equipment Planning
-          </h1>
-          <p className="mt-2 text-lg text-gray-500 dark:text-gray-400">
-            Define equipment once, assign to arenas, auto-generate needs, and operate during events.
-          </p>
-        </header>
+        <PageHeader title="Equipment Planning" />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section, index) => (

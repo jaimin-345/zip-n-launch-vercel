@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-const ArenaDropZone = ({ arena, dayId, isClosed, onToggleClosed, onEditItem, onRemoveItem, onRemoveClassFromBox, onInsertItem, allClassItems, associationsData, selectedArenaItemIds, onToggleArenaItemSelection }) => {
+const ArenaDropZone = ({ arena, dayId, isClosed, onToggleClosed, onEditItem, onRemoveItem, onRemoveClassFromBox, onInsertItem, onBulkAdd, allClassItems, associationsData, selectedArenaItemIds, onToggleArenaItemSelection }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: `droppable-${dayId}-${arena.id}`,
     data: { dayId, arenaId: arena.id, origin: 'arena-zone' },
@@ -68,7 +68,7 @@ const ArenaDropZone = ({ arena, dayId, isClosed, onToggleClosed, onEditItem, onR
               )}
             </div>
           </SortableContext>
-          <InsertToolbar onInsert={(type) => onInsertItem(dayId, arena.id, type)} />
+          <InsertToolbar onInsert={(type) => onInsertItem(dayId, arena.id, type)} onBulkAdd={onBulkAdd ? () => onBulkAdd(dayId, arena.id) : undefined} />
         </div>
       ) : (
         <div className="p-3 text-center text-sm text-muted-foreground italic">
@@ -79,7 +79,7 @@ const ArenaDropZone = ({ arena, dayId, isClosed, onToggleClosed, onEditItem, onR
   );
 };
 
-const ArenaSection = ({ day, onEditItem, onRemoveItem, onRemoveClassFromBox, onInsertItem, allClassItems, associationsData, closedArenas, onToggleArenaClosed, selectedArenaItemIds, onToggleArenaItemSelection }) => {
+const ArenaSection = ({ day, onEditItem, onRemoveItem, onRemoveClassFromBox, onInsertItem, onBulkAdd, allClassItems, associationsData, closedArenas, onToggleArenaClosed, selectedArenaItemIds, onToggleArenaItemSelection }) => {
   if (!day) return null;
 
   return (
@@ -100,6 +100,7 @@ const ArenaSection = ({ day, onEditItem, onRemoveItem, onRemoveClassFromBox, onI
             onRemoveItem={onRemoveItem}
             onRemoveClassFromBox={onRemoveClassFromBox}
             onInsertItem={onInsertItem}
+            onBulkAdd={onBulkAdd}
             allClassItems={allClassItems}
             associationsData={associationsData}
             selectedArenaItemIds={selectedArenaItemIds}

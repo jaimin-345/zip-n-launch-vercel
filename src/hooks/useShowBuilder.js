@@ -11,6 +11,8 @@ const initialFormData = {
   associations: {},
   customAssociations: [],
   primaryAffiliates: [],
+  subAssociationSelections: {},
+  selected4HCity: '',
   nsbaApprovalType: '',
   nsbaCategory: '',
   nsbaDualApprovedWith: [],
@@ -102,7 +104,7 @@ export const useShowBuilder = (showId) => {
         if (showError) throw showError;
         if (showData && showData.project_data) {
           setFormData(prev => ({ ...initialFormData, ...showData.project_data, id: showId }));
-          const savedStep = showData.project_data.currentStep || 1;
+          const savedStep = Math.min(showData.project_data.currentStep || 1, 7);
           const savedCompleted = showData.project_data.completedSteps || [];
           setStep(savedStep);
           setCompletedSteps(new Set(savedCompleted));
@@ -130,6 +132,20 @@ export const useShowBuilder = (showId) => {
   const resetDisciplines = () => {
     setFormData(prev => ({ ...prev, disciplines: [] }));
   };
+
+  const refreshDisciplineLibrary = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from('disciplines').select('*').order('sort_order');
+      if (error) throw error;
+      const formatted = data.map(d => ({
+        ...d,
+        associations: d.association_id ? [{ association_id: d.association_id, sub_association_type: d.sub_association_type }] : []
+      }));
+      setDisciplineLibrary(formatted);
+    } catch (error) {
+      toast({ title: 'Error refreshing disciplines', description: error.message, variant: 'destructive' });
+    }
+  }, [toast]);
 
   const createOrUpdateShow = useCallback(async (statusOverride) => {
     if (!user) {
@@ -166,12 +182,17 @@ export const useShowBuilder = (showId) => {
       setFormData(prev => ({ ...prev, showStatus: statusOverride }));
     }
 
+    // Mark current step as completed on save
+    const updatedCompletedSteps = new Set(completedSteps);
+    updatedCompletedSteps.add(step);
+    setCompletedSteps(updatedCompletedSteps);
+
     const showDataToSave = {
       ...formData,
       showName: trimmedName,
       showStatus: effectiveStatus,
       currentStep: step,
-      completedSteps: Array.from(completedSteps),
+      completedSteps: Array.from(updatedCompletedSteps),
     };
 
     const showPayload = {
@@ -227,7 +248,7 @@ export const useShowBuilder = (showId) => {
     }
   }, [formData, step, completedSteps, showId, toast, user]);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 8));
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 7));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
   const setCurrentStep = (newStep) => setStep(newStep);
 
@@ -246,6 +267,7 @@ export const useShowBuilder = (showId) => {
     associationsData,
     divisionsData,
     resetDisciplines,
+    refreshDisciplineLibrary,
     existingProjects,
   };
 };

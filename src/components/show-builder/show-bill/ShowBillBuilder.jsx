@@ -10,6 +10,7 @@ import DayTabs from './DayTabs';
 import ArenaSection from './ArenaSection';
 import ClassPalette from './ClassPalette';
 import ItemEditDialog from './ItemEditDialog';
+import BulkAddDialog from './BulkAddDialog';
 import {
   initializeShowBill,
   getAllClassItems,
@@ -35,6 +36,8 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
   const [editingItem, setEditingItem] = useState(null);
   const [editingDayId, setEditingDayId] = useState(null);
   const [editingArenaId, setEditingArenaId] = useState(null);
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
+  const [bulkAddTarget, setBulkAddTarget] = useState({ dayId: null, arenaId: null });
 
   // Multi-select state
   const [selectedPaletteIds, setSelectedPaletteIds] = useState(new Set());
@@ -202,6 +205,35 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
     if (!loc) return;
     setShowBill(removeClassFromBox(showBill, loc.dayId, loc.arenaId, classBoxId, classId));
   }, [showBill, setShowBill]);
+
+  // Bulk add classes to a specific arena
+  const handleOpenBulkAdd = useCallback((dayId, arenaId) => {
+    setBulkAddTarget({ dayId, arenaId });
+    setBulkAddOpen(true);
+  }, []);
+
+  const handleBulkAdd = useCallback((classNames, options) => {
+    const { dayId, arenaId } = bulkAddTarget;
+    if (!dayId || !arenaId || !showBill) return;
+
+    const sb = JSON.parse(JSON.stringify(showBill));
+    const day = sb.days.find(d => d.id === dayId);
+    const arena = day?.arenas.find(a => a.id === arenaId);
+    if (!arena) return;
+
+    const newItems = classNames.map(name => createShowBillItem('classBox', {
+      title: name,
+      classes: [],
+      noPattern: options?.noPattern || false,
+    }));
+    arena.items.push(...newItems);
+
+    setShowBill(renumberShowBill(sb));
+    toast({
+      title: 'Classes Added',
+      description: `${classNames.length} class${classNames.length === 1 ? '' : 'es'} added to ${arena.name}.`,
+    });
+  }, [showBill, setShowBill, bulkAddTarget, toast]);
 
   // --- DnD Handlers ---
   const handleDragStart = (event) => {
@@ -417,6 +449,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
                 onRemoveItem={handleRemoveItem}
                 onRemoveClassFromBox={handleRemoveClassFromBox}
                 onInsertItem={handleInsertItem}
+                onBulkAdd={handleOpenBulkAdd}
                 allClassItems={allClassItems}
                 associationsData={propAssociationsData}
                 closedArenas={showBill.closedArenas || {}}
@@ -456,6 +489,13 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
           </div>
         )}
       </DragOverlay>
+
+      {/* Bulk add dialog */}
+      <BulkAddDialog
+        open={bulkAddOpen}
+        onOpenChange={setBulkAddOpen}
+        onBulkAdd={handleBulkAdd}
+      />
 
       {/* Edit dialog */}
       {editingItem && (

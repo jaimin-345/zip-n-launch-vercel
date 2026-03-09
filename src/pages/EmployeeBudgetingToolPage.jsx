@@ -10,11 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Loader2, DollarSign, TrendingUp, TrendingDown, Hash,
+    Loader2, DollarSign, TrendingUp, TrendingDown, Hash,
     ChevronRight, FolderOpen, Calendar, Users, Building2,
     HeartHandshake, Banknote, PiggyBank, Target, Receipt,
     Trophy, Briefcase, BarChart3, Link2,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
@@ -506,20 +507,7 @@ const EmployeeBudgetingToolPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="flex items-center gap-3 mb-8">
-                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                                <DollarSign className="h-6 w-6 text-primary" />
-                                Employee Budgeting Tool
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                Revenue forecast, expense tracking, and profit analysis.
-                            </p>
-                        </div>
-                    </div>
+                    <PageHeader title="Employee Budgeting Tool" />
 
                     <LinkToExistingShow
                         existingProjects={shows}

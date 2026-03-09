@@ -16,6 +16,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { AssociationSelection } from '@/components/shared/AssociationSelection';
+import { PageHeader } from '@/components/shared/PageHeader';
 
 import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
 import { Step2_ShowClasses } from '@/components/show-builder/Step2_ShowClasses';
@@ -266,34 +267,10 @@ const ScheduleBuilderPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                            <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                            <div>
-                                <h1 className="text-2xl font-bold text-foreground">Horse Show Schedule Builder</h1>
-                                <p className="text-sm text-muted-foreground">
-                                    Step {currentStep} of {WIZARD_STEPS.length} — {WIZARD_STEPS[currentStep - 1]?.name}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {autoSaveStatus === 'saving' && (
-                                <span className="flex items-center gap-1">
-                                    <Loader2 className="h-3 w-3 animate-spin" /> Saving...
-                                </span>
-                            )}
-                            {autoSaveStatus === 'saved' && (
-                                <span className="flex items-center gap-1 text-green-600">
-                                    <Check className="h-3 w-3" /> Saved
-                                </span>
-                            )}
-                            {autoSaveStatus === 'error' && (
-                                <span className="text-destructive">Auto-save failed</span>
-                            )}
-                        </div>
-                    </div>
+                    <PageHeader
+                        title="Horse Show Schedule Builder"
+                        subtitle={`Step ${currentStep} of ${WIZARD_STEPS.length} — ${WIZARD_STEPS[currentStep - 1]?.name}`}
+                    />
 
                     <StepIndicator
                         currentStep={currentStep}

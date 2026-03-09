@@ -6,9 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Home, AlertCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Home, AlertCircle, MapPin, Building2, Award, Stethoscope, CircleDot, HeartHandshake, Plus, X } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
+import { useState } from 'react';
+
+const PRESET_LOCATIONS = [
+    { id: 'show-office', name: 'Show Office', icon: Building2 },
+    { id: 'awards-room', name: 'Awards Room', icon: Award },
+    { id: 'vet-area', name: 'Vet Area', icon: Stethoscope },
+    { id: 'warmup-ring', name: 'Warmup Ring', icon: CircleDot },
+    { id: 'volunteer-desk', name: 'Volunteer Desk', icon: HeartHandshake },
+];
 
 function getDateRange(startDate, endDate) {
     if (!startDate) return [];
@@ -27,6 +36,117 @@ function formatShortDate(dateStr) {
     const d = parseLocalDate(dateStr);
     return format(d, 'EEE, MMM d');
 }
+
+// --- Locations Section ---
+const LocationsSection = ({ formData, setFormData }) => {
+    const [customName, setCustomName] = useState('');
+    const locations = formData.locations || [];
+
+    const togglePreset = (preset) => {
+        setFormData(prev => {
+            const existing = prev.locations || [];
+            const found = existing.find(l => l.id === preset.id);
+            if (found) {
+                return { ...prev, locations: existing.filter(l => l.id !== preset.id) };
+            }
+            return { ...prev, locations: [...existing, { id: preset.id, name: preset.name, type: 'preset' }] };
+        });
+    };
+
+    const addCustomLocation = () => {
+        const trimmed = customName.trim();
+        if (!trimmed) return;
+        const id = `loc-${Date.now()}`;
+        setFormData(prev => ({
+            ...prev,
+            locations: [...(prev.locations || []), { id, name: trimmed, type: 'custom' }],
+        }));
+        setCustomName('');
+    };
+
+    const removeLocation = (id) => {
+        setFormData(prev => ({
+            ...prev,
+            locations: (prev.locations || []).filter(l => l.id !== id),
+        }));
+    };
+
+    const renameLocation = (id, name) => {
+        setFormData(prev => ({
+            ...prev,
+            locations: (prev.locations || []).map(l => l.id === id ? { ...l, name } : l),
+        }));
+    };
+
+    const activePresetIds = new Set(locations.filter(l => l.type === 'preset').map(l => l.id));
+    const customLocations = locations.filter(l => l.type === 'custom');
+
+    return (
+        <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-semibold">Show Locations</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Add locations for staff assignment. These are non-competition areas like offices and support stations.</p>
+
+            {/* Preset toggles */}
+            <div className="flex flex-wrap gap-2">
+                {PRESET_LOCATIONS.map(preset => {
+                    const Icon = preset.icon;
+                    const active = activePresetIds.has(preset.id);
+                    return (
+                        <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => togglePreset(preset)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors
+                                ${active
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background text-foreground border-border hover:bg-accent'
+                                }`}
+                        >
+                            <Icon className="h-3.5 w-3.5" />
+                            {preset.name}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Custom locations list */}
+            {customLocations.length > 0 && (
+                <div className="space-y-2">
+                    {customLocations.map(loc => (
+                        <div key={loc.id} className="flex items-center gap-2 rounded-md border bg-background p-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <Input
+                                className="h-8 text-sm"
+                                value={loc.name}
+                                onChange={(e) => renameLocation(loc.id, e.target.value)}
+                            />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeLocation(loc.id)}>
+                                <X className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Add custom location */}
+            <div className="flex gap-2">
+                <Input
+                    className="h-9 text-sm"
+                    placeholder="Add custom location (e.g., Parking Lot, First Aid)"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomLocation())}
+                />
+                <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={addCustomLocation} disabled={!customName.trim()}>
+                    <Plus className="h-4 w-4 mr-1" /> Add
+                </Button>
+            </div>
+        </div>
+    );
+};
 
 export const Step3_ArenasAndDates = ({ formData, setFormData, stepNumber = 3, stepTitle = 'Arenas & Dates of Use' }) => {
     const competitionDates = getDateRange(formData.startDate, formData.endDate);
@@ -151,6 +271,9 @@ export const Step3_ArenasAndDates = ({ formData, setFormData, stepNumber = 3, st
                 <Button variant="outline" onClick={addArena} className="w-full">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Arena
                 </Button>
+
+                {/* Show Locations for staff assignment */}
+                <LocationsSection formData={formData} setFormData={setFormData} />
             </CardContent>
         </motion.div>
     );

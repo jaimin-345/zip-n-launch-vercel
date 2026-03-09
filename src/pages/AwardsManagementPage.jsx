@@ -12,10 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Loader2, Trophy, Calendar, FolderOpen,
+    Loader2, Trophy, Calendar, FolderOpen,
     Hash, MapPin, Wand2, Save, Check, X, Plus, Trash2, Star,
-    Award, Gift, Medal, AlertCircle, Search, Edit2, Users,
+    Award, Gift, Medal, AlertCircle, Search, Edit2, Users, Copy, CopyCheck,
 } from 'lucide-react';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -130,7 +131,7 @@ const AwardRow = ({ award, onChange, onRemove }) => (
 
 // ── Class Awards Card ──
 
-const ClassAwardsCard = ({ cls, awards, onChange }) => {
+const ClassAwardsCard = ({ cls, awards, onChange, onCopyToAll, onClearAwards }) => {
     const classAwards = awards || [];
     const totalCost = classAwards.reduce((sum, a) => sum + (a.cost || 0), 0);
     const filledWinners = classAwards.filter(a => a.winner).length;
@@ -173,9 +174,21 @@ const ClassAwardsCard = ({ cls, awards, onChange }) => {
                     />
                 ))}
             </div>
-            <Button variant="ghost" size="sm" className="mt-1 text-xs h-6" onClick={addAward}>
-                <Plus className="h-3 w-3 mr-1" /> Add Award
-            </Button>
+            <div className="flex items-center gap-1 mt-1">
+                <Button variant="ghost" size="sm" className="text-xs h-6" onClick={addAward}>
+                    <Plus className="h-3 w-3 mr-1" /> Add Award
+                </Button>
+                {classAwards.length > 0 && (
+                    <>
+                        <Button variant="ghost" size="sm" className="text-xs h-6 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => onCopyToAll(cls.id)}>
+                            <Copy className="h-3 w-3 mr-1" /> Copy to All Empty
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-xs h-6 text-destructive hover:bg-destructive/10" onClick={() => onClearAwards(cls.id)}>
+                            <Trash2 className="h-3 w-3 mr-1" /> Clear All
+                        </Button>
+                    </>
+                )}
+            </div>
         </div>
     );
 };
@@ -351,6 +364,27 @@ const AwardsDashboard = ({ show, onSave, isSaving }) => {
         return classes.filter(c => c.name.toLowerCase().includes(q) || c.discipline?.toLowerCase().includes(q));
     }, [classes, searchTerm]);
 
+    // Copy awards from one class to all classes that have no awards
+    const copyAwardsToAll = useCallback((sourceClassId) => {
+        const sourceAwards = classAwardsMap[sourceClassId];
+        if (!sourceAwards || sourceAwards.length === 0) return;
+        let copiedCount = 0;
+        const newMap = { ...classAwardsMap };
+        for (const cls of classes) {
+            if (cls.id === sourceClassId) continue;
+            if (newMap[cls.id]?.length > 0) continue; // skip classes that already have awards
+            newMap[cls.id] = sourceAwards.map(a => ({ ...a, id: uuidv4(), winner: '' }));
+            copiedCount++;
+        }
+        setClassAwardsMap(newMap);
+        toast({ title: 'Awards Copied', description: `Copied awards to ${copiedCount} class${copiedCount !== 1 ? 'es' : ''} without existing awards.` });
+    }, [classes, classAwardsMap, toast]);
+
+    // Clear all awards for a specific class
+    const clearClassAwards = useCallback((classId) => {
+        setClassAwardsMap(prev => ({ ...prev, [classId]: [] }));
+    }, []);
+
     // Auto-generate awards for all classes
     const autoGenerate = useCallback(() => {
         const newMap = {};
@@ -475,6 +509,8 @@ const AwardsDashboard = ({ show, onSave, isSaving }) => {
                                     cls={cls}
                                     awards={classAwardsMap[cls.id]}
                                     onChange={(newAwards) => setClassAwardsMap(prev => ({ ...prev, [cls.id]: newAwards }))}
+                                    onCopyToAll={copyAwardsToAll}
+                                    onClearAwards={clearClassAwards}
                                 />
                             ))}
                         </div>
@@ -564,20 +600,7 @@ const AwardsManagementPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="flex items-center gap-3 mb-8">
-                        <Button variant="outline" size="icon" onClick={() => navigate('/horse-show-manager')}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                                <Trophy className="h-6 w-6 text-primary" />
-                                Awards Management
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                Manage awards, track winners, and budgets for your show.
-                            </p>
-                        </div>
-                    </div>
+                    <PageHeader title="Awards Management" />
 
                     <div className="mb-6">
                         <LinkToExistingShow

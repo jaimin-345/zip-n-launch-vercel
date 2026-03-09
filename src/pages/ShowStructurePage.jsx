@@ -8,6 +8,7 @@ import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Info, User, Trophy, Search, Check, Shield, TrendingDown, CalendarDays, Hash, BarChart3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { cn } from '@/lib/utils';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
@@ -132,39 +133,7 @@ const ShowStructurePage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="mb-6 flex items-center justify-between">
-                        <Button variant="outline" onClick={() => navigate('/horse-show-manager')}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Manager
-                        </Button>
-                        <h1 className="text-2xl font-bold text-foreground">Show Structure & Expenses</h1>
-                        <div className="flex items-center gap-4">
-                            {showId && (
-                                <Button variant="outline" size="sm" onClick={() => navigate(`/horse-show-manager/financials/${showId}`)}>
-                                    <BarChart3 className="mr-2 h-4 w-4" />
-                                    View Financials
-                                </Button>
-                            )}
-                            <div className="text-right">
-                                <h2 className="text-lg font-bold text-foreground">
-                                    {formData.showName || 'Untitled Show'}
-                                </h2>
-                                <div className="flex items-center justify-end gap-2 mt-1">
-                                    {formData.showNumber && (
-                                        <Badge variant="secondary" className="text-xs">
-                                            <Hash className="h-3 w-3 mr-1" />
-                                            Show #{formData.showNumber}
-                                        </Badge>
-                                    )}
-                                    {showId && (
-                                        <span className="text-xs text-muted-foreground font-mono">
-                                            ID: {showId.slice(0, 8)}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <PageHeader title="Show Structure & Expenses" />
 
                     <ShowInfoSteps
                         currentStep={currentStep}

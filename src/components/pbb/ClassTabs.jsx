@@ -1306,6 +1306,108 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                                 );
                                             }
                                             
+                                            // Custom grid layout for Colorado 4-H Youth divisions
+                                            const isColorado4H = assocId === '4-H' && formData.selected4HCity === 'Colorado' && group.group === 'Youth';
+
+                                            if (isColorado4H) {
+                                                // Detect the actual intermediate name from DB data (handles both old and new naming)
+                                                const intermediateBase = group.levels.find(l => /^Intermediate\s/.test(l) && !/Level/i.test(l) && !/Walk/i.test(l)) || 'Intermediate 11–13';
+
+                                                // Define age groups and levels for the grid
+                                                const ageGroups = [
+                                                    { label: 'Junior 8-10', base: 'Junior 8-10' },
+                                                    { label: intermediateBase, base: intermediateBase },
+                                                    { label: 'Senior 14-18', base: 'Senior 14-18' },
+                                                ];
+
+                                                // Detect which level suffixes actually exist in the data
+                                                const allSuffixes = [
+                                                    { label: 'Base', suffix: '' },
+                                                    { label: 'Level I', suffix: ' Level I' },
+                                                    { label: 'Level 2', suffix: ' Level 2' },
+                                                    { label: 'Level 3', suffix: ' Level 3' },
+                                                    { label: 'Level 4', suffix: ' Level 4' },
+                                                    { label: 'Level 3 & 4', suffix: ' Level 3 & 4' },
+                                                ];
+                                                // Only show columns where at least one age group has that level
+                                                const levelSuffixes = allSuffixes.filter(ls =>
+                                                    ageGroups.some(ag => group.levels.includes(`${ag.base}${ls.suffix}`))
+                                                );
+
+                                                // Walk-Trot levels (separated)
+                                                const walkTrotLevels = group.levels.filter(l => l.toLowerCase().includes('walk') && l.toLowerCase().includes('trot'));
+
+                                                return (
+                                                    <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground">{group.group}</p>
+
+                                                        {/* Age Group × Level Grid */}
+                                                        <div className="mt-2 border rounded-md overflow-hidden">
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="bg-muted/50">
+                                                                        <th className="text-left p-2 font-medium text-muted-foreground">Age Group</th>
+                                                                        {levelSuffixes.map(ls => (
+                                                                            <th key={ls.label} className="text-center p-2 font-medium text-muted-foreground">{ls.label}</th>
+                                                                        ))}
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {ageGroups.map((ag, rowIdx) => (
+                                                                        <tr key={ag.base} className={rowIdx % 2 === 0 ? 'bg-background' : 'bg-muted/20'}>
+                                                                            <td className="p-2 font-medium text-foreground whitespace-nowrap">{ag.label}</td>
+                                                                            {levelSuffixes.map(ls => {
+                                                                                const levelName = `${ag.base}${ls.suffix}`;
+                                                                                const isAvailable = group.levels.includes(levelName);
+                                                                                const divKey = `${group.group} - ${levelName}`;
+                                                                                const isChecked = !!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][divKey]);
+                                                                                return (
+                                                                                    <td key={ls.label} className="text-center p-2">
+                                                                                        {isAvailable ? (
+                                                                                            <div className="flex justify-center">
+                                                                                                <Checkbox
+                                                                                                    id={`div-${discForAssoc.id}-${assocId}-${divKey}`}
+                                                                                                    checked={isChecked}
+                                                                                                    onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, levelName, c, false)}
+                                                                                                />
+                                                                                            </div>
+                                                                                        ) : (
+                                                                                            <span className="text-muted-foreground/30">—</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                );
+                                                                            })}
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+
+                                                        {/* Walk-Trot Section (separated) */}
+                                                        {walkTrotLevels.length > 0 && (
+                                                            <div className="mt-3 p-2 border rounded-md bg-muted/10">
+                                                                <p className="text-xs font-medium text-muted-foreground mb-1.5">Walk-Trot</p>
+                                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5">
+                                                                    {walkTrotLevels.map(level => {
+                                                                        const divKey = `${group.group} - ${level}`;
+                                                                        return (
+                                                                            <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                                <Checkbox
+                                                                                    id={`div-${discForAssoc.id}-${assocId}-${divKey}`}
+                                                                                    checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][divKey])}
+                                                                                    onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)}
+                                                                                />
+                                                                                <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${divKey}`} className="font-normal text-xs">{level}</Label>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+
                                             // Default layout for all other divisions
                                             return (
                                                 <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
