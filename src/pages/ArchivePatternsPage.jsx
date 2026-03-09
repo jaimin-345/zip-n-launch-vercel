@@ -17,6 +17,7 @@ const ArchivePatternsPage = () => {
     const { toast } = useToast();
     const [archivedProjects, setArchivedProjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    //test
 
     useEffect(() => {
         if (user) {
