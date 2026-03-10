@@ -189,34 +189,36 @@ const CreateHorseShowWizardPage = () => {
                         onStepClick={setCurrentStep}
                     />
 
-                    {/* Link to Existing Show */}
-                    <LinkToExistingShow
-                        existingProjects={existingProjects}
-                        linkedProjectId={formData.linkedProjectId || null}
-                        onLink={(projectId) => {
-                            if (projectId === 'none') {
-                                setFormData(prev => ({ ...prev, linkedProjectId: null }));
-                            } else {
-                                const project = existingProjects.find(p => p.id === projectId);
-                                const pd = project?.project_data || {};
-                                setFormData(prev => ({
-                                    ...prev,
-                                    linkedProjectId: projectId,
-                                    showName: pd.showName || prev.showName,
-                                    showNumber: pd.showNumber || prev.showNumber,
-                                    associations: pd.associations || prev.associations,
-                                    customAssociations: pd.customAssociations || prev.customAssociations,
-                                    sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
-                                    sponsors: pd.sponsors || prev.sponsors,
-                                }));
-                                toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
-                            }
-                        }}
-                        onDuplicated={(newProject) => {
-                            navigate(`/horse-show-manager/fee-structure/${newProject.id}`, { replace: true });
-                        }}
-                        description="Link to an existing show to auto-fill fee structure and sponsor details."
-                    />
+                    {/* Link to Existing Show - only on step 1 */}
+                    {currentStep === 1 && (
+                        <LinkToExistingShow
+                            existingProjects={existingProjects}
+                            linkedProjectId={formData.linkedProjectId || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') {
+                                    setFormData(prev => ({ ...prev, linkedProjectId: null }));
+                                } else {
+                                    const project = existingProjects.find(p => p.id === projectId);
+                                    const pd = project?.project_data || {};
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        linkedProjectId: projectId,
+                                        showName: pd.showName || prev.showName,
+                                        showNumber: pd.showNumber || prev.showNumber,
+                                        associations: pd.associations || prev.associations,
+                                        customAssociations: pd.customAssociations || prev.customAssociations,
+                                        sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
+                                        sponsors: pd.sponsors || prev.sponsors,
+                                    }));
+                                    toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
+                                }
+                            }}
+                            onDuplicated={(newProject) => {
+                                navigate(`/horse-show-manager/fee-structure/${newProject.id}`, { replace: true });
+                            }}
+                            description="Link to an existing show to auto-fill fee structure and sponsor details."
+                        />
+                    )}
 
                     {/* Step Content */}
                     <Card className="mt-4">

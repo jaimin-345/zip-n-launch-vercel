@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
-import { Search, GripVertical } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Search, GripVertical, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onToggleSelection }) => {
@@ -21,32 +22,104 @@ const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onTogg
       {...attributes}
       {...listeners}
       className={cn(
-        'flex items-center gap-1.5 px-1.5 py-1 border rounded bg-background touch-none cursor-grab active:cursor-grabbing text-sm',
+        'flex items-center gap-1.5 px-2 py-1.5 rounded bg-background touch-none cursor-grab active:cursor-grabbing text-sm transition-colors',
         isDragging && 'opacity-50',
-        isSelected && 'ring-2 ring-primary bg-primary/5'
+        isSelected
+          ? 'bg-primary/10 border border-primary/30'
+          : 'border border-transparent hover:bg-accent/40'
       )}
     >
       {onToggleSelection && (
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggleSelection(classItem.id)}
-          onClick={(e) => e.stopPropagation()}
+        <div
+          onClick={(e) => { e.stopPropagation(); onToggleSelection(classItem.id); }}
           onPointerDown={(e) => e.stopPropagation()}
-          className="h-3.5 w-3.5 shrink-0"
-        />
+          className="shrink-0"
+        >
+          <Checkbox
+            checked={!!isSelected}
+            className="h-3.5 w-3.5 pointer-events-none"
+          />
+        </div>
       )}
       <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="truncate flex-grow font-medium">{classItem.name}</span>
+      <span className="flex-grow font-medium leading-snug break-words min-w-0">{classItem.name}</span>
       {assoc && (
-        <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
-          ({assoc.abbreviation || assoc.name})
-        </span>
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+          {assoc.abbreviation || assoc.name}
+        </Badge>
       )}
     </div>
   );
 };
 
-const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection }) => {
+// Group header with select-all checkbox for a discipline
+const DisciplineGroupHeader = ({ discipline, classes, selectedIds, onBulkToggle }) => {
+  const classIds = classes.map(c => c.id);
+  const selectedCount = classIds.filter(id => selectedIds?.has(id)).length;
+  const allSelected = classIds.length > 0 && selectedCount === classIds.length;
+
+  const handleToggle = () => {
+    if (onBulkToggle) {
+      onBulkToggle(classIds, !allSelected);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggle}
+      className={cn(
+        'flex items-center gap-1.5 w-full px-2 py-1.5 rounded transition-colors',
+        allSelected
+          ? 'bg-primary/10 hover:bg-primary/15'
+          : 'hover:bg-accent/50'
+      )}
+    >
+      <Checkbox
+        checked={allSelected}
+        className="h-3.5 w-3.5 shrink-0 pointer-events-none"
+      />
+      <span className={cn(
+        'text-xs font-semibold uppercase tracking-wider transition-colors',
+        allSelected ? 'text-primary' : 'text-muted-foreground'
+      )}>
+        {discipline}
+      </span>
+      <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-auto">{classes.length}</Badge>
+    </button>
+  );
+};
+
+// Get the assigned competition date for a class from formData disciplines
+function getClassDate(classItem, formData) {
+  const divId = classItem.divisionId || classItem.id;
+  const discipline = (formData.disciplines || []).find(d =>
+    d.id === classItem.disciplineId || (d.divisionOrder || []).includes(divId)
+  );
+  return discipline?.divisionDates?.[divId] || null;
+}
+
+function formatDateLabel(dateStr) {
+  try {
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Sub-group a flat list of classes by discipline name
+function groupByDiscipline(classes) {
+  const groups = {};
+  classes.forEach(cls => {
+    const key = cls.disciplineName || 'Other';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(cls);
+  });
+  return Object.entries(groups);
+}
+
+const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection, onBulkToggle, formData }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredClasses = useMemo(() => {
@@ -54,17 +127,68 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, select
     return unplacedClasses.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [unplacedClasses, searchTerm]);
 
-  const groupedClasses = useMemo(() => {
-    const groups = {};
+  // Group by assigned date
+  const groupedByDate = useMemo(() => {
+    const dateGroups = {};
+    const unassigned = [];
+
     filteredClasses.forEach(cls => {
-      const key = cls.disciplineName || 'Other';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(cls);
+      const date = getClassDate(cls, formData);
+      if (date) {
+        if (!dateGroups[date]) dateGroups[date] = [];
+        dateGroups[date].push(cls);
+      } else {
+        unassigned.push(cls);
+      }
     });
-    return groups;
-  }, [filteredClasses]);
+
+    const sortedDates = Object.keys(dateGroups).sort();
+    const result = [];
+    sortedDates.forEach(date => {
+      result.push({ key: date, label: formatDateLabel(date), icon: true, classes: dateGroups[date] });
+    });
+    if (unassigned.length > 0) {
+      result.push({ key: '_unassigned', label: 'Unassigned', icon: false, classes: unassigned });
+    }
+    return result;
+  }, [filteredClasses, formData]);
+
+  const hasAnyDates = groupedByDate.some(g => g.key !== '_unassigned');
+
+  // Discipline-only groups (fallback when no dates assigned)
+  const disciplineGroups = useMemo(() => {
+    if (hasAnyDates) return null;
+    return groupByDiscipline(filteredClasses);
+  }, [filteredClasses, hasAnyDates]);
 
   const placedCount = allClassItems.length - unplacedClasses.length;
+  const isEmpty = filteredClasses.length === 0;
+
+  // Render a list of classes grouped by discipline with select-all headers
+  const renderDisciplineClasses = (classes) => {
+    const groups = groupByDiscipline(classes);
+    return groups.map(([discipline, clsList]) => (
+      <div key={discipline}>
+        <DisciplineGroupHeader
+          discipline={discipline}
+          classes={clsList}
+          selectedIds={selectedIds}
+          onBulkToggle={onBulkToggle}
+        />
+        <div className="space-y-1 mt-1">
+          {clsList.map(cls => (
+            <DraggablePaletteClass
+              key={cls.id}
+              classItem={cls}
+              associationsData={associationsData}
+              isSelected={selectedIds?.has(cls.id)}
+              onToggleSelection={onToggleSelection}
+            />
+          ))}
+        </div>
+      </div>
+    ));
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -83,28 +207,56 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, select
       </Label>
 
       <ScrollArea className="flex-grow border rounded-lg p-2 bg-muted/30">
-        {Object.keys(groupedClasses).length === 0 && (
+        {isEmpty && (
           <p className="text-sm text-muted-foreground text-center py-4">
             {unplacedClasses.length === 0 ? 'All classes placed!' : 'No matches found'}
           </p>
         )}
-        <div className="space-y-2">
-          {Object.entries(groupedClasses).map(([discipline, classes]) => (
-            <div key={discipline}>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">{discipline}</p>
-              <div className="space-y-1">
-                {classes.map(cls => (
-                  <DraggablePaletteClass
-                    key={cls.id}
-                    classItem={cls}
-                    associationsData={associationsData}
-                    isSelected={selectedIds?.has(cls.id)}
-                    onToggleSelection={onToggleSelection}
-                  />
-                ))}
+
+        <div className="space-y-3">
+          {hasAnyDates ? (
+            // Date-grouped view with discipline sub-groups
+            groupedByDate.map(group => (
+              <div key={group.key}>
+                <div className="flex items-center gap-1.5 mb-1.5 px-1">
+                  {group.icon && <CalendarDays className="h-3.5 w-3.5 text-primary" />}
+                  <p className={cn(
+                    'text-xs font-semibold uppercase tracking-wider',
+                    group.key === '_unassigned' ? 'text-amber-600 dark:text-amber-400' : 'text-primary'
+                  )}>
+                    {group.label}
+                  </p>
+                  <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-auto">{group.classes.length}</Badge>
+                </div>
+                <div className="space-y-2 pl-1">
+                  {renderDisciplineClasses(group.classes)}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          ) : disciplineGroups ? (
+            // Discipline-only fallback with select-all headers
+            disciplineGroups.map(([discipline, classes]) => (
+              <div key={discipline}>
+                <DisciplineGroupHeader
+                  discipline={discipline}
+                  classes={classes}
+                  selectedIds={selectedIds}
+                  onBulkToggle={onBulkToggle}
+                />
+                <div className="space-y-1 mt-1">
+                  {classes.map(cls => (
+                    <DraggablePaletteClass
+                      key={cls.id}
+                      classItem={cls}
+                      associationsData={associationsData}
+                      isSelected={selectedIds?.has(cls.id)}
+                      onToggleSelection={onToggleSelection}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : null}
         </div>
       </ScrollArea>
     </div>

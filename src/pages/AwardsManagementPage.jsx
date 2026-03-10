@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     Loader2, Trophy, Calendar, FolderOpen,
     Hash, MapPin, Wand2, Save, Check, X, Plus, Trash2, Star,
@@ -541,6 +541,7 @@ const AwardsDashboard = ({ show, onSave, isSaving }) => {
 
 const AwardsManagementPage = () => {
     const navigate = useNavigate();
+    const { showId } = useParams();
     const { user } = useAuth();
     const { toast } = useToast();
     const [shows, setShows] = useState([]);
@@ -553,15 +554,21 @@ const AwardsManagementPage = () => {
             if (!user) { setIsLoading(false); return; }
             const { data, error } = await supabase
                 .from('projects')
-                .select('id, project_name, project_data, status, created_at')
-                .eq('project_type', 'show')
+                .select('id, project_name, project_type, project_data, status, created_at')
+                .not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
-            if (!error && data) setShows(data);
+            if (!error && data) {
+                setShows(data);
+                if (showId) {
+                    const match = data.find(s => s.id === showId);
+                    if (match) setSelectedShow(match);
+                }
+            }
             setIsLoading(false);
         };
         fetchShows();
-    }, [user]);
+    }, [user, showId]);
 
     const handleSave = async ({ classAwards, specialAwards, highPointAwards }) => {
         if (!selectedShow) return;

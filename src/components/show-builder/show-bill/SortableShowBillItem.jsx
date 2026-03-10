@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // ─── Class Box: compact row with inline number ───
 const ClassBoxDisplay = ({ item, allClassItems, associationsData, onRemoveClassFromBox }) => {
   const classDetails = (item.classes || []).map(classId =>
-    allClassItems.find(c => c.id === classId)
+    allClassItems.find(c => c.divisionId === classId)
   ).filter(Boolean);
 
   const { setNodeRef, isOver } = useDroppable({

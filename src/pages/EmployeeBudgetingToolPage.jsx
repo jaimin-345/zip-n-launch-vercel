@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     Loader2, DollarSign, TrendingUp, TrendingDown, Hash,
     ChevronRight, FolderOpen, Calendar, Users, Building2,
@@ -90,7 +90,7 @@ const ShowPicker = ({ shows, onSelect }) => {
                     <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Shows Found</h3>
                     <p className="text-sm text-muted-foreground mb-6">Create a horse show first to use the budgeting tool.</p>
-                    <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>Create Horse Show</Button>
+                    <Button onClick={() => navigate('/horse-show-manager/create')}>Create Horse Show</Button>
                 </CardContent>
             </Card>
         );
@@ -465,6 +465,7 @@ const BudgetDashboard = ({ show, contractProject }) => {
 
 const EmployeeBudgetingToolPage = () => {
     const navigate = useNavigate();
+    const { showId } = useParams();
     const { user } = useAuth();
     const [shows, setShows] = useState([]);
     const [contractProjects, setContractProjects] = useState([]);
@@ -475,17 +476,24 @@ const EmployeeBudgetingToolPage = () => {
         const fetchData = async () => {
             if (!user) { setIsLoading(false); return; }
             const [showsRes, contractsRes] = await Promise.all([
-                supabase.from('projects').select('id, project_name, project_data, status, created_at')
-                    .eq('project_type', 'show').eq('user_id', user.id).order('created_at', { ascending: false }),
+                supabase.from('projects').select('id, project_name, project_type, project_data, status, created_at')
+                    .not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")').eq('user_id', user.id).order('created_at', { ascending: false }),
                 supabase.from('projects').select('id, project_name, project_data, status')
                     .eq('project_type', 'contract').eq('user_id', user.id),
             ]);
-            if (showsRes.data) setShows(showsRes.data);
+            if (showsRes.data) {
+                setShows(showsRes.data);
+                // Auto-select show from URL param
+                if (showId) {
+                    const match = showsRes.data.find(s => s.id === showId);
+                    if (match) setSelectedShow(match);
+                }
+            }
             if (contractsRes.data) setContractProjects(contractsRes.data);
             setIsLoading(false);
         };
         fetchData();
-    }, [user]);
+    }, [user, showId]);
 
     // Find linked contract project for selected show
     const linkedContract = useMemo(() => {

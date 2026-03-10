@@ -93,6 +93,19 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
     });
   }, []);
 
+  const bulkTogglePaletteSelection = useCallback((classIds, selected) => {
+    setSelectedArenaItemIds(new Set());
+    if (selected) {
+      setSelectedPaletteIds(new Set(classIds));
+    } else {
+      setSelectedPaletteIds(prev => {
+        const next = new Set(prev);
+        classIds.forEach(id => next.delete(id));
+        return next;
+      });
+    }
+  }, []);
+
   const toggleArenaItemSelection = useCallback((itemId) => {
     setSelectedPaletteIds(new Set());
     setSelectedArenaItemIds(prev => {
@@ -310,7 +323,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
       if (arena) {
         const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
           title: cls.name,
-          classes: [cls.id],
+          classes: [cls.divisionId],
         }));
         arena.items.splice(targetIndex, 0, ...newItems);
       }
@@ -437,6 +450,8 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
             associationsData={propAssociationsData}
             selectedIds={selectedPaletteIds}
             onToggleSelection={togglePaletteSelection}
+            onBulkToggle={bulkTogglePaletteSelection}
+            formData={formData}
           />
         </div>
 

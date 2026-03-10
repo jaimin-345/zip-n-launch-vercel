@@ -89,7 +89,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
     if (!ls.showAssociations) return '';
     const uniqueAssocs = new Set();
     (classIds || []).forEach(cid => {
-      const cls = allClassItems.find(c => c.id === cid);
+      const cls = allClassItems.find(c => c.divisionId === cid || c.id === cid);
       if (cls) {
         const assoc = associationsData?.find(a => a.id === cls.assocId);
         uniqueAssocs.add(assoc?.abbreviation || cls.assocId);
@@ -258,7 +258,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
 
         // --- Class Box ---
         if (item.type === 'classBox') {
-          const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid)).filter(Boolean);
+          const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.divisionId === cid || c.id === cid)).filter(Boolean);
           const assocStr = getAssocString(item.classes);
 
           if (classDetails.length <= 1) {

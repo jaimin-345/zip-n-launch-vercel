@@ -22,8 +22,8 @@ const ShowStructurePickerPage = () => {
             if (!user) { setIsLoading(false); return; }
             const { data, error } = await supabase
                 .from('projects')
-                .select('id, project_name, project_data, status, created_at')
-                .eq('project_type', 'show')
+                .select('id, project_name, project_type, project_data, status, created_at')
+                .not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
@@ -74,7 +74,7 @@ const ShowStructurePickerPage = () => {
                                 <p className="text-sm text-muted-foreground mb-6">
                                     Create a horse show first, then come back here to edit its structure.
                                 </p>
-                                <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>
+                                <Button onClick={() => navigate('/horse-show-manager/create')}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Create Horse Show
                                 </Button>
@@ -83,7 +83,7 @@ const ShowStructurePickerPage = () => {
                     ) : (
                         <div className="space-y-3">
                             <div className="flex justify-end mb-2">
-                                <Button size="sm" onClick={() => navigate('/horse-show-manager/schedule-builder')}>
+                                <Button size="sm" onClick={() => navigate('/horse-show-manager/create')}>
                                     <Plus className="mr-2 h-4 w-4" />
                                     Create New Show
                                 </Button>

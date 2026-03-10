@@ -22,8 +22,8 @@ const ShowFinancialPickerPage = () => {
             if (!user) { setIsLoading(false); return; }
             const { data, error } = await supabase
                 .from('projects')
-                .select('id, project_name, project_data, status, created_at')
-                .eq('project_type', 'show')
+                .select('id, project_name, project_type, project_data, status, created_at')
+                .not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
@@ -74,7 +74,7 @@ const ShowFinancialPickerPage = () => {
                                 <p className="text-sm text-muted-foreground mb-6">
                                     Create a horse show first, then come back here to view financials.
                                 </p>
-                                <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>
+                                <Button onClick={() => navigate('/horse-show-manager/create')}>
                                     Create Horse Show
                                 </Button>
                             </CardContent>

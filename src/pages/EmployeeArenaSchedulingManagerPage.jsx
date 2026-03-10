@@ -1,6 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
 import Navigation from '@/components/Navigation';
@@ -11,6 +11,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 
 const EmployeeArenaSchedulingManagerPage = () => {
     const navigate = useNavigate();
+    const { showId } = useParams();
     const { toast } = useToast();
 
     const handleFeatureClick = (feature) => {
@@ -24,18 +25,19 @@ const EmployeeArenaSchedulingManagerPage = () => {
         }
     };
 
+    const suffix = showId ? `/${showId}` : '';
     const features = [
         {
             name: "Employee Management",
             icon: Users,
             description: "Manage all staff, roles, and certifications.",
-            link: "/horse-show-manager/employee-scheduling/assign",
+            link: `/horse-show-manager/employee-scheduling/assign${suffix}`,
         },
         {
             name: "Venue & Arena Setup",
             icon: Building,
             description: "Configure show venues and specific arenas.",
-            link: "/horse-show-manager/venue-arena-setup",
+            link: `/horse-show-manager/venue-arena-setup${suffix}`,
         },
         {
             name: "Travel Management",

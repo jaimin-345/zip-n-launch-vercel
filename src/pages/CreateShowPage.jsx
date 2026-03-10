@@ -2,7 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navigation from '@/components/Navigation';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import ShowBuilderSteps from '@/components/show-builder/ShowBuilderSteps';
@@ -13,16 +13,16 @@ import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndD
 import { Step3_ConfigureDivisions } from '@/components/show-builder/Step3_ConfigureDivisions';
 import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
 import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
-import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Save, Loader2, BookCopy } from 'lucide-react';
+import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Save, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useToast } from '@/components/ui/use-toast';
-import { useNavigate } from 'react-router-dom';
 
 const CreateShowPage = () => {
     const { showId } = useParams();
-    const { step: currentStep, setCurrentStep, nextStep, prevStep, formData, setFormData, completedSteps, setCompletedSteps, createOrUpdateShow, isLoading, disciplineLibrary, associationsData, divisionsData, resetDisciplines, refreshDisciplineLibrary } = useShowBuilder(showId);
+    const { step: currentStep, setCurrentStep, nextStep, prevStep, formData, setFormData, completedSteps, setCompletedSteps, createOrUpdateShow, isLoading, disciplineLibrary, associationsData, divisionsData, existingProjects, resetDisciplines, refreshDisciplineLibrary } = useShowBuilder(showId);
+    const isEditMode = !!showId;
     const { toast } = useToast();
     const navigate = useNavigate();
 
@@ -62,13 +62,16 @@ const CreateShowPage = () => {
     return (
         <>
             <Helmet>
-                <title>{showId ? 'Edit' : 'Create'} Show - Horse Show Manager</title>
+                <title>{isEditMode ? 'Edit Show' : 'Horse Show Schedule Builder'} - Horse Show Manager</title>
                 <meta name="description" content="Build your horse show schedule and details step-by-step." />
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="container mx-auto px-4 py-8">
-                    <PageHeader title={showId ? 'Edit Show' : 'Create a New Show'} />
+                    <PageHeader
+                        title={isEditMode ? 'Edit Show' : 'Horse Show Schedule Builder'}
+                        subtitle={`Step ${currentStep} of ${steps.length} — ${steps[currentStep - 1]?.name}`}
+                    />
                     
                     <div className="max-w-7xl mx-auto">
                         <ShowBuilderSteps
@@ -77,6 +80,47 @@ const CreateShowPage = () => {
                             setCurrentStep={setCurrentStep}
                             steps={steps}
                         />
+
+                        {!isEditMode && currentStep === 1 && (
+                            <LinkToExistingShow
+                                existingProjects={existingProjects}
+                                linkedProjectId={formData.linkedProjectId || null}
+                                onLink={(projectId) => {
+                                    if (projectId === 'none') {
+                                        setFormData(prev => ({ ...prev, linkedProjectId: null }));
+                                    } else {
+                                        const project = existingProjects.find(p => p.id === projectId);
+                                        const pd = project?.project_data || {};
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            linkedProjectId: projectId,
+                                            showName: pd.showName || prev.showName,
+                                            showNumber: pd.showNumber || prev.showNumber,
+                                            associations: pd.associations || prev.associations,
+                                            customAssociations: pd.customAssociations || prev.customAssociations,
+                                            primaryAffiliates: pd.primaryAffiliates || prev.primaryAffiliates,
+                                            subAssociationSelections: pd.subAssociationSelections || prev.subAssociationSelections,
+                                            disciplines: pd.disciplines || prev.disciplines,
+                                            startDate: pd.startDate || prev.startDate,
+                                            endDate: pd.endDate || prev.endDate,
+                                            venueAddress: pd.venueAddress || prev.venueAddress,
+                                            venueName: pd.venueName || prev.venueName,
+                                            arenas: pd.arenas || prev.arenas,
+                                            officials: pd.officials || prev.officials,
+                                            staff: pd.staff || prev.staff,
+                                            showBill: pd.showBill || prev.showBill,
+                                            layoutSettings: pd.layoutSettings || prev.layoutSettings,
+                                        }));
+                                        toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
+                                    }
+                                }}
+                                onDuplicated={(newProject) => {
+                                    navigate(`/horse-show-manager/edit/${newProject.id}`, { replace: true });
+                                }}
+                                description="Link to an existing show to auto-fill details, or duplicate a previous show."
+                            />
+                        )}
+
                         <Card className="mt-8 glass-effect">
                             <AnimatePresence mode="wait">
                                 { isLoading ? (

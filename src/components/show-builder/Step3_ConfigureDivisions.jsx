@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus, AlertTriangle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import ClassPalette from '@/components/show-builder/show-bill/ClassPalette';
@@ -38,7 +39,7 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
         transition,
     };
 
-    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid)).filter(Boolean);
+    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.divisionId === cid)).filter(Boolean);
     const firstAssoc = classDetails[0] && associationsData?.find(a => a.id === classDetails[0].assocId);
 
     const handleStartEdit = () => {
@@ -97,7 +98,7 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
                 />
             ) : (
                 <span
-                    className="truncate flex-grow font-medium cursor-text hover:underline hover:decoration-dotted"
+                    className="flex-grow font-medium cursor-text hover:underline hover:decoration-dotted leading-snug break-words min-w-0"
                     onDoubleClick={handleStartEdit}
                     title="Double-click to edit"
                 >
@@ -203,6 +204,26 @@ const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemov
     );
 };
 
+// Get the assigned competition date for a class from formData disciplines
+function getClassAssignedDate(classId, formData) {
+    // classId may be composite "disciplineId::divisionId" or plain "divisionId"
+    const divId = classId.includes('::') ? classId.split('::')[1] : classId;
+    for (const disc of formData.disciplines || []) {
+        const date = disc.divisionDates?.[divId];
+        if (date) return date;
+    }
+    return null;
+}
+
+function formatDateShort(dateStr) {
+    try {
+        const d = new Date(dateStr + 'T00:00:00');
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
 // ─── Main component ─────────────────────────────────────────────
 export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsData }) => {
     const [undoStack, setUndoStack] = useState([]);
@@ -214,17 +235,57 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
     const [selectedPaletteIds, setSelectedPaletteIds] = useState(new Set());
     const [selectedArenaItemIds, setSelectedArenaItemIds] = useState(new Set());
 
+    // Pending drop that requires date-mismatch confirmation
+    const [pendingDrop, setPendingDrop] = useState(null);
+
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
     const showBill = formData.showBill;
 
-    // Initialize showBill on first mount
+    // Initialize showBill on first mount, or sync arenas from formData.arenas
     useEffect(() => {
-        if (!formData.showBill) {
-            const initial = initializeShowBill(formData);
-            setFormData(prev => ({ ...prev, showBill: initial }));
-        }
-    }, [formData.showBill, formData, setFormData]);
+        setFormData(prev => {
+            // No showBill yet — create one from scratch
+            if (!prev.showBill) {
+                return { ...prev, showBill: initializeShowBill(prev) };
+            }
+
+            // ShowBill exists — sync arenas from formData.arenas into it
+            const sourceArenas = (prev.arenas || []).filter(a => a.name.trim() !== '');
+            if (sourceArenas.length === 0) return prev;
+
+            const sourceIds = new Set(sourceArenas.map(a => a.id));
+            let changed = false;
+
+            const updatedDays = prev.showBill.days.map(day => {
+                const existingIds = new Set(day.arenas.map(a => a.id));
+
+                // Add missing arenas that are active on this day's date
+                const newArenas = sourceArenas
+                    .filter(a => !existingIds.has(a.id))
+                    .filter(a => !a.dates || a.dates.length === 0 || a.dates.includes(day.date))
+                    .map(a => ({ id: a.id, name: a.name, items: [] }));
+
+                // Remove arenas that were deleted from formData.arenas
+                const keptArenas = day.arenas.filter(a => sourceIds.has(a.id));
+
+                // Update arena names
+                const renamedArenas = keptArenas.map(a => {
+                    const source = sourceArenas.find(s => s.id === a.id);
+                    return source && source.name !== a.name ? { ...a, name: source.name } : a;
+                });
+
+                if (newArenas.length > 0 || keptArenas.length !== day.arenas.length || renamedArenas.some((a, i) => a !== keptArenas[i])) {
+                    changed = true;
+                    return { ...day, arenas: [...renamedArenas, ...newArenas] };
+                }
+                return day;
+            });
+
+            if (!changed) return prev;
+            return { ...prev, showBill: { ...prev.showBill, days: updatedDays } };
+        });
+    }, [formData.showBill, formData.arenas, setFormData]);
 
     // Set default active day
     useEffect(() => {
@@ -262,6 +323,21 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
             else next.add(classId);
             return next;
         });
+    }, []);
+
+    const bulkTogglePaletteSelection = useCallback((classIds, selected) => {
+        setSelectedArenaItemIds(new Set());
+        if (selected) {
+            // Replace entire selection with this group
+            setSelectedPaletteIds(new Set(classIds));
+        } else {
+            // Deselect this group's classes
+            setSelectedPaletteIds(prev => {
+                const next = new Set(prev);
+                classIds.forEach(id => next.delete(id));
+                return next;
+            });
+        }
     }, []);
 
     const toggleArenaItemSelection = useCallback((itemId) => {
@@ -361,6 +437,125 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         setShowBill(renumberShowBill(sb));
     }, [showBill, setShowBill]);
 
+    // ─── Execute a validated drop action ─────────────────────────
+    const executeDrop = useCallback((action) => {
+        if (action.type === 'palette-to-arena') {
+            const { classesToMove, targetDayId, targetArenaId, targetIndex } = action;
+            const sb = JSON.parse(JSON.stringify(showBill));
+            const day = sb.days.find(d => d.id === targetDayId);
+            const arena = day?.arenas.find(a => a.id === targetArenaId);
+            if (arena) {
+                const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
+                    title: cls.name,
+                    classes: [cls.divisionId],
+                }));
+                arena.items.splice(targetIndex, 0, ...newItems);
+            }
+            setShowBill(renumberShowBill(sb));
+            clearSelection();
+        } else if (action.type === 'arena-multi-move') {
+            const { destDayId, destArenaId, overId, itemIds } = action;
+            const sb = JSON.parse(JSON.stringify(showBill));
+            const collectedItems = [];
+            for (const day of sb.days) {
+                for (const arena of day.arenas) {
+                    const kept = [];
+                    for (const item of arena.items) {
+                        if (itemIds.has(item.id)) collectedItems.push(item);
+                        else kept.push(item);
+                    }
+                    arena.items = kept;
+                }
+            }
+            const destDay = sb.days.find(d => d.id === destDayId);
+            const destArena = destDay?.arenas.find(a => a.id === destArenaId);
+            if (!destArena) return;
+            let destIdx = destArena.items.findIndex(i => i.id === overId);
+            if (destIdx === -1) destIdx = destArena.items.length;
+            destArena.items.splice(destIdx, 0, ...collectedItems);
+            setShowBill(renumberShowBill(sb));
+            clearSelection();
+        } else if (action.type === 'arena-reorder') {
+            const { dayId, arenaId, activeId, overId } = action;
+            const sb = JSON.parse(JSON.stringify(showBill));
+            const arena = sb.days.find(d => d.id === dayId)?.arenas.find(a => a.id === arenaId);
+            if (!arena) return;
+            const oldIdx = arena.items.findIndex(i => i.id === activeId);
+            const newIdx = arena.items.findIndex(i => i.id === overId);
+            if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return;
+            arena.items = arrayMove(arena.items, oldIdx, newIdx);
+            setShowBill(renumberShowBill(sb));
+        } else if (action.type === 'arena-cross-move') {
+            const { srcDayId, srcArenaId, destDayId, destArenaId, activeId, overId } = action;
+            const sb = JSON.parse(JSON.stringify(showBill));
+            const srcArena = sb.days.find(d => d.id === srcDayId)?.arenas.find(a => a.id === srcArenaId);
+            const destArena = sb.days.find(d => d.id === destDayId)?.arenas.find(a => a.id === destArenaId);
+            if (!srcArena || !destArena) return;
+            const srcIdx = srcArena.items.findIndex(i => i.id === activeId);
+            if (srcIdx === -1) return;
+            const [movedItem] = srcArena.items.splice(srcIdx, 1);
+            let destIdx = destArena.items.findIndex(i => i.id === overId);
+            if (destIdx === -1) destIdx = destArena.items.length;
+            destArena.items.splice(destIdx, 0, movedItem);
+            setShowBill(renumberShowBill(sb));
+        }
+    }, [showBill, setShowBill, clearSelection]);
+
+    // Check for date mismatches and either execute or prompt
+    const executeOrPrompt = useCallback((action) => {
+        const targetDay = showBill?.days?.find(d => d.id === action.targetDayId || d.id === action.destDayId);
+        const targetDate = targetDay?.date;
+        if (!targetDate) { executeDrop(action); return; }
+
+        // Collect class IDs involved in this drop
+        let classIds = [];
+        if (action.type === 'palette-to-arena') {
+            classIds = action.classesToMove.map(c => c.id);
+        } else if (action.type === 'arena-cross-move') {
+            // Find the item's class IDs
+            const srcDay = showBill.days.find(d => d.id === action.srcDayId);
+            const srcArena = srcDay?.arenas.find(a => a.id === action.srcArenaId);
+            const item = srcArena?.items.find(i => i.id === action.activeId);
+            classIds = item?.classes || [];
+        } else if (action.type === 'arena-multi-move') {
+            for (const day of showBill.days) {
+                for (const arena of day.arenas) {
+                    for (const item of arena.items) {
+                        if (action.itemIds.has(item.id) && item.classes) {
+                            classIds.push(...item.classes);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if any class has an assigned date that differs from the target day
+        const mismatches = [];
+        for (const cid of classIds) {
+            const assignedDate = getClassAssignedDate(cid, formData);
+            if (assignedDate && assignedDate !== targetDate) {
+                mismatches.push({ classId: cid, assignedDate });
+            }
+        }
+
+        if (mismatches.length > 0) {
+            setPendingDrop({ action, mismatches, targetDate });
+        } else {
+            executeDrop(action);
+        }
+    }, [showBill, formData, executeDrop]);
+
+    const confirmPendingDrop = useCallback(() => {
+        if (pendingDrop) {
+            executeDrop(pendingDrop.action);
+            setPendingDrop(null);
+        }
+    }, [pendingDrop, executeDrop]);
+
+    const cancelPendingDrop = useCallback(() => {
+        setPendingDrop(null);
+    }, []);
+
     // DnD handlers
     const handleDragStart = (event) => {
         setActiveDragData(event.active.data.current);
@@ -377,7 +572,6 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         if (activeData?.origin === 'palette') {
             const classItem = activeData.classItem;
 
-            // Multi-select: move all selected or just the dragged one
             const isMulti = selectedPaletteIds.has(classItem.id) && selectedPaletteIds.size > 1;
             const classesToMove = isMulti
                 ? unplacedClasses.filter(c => selectedPaletteIds.has(c.id))
@@ -404,21 +598,15 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                 return;
             }
 
-            // Reject drops into closed arenas
             if ((showBill.closedArenas || {})[`${targetDayId}::${targetArenaId}`]) return;
 
-            const sb = JSON.parse(JSON.stringify(showBill));
-            const day = sb.days.find(d => d.id === targetDayId);
-            const arena = day?.arenas.find(a => a.id === targetArenaId);
-            if (arena) {
-                const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
-                    title: cls.name,
-                    classes: [cls.id],
-                }));
-                arena.items.splice(targetIndex, 0, ...newItems);
-            }
-            setShowBill(renumberShowBill(sb));
-            clearSelection();
+            executeOrPrompt({
+                type: 'palette-to-arena',
+                classesToMove,
+                targetDayId,
+                targetArenaId,
+                targetIndex,
+            });
             return;
         }
 
@@ -435,65 +623,43 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
             const [srcDayId, srcArenaId] = activeContainerId.split('::');
             const [destDayId, destArenaId] = overContainerId.split('::');
 
-            // Reject drops into closed arenas
             if ((showBill.closedArenas || {})[`${destDayId}::${destArenaId}`]) return;
 
             const isDraggedSelected = selectedArenaItemIds.has(active.id) && selectedArenaItemIds.size > 1;
 
             if (isDraggedSelected) {
-                // Multi-move
-                const sb = JSON.parse(JSON.stringify(showBill));
-                const collectedItems = [];
-                for (const day of sb.days) {
-                    for (const arena of day.arenas) {
-                        const kept = [];
-                        for (const item of arena.items) {
-                            if (selectedArenaItemIds.has(item.id)) {
-                                collectedItems.push(item);
-                            } else {
-                                kept.push(item);
-                            }
-                        }
-                        arena.items = kept;
-                    }
-                }
-                const destDay = sb.days.find(d => d.id === destDayId);
-                const destArena = destDay?.arenas.find(a => a.id === destArenaId);
-                if (!destArena) return;
-                let destIdx = destArena.items.findIndex(i => i.id === over.id);
-                if (destIdx === -1) destIdx = destArena.items.length;
-                destArena.items.splice(destIdx, 0, ...collectedItems);
-                setShowBill(renumberShowBill(sb));
-                clearSelection();
+                executeOrPrompt({
+                    type: 'arena-multi-move',
+                    destDayId,
+                    destArenaId,
+                    overId: over.id,
+                    itemIds: new Set(selectedArenaItemIds),
+                });
                 return;
             }
 
-            // Single-item move
-            const sb = JSON.parse(JSON.stringify(showBill));
-            const srcDay = sb.days.find(d => d.id === srcDayId);
-            const srcArena = srcDay?.arenas.find(a => a.id === srcArenaId);
-
             if (srcDayId === destDayId && srcArenaId === destArenaId) {
-                if (!srcArena) return;
-                const oldIdx = srcArena.items.findIndex(i => i.id === active.id);
-                const newIdx = srcArena.items.findIndex(i => i.id === over.id);
-                if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return;
-                srcArena.items = arrayMove(srcArena.items, oldIdx, newIdx);
-                setShowBill(renumberShowBill(sb));
+                // Same arena reorder — no date change, execute directly
+                executeDrop({
+                    type: 'arena-reorder',
+                    dayId: srcDayId,
+                    arenaId: srcArenaId,
+                    activeId: active.id,
+                    overId: over.id,
+                });
             } else {
-                const destDay = sb.days.find(d => d.id === destDayId);
-                const destArena = destDay?.arenas.find(a => a.id === destArenaId);
-                if (!srcArena || !destArena) return;
-                const srcIdx = srcArena.items.findIndex(i => i.id === active.id);
-                if (srcIdx === -1) return;
-                const [movedItem] = srcArena.items.splice(srcIdx, 1);
-                let destIdx = destArena.items.findIndex(i => i.id === over.id);
-                if (destIdx === -1) destIdx = destArena.items.length;
-                destArena.items.splice(destIdx, 0, movedItem);
-                setShowBill(renumberShowBill(sb));
+                executeOrPrompt({
+                    type: 'arena-cross-move',
+                    srcDayId,
+                    srcArenaId,
+                    destDayId,
+                    destArenaId,
+                    activeId: active.id,
+                    overId: over.id,
+                });
             }
         }
-    }, [showBill, setShowBill, selectedPaletteIds, selectedArenaItemIds, unplacedClasses, clearSelection]);
+    }, [showBill, selectedPaletteIds, selectedArenaItemIds, unplacedClasses, executeDrop, executeOrPrompt]);
 
     // Empty state — no classes built
     if (!formData.disciplines || formData.disciplines.length === 0) {
@@ -564,9 +730,9 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                         </Tabs>
                     )}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         {/* Left — Class Library */}
-                        <div className="lg:col-span-4 xl:col-span-3">
+                        <div>
                             <div className="sticky top-4">
                                 <ClassPalette
                                     allClassItems={allClassItems}
@@ -574,12 +740,14 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                     associationsData={associationsData}
                                     selectedIds={selectedPaletteIds}
                                     onToggleSelection={togglePaletteSelection}
+                                    onBulkToggle={bulkTogglePaletteSelection}
+                                    formData={formData}
                                 />
                             </div>
                         </div>
 
                         {/* Right — Arena Workspace */}
-                        <div className="lg:col-span-8 xl:col-span-9">
+                        <div>
                             <div className="bg-gray-50 dark:bg-muted/10 rounded-lg p-4 min-h-[500px] shadow-inner">
                                 {activeDay ? (
                                     <div className="space-y-4">
@@ -606,7 +774,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                         ) : (
                                             <div className="text-center py-10 text-muted-foreground">
                                                 <p>No arenas for this day.</p>
-                                                <p className="text-sm mt-1">Go back to Step 3 to assign arenas to dates.</p>
+                                                <p className="text-sm mt-1">Go back to Arenas & Dates to assign arenas to dates.</p>
                                             </div>
                                         )}
                                     </div>
@@ -644,6 +812,47 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                     </DragOverlay>
                 </DndContext>
             </CardContent>
+
+            {/* Date-mismatch warning dialog */}
+            <AlertDialog open={!!pendingDrop} onOpenChange={(open) => { if (!open) cancelPendingDrop(); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-amber-500" />
+                            Date Mismatch
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2">
+                                <p>
+                                    {pendingDrop?.mismatches.length === 1
+                                        ? 'This class was originally assigned to a different day:'
+                                        : `${pendingDrop?.mismatches.length} classes were originally assigned to different days:`
+                                    }
+                                </p>
+                                <div className="rounded-md border bg-muted/50 p-3 space-y-1 max-h-40 overflow-y-auto">
+                                    {pendingDrop?.mismatches.map(m => {
+                                        const disc = (formData.disciplines || []).find(d => (d.divisionOrder || []).includes(m.classId));
+                                        const name = disc?.divisionPrintTitles?.[m.classId] || m.classId;
+                                        return (
+                                            <div key={m.classId} className="flex items-center justify-between text-sm">
+                                                <span className="font-medium truncate mr-2">{name}</span>
+                                                <Badge variant="outline" className="shrink-0">{formatDateShort(m.assignedDate)}</Badge>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <p>
+                                    You are moving {pendingDrop?.mismatches.length === 1 ? 'it' : 'them'} to <span className="font-semibold">{pendingDrop?.targetDate && formatDateShort(pendingDrop.targetDate)}</span>. Do you want to continue?
+                                </p>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmPendingDrop}>Move Anyway</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </motion.div>
     );
 };

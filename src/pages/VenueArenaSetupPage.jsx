@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
     ArrowLeft, Loader2, Building2, Plus, Trash2, Hash, Calendar,
     ChevronRight, FolderOpen, Users, MapPin, ChevronDown, ChevronUp,
@@ -57,7 +57,7 @@ const ShowPicker = ({ shows, onSelect }) => {
                     <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-semibold mb-2">No Shows Found</h3>
                     <p className="text-sm text-muted-foreground mb-6">Create a horse show first to set up venues and arenas.</p>
-                    <Button onClick={() => navigate('/horse-show-manager/schedule-builder')}>Create Horse Show</Button>
+                    <Button onClick={() => navigate('/horse-show-manager/create')}>Create Horse Show</Button>
                 </CardContent>
             </Card>
         );
@@ -477,6 +477,7 @@ const VenueArenaSetup = ({ show, onSave, isSaving }) => {
 
 const VenueArenaSetupPage = () => {
     const navigate = useNavigate();
+    const { showId } = useParams();
     const { user } = useAuth();
     const { toast } = useToast();
     const [shows, setShows] = useState([]);
@@ -489,15 +490,21 @@ const VenueArenaSetupPage = () => {
             if (!user) { setIsLoading(false); return; }
             const { data, error } = await supabase
                 .from('projects')
-                .select('id, project_name, project_data, status, created_at')
-                .eq('project_type', 'show')
+                .select('id, project_name, project_type, project_data, status, created_at')
+                .not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")')
                 .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
-            if (!error && data) setShows(data);
+            if (!error && data) {
+                setShows(data);
+                if (showId) {
+                    const match = data.find(s => s.id === showId);
+                    if (match) setSelectedShow(match);
+                }
+            }
             setIsLoading(false);
         };
         fetchShows();
-    }, [user]);
+    }, [user, showId]);
 
     const handleSave = async ({ venueName, venueAddress, arenas, sharedStaff }) => {
         if (!selectedShow) return;

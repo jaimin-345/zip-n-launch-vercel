@@ -4,119 +4,40 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Navigation from '@/components/Navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Save, Loader2, Info, LayoutGrid, Layers, CalendarDays, Search, Check, Calendar as CalendarIcon } from 'lucide-react';
-import { cn, parseLocalDate } from '@/lib/utils';
-import { format } from 'date-fns';
+import { ArrowLeft, ArrowRight, Save, Loader2, Shield, ListPlus, Settings2, Info, LayoutGrid, CalendarDays, Search, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
-import { AssociationSelection } from '@/components/shared/AssociationSelection';
 import { PageHeader } from '@/components/shared/PageHeader';
 
+import { Step1_ShowAssociations } from '@/components/show-builder/Step1_ShowAssociations';
+import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
+import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
+import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
 import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
-import { Step2_ShowClasses } from '@/components/show-builder/Step2_ShowClasses';
 import { Step5_Schedule } from '@/components/show-builder/Step5_Schedule';
 import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
 
-// Combined Show Info step: associations + dates + venue
-const ShowInfoStep = ({ formData, setFormData, associationsData, existingProjects }) => {
-    const handleUpdate = (key, value) => {
-        setFormData(prev => ({ ...prev, [key]: value }));
-    };
-    const handleDateChange = (field, date) => {
-        if (date) handleUpdate(field, format(date, 'yyyy-MM-dd'));
-    };
-
-    return (
-        <motion.div key="show-info" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-            <AssociationSelection
-                formData={formData}
-                setFormData={setFormData}
-                associationsData={associationsData}
-                existingProjects={existingProjects}
-                context="showBuilder"
-                stepNumber={1}
-            />
-            <CardContent className="space-y-4 pt-2 pb-6">
-                <h3 className="text-base font-semibold border-t pt-4">Event Dates & Venue</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <Label>Start Date</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className={cn("w-full justify-start text-left font-normal", !formData.startDate && "text-muted-foreground")}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {formData.startDate ? format(parseLocalDate(formData.startDate), "PPP") : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={formData.startDate ? parseLocalDate(formData.startDate) : undefined}
-                                    onSelect={(date) => handleDateChange('startDate', date)}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <div>
-                        <Label>End Date</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    className={cn("w-full justify-start text-left font-normal", !formData.endDate && "text-muted-foreground")}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {formData.endDate ? format(parseLocalDate(formData.endDate), "PPP") : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={formData.endDate ? parseLocalDate(formData.endDate) : undefined}
-                                    onSelect={(date) => handleDateChange('endDate', date)}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                    <div>
-                        <Label>Venue Name & Address</Label>
-                        <Input
-                            value={formData.venueAddress || ''}
-                            onChange={(e) => handleUpdate('venueAddress', e.target.value)}
-                            placeholder="E.g., Grand Oak Arena, 123 Stable Rd"
-                        />
-                    </div>
-                </div>
-            </CardContent>
-        </motion.div>
-    );
-};
-
 const WIZARD_STEPS = [
-    { id: 1, name: 'Show Info', icon: Info },
-    { id: 2, name: 'Arena Setup', icon: LayoutGrid },
-    { id: 3, name: 'Class Builder', icon: Layers },
-    { id: 4, name: 'Schedule Builder', icon: CalendarDays },
-    { id: 5, name: 'Review', icon: Search },
+    { id: 1, name: 'Show Structure', icon: Shield },
+    { id: 2, name: 'Select Disciplines', icon: ListPlus },
+    { id: 3, name: 'Configure Classes', icon: Settings2 },
+    { id: 4, name: 'Show Details', icon: Info },
+    { id: 5, name: 'Arenas & Dates', icon: LayoutGrid },
+    { id: 6, name: 'Schedule Builder', icon: CalendarDays },
+    { id: 7, name: 'Review', icon: Search },
 ];
 
 const STEP_COMPONENTS = [
-    { id: 1, component: ShowInfoStep },
-    { id: 2, component: Step3_ArenasAndDates, props: { stepNumber: 2, stepTitle: 'Arena Setup' } },
-    { id: 3, component: Step2_ShowClasses, props: { stepNumber: 3, stepTitle: 'Class Builder' } },
-    { id: 4, component: Step5_Schedule, props: { stepNumber: 4, stepTitle: 'Schedule Builder' } },
-    { id: 5, component: Step6_Preview, props: { stepNumber: 5, stepTitle: 'Review' } },
+    { id: 1, component: Step1_ShowAssociations },
+    { id: 2, component: Step2_ClassesAndDivisions },
+    { id: 3, component: 'ClassConfiguration' },
+    { id: 4, component: Step4_ShowDetails },
+    { id: 5, component: Step3_ArenasAndDates, props: { stepNumber: 5, stepTitle: 'Arenas & Dates' } },
+    { id: 6, component: Step5_Schedule, props: { stepNumber: 6, stepTitle: 'Schedule Builder' } },
+    { id: 7, component: Step6_Preview, props: { stepNumber: 7, stepTitle: 'Review' } },
 ];
 
 const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => (
@@ -176,7 +97,7 @@ const ScheduleBuilderPage = () => {
     const {
         formData, setFormData, createOrUpdateShow,
         isLoading: isDataLoading, associationsData, divisionsData, existingProjects,
-        disciplineLibrary, resetDisciplines,
+        disciplineLibrary, resetDisciplines, refreshDisciplineLibrary,
     } = useShowBuilder(showId);
 
     const [isSaving, setIsSaving] = useState(false);
@@ -249,6 +170,7 @@ const ScheduleBuilderPage = () => {
     const currentStepConfig = STEP_COMPONENTS.find(s => s.id === currentStep);
     const CurrentStepComponent = currentStepConfig?.component;
     const currentStepProps = currentStepConfig?.props || {};
+    const isClassConfig = CurrentStepComponent === 'ClassConfiguration';
 
     if (isDataLoading) {
         return (
@@ -314,7 +236,23 @@ const ScheduleBuilderPage = () => {
 
                     <Card className="mt-4">
                         <AnimatePresence mode="wait">
-                            {CurrentStepComponent && (
+                            {isClassConfig ? (
+                                <div key={currentStep}>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-xl">Step 3: Configure Classes</CardTitle>
+                                        <CardDescription className="text-sm">Drag to reorder, expand to configure divisions, and group patterns for each class.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <ClassConfiguration
+                                            formData={formData}
+                                            setFormData={setFormData}
+                                            isOpenShowMode={formData.showType === 'open-unaffiliated' || !!formData.associations?.['open-show']}
+                                            associationsData={associationsData}
+                                            divisionsData={divisionsData}
+                                        />
+                                    </CardContent>
+                                </div>
+                            ) : CurrentStepComponent ? (
                                 <CurrentStepComponent
                                     key={currentStep}
                                     formData={formData}
@@ -325,9 +263,11 @@ const ScheduleBuilderPage = () => {
                                     existingProjects={existingProjects}
                                     disciplineLibrary={disciplineLibrary}
                                     resetDisciplines={resetDisciplines}
+                                    createOrUpdateShow={createOrUpdateShow}
+                                    onRefreshDisciplines={refreshDisciplineLibrary}
                                     {...currentStepProps}
                                 />
-                            )}
+                            ) : null}
                         </AnimatePresence>
                     </Card>
 

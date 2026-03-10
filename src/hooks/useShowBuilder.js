@@ -54,7 +54,7 @@ export const useShowBuilder = (showId) => {
     setIsLoading(true);
     try {
       const projectsQuery = user
-        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).order('created_at', { ascending: false })
+        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")').order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null });
 
       const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([

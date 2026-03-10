@@ -1,5 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 
+// Format a Date as yyyy-MM-dd in local time (avoids UTC timezone shifts from toISOString)
+function toLocalDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // Extract judge names from formData.associationJudges
 function extractJudgeNames(formData) {
   const names = new Set();
@@ -16,6 +24,8 @@ function extractJudgeNames(formData) {
 }
 
 // Extract all class items from formData disciplines
+// Each item gets a unique `id` (discipline::division) for UI selection/keying,
+// and keeps `divisionId` for matching against showBill item.classes.
 export function getAllClassItems(formData) {
   return (formData.disciplines || []).flatMap(discipline =>
     (discipline.divisionOrder || []).map(divisionId => {
@@ -25,7 +35,8 @@ export function getAllClassItems(formData) {
       const rawDivision = divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName;
       const name = customTitle || (discipline.name ? `${discipline.name} ${rawDivision}` : rawDivision);
       return {
-        id: divisionId,
+        id: `${discipline.id}::${divisionId}`,
+        divisionId,
         name,
         disciplineId: discipline.id,
         disciplineName: discipline.name,
@@ -51,7 +62,7 @@ export function getUnplacedClasses(formData) {
       }
     }
   }
-  return allClasses.filter(c => !placedIds.has(c.id));
+  return allClasses.filter(c => !placedIds.has(c.divisionId));
 }
 
 // Create initial showBill from formData
@@ -61,7 +72,7 @@ export function initializeShowBill(formData) {
     let current = new Date(formData.startDate + 'T00:00:00');
     const end = formData.endDate ? new Date(formData.endDate + 'T00:00:00') : current;
     while (current <= end) {
-      const dateStr = current.toISOString().split('T')[0];
+      const dateStr = toLocalDateStr(current);
       days.push({
         id: `day-${uuidv4()}`,
         date: dateStr,
@@ -76,7 +87,7 @@ export function initializeShowBill(formData) {
 
   // If no days generated, create one default day
   if (days.length === 0) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateStr(new Date());
     days.push({
       id: `day-${uuidv4()}`,
       date: today,
@@ -101,7 +112,7 @@ export function initializeShowBill(formData) {
       id: uuidv4(),
       number: 0,
       title: cls.name,
-      classes: [cls.id],
+      classes: [cls.divisionId],
     }));
   }
 

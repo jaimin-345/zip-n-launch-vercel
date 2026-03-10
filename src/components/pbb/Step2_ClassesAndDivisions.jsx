@@ -4,8 +4,9 @@ import { CardHeader, CardTitle, CardDescription, CardContent } from '@/component
 import { useToast } from '@/components/ui/use-toast';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Lock, Search, Loader2 } from 'lucide-react';
+import { PlusCircle, Lock, Search, Loader2, ListPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -352,6 +353,9 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const [selectedAssociationForCustom, setSelectedAssociationForCustom] = useState('');
     const [isSavingCustomDiscipline, setIsSavingCustomDiscipline] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
+    const [bulkAddText, setBulkAddText] = useState('');
+    const [bulkAddNoPattern, setBulkAddNoPattern] = useState(true);
     
     // 4-H City selection state - stored in formData for persistence
     const selected4HCity = formData.selected4HCity || '';
@@ -948,6 +952,77 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
         setIsCustomDisciplineModalOpen(true);
     }, []);
 
+    // Bulk add classes
+    const handleBulkAddClasses = () => {
+        const lines = bulkAddText
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+
+        if (lines.length === 0) {
+            toast({ title: 'No classes to add', description: 'Please enter at least one class name.', variant: 'destructive' });
+            return;
+        }
+
+        // Determine association — use the first selected association or 'open-show'
+        const selectedAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+        const assocId = selectedAssocIds[0] || 'open-show';
+
+        setFormData(prev => {
+            const newDisciplines = [...(prev.disciplines || [])];
+            let added = 0;
+
+            for (const className of lines) {
+                // Check for duplicates
+                const exists = newDisciplines.some(d =>
+                    d.name === className && d.association_id === assocId
+                );
+                if (exists) continue;
+
+                const timestamp = Date.now() + added;
+                const newDiscipline = {
+                    id: `${className.replace(/\s+/g, '-')}-${assocId}-${timestamp}`,
+                    name: className,
+                    association_id: assocId,
+                    pattern_type: bulkAddNoPattern ? 'none' : 'custom',
+                    pattern: !bulkAddNoPattern,
+                    scoresheet: false,
+                    isCustom: true,
+                    isBulkAdded: true,
+                    selectedAssociations: { [assocId]: true },
+                    divisions: {},
+                    divisionOrder: [],
+                    customDivisions: [],
+                    patternGroups: [],
+                    sub_association_type: null,
+                };
+
+                if (!bulkAddNoPattern) {
+                    newDiscipline.patternGroups.push({
+                        id: `pattern-group-${timestamp}`,
+                        name: 'Group 1',
+                        divisions: [],
+                        rulebookPatternId: '',
+                        competitionDate: null,
+                    });
+                }
+
+                newDisciplines.push(newDiscipline);
+                added++;
+            }
+
+            return { ...prev, disciplines: newDisciplines };
+        });
+
+        toast({
+            title: `${lines.length} class${lines.length === 1 ? '' : 'es'} added`,
+            description: 'Classes have been added to your disciplines list.',
+        });
+
+        setBulkAddText('');
+        setIsBulkAddOpen(false);
+    };
+
     // Save custom discipline to database
     const handleSaveCustomDisciplineToDb = async () => {
         if (!customDisciplineName.trim()) {
@@ -1055,10 +1130,18 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
                         <h3 className="text-lg font-bold tracking-tight">Available Disciplines</h3>
                          <div className="flex items-center gap-2">
+                             <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsBulkAddOpen(true)}
+                             >
+                                <ListPlus className="mr-1.5 h-4 w-4" />
+                                Bulk Add Classes
+                             </Button>
                              <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search disciplines..." 
+                                <Input
+                                    placeholder="Search disciplines..."
                                     className="pl-9 w-48"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -1165,6 +1248,52 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                 ) : (
                                     'Save Discipline'
                                 )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Bulk Add Classes Modal */}
+                <Dialog open={isBulkAddOpen} onOpenChange={setIsBulkAddOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Bulk Add Classes</DialogTitle>
+                            <DialogDescription>
+                                Paste or type class names below, one per line. Each line will be added as a separate class.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-2">
+                            <Textarea
+                                placeholder={"Ranch Riding Junior 8-13 Intro\nRanch Riding Senior 14-18 Intro\nShow Hack\nPleasure Driving"}
+                                value={bulkAddText}
+                                onChange={(e) => setBulkAddText(e.target.value)}
+                                rows={8}
+                                className="font-mono text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                {bulkAddText.split('\n').filter(l => l.trim()).length} class{bulkAddText.split('\n').filter(l => l.trim()).length === 1 ? '' : 'es'} detected
+                            </p>
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="bulkNoPattern"
+                                    checked={bulkAddNoPattern}
+                                    onCheckedChange={(checked) => setBulkAddNoPattern(!!checked)}
+                                />
+                                <Label htmlFor="bulkNoPattern" className="text-sm cursor-pointer">
+                                    Non-pattern classes (no pattern configuration required)
+                                </Label>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsBulkAddOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleBulkAddClasses}
+                                disabled={!bulkAddText.trim()}
+                            >
+                                <ListPlus className="mr-2 h-4 w-4" />
+                                Add Classes
                             </Button>
                         </DialogFooter>
                     </DialogContent>

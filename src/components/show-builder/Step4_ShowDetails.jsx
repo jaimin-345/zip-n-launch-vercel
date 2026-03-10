@@ -356,7 +356,7 @@ export const Step4_ShowDetails = ({ formData, setFormData }) => {
     return (
         <motion.div key="step2" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 2: Core Details</CardTitle>
+                <CardTitle>Step 4: Show Details</CardTitle>
                 <CardDescription>Enter essential information, define venues, and assign staff for your event. This will be used to populate your show bill and configure the schedule builder.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

@@ -91,7 +91,7 @@ const ItemEditDialog = ({ item, dayId, arenaId, allClassItems, associationsData,
               {classes.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3 p-2 border rounded-md bg-muted/30">
                   {classes.map(classId => {
-                    const cls = allClassItems.find(c => c.id === classId);
+                    const cls = allClassItems.find(c => c.divisionId === classId);
                     const assoc = associationsData?.find(a => a.id === cls?.assocId);
                     return (
                       <Badge key={classId} variant={assoc?.color || 'secondary'} className="flex items-center gap-1 pr-1">

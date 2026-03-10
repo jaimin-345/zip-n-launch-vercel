@@ -141,40 +141,42 @@ const ShowStructurePage = () => {
                         setCurrentStep={setCurrentStep}
                     />
 
-                    <LinkToExistingShow
-                        existingProjects={existingProjects}
-                        linkedProjectId={formData.linkedProjectId || null}
-                        onLink={(projectId) => {
-                            if (projectId === 'none') {
-                                setFormData(prev => ({ ...prev, linkedProjectId: null }));
-                            } else {
-                                const project = existingProjects.find(p => p.id === projectId);
-                                const pd = project?.project_data || {};
-                                setFormData(prev => ({
-                                    ...prev,
-                                    linkedProjectId: projectId,
-                                    showName: pd.showName || prev.showName,
-                                    showNumber: pd.showNumber || prev.showNumber,
-                                    associations: pd.associations || prev.associations,
-                                    customAssociations: pd.customAssociations || prev.customAssociations,
-                                    disciplines: pd.disciplines || prev.disciplines,
-                                    startDate: pd.startDate || prev.startDate,
-                                    endDate: pd.endDate || prev.endDate,
-                                    venueAddress: pd.venueAddress || prev.venueAddress,
-                                    venueName: pd.venueName || prev.venueName,
-                                    arenas: pd.arenas || prev.arenas,
-                                    officials: pd.officials || prev.officials,
-                                    staff: pd.staff || prev.staff,
-                                    sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
-                                    sponsors: pd.sponsors || prev.sponsors,
-                                }));
-                            }
-                        }}
-                        onDuplicated={(newProject) => {
-                            navigate(`/horse-show-manager/show-structure-expenses/${newProject.id}`, { replace: true });
-                        }}
-                        description="Link to an existing show to auto-fill structure and expense details."
-                    />
+                    {currentStep === 1 && (
+                        <LinkToExistingShow
+                            existingProjects={existingProjects}
+                            linkedProjectId={formData.linkedProjectId || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') {
+                                    setFormData(prev => ({ ...prev, linkedProjectId: null }));
+                                } else {
+                                    const project = existingProjects.find(p => p.id === projectId);
+                                    const pd = project?.project_data || {};
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        linkedProjectId: projectId,
+                                        showName: pd.showName || prev.showName,
+                                        showNumber: pd.showNumber || prev.showNumber,
+                                        associations: pd.associations || prev.associations,
+                                        customAssociations: pd.customAssociations || prev.customAssociations,
+                                        disciplines: pd.disciplines || prev.disciplines,
+                                        startDate: pd.startDate || prev.startDate,
+                                        endDate: pd.endDate || prev.endDate,
+                                        venueAddress: pd.venueAddress || prev.venueAddress,
+                                        venueName: pd.venueName || prev.venueName,
+                                        arenas: pd.arenas || prev.arenas,
+                                        officials: pd.officials || prev.officials,
+                                        staff: pd.staff || prev.staff,
+                                        sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
+                                        sponsors: pd.sponsors || prev.sponsors,
+                                    }));
+                                }
+                            }}
+                            onDuplicated={(newProject) => {
+                                navigate(`/horse-show-manager/show-structure-expenses/${newProject.id}`, { replace: true });
+                            }}
+                            description="Link to an existing show to auto-fill structure and expense details."
+                        />
+                    )}
 
                     <Card className="mt-8">
                         <AnimatePresence mode="wait">

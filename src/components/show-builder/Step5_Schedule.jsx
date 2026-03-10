@@ -251,7 +251,7 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
   const getAssocTags = (classIds) => {
     const uniqueAssocs = new Set();
     (classIds || []).forEach(cid => {
-      const cls = allClassItems.find(c => c.id === cid);
+      const cls = allClassItems.find(c => c.divisionId === cid || c.id === cid);
       if (cls) {
         const assoc = associationsData?.find(a => a.id === cls.assocId);
         uniqueAssocs.add(assoc?.abbreviation || cls.assocId);
@@ -383,7 +383,7 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
                   }
 
                   if (item.type === 'classBox') {
-                    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid)).filter(Boolean);
+                    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.divisionId === cid || c.id === cid)).filter(Boolean);
                     const assocTags = settings.showAssociations ? getAssocTags(item.classes) : [];
 
                     if (classDetails.length <= 1) {
