@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { Layers, Loader2, PlusCircle, Edit, Trash2, Search, ChevronLeft, ChevronRight, Download, File as FileIcon, UploadCloud } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
