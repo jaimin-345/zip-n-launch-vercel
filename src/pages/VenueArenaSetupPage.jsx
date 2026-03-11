@@ -561,19 +561,21 @@ const VenueArenaSetupPage = () => {
                         </div>
                     </div>
 
-                    <LinkToExistingShow
-                        existingProjects={shows}
-                        linkedProjectId={selectedShow?.id || null}
-                        onLink={(projectId) => {
-                            if (projectId === 'none') {
-                                setSelectedShow(null);
-                            } else {
-                                const show = shows.find(s => s.id === projectId);
-                                if (show) setSelectedShow(show);
-                            }
-                        }}
-                        description="Link to a show to configure its venue and arena setup."
-                    />
+                    {!showId && (
+                        <LinkToExistingShow
+                            existingProjects={shows}
+                            linkedProjectId={selectedShow?.id || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') {
+                                    setSelectedShow(null);
+                                } else {
+                                    const show = shows.find(s => s.id === projectId);
+                                    if (show) setSelectedShow(show);
+                                }
+                            }}
+                            description="Link to a show to configure its venue and arena setup."
+                        />
+                    )}
 
                     {selectedShow && (
                         <div className="mt-6">

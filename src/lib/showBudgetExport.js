@@ -6,6 +6,15 @@ const TIMING_LABELS = {
   after_show: 'After Show',
 };
 
+const UNIT_LABELS = {
+  flat: 'Flat Fee',
+  per_day: 'Per Day',
+  per_head: 'Per Head',
+  per_hour: 'Per Hour',
+  per_unit: 'Per Unit',
+  per_person: 'Per Person',
+};
+
 const PAYMENT_TIMING_LABELS = {
   pre_entry: 'Pre-Entry / Reservation',
   at_check_in: 'At Check-In',
@@ -66,68 +75,86 @@ export const exportShowBudgetToExcel = (formData) => {
   const expenseRows = [];
   let totalShowExpenses = 0;
 
+  const emptyExpenseRow = { 'Expense Name': '', Category: '', Unit: '', Qty: '', 'Unit Cost': '', Timing: '', 'Due Date': '', 'Line Total': '', Notes: '' };
+
   for (const timingId of ['before_show', 'during_show', 'after_show']) {
     const bucketExpenses = expenses.filter(e => e.name && e.timing === timingId);
     if (bucketExpenses.length === 0) continue;
-    expenseRows.push({ 'Expense Name': TIMING_LABELS[timingId], Category: '', Timing: '', Amount: '', Notes: '' });
+    expenseRows.push({ ...emptyExpenseRow, 'Expense Name': TIMING_LABELS[timingId] });
     for (const expense of bucketExpenses) {
-      const amt = parseFloat(expense.amount) || 0;
-      totalShowExpenses += amt;
+      const unitCost = parseFloat(expense.amount) || 0;
+      const qty = parseInt(expense.quantity) || 1;
+      const lineTotal = unitCost * qty;
+      totalShowExpenses += lineTotal;
       expenseRows.push({
         'Expense Name': expense.name,
         Category: expense.category || '',
+        Unit: UNIT_LABELS[expense.unit] || expense.unit || 'Flat Fee',
+        Qty: qty,
+        'Unit Cost': unitCost,
         Timing: TIMING_LABELS[expense.timing] || '',
-        Amount: amt,
+        'Due Date': expense.dueDate || '',
+        'Line Total': lineTotal,
         Notes: expense.notes || '',
       });
     }
-    const bucketTotal = bucketExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-    expenseRows.push({ 'Expense Name': `Subtotal ${TIMING_LABELS[timingId]}`, Category: '', Timing: '', Amount: bucketTotal, Notes: '' });
-    expenseRows.push({ 'Expense Name': '', Category: '', Timing: '', Amount: '', Notes: '' });
+    const bucketTotal = bucketExpenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0);
+    expenseRows.push({ ...emptyExpenseRow, 'Expense Name': `Subtotal ${TIMING_LABELS[timingId]}`, 'Line Total': bucketTotal });
+    expenseRows.push({ ...emptyExpenseRow });
   }
 
   // Include any expenses without a timing value
   const untimed = expenses.filter(e => e.name && !e.timing);
   for (const expense of untimed) {
-    const amt = parseFloat(expense.amount) || 0;
-    totalShowExpenses += amt;
+    const unitCost = parseFloat(expense.amount) || 0;
+    const qty = parseInt(expense.quantity) || 1;
+    const lineTotal = unitCost * qty;
+    totalShowExpenses += lineTotal;
     expenseRows.push({
       'Expense Name': expense.name,
       Category: expense.category || '',
+      Unit: UNIT_LABELS[expense.unit] || expense.unit || 'Flat Fee',
+      Qty: qty,
+      'Unit Cost': unitCost,
       Timing: '',
-      Amount: amt,
+      'Due Date': expense.dueDate || '',
+      'Line Total': lineTotal,
       Notes: expense.notes || '',
     });
   }
 
-  expenseRows.push({ 'Expense Name': 'SUBTOTAL SHOW EXPENSES', Category: '', Timing: '', Amount: totalShowExpenses, Notes: '' });
+  expenseRows.push({ ...emptyExpenseRow, 'Expense Name': 'SUBTOTAL SHOW EXPENSES', 'Line Total': totalShowExpenses });
 
   // Award expenses
-  expenseRows.push({ 'Expense Name': '', Category: '', Timing: '', Amount: '', Notes: '' });
+  expenseRows.push({ ...emptyExpenseRow });
   for (const award of awardExpenses.filter(a => a.name)) {
     const lineTotal = (parseFloat(award.amount) || 0) * (parseInt(award.qty) || 1);
     expenseRows.push({
       'Expense Name': award.name,
       Category: 'Awards',
+      Unit: '',
+      Qty: parseInt(award.qty) || 1,
+      'Unit Cost': parseFloat(award.amount) || 0,
       Timing: '',
-      Amount: lineTotal,
+      'Due Date': '',
+      'Line Total': lineTotal,
       Notes: award.qty > 1 ? `${award.qty} x $${award.amount}` : '',
     });
   }
   const totalAwardExp = awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0);
   const totalClassAwards = Object.values(classAwards).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0);
   if (totalClassAwards > 0) {
-    expenseRows.push({ 'Expense Name': 'Class Awards Budget', Category: 'Awards', Timing: '', Amount: totalClassAwards, Notes: '' });
+    expenseRows.push({ ...emptyExpenseRow, 'Expense Name': 'Class Awards Budget', Category: 'Awards', 'Line Total': totalClassAwards });
   }
-  expenseRows.push({ 'Expense Name': 'SUBTOTAL AWARD EXPENSES', Category: '', Timing: '', Amount: totalAwardExp + totalClassAwards, Notes: '' });
+  expenseRows.push({ ...emptyExpenseRow, 'Expense Name': 'SUBTOTAL AWARD EXPENSES', 'Line Total': totalAwardExp + totalClassAwards });
 
   const totalExpenses = totalShowExpenses + totalAwardExp + totalClassAwards;
-  expenseRows.push({ 'Expense Name': '', Category: '', Timing: '', Amount: '', Notes: '' });
-  expenseRows.push({ 'Expense Name': 'TOTAL EXPENSES', Category: '', Timing: '', Amount: totalExpenses, Notes: '' });
+  expenseRows.push({ ...emptyExpenseRow });
+  expenseRows.push({ ...emptyExpenseRow, 'Expense Name': 'TOTAL EXPENSES', 'Line Total': totalExpenses });
 
   const wsExpenses = XLSX.utils.json_to_sheet(expenseRows);
   wsExpenses['!cols'] = [
-    { wch: 28 }, { wch: 24 }, { wch: 16 }, { wch: 12 }, { wch: 30 },
+    { wch: 32 }, { wch: 24 }, { wch: 12 }, { wch: 6 }, { wch: 12 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 30 },
   ];
   XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses');
 

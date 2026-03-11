@@ -23,7 +23,7 @@ import { generatePatternBookPdf } from '@/lib/bookGenerator';
 // All possible steps — step 3 is conditionally shown for horse_show only
 const ALL_STEPS = [
   { id: 0, name: 'Usage Purpose', icon: Info },
-  { id: 1, name: 'Book Details', icon: GitMerge },
+  { id: 1, name: 'Event Setup', icon: GitMerge },
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
   { id: 3, name: 'Division & Level', icon: Layers, horseShowOnly: true },
   { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },

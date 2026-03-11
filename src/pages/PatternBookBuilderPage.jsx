@@ -24,16 +24,17 @@ import GenerateBookDialog from '@/components/pbb/GenerateBookDialog';
 import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { useAnalytics } from '@/components/AnalyticsProvider';
 import { sendCustomPatternRequestEmails } from '@/lib/customPatternEmails';
+import { UsageLimitGate } from '@/components/shared/UsageLimitGate';
 
 const steps = [
-    { id: 1, name: 'Book Details', icon: GitMerge },
+    { id: 1, name: 'Event Setup', icon: GitMerge },
     { id: 2, name: 'Select Disciplines', icon: ListPlus },
     { id: 3, name: 'Configure Classes', icon: Settings2 },
     { id: 4, name: 'Show Details', icon: Calendar },
     { id: 5, name: 'Pattern Selection', icon: LayoutTemplate },
     { id: 6, name: 'Uploads & Media', icon: UploadCloud },
     { id: 7, name: 'Preview', icon: Eye },
-    { id: 8, name: 'Close Out & Review', icon: ShieldCheck },
+    { id: 8, name: 'Save & Manage', icon: ShieldCheck },
 ];
 
 const isDisciplineComplete = (pbbDiscipline, isOpenShowMode, allDisciplines = null) => {
@@ -420,7 +421,7 @@ const PatternBookBuilderPage = () => {
     };
 
     return (
-        <>
+        <UsageLimitGate toolName="Pattern Book Builder" projectType="pattern_book" isEditing={!!projectId}>
             <Helmet>
                 <title>Pattern Book Builder - EquiPatterns</title>
                 <meta name="description" content="Generate a compliant, auto-filled pattern book for your show in minutes." />
@@ -477,7 +478,7 @@ const PatternBookBuilderPage = () => {
                                             </Button>
                                             {currentStep === steps.length ? (
                                                 <Button onClick={handlePayAndPublish} disabled={isNextDisabled}>
-                                                    <Download className="mr-2 h-4 w-4" /> Pay & Publish Pattern Book Folder
+                                                    <Download className="mr-2 h-4 w-4" /> Save & Publish Pattern Book
                                                 </Button>
                                             ) : (
                                                 <Button onClick={handleNext} disabled={isNextDisabled}>
@@ -553,7 +554,7 @@ const PatternBookBuilderPage = () => {
                     </DialogContent>
                 </Dialog>
             </div>
-        </>
+        </UsageLimitGate>
     );
 };
 

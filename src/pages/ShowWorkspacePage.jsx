@@ -15,6 +15,7 @@ import {
   BarChart3, Warehouse, Check, AlertCircle, Circle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/use-toast';
 
 /* ── Status helpers ── */
 
@@ -128,7 +129,8 @@ const StatusBadge = ({ status }) => {
 
 /* ── Module card ── */
 
-const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status }) => {
+const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status, comingSoon }) => {
+  const { toast } = useToast();
   const colorMap = {
     blue: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600',
     emerald: 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600',
@@ -144,10 +146,20 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
       ? 'border-amber-200 dark:border-amber-800'
       : '';
 
+  const handleClick = (e) => {
+    if (comingSoon) {
+      e.preventDefault();
+      toast({ title: 'Coming Soon!', description: "This feature isn't implemented yet — stay tuned!" });
+    }
+  };
+
+  const Wrapper = comingSoon ? 'div' : Link;
+  const wrapperProps = comingSoon ? { onClick: handleClick } : { to };
+
   return (
-    <Link to={to}>
+    <Wrapper {...wrapperProps}>
       <motion.div whileHover={{ y: -2 }} className="h-full">
-        <Card className={cn('h-full hover:border-blue-300 hover:shadow-md transition-all cursor-pointer', borderClass)}>
+        <Card className={cn('h-full transition-all cursor-pointer', comingSoon ? 'hover:border-amber-300 hover:shadow-md' : 'hover:border-blue-300 hover:shadow-md', borderClass)}>
           <CardContent className="p-5">
             <div className="flex items-start gap-4">
               <div className={cn('p-2.5 rounded-lg shrink-0', colorMap[color])}>
@@ -156,7 +168,7 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="font-semibold text-sm text-foreground">{title}</h3>
-                  <StatusBadge status={status} />
+                  {!comingSoon && <StatusBadge status={status} />}
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
               </div>
@@ -165,7 +177,7 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
           </CardContent>
         </Card>
       </motion.div>
-    </Link>
+    </Wrapper>
   );
 };
 
@@ -272,12 +284,12 @@ const ShowWorkspacePage = () => {
         { key: 'scheduleBuilder', icon: CalendarDays, title: 'Schedule Builder', description: 'Build and organize the show schedule with drag-and-drop.', to: `/horse-show-manager/schedule-builder/${showId}`, color: 'blue' },
         { key: 'showStructure', icon: DollarSign, title: 'Show Structure & Expenses', description: 'Manage show expenses, fee structures, and sponsors.', to: `/horse-show-manager/show-structure-expenses/${showId}`, color: 'blue' },
         { key: 'feeStructure', icon: DollarSign, title: 'Fee Structure & Sponsors', description: 'Configure entry fees, stall fees, and sponsor levels.', to: `/horse-show-manager/fee-structure/${showId}`, color: 'blue' },
+        { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts/${showId}`, color: 'blue' },
       ],
     },
     {
       section: 'Employee Management',
       items: [
-        { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts/${showId}`, color: 'emerald' },
         { key: 'budgeting', icon: DollarSign, title: 'Employee Budgeting Tool', description: 'Plan and track employee budgets and compensation.', to: `/horse-show-manager/employee-budgeting/${showId}`, color: 'emerald' },
         { key: 'employeeScheduling', icon: LayoutGrid, title: 'Employee / Arena Scheduling', description: 'Assign employees to arenas and time slots.', to: `/horse-show-manager/employee-scheduling/${showId}`, color: 'emerald' },
       ],
@@ -288,7 +300,7 @@ const ShowWorkspacePage = () => {
         { key: 'equipment', icon: Radio, title: 'Equipment Management', description: 'Plan and track equipment needs across arenas.', to: `/horse-show-manager/equipment-planning/${showId}`, color: 'amber' },
         { key: 'awards', icon: Award, title: 'Awards Management', description: 'Configure awards, ribbons, and trophies.', to: `/horse-show-manager/awards-management/${showId}`, color: 'violet' },
         { key: 'financials', icon: BarChart3, title: 'Financials & Analytics', description: 'View financial projections, revenue, and analytics.', to: `/horse-show-manager/financials/${showId}`, color: 'rose' },
-        { key: 'stalling', icon: Warehouse, title: 'Stalling Service', description: 'Manage stall assignments and barn configurations.', to: `/horse-show-manager/stalling-service-manager/${showId}`, color: 'sky' },
+        { key: 'stalling', icon: Warehouse, title: 'Stalling Service', description: 'Manage stall assignments and barn configurations.', to: `/horse-show-manager/stalling-service-manager/${showId}`, color: 'sky', comingSoon: true },
       ],
     },
   ];

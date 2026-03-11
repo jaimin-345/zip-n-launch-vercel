@@ -14,11 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabaseClient';
 
 const steps = [
-  { id: 1, name: 'Association', icon: Users },
+  { id: 1, name: 'Event Setup', icon: Users },
   { id: 2, name: 'Classes', icon: ListPlus },
   { id: 3, name: 'Details', icon: Calendar },
   { id: 4, name: 'Review', icon: ShieldCheck },
-  { id: 5, name: 'Publish', icon: UploadCloud },
+  { id: 5, name: 'Save & Manage', icon: UploadCloud },
 ];
 
 const BreedShowPackagePage = () => {
@@ -146,7 +146,7 @@ const BreedShowPackagePage = () => {
         return (
           <motion.div key="step1" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-              <CardTitle>Step 1: Select Show Type</CardTitle>
+              <CardTitle>Step 1: Event Setup</CardTitle>
               <CardDescription>Choose the type of show you are hosting. This will determine the next steps.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

@@ -1186,20 +1186,22 @@ const StallingServiceManagerPage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <PageHeader title="Stalling Service" />
+                    <PageHeader title="Stalling Service" backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'} />
 
-                    <div className="mb-6">
-                        <LinkToExistingShow
-                            existingProjects={shows}
-                            linkedProjectId={selectedShow?.id || null}
-                            onLink={(projectId) => {
-                                if (projectId === 'none') { setSelectedShow(null); return; }
-                                const show = shows.find(s => s.id === projectId);
-                                if (show) setSelectedShow(show);
-                            }}
-                            description="Link to an existing show to manage its stalling services."
-                        />
-                    </div>
+                    {!showId && (
+                        <div className="mb-6">
+                            <LinkToExistingShow
+                                existingProjects={shows}
+                                linkedProjectId={selectedShow?.id || null}
+                                onLink={(projectId) => {
+                                    if (projectId === 'none') { setSelectedShow(null); return; }
+                                    const show = shows.find(s => s.id === projectId);
+                                    if (show) setSelectedShow(show);
+                                }}
+                                description="Link to an existing show to manage its stalling services."
+                            />
+                        </div>
+                    )}
 
                     {selectedShow && (
                         <StallingDashboard show={selectedShow} onSave={handleSave} isSaving={isSaving} />

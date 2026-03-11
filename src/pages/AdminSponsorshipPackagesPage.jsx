@@ -27,7 +27,6 @@ const PackageForm = ({ packageData, onSave, onCancel, isSaving }) => {
         cta_text: '',
         sort_order: 0,
     });
-    //test
 
     useEffect(() => {
         if (packageData) {

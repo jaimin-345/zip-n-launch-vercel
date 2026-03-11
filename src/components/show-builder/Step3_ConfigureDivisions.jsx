@@ -666,7 +666,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         return (
             <motion.div key="step5-schedule" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                 <CardHeader>
-                    <CardTitle>Step 5: Organize Your Schedule</CardTitle>
+                    <CardTitle>Step 6: Organize Schedule</CardTitle>
                     <CardDescription>Drag and drop classes into arena time slots to build your show schedule.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -695,7 +695,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div>
-                            <CardTitle>Step 5: Organize Your Schedule</CardTitle>
+                            <CardTitle>Step 6: Organize Schedule</CardTitle>
                             <CardDescription>Drag classes from the library into arena containers to build your show schedule.</CardDescription>
                         </div>
                         {selectedCount > 0 && (

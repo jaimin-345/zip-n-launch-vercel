@@ -408,7 +408,7 @@ export const Step4_OrganizeSchedule = ({ formData, setFormData }) => {
         return (
             <motion.div key="step5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                 <CardHeader>
-                    <CardTitle>Step 5: Organize Your Schedule</CardTitle>
+                    <CardTitle>Step 6: Organize Schedule</CardTitle>
                     <CardDescription>Drag classes to schedule them by day and arena. The order of classes determines the schedule for the day.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -424,7 +424,7 @@ export const Step4_OrganizeSchedule = ({ formData, setFormData }) => {
     return (
         <motion.div key="step5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 5: Organize Your Schedule</CardTitle>
+                <CardTitle>Step 6: Organize Schedule</CardTitle>
                 <CardDescription>Drag classes to schedule them by day and arena. Use quick assign for bulk scheduling. The order of classes determines the schedule for the day.</CardDescription>
             </CardHeader>
             <CardContent>

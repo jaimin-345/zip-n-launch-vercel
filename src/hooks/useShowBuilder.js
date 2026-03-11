@@ -54,7 +54,7 @@ export const useShowBuilder = (showId) => {
     setIsLoading(true);
     try {
       const projectsQuery = user
-        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")').order('created_at', { ascending: false })
+        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).not('project_type', 'in', '("pattern_book","pattern_folder","pattern_hub","pattern_upload","contract")').order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null });
 
       const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([
@@ -104,7 +104,7 @@ export const useShowBuilder = (showId) => {
         if (showError) throw showError;
         if (showData && showData.project_data) {
           setFormData(prev => ({ ...initialFormData, ...showData.project_data, id: showId }));
-          const savedStep = Math.min(showData.project_data.currentStep || 1, 7);
+          const savedStep = Math.min(showData.project_data.currentStep || 1, 8);
           const savedCompleted = showData.project_data.completedSteps || [];
           setStep(savedStep);
           setCompletedSteps(new Set(savedCompleted));
@@ -248,7 +248,7 @@ export const useShowBuilder = (showId) => {
     }
   }, [formData, step, completedSteps, showId, toast, user]);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 7));
+  const nextStep = () => setStep(prev => Math.min(prev + 1, 8));
   const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
   const setCurrentStep = (newStep) => setStep(newStep);
 

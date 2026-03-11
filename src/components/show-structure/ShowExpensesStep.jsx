@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Download, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ChevronDown, ChevronRight, Check, CalendarDays } from 'lucide-react';
 import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 import { cn } from '@/lib/utils';
 import { isBudgetFrozen } from '@/lib/contractUtils';
@@ -15,6 +15,15 @@ const TIMING_OPTIONS = [
     { id: 'before_show', label: 'Before Show', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-500/10' },
     { id: 'during_show', label: 'During Show', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-500/10' },
     { id: 'after_show', label: 'After Show', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-500/10' },
+];
+
+const UNIT_OPTIONS = [
+    { id: 'flat', label: 'Flat Fee' },
+    { id: 'per_day', label: 'Per Day' },
+    { id: 'per_head', label: 'Per Head' },
+    { id: 'per_hour', label: 'Per Hour' },
+    { id: 'per_unit', label: 'Per Unit' },
+    { id: 'per_person', label: 'Per Person' },
 ];
 
 const EXPENSE_FRAMEWORK = [
@@ -282,103 +291,6 @@ const EXPENSE_FRAMEWORK = [
         ],
     },
     {
-        id: 'awards',
-        title: 'Awards',
-        icon: '🏆',
-        color: 'border-yellow-500',
-        bgColor: 'bg-yellow-500/5',
-        textColor: 'text-yellow-700 dark:text-yellow-400',
-        subGroups: [
-            {
-                title: 'Standard Awards',
-                items: [
-                    { name: 'Champion ribbons', defaultTiming: 'before_show' },
-                    { name: 'Reserve champion ribbons', defaultTiming: 'before_show' },
-                    { name: 'Placement ribbons', defaultTiming: 'before_show' },
-                    { name: 'Class ribbons', defaultTiming: 'before_show' },
-                ],
-            },
-            {
-                title: 'Premium Awards',
-                items: [
-                    { name: 'Belt buckles', defaultTiming: 'before_show' },
-                    { name: 'Trophy saddles', defaultTiming: 'before_show' },
-                    { name: 'Custom trophies', defaultTiming: 'before_show' },
-                    { name: 'High point awards', defaultTiming: 'before_show' },
-                    { name: 'Circuit awards', defaultTiming: 'before_show' },
-                ],
-            },
-            {
-                title: 'Prize Money',
-                items: [
-                    { name: 'Added money classes', defaultTiming: 'after_show' },
-                    { name: 'Jackpot payouts', defaultTiming: 'after_show' },
-                    { name: 'Open purse classes', defaultTiming: 'after_show' },
-                ],
-            },
-            {
-                title: 'Award Production',
-                items: [
-                    { name: 'Engraving services', defaultTiming: 'before_show' },
-                    { name: 'Award shipping', defaultTiming: 'before_show' },
-                    { name: 'Award packaging', defaultTiming: 'before_show' },
-                ],
-            },
-        ],
-    },
-    {
-        id: 'officials_staff',
-        title: 'Officials & Staff',
-        icon: '👤',
-        color: 'border-indigo-500',
-        bgColor: 'bg-indigo-500/5',
-        textColor: 'text-indigo-700 dark:text-indigo-400',
-        subGroups: [
-            {
-                title: 'Judges',
-                items: [
-                    { name: 'Judge fees', defaultTiming: 'during_show' },
-                    { name: 'Judge travel', defaultTiming: 'during_show' },
-                    { name: 'Judge hotel', defaultTiming: 'during_show' },
-                    { name: 'Judge per diem', defaultTiming: 'during_show' },
-                ],
-            },
-            {
-                title: 'Officials',
-                items: [
-                    { name: 'Association steward', defaultTiming: 'during_show' },
-                    { name: 'Drug testing steward', defaultTiming: 'during_show' },
-                    { name: 'Technical delegate', defaultTiming: 'during_show' },
-                ],
-            },
-            {
-                title: 'Arena Staff',
-                items: [
-                    { name: 'Ring stewards', defaultTiming: 'during_show' },
-                    { name: 'Gate crew', defaultTiming: 'during_show' },
-                    { name: 'Arena crew', defaultTiming: 'during_show' },
-                    { name: 'Tractor drivers', defaultTiming: 'during_show' },
-                ],
-            },
-            {
-                title: 'Office Staff',
-                items: [
-                    { name: 'Show secretary', defaultTiming: 'during_show' },
-                    { name: 'Assistant secretaries', defaultTiming: 'during_show' },
-                    { name: 'Office clerks', defaultTiming: 'during_show' },
-                ],
-            },
-            {
-                title: 'Event Personnel',
-                items: [
-                    { name: 'Announcer', defaultTiming: 'during_show' },
-                    { name: 'Scoreboard operator', defaultTiming: 'during_show' },
-                    { name: 'Video replay staff', defaultTiming: 'during_show' },
-                ],
-            },
-        ],
-    },
-    {
         id: 'marketing',
         title: 'Marketing',
         icon: '📢',
@@ -528,74 +440,102 @@ const feeTimingLabels = {
     settlement: 'Post-Show / Settlement',
 };
 
-const SubGroupSection = ({ subGroup, categoryId, expenses, onToggleItem, onUpdateExpense, onRemoveExpense, locked }) => {
-    const activeNames = new Set(expenses.filter(e => e.category === categoryId).map(e => e.name));
-    const subGroupExpenses = expenses.filter(e => e.category === categoryId && subGroup.items.some(i => i.name === e.name));
-
+const ExpenseDetailCard = ({ expense, onUpdateExpense, onRemoveExpense, locked, isCustom }) => {
+    const lineTotal = (parseFloat(expense.amount) || 0) * (parseInt(expense.quantity) || 1);
     return (
-        <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{subGroup.title}</p>
-            <div className="flex flex-wrap gap-1.5">
-                {subGroup.items.map(item => {
-                    const isActive = activeNames.has(item.name);
-                    return (
-                        <button
-                            key={item.name}
-                            type="button"
-                            disabled={locked}
-                            onClick={() => onToggleItem(categoryId, item)}
-                            className={cn(
-                                'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
-                                isActive
-                                    ? 'bg-primary text-primary-foreground border-primary'
-                                    : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground',
-                                locked && 'opacity-50 cursor-not-allowed'
-                            )}
-                        >
-                            {isActive && <Check className="h-3 w-3" />}
-                            {item.name}
-                        </button>
-                    );
-                })}
-            </div>
-            {/* Inline amount/timing editors for selected items in this sub-group */}
-            {subGroupExpenses.length > 0 && (
-                <div className="space-y-1.5 pt-1">
-                    {subGroupExpenses.map(expense => (
-                        <div key={expense.id} className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                            <span className="text-sm font-medium truncate flex-1 min-w-0">{expense.name}</span>
-                            <Input
-                                type="number"
-                                value={expense.amount}
-                                onChange={(e) => onUpdateExpense(expense.id, 'amount', e.target.value)}
-                                placeholder="$ Amount"
-                                className="w-28"
-                                disabled={locked}
-                            />
-                            <Select value={expense.timing || ''} onValueChange={(val) => onUpdateExpense(expense.id, 'timing', val)} disabled={locked}>
-                                <SelectTrigger className="w-36"><SelectValue placeholder="Timing..." /></SelectTrigger>
-                                <SelectContent>
-                                    {TIMING_OPTIONS.map(t => (
-                                        <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <Input
-                                value={expense.notes || ''}
-                                onChange={(e) => onUpdateExpense(expense.id, 'notes', e.target.value)}
-                                placeholder="Notes"
-                                className="flex-1 hidden lg:block min-w-0"
-                                disabled={locked}
-                            />
-                            {!locked && (
-                                <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={() => onRemoveExpense(expense.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
-                    ))}
+        <div className="p-3 border rounded-lg bg-background space-y-3">
+            <div className="flex items-center justify-between">
+                {isCustom ? (
+                    <Input
+                        value={expense.name}
+                        onChange={(e) => onUpdateExpense(expense.id, 'name', e.target.value)}
+                        placeholder="Expense name"
+                        className="font-medium text-sm h-8 max-w-xs"
+                        disabled={locked}
+                    />
+                ) : (
+                    <span className="text-sm font-semibold">{expense.name}</span>
+                )}
+                <div className="flex items-center gap-2">
+                    {lineTotal > 0 && <span className="text-xs font-semibold text-muted-foreground">${lineTotal.toFixed(2)}</span>}
+                    {!locked && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => onRemoveExpense(expense.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
                 </div>
-            )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Amount</label>
+                    <Input
+                        type="number"
+                        value={expense.amount}
+                        onChange={(e) => onUpdateExpense(expense.id, 'amount', e.target.value)}
+                        placeholder="$0.00"
+                        className="h-8 text-sm"
+                        disabled={locked}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Unit</label>
+                    <Select value={expense.unit || 'flat'} onValueChange={(val) => onUpdateExpense(expense.id, 'unit', val)} disabled={locked}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {UNIT_OPTIONS.map(u => (
+                                <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Quantity</label>
+                    <Input
+                        type="number"
+                        min="1"
+                        value={expense.quantity || ''}
+                        onChange={(e) => onUpdateExpense(expense.id, 'quantity', e.target.value)}
+                        placeholder="1"
+                        className="h-8 text-sm"
+                        disabled={locked}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Timing</label>
+                    <Select value={expense.timing || ''} onValueChange={(val) => onUpdateExpense(expense.id, 'timing', val)} disabled={locked}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="When..." /></SelectTrigger>
+                        <SelectContent>
+                            {TIMING_OPTIONS.map(t => (
+                                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase flex items-center gap-1">
+                        <CalendarDays className="h-3 w-3" /> Due Date
+                    </label>
+                    <Input
+                        type="date"
+                        value={expense.dueDate || ''}
+                        onChange={(e) => onUpdateExpense(expense.id, 'dueDate', e.target.value)}
+                        className="h-8 text-sm"
+                        disabled={locked}
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Notes</label>
+                    <Input
+                        value={expense.notes || ''}
+                        onChange={(e) => onUpdateExpense(expense.id, 'notes', e.target.value)}
+                        placeholder="e.g., Paid by sponsor, discount applied..."
+                        className="h-8 text-sm"
+                        disabled={locked}
+                    />
+                </div>
+            </div>
         </div>
     );
 };
@@ -603,12 +543,12 @@ const SubGroupSection = ({ subGroup, categoryId, expenses, onToggleItem, onUpdat
 const CategorySection = ({ category, expenses, onToggleItem, onUpdateExpense, onRemoveExpense, onAddCustom, locked }) => {
     const [expanded, setExpanded] = useState(false);
     const categoryExpenses = expenses.filter(e => e.category === category.id);
-    const categoryTotal = categoryExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    const categoryTotal = categoryExpenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0);
     const activeCount = categoryExpenses.length;
 
-    // Find custom expenses (not in any subgroup preset list)
     const allPresetNames = new Set(category.subGroups.flatMap(sg => sg.items.map(i => i.name)));
     const customExpenses = categoryExpenses.filter(e => !allPresetNames.has(e.name));
+    const activeNames = new Set(categoryExpenses.map(e => e.name));
 
     return (
         <Card className={cn('overflow-hidden border-l-4', category.color)}>
@@ -634,69 +574,74 @@ const CategorySection = ({ category, expenses, onToggleItem, onUpdateExpense, on
             </div>
 
             {expanded && (
-                <CardContent className="pt-4 space-y-5">
-                    {category.subGroups.map(subGroup => (
-                        <SubGroupSection
-                            key={subGroup.title}
-                            subGroup={subGroup}
-                            categoryId={category.id}
-                            expenses={expenses}
-                            onToggleItem={onToggleItem}
-                            onUpdateExpense={onUpdateExpense}
-                            onRemoveExpense={onRemoveExpense}
-                            locked={locked}
-                        />
-                    ))}
-
-                    {/* Custom (user-added) expenses for this category */}
-                    {customExpenses.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Custom Expenses</p>
-                            {customExpenses.map(expense => (
-                                <div key={expense.id} className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                                    <Input
-                                        value={expense.name}
-                                        onChange={(e) => onUpdateExpense(expense.id, 'name', e.target.value)}
-                                        placeholder="Expense name"
-                                        className="flex-1"
-                                        disabled={locked}
-                                    />
-                                    <Input
-                                        type="number"
-                                        value={expense.amount}
-                                        onChange={(e) => onUpdateExpense(expense.id, 'amount', e.target.value)}
-                                        placeholder="$ Amount"
-                                        className="w-28"
-                                        disabled={locked}
-                                    />
-                                    <Select value={expense.timing || ''} onValueChange={(val) => onUpdateExpense(expense.id, 'timing', val)} disabled={locked}>
-                                        <SelectTrigger className="w-36"><SelectValue placeholder="Timing..." /></SelectTrigger>
-                                        <SelectContent>
-                                            {TIMING_OPTIONS.map(t => (
-                                                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Input
-                                        value={expense.notes || ''}
-                                        onChange={(e) => onUpdateExpense(expense.id, 'notes', e.target.value)}
-                                        placeholder="Notes"
-                                        className="flex-1 hidden lg:block min-w-0"
-                                        disabled={locked}
-                                    />
-                                    {!locked && (
-                                        <Button variant="ghost" size="icon" className="flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={() => onRemoveExpense(expense.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
+                <CardContent className="pt-4">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Left panel (1/3) — item selector */}
+                        <div className="lg:w-1/3 space-y-4 lg:border-r lg:pr-4">
+                            {category.subGroups.map(subGroup => (
+                                <div key={subGroup.title} className="space-y-1.5">
+                                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{subGroup.title}</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {subGroup.items.map(item => {
+                                            const isActive = activeNames.has(item.name);
+                                            return (
+                                                <button
+                                                    key={item.name}
+                                                    type="button"
+                                                    disabled={locked}
+                                                    onClick={() => onToggleItem(category.id, item)}
+                                                    className={cn(
+                                                        'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all',
+                                                        isActive
+                                                            ? 'bg-primary text-primary-foreground border-primary'
+                                                            : 'bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground',
+                                                        locked && 'opacity-50 cursor-not-allowed'
+                                                    )}
+                                                >
+                                                    {isActive && <Check className="h-2.5 w-2.5" />}
+                                                    {item.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             ))}
+                            <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => onAddCustom(category.id)} disabled={locked}>
+                                <PlusCircle className="h-3.5 w-3.5 mr-1.5" /> Add Custom
+                            </Button>
                         </div>
-                    )}
 
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => onAddCustom(category.id)} disabled={locked}>
-                        <PlusCircle className="h-4 w-4 mr-2" /> Add Custom Expense
-                    </Button>
+                        {/* Right panel (2/3) — detail forms */}
+                        <div className="lg:w-2/3 space-y-2">
+                            {categoryExpenses.length === 0 ? (
+                                <div className="flex items-center justify-center h-32 text-sm text-muted-foreground border border-dashed rounded-lg">
+                                    Select items from the left to configure details
+                                </div>
+                            ) : (
+                                <>
+                                    {categoryExpenses.filter(e => allPresetNames.has(e.name)).map(expense => (
+                                        <ExpenseDetailCard
+                                            key={expense.id}
+                                            expense={expense}
+                                            onUpdateExpense={onUpdateExpense}
+                                            onRemoveExpense={onRemoveExpense}
+                                            locked={locked}
+                                        />
+                                    ))}
+                                    {customExpenses.map(expense => (
+                                        <ExpenseDetailCard
+                                            key={expense.id}
+                                            expense={expense}
+                                            onUpdateExpense={onUpdateExpense}
+                                            onRemoveExpense={onRemoveExpense}
+                                            locked={locked}
+                                            isCustom
+                                        />
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </CardContent>
             )}
         </Card>
@@ -714,7 +659,7 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
     const totalSponsorshipRevenue = useMemo(() => sponsorshipRevenue.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsorshipRevenue]);
     const totalRevenue = totalFeeRevenue + totalSponsorshipRevenue;
 
-    const totalShowExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
+    const totalShowExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
     const totalAwardExpenses = useMemo(() => awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0), [awardExpenses]);
     const totalClassAwards = useMemo(() => Object.values(classAwards).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0), [classAwards]);
     const totalExpenses = totalShowExpenses + totalAwardExpenses + totalClassAwards;
@@ -728,13 +673,13 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
             if (existing) {
                 return { ...prev, showExpenses: (prev.showExpenses || []).filter(e => e.id !== existing.id) };
             }
-            const newExpense = { id: uuidv4(), name: item.name, amount: '', category: categoryId, timing: item.defaultTiming, notes: '' };
+            const newExpense = { id: uuidv4(), name: item.name, amount: '', category: categoryId, timing: item.defaultTiming, unit: 'flat', quantity: '', dueDate: '', notes: '' };
             return { ...prev, showExpenses: [...(prev.showExpenses || []), newExpense] };
         });
     };
 
     const addCustomExpense = (categoryId) => {
-        const newExpense = { id: uuidv4(), name: '', amount: '', category: categoryId, timing: 'before_show', notes: '' };
+        const newExpense = { id: uuidv4(), name: '', amount: '', category: categoryId, timing: 'before_show', unit: 'flat', quantity: '', dueDate: '', notes: '' };
         setFormData(prev => ({ ...prev, showExpenses: [...(prev.showExpenses || []), newExpense] }));
     };
 
@@ -761,7 +706,7 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 5: Show Expenses</CardTitle>
+                <CardTitle>Step 4: Show Expenses</CardTitle>
                 <CardDescription>Select expense items by category, set amounts, and assign timing buckets.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -858,7 +803,7 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                                     {EXPENSE_FRAMEWORK.map(cat => {
                                         const catExpenses = expenses.filter(e => e.category === cat.id && e.name && e.amount);
                                         if (catExpenses.length === 0) return null;
-                                        const catTotal = catExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                                        const catTotal = catExpenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0);
                                         return (
                                             <React.Fragment key={cat.id}>
                                                 <tr className={cat.bgColor}>
@@ -868,11 +813,15 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                                                 </tr>
                                                 {catExpenses.map(expense => {
                                                     const timingLabel = TIMING_OPTIONS.find(t => t.id === expense.timing)?.label || '';
+                                                    const qty = parseInt(expense.quantity) || 1;
+                                                    const lineTotal = (parseFloat(expense.amount) || 0) * qty;
+                                                    const unitLabel = UNIT_OPTIONS.find(u => u.id === expense.unit)?.label;
+                                                    const qtyInfo = qty > 1 && unitLabel ? ` (${qty} × ${unitLabel})` : '';
                                                     return (
                                                         <tr key={expense.id} className="border-b last:border-0">
-                                                            <td className="px-4 py-2">{expense.name}</td>
+                                                            <td className="px-4 py-2">{expense.name}{qtyInfo}</td>
                                                             <td className="px-4 py-2 text-muted-foreground">{timingLabel}</td>
-                                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(expense.amount).toFixed(2)}</td>
+                                                            <td className="px-4 py-2 text-right font-medium">${lineTotal.toFixed(2)}</td>
                                                         </tr>
                                                     );
                                                 })}
@@ -885,13 +834,17 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                                     })}
                                     {expenses.filter(e => !e.category && e.name && e.amount).length > 0 && (
                                         <>
-                                            {expenses.filter(e => !e.category && e.name && e.amount).map(expense => (
-                                                <tr key={expense.id} className="border-b last:border-0">
-                                                    <td className="px-4 py-2">{expense.name}</td>
-                                                    <td className="px-4 py-2 text-muted-foreground">{TIMING_OPTIONS.find(t => t.id === expense.timing)?.label || ''}</td>
-                                                    <td className="px-4 py-2 text-right font-medium">${parseFloat(expense.amount).toFixed(2)}</td>
-                                                </tr>
-                                            ))}
+                                            {expenses.filter(e => !e.category && e.name && e.amount).map(expense => {
+                                                const qty = parseInt(expense.quantity) || 1;
+                                                const lineTotal = (parseFloat(expense.amount) || 0) * qty;
+                                                return (
+                                                    <tr key={expense.id} className="border-b last:border-0">
+                                                        <td className="px-4 py-2">{expense.name}</td>
+                                                        <td className="px-4 py-2 text-muted-foreground">{TIMING_OPTIONS.find(t => t.id === expense.timing)?.label || ''}</td>
+                                                        <td className="px-4 py-2 text-right font-medium">${lineTotal.toFixed(2)}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </>
                                     )}
                                     {totalShowExpenses > 0 && (

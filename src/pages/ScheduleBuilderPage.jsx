@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { useShowBuilder } from '@/hooks/useShowBuilder';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Save, Loader2, Shield, ListPlus, Settings2, Info, LayoutGrid, CalendarDays, Search, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Loader2, Shield, ListPlus, Settings2, Info, LayoutGrid, CalendarDays, Palette, Search, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
@@ -18,16 +18,18 @@ import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
 import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
 import { Step5_Schedule } from '@/components/show-builder/Step5_Schedule';
+import { Step7_ScheduleLayout } from '@/components/show-builder/Step7_ScheduleLayout';
 import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
 
 const WIZARD_STEPS = [
-    { id: 1, name: 'Show Structure', icon: Shield },
+    { id: 1, name: 'Event Setup', icon: Shield },
     { id: 2, name: 'Select Disciplines', icon: ListPlus },
     { id: 3, name: 'Configure Classes', icon: Settings2 },
     { id: 4, name: 'Show Details', icon: Info },
     { id: 5, name: 'Arenas & Dates', icon: LayoutGrid },
-    { id: 6, name: 'Schedule Builder', icon: CalendarDays },
-    { id: 7, name: 'Review', icon: Search },
+    { id: 6, name: 'Organize Schedule', icon: CalendarDays },
+    { id: 7, name: 'Schedule Layout', icon: Palette },
+    { id: 8, name: 'Save & Manage', icon: Search },
 ];
 
 const STEP_COMPONENTS = [
@@ -36,57 +38,67 @@ const STEP_COMPONENTS = [
     { id: 3, component: 'ClassConfiguration' },
     { id: 4, component: Step4_ShowDetails },
     { id: 5, component: Step3_ArenasAndDates, props: { stepNumber: 5, stepTitle: 'Arenas & Dates' } },
-    { id: 6, component: Step5_Schedule, props: { stepNumber: 6, stepTitle: 'Schedule Builder' } },
-    { id: 7, component: Step6_Preview, props: { stepNumber: 7, stepTitle: 'Review' } },
+    { id: 6, component: Step5_Schedule, props: { stepNumber: 6, stepTitle: 'Organize Schedule' } },
+    { id: 7, component: Step7_ScheduleLayout },
+    { id: 8, component: Step6_Preview, props: { stepNumber: 8, stepTitle: 'Save & Manage' } },
 ];
 
-const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => (
-    <div className="flex justify-center items-start mb-8 px-4 overflow-x-auto pb-4">
-        {WIZARD_STEPS.map((step, index) => {
-            const isCompleted = completedSteps.has(step.id);
-            const isActive = currentStep === step.id;
-            return (
-                <React.Fragment key={step.id}>
-                    <button
-                        type="button"
-                        className="flex flex-col items-center text-center w-28 cursor-pointer flex-shrink-0 bg-transparent border-none"
-                        onClick={() => onStepClick(step.id)}
-                    >
-                        <div className={cn(
-                            'w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                            isActive && 'bg-primary border-primary text-primary-foreground shadow-lg scale-110',
-                            !isActive && !isCompleted && 'bg-secondary border-border text-muted-foreground',
-                            isCompleted && !isActive && 'bg-green-600 border-green-600 text-white'
-                        )}>
-                            {isCompleted && !isActive
-                                ? <Check className="h-5 w-5" />
-                                : <step.icon className="h-5 w-5" />
-                            }
+const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => {
+    const nextStepId = (() => {
+        for (const step of WIZARD_STEPS) {
+            if (!completedSteps.has(step.id)) return step.id;
+        }
+        return WIZARD_STEPS[WIZARD_STEPS.length - 1]?.id;
+    })();
+
+    return (
+        <div className="flex items-start mb-8 w-full">
+            {WIZARD_STEPS.map((step, index) => {
+                const isCompleted = completedSteps.has(step.id);
+                const isActive = currentStep === step.id;
+                const isNext = step.id === nextStepId && !isActive;
+                const isNavigable = isCompleted || isActive || isNext;
+                return (
+                    <React.Fragment key={step.id}>
+                        <div
+                            className={cn(
+                                'flex flex-col items-center text-center flex-1',
+                                isNavigable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                            )}
+                            onClick={() => isNavigable && onStepClick(step.id)}
+                        >
+                            <div className={cn(
+                                'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                                isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
+                                isNext && 'highlight-next-step'
+                            )}>
+                                {isCompleted ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                            </div>
+                            <p className={cn(
+                                'mt-2 text-xs font-medium leading-tight',
+                                isActive ? 'text-foreground' : 'text-muted-foreground',
+                                isCompleted && !isActive && 'text-green-600'
+                            )}>
+                                {step.name}
+                            </p>
                         </div>
-                        <p className={cn(
-                            'mt-2 text-xs font-medium transition-colors',
-                            isActive && 'text-foreground font-semibold',
-                            !isActive && !isCompleted && 'text-muted-foreground',
-                            isCompleted && !isActive && 'text-green-600'
-                        )}>
-                            {step.name}
-                        </p>
-                    </button>
-                    {index < WIZARD_STEPS.length - 1 && (
-                        <div className={cn(
-                            'flex-1 h-1 mt-5 mx-1 rounded-full transition-colors duration-300 min-w-[2rem]',
-                            isCompleted && completedSteps.has(WIZARD_STEPS[index + 1]?.id)
-                                ? 'bg-green-600'
-                                : currentStep > step.id
-                                    ? 'bg-primary'
-                                    : 'bg-border'
-                        )} />
-                    )}
-                </React.Fragment>
-            );
-        })}
-    </div>
-);
+                        {index < WIZARD_STEPS.length - 1 && (
+                            <div className={cn(
+                                'w-full h-0.5 mt-5 rounded-full transition-colors duration-300',
+                                isCompleted && completedSteps.has(WIZARD_STEPS[index + 1]?.id)
+                                    ? 'bg-green-600'
+                                    : currentStep > WIZARD_STEPS[index + 1]?.id
+                                        ? 'bg-primary'
+                                        : 'bg-border'
+                            )} />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+};
 
 const AUTO_SAVE_DELAY = 3000;
 
@@ -192,6 +204,7 @@ const ScheduleBuilderPage = () => {
                     <PageHeader
                         title="Horse Show Schedule Builder"
                         subtitle={`Step ${currentStep} of ${WIZARD_STEPS.length} — ${WIZARD_STEPS[currentStep - 1]?.name}`}
+                        backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'}
                     />
 
                     <StepIndicator
@@ -200,39 +213,41 @@ const ScheduleBuilderPage = () => {
                         onStepClick={setCurrentStep}
                     />
 
-                    <LinkToExistingShow
-                        existingProjects={existingProjects}
-                        linkedProjectId={formData.linkedProjectId || null}
-                        onLink={(projectId) => {
-                            if (projectId === 'none') {
-                                setFormData(prev => ({ ...prev, linkedProjectId: null }));
-                            } else {
-                                const project = existingProjects.find(p => p.id === projectId);
-                                const pd = project?.project_data || {};
-                                setFormData(prev => ({
-                                    ...prev,
-                                    linkedProjectId: projectId,
-                                    showName: pd.showName || prev.showName,
-                                    showNumber: pd.showNumber || prev.showNumber,
-                                    associations: pd.associations || prev.associations,
-                                    customAssociations: pd.customAssociations || prev.customAssociations,
-                                    disciplines: pd.disciplines || prev.disciplines,
-                                    startDate: pd.startDate || prev.startDate,
-                                    endDate: pd.endDate || prev.endDate,
-                                    venueAddress: pd.venueAddress || prev.venueAddress,
-                                    venueName: pd.venueName || prev.venueName,
-                                    arenas: pd.arenas || prev.arenas,
-                                    officials: pd.officials || prev.officials,
-                                    staff: pd.staff || prev.staff,
-                                }));
-                                toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
-                            }
-                        }}
-                        onDuplicated={(newProject) => {
-                            navigate(`/horse-show-manager/schedule-builder/${newProject.id}`, { replace: true });
-                        }}
-                        description="Link to an existing show to auto-fill details, or duplicate a previous show."
-                    />
+                    {!showId && (
+                        <LinkToExistingShow
+                            existingProjects={existingProjects}
+                            linkedProjectId={formData.linkedProjectId || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') {
+                                    setFormData(prev => ({ ...prev, linkedProjectId: null }));
+                                } else {
+                                    const project = existingProjects.find(p => p.id === projectId);
+                                    const pd = project?.project_data || {};
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        linkedProjectId: projectId,
+                                        showName: pd.showName || prev.showName,
+                                        showNumber: pd.showNumber || prev.showNumber,
+                                        associations: pd.associations || prev.associations,
+                                        customAssociations: pd.customAssociations || prev.customAssociations,
+                                        disciplines: pd.disciplines || prev.disciplines,
+                                        startDate: pd.startDate || prev.startDate,
+                                        endDate: pd.endDate || prev.endDate,
+                                        venueAddress: pd.venueAddress || prev.venueAddress,
+                                        venueName: pd.venueName || prev.venueName,
+                                        arenas: pd.arenas || prev.arenas,
+                                        officials: pd.officials || prev.officials,
+                                        staff: pd.staff || prev.staff,
+                                    }));
+                                    toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
+                                }
+                            }}
+                            onDuplicated={(newProject) => {
+                                navigate(`/horse-show-manager/schedule-builder/${newProject.id}`, { replace: true });
+                            }}
+                            description="Link to an existing show to auto-fill details, or duplicate a previous show."
+                        />
+                    )}
 
                     <Card className="mt-4">
                         <AnimatePresence mode="wait">

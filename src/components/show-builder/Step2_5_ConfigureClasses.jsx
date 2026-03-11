@@ -276,7 +276,7 @@ export const Step2_5_ConfigureClasses = ({ formData, setFormData }) => {
     return (
         <motion.div key="step2_5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 3: Organize Your Schedule</CardTitle>
+                <CardTitle>Step 6: Organize Schedule</CardTitle>
                 <CardDescription>Drag disciplines to schedule them by day and arena. Use quick assign for bulk scheduling. The order of disciplines determines the schedule for the day.</CardDescription>
             </CardHeader>
             <CardContent>

@@ -3,6 +3,6 @@ import { AssociationSelection } from '@/components/shared/AssociationSelection';
 
 export const AssociationStep = ({ formData, setFormData, ...props }) => {
   return (
-    <AssociationSelection formData={formData} setFormData={setFormData} {...props} context="showInfo" />
+    <AssociationSelection formData={formData} setFormData={setFormData} {...props} context="showBuilder" />
   );
 };

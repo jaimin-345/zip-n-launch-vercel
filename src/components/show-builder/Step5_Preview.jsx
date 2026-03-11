@@ -8,7 +8,7 @@ export const Step5_Preview = ({ formData }) => {
   return (
     <motion.div key="step5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>Step 6: Preview Show Bill</CardTitle>
+        <CardTitle>Step 7: Save & Manage</CardTitle>
         <CardDescription>Review a preview of your generated show bill before finalizing.</CardDescription>
       </CardHeader>
       <CardContent>

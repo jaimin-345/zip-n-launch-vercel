@@ -1,7 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Package, Ruler, CalendarDays, Truck, MapPin, ClipboardCheck, RefreshCcw, FileBarChart, Calculator } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import Navigation from '@/components/Navigation';
@@ -67,12 +67,13 @@ const sections = [
 ];
 
 const EquipmentPlanningHubPage = () => {
+  const { showId } = useParams();
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Helmet><title>Equipment Planning - EquiPatterns</title></Helmet>
       <Navigation />
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <PageHeader title="Equipment Planning" />
+        <PageHeader title="Equipment Planning" backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section, index) => (

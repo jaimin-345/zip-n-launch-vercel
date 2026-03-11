@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { AnimatePresence } from 'framer-motion';
 import Navigation from '@/components/Navigation';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { cn } from '@/lib/utils';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
+import { UsageLimitGate } from '@/components/shared/UsageLimitGate';
 
 import { AssociationStep } from '@/components/show-structure/AssociationStep';
 import { GeneralVenueStep } from '@/components/show-structure/GeneralVenueStep';
@@ -22,13 +23,13 @@ import { ReviewStep } from '@/components/show-structure/ReviewStep';
 
 
 const WIZARD_STEPS = [
-    { id: 1, name: 'Associations', icon: Shield },
+    { id: 1, name: 'Event Setup', icon: Shield },
     { id: 2, name: 'General & Venue', icon: Info },
     { id: 3, name: 'Officials & Staff', icon: User },
     { id: 4, name: 'Show Expenses', icon: TrendingDown },
     { id: 5, name: 'Awards', icon: Trophy },
-    { id: 6, name: 'Entry & Scheduling', icon: CalendarDays },
-    { id: 7, name: 'Review', icon: Search },
+    { id: 6, name: 'General Information', icon: CalendarDays },
+    { id: 7, name: 'Save & Manage', icon: Search },
 ];
 
 const ShowInfoSteps = ({ currentStep, completedSteps, setCurrentStep }) => {
@@ -71,8 +72,37 @@ const ShowStructurePage = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [currentStep, setCurrentStepState] = useState(1);
     const [completedSteps, setCompletedSteps] = useState(new Set());
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const lastSavedDataRef = useRef(null);
 
-     const setCurrentStep = (stepNumber) => {
+    // Track unsaved changes by comparing formData to last saved snapshot
+    useEffect(() => {
+        if (!isDataLoading && lastSavedDataRef.current !== null) {
+            const changed = JSON.stringify(formData) !== JSON.stringify(lastSavedDataRef.current);
+            setHasUnsavedChanges(changed);
+        }
+    }, [formData, isDataLoading]);
+
+    // Set initial snapshot after data loads
+    useEffect(() => {
+        if (!isDataLoading) {
+            lastSavedDataRef.current = { ...formData };
+        }
+    }, [isDataLoading]);
+
+    // Browser close / tab close warning
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
+
+    const setCurrentStep = (stepNumber) => {
         setCompletedSteps(prev => new Set([...prev, currentStep]));
         setCurrentStepState(stepNumber);
     };
@@ -87,30 +117,50 @@ const ShowStructurePage = () => {
         { id: 7, component: ReviewStep },
     ];
 
-    const nextStep = () => {
-        setCompletedSteps(prev => new Set([...prev, currentStep]));
-        if (currentStep < steps.length) {
-            setCurrentStepState(prev => prev + 1);
-        }
-    };
-
-    const prevStep = () => {
-        if (currentStep > 1) {
-            setCurrentStepState(prev => prev - 1);
-        }
-    };
-
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         setIsSaving(true);
         try {
             const project = await createOrUpdateShow();
-            if (project && !showId) {
-                navigate(`/horse-show-manager/show-structure-expenses/${project.id}`, { replace: true });
+            if (project) {
+                lastSavedDataRef.current = { ...formData };
+                setHasUnsavedChanges(false);
+                if (!showId) {
+                    navigate(`/horse-show-manager/show-structure-expenses/${project.id}`, { replace: true });
+                }
             }
         } catch (error) {
             // Error is handled in hook
         } finally {
             setIsSaving(false);
+        }
+    }, [createOrUpdateShow, formData, showId, navigate]);
+
+    // Auto-save on Next
+    const nextStep = useCallback(async () => {
+        setCompletedSteps(prev => new Set([...prev, currentStep]));
+
+        // Auto-save in the background
+        try {
+            const project = await createOrUpdateShow();
+            if (project) {
+                lastSavedDataRef.current = { ...formData };
+                setHasUnsavedChanges(false);
+                if (!showId && project.id) {
+                    navigate(`/horse-show-manager/show-structure-expenses/${project.id}`, { replace: true });
+                }
+            }
+        } catch {
+            // Save failed silently — user can still proceed
+        }
+
+        if (currentStep < steps.length) {
+            setCurrentStepState(prev => prev + 1);
+        }
+    }, [currentStep, steps.length, createOrUpdateShow, formData, showId, navigate]);
+
+    const prevStep = () => {
+        if (currentStep > 1) {
+            setCurrentStepState(prev => prev - 1);
         }
     };
 
@@ -125,7 +175,7 @@ const ShowStructurePage = () => {
     }
 
     return (
-        <>
+        <UsageLimitGate toolName="Show Structure & Expenses" isEditing={!!showId}>
             <Helmet>
                 <title>Show Structure & Expenses</title>
                 <meta name="description" content="Manage all operational costs and structure for your horse show." />
@@ -133,7 +183,7 @@ const ShowStructurePage = () => {
             <div className="min-h-screen bg-background">
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <PageHeader title="Show Structure & Expenses" />
+                    <PageHeader title="Show Structure & Expenses" backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'} />
 
                     <ShowInfoSteps
                         currentStep={currentStep}
@@ -141,7 +191,7 @@ const ShowStructurePage = () => {
                         setCurrentStep={setCurrentStep}
                     />
 
-                    {currentStep === 1 && (
+                    {currentStep === 1 && !showId && (
                         <LinkToExistingShow
                             existingProjects={existingProjects}
                             linkedProjectId={formData.linkedProjectId || null}
@@ -198,18 +248,19 @@ const ShowStructurePage = () => {
                             Back
                         </Button>
                         <div className="flex items-center gap-3">
-                            <Button onClick={handleSave} disabled={isSaving}>
+                            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                {isSaving ? 'Saving...' : 'Save All Details'}
+                                {isSaving ? 'Saving...' : 'Save'}
                             </Button>
-                            <Button onClick={nextStep} disabled={currentStep === steps.length}>
+                            <Button onClick={nextStep} disabled={currentStep === steps.length || isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Next
                             </Button>
                         </div>
                     </div>
                 </main>
             </div>
-        </>
+        </UsageLimitGate>
     );
 };
 

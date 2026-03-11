@@ -196,7 +196,7 @@ const ShowFinancialDashboardPage = () => {
                 <Navigation />
                 <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-                    <PageHeader title="Financial Projections" />
+                    <PageHeader title="Financial Projections" backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'} />
 
                     {!showId && (
                         <div className="mb-6">

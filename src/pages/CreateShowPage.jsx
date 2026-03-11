@@ -12,11 +12,13 @@ import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { Step3_ArenasAndDates } from '@/components/show-builder/Step3_ArenasAndDates';
 import { Step3_ConfigureDivisions } from '@/components/show-builder/Step3_ConfigureDivisions';
 import { Step4_ShowDetails } from '@/components/show-builder/Step4_ShowDetails';
+import { Step7_ScheduleLayout } from '@/components/show-builder/Step7_ScheduleLayout';
 import { Step6_Preview } from '@/components/show-builder/Step6_Preview';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Save, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Loader2, GitMerge, ListPlus, Settings2, Calendar, MapPin, LayoutGrid, Palette, ShieldCheck } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { UsageLimitGate } from '@/components/shared/UsageLimitGate';
 import { useToast } from '@/components/ui/use-toast';
 
 const CreateShowPage = () => {
@@ -48,19 +50,20 @@ const CreateShowPage = () => {
     };
 
     const steps = [
-        { id: 1, name: 'Show Structure', component: Step1_ShowAssociations },
-        { id: 2, name: 'Select Disciplines', component: Step2_ClassesAndDivisions },
-        { id: 3, name: 'Configure Classes', component: 'ClassConfiguration' },
-        { id: 4, name: 'Show Details', component: Step4_ShowDetails },
-        { id: 5, name: 'Arenas & Dates', component: Step3_ArenasAndDates },
-        { id: 6, name: 'Organize Schedule', component: Step3_ConfigureDivisions },
-        { id: 7, name: 'Save & Manage', component: Step6_Preview },
+        { id: 1, name: 'Event Setup', icon: GitMerge, component: Step1_ShowAssociations },
+        { id: 2, name: 'Select Disciplines', icon: ListPlus, component: Step2_ClassesAndDivisions },
+        { id: 3, name: 'Configure Classes', icon: Settings2, component: 'ClassConfiguration' },
+        { id: 4, name: 'Show Details', icon: Calendar, component: Step4_ShowDetails },
+        { id: 5, name: 'Arenas & Dates', icon: MapPin, component: Step3_ArenasAndDates },
+        { id: 6, name: 'Organize Schedule', icon: LayoutGrid, component: Step3_ConfigureDivisions },
+        { id: 7, name: 'Schedule Layout', icon: Palette, component: Step7_ScheduleLayout },
+        { id: 8, name: 'Save & Manage', icon: ShieldCheck, component: Step6_Preview },
     ];
 
     const CurrentStepComponent = steps.find(s => s.id === currentStep)?.component;
 
     return (
-        <>
+        <UsageLimitGate toolName="Horse Show Manager" isEditing={isEditMode}>
             <Helmet>
                 <title>{isEditMode ? 'Edit Show' : 'Horse Show Schedule Builder'} - Horse Show Manager</title>
                 <meta name="description" content="Build your horse show schedule and details step-by-step." />
@@ -71,6 +74,7 @@ const CreateShowPage = () => {
                     <PageHeader
                         title={isEditMode ? 'Edit Show' : 'Horse Show Schedule Builder'}
                         subtitle={`Step ${currentStep} of ${steps.length} — ${steps[currentStep - 1]?.name}`}
+                        backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'}
                     />
                     
                     <div className="max-w-7xl mx-auto">
@@ -181,7 +185,7 @@ const CreateShowPage = () => {
                     </div>
                 </main>
             </div>
-        </>
+        </UsageLimitGate>
     );
 };
 

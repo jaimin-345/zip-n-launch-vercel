@@ -495,11 +495,8 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
 
   const getTitle = () => {
     if (context === 'pattern-upload') return `Step ${stepNumber}: Pattern Set Name & Associations`;
-    if (context === 'pbb') return `Step ${stepNumber}: Book & Association Details`;
     if (context === 'showInfo') return "Associations";
-    if (context === 'hub') return `Step ${stepNumber}: Select Association`;
-    if (context === 'contract') return `Step ${stepNumber}: Select Association / Affiliation`;
-    return `Step ${stepNumber}: Show Structure`;
+    return `Step ${stepNumber}: Event Setup`;
   };
 
   const getDescription = () => {

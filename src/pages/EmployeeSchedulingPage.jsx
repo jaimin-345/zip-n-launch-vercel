@@ -719,19 +719,21 @@ const EmployeeSchedulingPage = () => {
                         </div>
                     </div>
 
-                    <LinkToExistingShow
-                        existingProjects={shows}
-                        linkedProjectId={selectedShow?.id || null}
-                        onLink={(projectId) => {
-                            if (projectId === 'none') {
-                                setSelectedShow(null);
-                            } else {
-                                const show = shows.find(s => s.id === projectId);
-                                if (show) setSelectedShow(show);
-                            }
-                        }}
-                        description="Link to a show to manage its staff scheduling."
-                    />
+                    {!showId && (
+                        <LinkToExistingShow
+                            existingProjects={shows}
+                            linkedProjectId={selectedShow?.id || null}
+                            onLink={(projectId) => {
+                                if (projectId === 'none') {
+                                    setSelectedShow(null);
+                                } else {
+                                    const show = shows.find(s => s.id === projectId);
+                                    if (show) setSelectedShow(show);
+                                }
+                            }}
+                            description="Link to a show to manage its staff scheduling."
+                        />
+                    )}
 
                     {selectedShow && (
                         <div className="mt-6">

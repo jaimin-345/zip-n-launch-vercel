@@ -205,7 +205,7 @@ export const Step6_CloseOut = ({ formData, setFormData, onSave, isSaving }) => {
       <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <CheckCircle className="h-5 w-5 text-primary" />
-          Step 6: Save & Close Out
+          Step 6: Save & Manage
         </CardTitle>
         <CardDescription>
           Choose how to proceed — keep your project active for ongoing management, or finalize everything and close out.

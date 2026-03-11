@@ -1,83 +1,73 @@
 import React from 'react';
-    import { motion } from 'framer-motion';
-    import { cn } from '@/lib/utils';
-    import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 
-    const ShowBuilderSteps = ({ steps, currentStep, completedSteps, setCurrentStep }) => {
-      const containerVariants = {
-        hidden: { opacity: 0 },
-        show: {
-          opacity: 1,
-          transition: {
-            staggerChildren: 0.1,
-          },
-        },
-      };
-
-      const itemVariants = {
-        hidden: { y: 20, opacity: 0 },
-        show: { y: 0, opacity: 1 },
-      };
-
-      const canNavigateTo = (stepId) => {
-        if (stepId <= currentStep) return true;
-        for (let i = 1; i < stepId; i++) {
-            if (!completedSteps.has(i)) {
-                return false;
+const ShowBuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {} }) => {
+    const nextStepId = (() => {
+        for (const step of steps) {
+            if (!completedSteps.has(step.id)) {
+                return step.id;
             }
         }
-        return true;
-      };
+        return steps[steps.length - 1]?.id;
+    })();
 
-      return (
-        <div className="mb-12">
-          <motion.div
-            className="grid grid-cols-4 md:grid-cols-7 gap-4"
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-          >
-            {steps.map((step) => {
-              const isCompleted = completedSteps.has(step.id);
-              const isActive = currentStep === step.id;
-              const isNavigable = canNavigateTo(step.id);
-              
-              return (
-                <motion.div
-                  key={step.id}
-                  variants={itemVariants}
-                  className={cn(
-                    'flex flex-col items-center text-center space-y-2',
-                    isNavigable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
-                  )}
-                  onClick={() => isNavigable && setCurrentStep(step.id)}
-                >
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 transition-all duration-300',
-                      isActive
-                        ? 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg'
-                        : isCompleted
-                        ? 'bg-green-500/20 border-green-500 text-green-600 dark:text-green-400'
-                        : 'bg-card border-border text-muted-foreground'
-                    )}
-                  >
-                    {isCompleted && !isActive ? <Check className="w-6 h-6" /> : step.id}
-                  </div>
-                  <p
-                    className={cn(
-                      'text-xs font-semibold leading-tight transition-colors duration-300',
-                      isActive ? 'text-primary' : 'text-muted-foreground'
-                    )}
-                  >
-                    {step.name}
-                  </p>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        </div>
-      );
+    const canNavigateTo = (stepId) => {
+        if (stepId === currentStep) return true;
+        if (completedSteps.has(stepId)) return true;
+        if (stepId === nextStepId) return true;
+        return false;
     };
 
-    export default ShowBuilderSteps;
+    return (
+        <div className="flex items-start mb-8 w-full">
+            {steps.map((step, index) => {
+                const isCompleted = completedSteps.has(step.id);
+                const isActive = currentStep === step.id;
+                const isNext = step.id === nextStepId && !isActive;
+                const isNavigable = canNavigateTo(step.id);
+                const Icon = step.icon;
+
+                return (
+                    <React.Fragment key={step.id}>
+                        <div
+                            className={cn(
+                                'flex flex-col items-center text-center flex-1',
+                                isNavigable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                            )}
+                            onClick={() => isNavigable && setCurrentStep(step.id)}
+                        >
+                            <div className={cn(
+                                'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                                isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
+                                isNext && 'highlight-next-step'
+                            )}>
+                                {isCompleted ? <Check className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : step.id}
+                            </div>
+                            <p className={cn(
+                                'mt-2 text-xs font-medium leading-tight',
+                                isActive ? 'text-foreground' : 'text-muted-foreground',
+                                isCompleted && !isActive && 'text-green-600'
+                            )}>
+                                {step.name}
+                            </p>
+                        </div>
+                        {index < steps.length - 1 && (
+                            <div className={cn(
+                                'w-full h-0.5 mt-5 rounded-full transition-colors duration-300',
+                                completedSteps.has(step.id) && completedSteps.has(steps[index + 1]?.id)
+                                    ? 'bg-green-600'
+                                    : currentStep > steps[index + 1]?.id
+                                        ? 'bg-primary'
+                                        : 'bg-border'
+                            )} />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+};
+
+export default ShowBuilderSteps;

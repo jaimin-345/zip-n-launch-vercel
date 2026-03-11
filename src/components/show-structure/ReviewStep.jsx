@@ -1,44 +1,323 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Pencil } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Pencil, Save, Loader2, ShieldCheck, Lock, Rocket, Download,
+    CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone
+} from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 
-const ReviewSection = ({ title, onEditClick, children }) => {
+const STATUS_CONFIG = {
+    draft:     { label: 'Draft',     color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
+    approved:  { label: 'Approved',  color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
+    locked:    { label: 'Locked',    color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
+    published: { label: 'Published', color: 'bg-purple-100 text-purple-800 border-purple-300', dotColor: 'bg-purple-600' },
+};
+
+// --- Admin & Owner Assignment ---
+const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
+    const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || '';
+    const loggedInUserEmail = user?.email || '';
+    const loggedInUserPhone = user?.user_metadata?.phone || user?.user_metadata?.mobile || profile?.phone || profile?.mobile || '';
+
+    const defaultAdminOwner = {
+        adminName: loggedInUserName, adminEmail: loggedInUserEmail, adminPhone: loggedInUserPhone,
+        ownerName: loggedInUserName, ownerEmail: loggedInUserEmail, ownerPhone: loggedInUserPhone,
+    };
+    const adminOwner = { ...defaultAdminOwner, ...(formData.adminOwner || {}) };
+
+    const handleUpdate = (field, value) => {
+        setFormData(prev => ({ ...prev, adminOwner: { ...(prev.adminOwner || {}), [field]: value } }));
+    };
+
+    const isLocked = formData.showStatus === 'locked' || formData.showStatus === 'published';
+
     return (
-        <AccordionItem value={title}>
-            <AccordionTrigger className="text-lg font-semibold">
-                <div className="flex justify-between items-center w-full pr-4">
-                    <span>{title}</span>
-                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onEditClick(); }}>
-                        <Pencil className="h-4 w-4 mr-2" /> Edit
-                    </Button>
+        <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-red-600" />
+                    Admin & Owner Assignment
+                </h3>
+            </div>
+            <p className="text-sm text-muted-foreground">Must assign Admin and Owner (EquiPatterns members). Both default to creator but can be delegated.</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3 p-3 bg-background rounded-md border">
+                    <div className="flex items-center gap-2">
+                        <UserCog className="h-4 w-4 text-primary" />
+                        <Label className="font-semibold">Admin (Required)</Label>
+                    </div>
+                    <Input placeholder="Admin Name" value={adminOwner.adminName || ''} onChange={(e) => handleUpdate('adminName', e.target.value)} disabled={isLocked} />
+                    <div className="flex gap-2">
+                        <div className="flex-1 relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Email" className="pl-9" value={adminOwner.adminEmail || ''} onChange={(e) => handleUpdate('adminEmail', e.target.value)} disabled={isLocked} />
+                        </div>
+                        <div className="flex-1 relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Phone" className="pl-9" value={adminOwner.adminPhone || ''} onChange={(e) => handleUpdate('adminPhone', e.target.value)} disabled={isLocked} />
+                        </div>
+                    </div>
                 </div>
-            </AccordionTrigger>
-            <AccordionContent>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                    {children}
+
+                <div className="space-y-3 p-3 bg-background rounded-md border">
+                    <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-amber-500" />
+                        <Label className="font-semibold">Owner (Required)</Label>
+                    </div>
+                    <Input placeholder="Owner Name" value={adminOwner.ownerName || ''} onChange={(e) => handleUpdate('ownerName', e.target.value)} disabled={isLocked} />
+                    <div className="flex gap-2">
+                        <div className="flex-1 relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Email" className="pl-9" value={adminOwner.ownerEmail || ''} onChange={(e) => handleUpdate('ownerEmail', e.target.value)} disabled={isLocked} />
+                        </div>
+                        <div className="flex-1 relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input placeholder="Phone" className="pl-9" value={adminOwner.ownerPhone || ''} onChange={(e) => handleUpdate('ownerPhone', e.target.value)} disabled={isLocked} />
+                        </div>
+                    </div>
                 </div>
-            </AccordionContent>
-        </AccordionItem>
+            </div>
+
+            <div className="space-y-3 p-3 bg-background rounded-md border">
+                <div className="flex items-center gap-2">
+                    <UserCog className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium text-muted-foreground">Second Admin (Optional)</Label>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Input placeholder="Name" value={adminOwner.secondAdminName || ''} onChange={(e) => handleUpdate('secondAdminName', e.target.value)} disabled={isLocked} />
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Email" className="pl-9" value={adminOwner.secondAdminEmail || ''} onChange={(e) => handleUpdate('secondAdminEmail', e.target.value)} disabled={isLocked} />
+                    </div>
+                    <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Phone" className="pl-9" value={adminOwner.secondAdminPhone || ''} onChange={(e) => handleUpdate('secondAdminPhone', e.target.value)} disabled={isLocked} />
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
+
+// --- Left Panel: Project Info ---
+const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull }) => {
+    const status = formData.showStatus || 'draft';
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
+    const details = formData.showDetails || {};
+    const isLocked = status === 'locked' || status === 'published';
+
+    return (
+        <div className="border rounded-lg bg-card p-5 space-y-4">
+            <h3 className="text-base font-semibold">Project Info</h3>
+            <div className="space-y-3">
+                <div>
+                    <p className="text-xs text-muted-foreground">Show Name</p>
+                    <p className="text-sm font-medium">{formData.showName || 'Untitled Show'}</p>
+                </div>
+                <div>
+                    <p className="text-xs text-muted-foreground">Owner</p>
+                    <p className="text-sm font-medium">{user?.user_metadata?.full_name || user?.email || 'Unknown'}</p>
+                </div>
+                {details.venue?.facilityName && (
+                    <div>
+                        <p className="text-xs text-muted-foreground">Venue</p>
+                        <p className="text-sm">{details.venue.facilityName}</p>
+                    </div>
+                )}
+                <div>
+                    <p className="text-xs text-muted-foreground mb-1">Current Status</p>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${cfg.color}`}>
+                        <span className={`w-2 h-2 rounded-full ${cfg.dotColor}`} />
+                        {cfg.label}
+                    </span>
+                </div>
+            </div>
+
+            {/* Quick stats */}
+            <div className="pt-3 border-t space-y-1.5">
+                {isFull ? (
+                    <>
+                        <p className="text-xs text-muted-foreground">
+                            {(formData.showExpenses || []).filter(e => e.name).length} expense(s) configured
+                        </p>
+                        {totalAllExpenses > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Total expenses: ${totalAllExpenses.toFixed(2)}
+                            </p>
+                        )}
+                    </>
+                ) : (
+                    <>
+                        <p className="text-xs text-muted-foreground">
+                            {(formData.fees || []).filter(f => f.name).length} fee(s) configured
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {(formData.sponsors || []).filter(s => s.name).length} sponsor(s) added
+                        </p>
+                    </>
+                )}
+            </div>
+
+            {/* Publish Info */}
+            <div className="pt-3 border-t space-y-3">
+                <p className="text-xs font-medium text-muted-foreground">Publish Info (shown on Events page)</p>
+                <div className="space-y-1.5">
+                    <Label htmlFor="showWebsite" className="text-xs flex items-center gap-1"><Globe className="h-3 w-3" /> Website URL</Label>
+                    <Input
+                        id="showWebsite"
+                        placeholder="https://yourshow.com"
+                        value={formData.showWebsite || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, showWebsite: e.target.value }))}
+                        className="h-8 text-xs"
+                        disabled={isLocked}
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="showFacebook" className="text-xs flex items-center gap-1"><Facebook className="h-3 w-3" /> Facebook Event URL</Label>
+                    <Input
+                        id="showFacebook"
+                        placeholder="https://facebook.com/events/..."
+                        value={formData.showFacebook || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, showFacebook: e.target.value }))}
+                        className="h-8 text-xs"
+                        disabled={isLocked}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Center Panel: Action Buttons ---
+const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportBudget, isSaving, isFull }) => {
+    const isFinalized = currentStatus === 'published';
+    const isLocked = currentStatus === 'locked' || isFinalized;
+
+    return (
+        <div className="space-y-3">
+            <h3 className="text-base font-semibold mb-1">Manage Show</h3>
+            <p className="text-xs text-muted-foreground mb-4">
+                {isFull
+                    ? 'Save, approve & lock, and finalize your show structure & expenses.'
+                    : 'Save, approve & lock, and finalize your fee structure & sponsors.'}
+            </p>
+
+            <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12" onClick={() => onStatusChange('draft')} disabled={isSaving || isLocked}>
+                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
+                <div className="text-left">
+                    <span className="font-semibold">Save Draft</span>
+                    <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
+                </div>
+            </Button>
+
+            <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300" onClick={() => onStatusChange('locked')} disabled={isSaving || isLocked}>
+                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
+                    <div className="mr-3 relative">
+                        <ShieldCheck className="h-5 w-5 text-blue-600" />
+                        <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
+                    </div>
+                )}
+                <div className="text-left">
+                    <span className="font-semibold text-blue-700">Approve & Lock</span>
+                    <span className="block text-xs text-muted-foreground">Approve and lock editing — export & view only</span>
+                </div>
+            </Button>
+
+            <Button size="lg" className="w-full justify-start text-sm h-12 bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isFinalized}>
+                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+                <div className="text-left">
+                    <span className="font-semibold">Finalize Show</span>
+                    <span className="block text-xs text-purple-200">Publish official structure — final state</span>
+                </div>
+            </Button>
+
+            {onExportBudget && (
+                <>
+                    <hr className="my-2 border-border" />
+                    <Button size="lg" className="w-full text-sm font-semibold h-12" onClick={onExportBudget} disabled={isSaving}>
+                        <Download className="mr-2 h-5 w-5" /> Export Budget Spreadsheet
+                    </Button>
+                </>
+            )}
+        </div>
+    );
+};
+
+// --- Right Panel: Licensing ---
+const LicensingCard = () => (
+    <div className="border rounded-lg bg-card p-5 space-y-4">
+        <h3 className="text-base font-semibold flex items-center gap-2">
+            <Info className="h-4 w-4 text-primary" />
+            Project Ownership & Licensing
+        </h3>
+        <div className="space-y-2.5">
+            <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                <p className="text-sm">Ownership retained by creator</p>
+            </div>
+            <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                <p className="text-sm">Stored in your My Projects folder</p>
+            </div>
+            <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                <p className="text-sm">Admin access assigned</p>
+            </div>
+            <div className="flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                <p className="text-sm">Can be edited until locked</p>
+            </div>
+        </div>
+        <hr className="border-border" />
+        <div className="bg-muted/50 rounded-md p-3">
+            <p className="text-sm font-medium">Pricing Notice</p>
+            <p className="text-xs text-muted-foreground mt-1">
+                Building a show is free for members. Licensing applies only when publishing or exporting.
+            </p>
+        </div>
+    </div>
+);
+
+// --- Review Accordion Helpers ---
+const ReviewSection = ({ title, onEditClick, children }) => (
+    <AccordionItem value={title}>
+        <AccordionTrigger className="text-lg font-semibold">
+            <div className="flex justify-between items-center w-full pr-4">
+                <span>{title}</span>
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onEditClick(); }}>
+                    <Pencil className="h-4 w-4 mr-2" /> Edit
+                </Button>
+            </div>
+        </AccordionTrigger>
+        <AccordionContent>
+            <div className="space-y-2 text-sm text-muted-foreground">
+                {children}
+            </div>
+        </AccordionContent>
+    </AccordionItem>
+);
 
 const ReviewField = ({ label, value }) => {
     if (!value) return null;
-    return (
-        <p><span className="font-semibold text-foreground">{label}:</span> {value}</p>
-    );
+    return <p><span className="font-semibold text-foreground">{label}:</span> {value}</p>;
 };
 
-export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
-    const { fees = [], associations = {} } = formData;
+// --- Main Component ---
+export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'full' }) => {
+    const { associations = {} } = formData;
     const { toast } = useToast();
+    const { user, profile } = useAuth();
     const [associationsData, setAssociationsData] = useState([]);
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         const fetchAssociations = async () => {
@@ -54,74 +333,64 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
 
     const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
-    const totalFeeRevenue = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
     const sponsors = formData.sponsors || [];
     const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
-    const totalRevenue = totalFeeRevenue + totalSponsorshipRevenue;
     const expenses = formData.showExpenses || [];
-    const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0), [expenses]);
+    const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
     const awardExpenses = formData.awardExpenses || [];
     const totalAwardExpenses = useMemo(() => awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0), [awardExpenses]);
-    const netProfitLoss = totalRevenue - totalExpenses - totalAwardExpenses;
+    const totalAllExpenses = totalExpenses + totalAwardExpenses;
 
     const selectedAssociations = Object.keys(associations || {}).filter(id => associations[id]);
     const details = formData.showDetails || {};
+    const currentStatus = formData.showStatus || 'draft';
 
     const isFull = variant === 'full';
 
-    const FeesAndSponsorsContent = () => (
-        <div className="space-y-3">
-            {fees.length > 0 ? fees.map(fee => (
-                <div key={fee.id} className="p-2 border-b">
-                    <p><span className="font-semibold text-foreground">{fee.name}:</span> ${fee.amount}</p>
-                    {fee.association_specific && <p className="text-xs">For: {getAssociationName(fee.association_specific)}</p>}
-                </div>
-            )) : <p>No fees defined.</p>}
-            {totalFeeRevenue > 0 && (
-                <div className="p-2 rounded-lg bg-emerald-500/5">
-                    <div className="flex justify-between text-sm font-bold">
-                        <span>Total Fee Revenue</span>
-                        <span className="text-emerald-600">${totalFeeRevenue.toFixed(2)}</span>
-                    </div>
-                </div>
-            )}
-            {sponsors.filter(s => s.name).length > 0 && (
-                <>
-                    <p className="font-semibold text-foreground pt-2">Sponsorship Revenue</p>
-                    {sponsors.filter(s => s.name).map(s => (
-                        <div key={s.id} className="p-2 border-b">
-                            <p><span className="font-semibold text-foreground">{s.name}:</span> ${s.amount}</p>
-                        </div>
-                    ))}
-                    <div className="p-2 rounded-lg bg-emerald-500/5">
-                        <div className="flex justify-between text-sm font-bold">
-                            <span>Total Sponsorship</span>
-                            <span className="text-emerald-600">${totalSponsorshipRevenue.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </>
-            )}
-        </div>
-    );
+    const handleStatusChange = useCallback(async (newStatus) => {
+        setIsSaving(true);
+        try {
+            setFormData(prev => ({ ...prev, showStatus: newStatus }));
+            const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
+            toast({
+                title: `Show ${statusLabel}!`,
+                description: newStatus === 'published'
+                    ? 'Your show structure has been finalized.'
+                    : newStatus === 'locked'
+                    ? 'Show is now locked. Editing is disabled — export and view only.'
+                    : `Your show has been saved with status: ${statusLabel}.`,
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    }, [setFormData, toast]);
+
+    const handleExportBudget = useCallback(() => {
+        try {
+            exportShowBudgetToExcel(formData);
+            toast({ title: 'Budget Exported', description: 'Your budget spreadsheet has been downloaded.' });
+        } catch (err) {
+            toast({ title: 'Export Error', description: err.message, variant: 'destructive' });
+        }
+    }, [formData, toast]);
 
     // Build review sections based on variant
     const sections = isFull ? [
-        { num: 1, title: 'Associations', step: 1 },
+        { num: 1, title: 'Event Setup', step: 1 },
         { num: 2, title: 'General & Venue', step: 2 },
         { num: 3, title: 'Officials & Staff', step: 3 },
-        { num: 4, title: 'Fees & Sponsors (Revenue)', step: 4 },
-        { num: 5, title: 'Show Expenses', step: 5 },
-        { num: 6, title: 'Awards', step: 6 },
-        { num: 7, title: 'Entry & Scheduling', step: 7 },
+        { num: 4, title: 'Show Expenses', step: 4 },
+        { num: 5, title: 'Awards', step: 5 },
+        { num: 6, title: 'General Information', step: 6 },
     ] : [
-        { num: 1, title: 'Associations', step: 1 },
-        { num: 2, title: 'Fees & Sponsors (Revenue)', step: 2 },
+        { num: 1, title: 'Event Setup', step: 1 },
+        { num: 2, title: 'Fee Structure', step: 2 },
         { num: 3, title: 'Sponsors', step: 3 },
     ];
 
     const renderSectionContent = (title) => {
         switch (title) {
-            case 'Associations':
+            case 'Event Setup':
                 return (
                     <>
                         {selectedAssociations.length > 0
@@ -133,7 +402,7 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
             case 'General & Venue':
                 return (
                     <>
-                        <ReviewField label="Facility" value={details.venue?.facilityName} />
+                        <ReviewField label="Venue" value={details.venue?.facilityName} />
                         <ReviewField label="Address" value={details.venue?.address} />
                         <ReviewField label="Stalls" value={details.venue?.numberOfStalls} />
                         <ReviewField label="Arenas" value={details.venue?.numberOfArenas} />
@@ -147,16 +416,14 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
                 return (formData.staff || []).length > 0
                     ? <p>{formData.staff.length} staff member{formData.staff.length !== 1 ? 's' : ''} configured.</p>
                     : <p>No staff configured.</p>;
-            case 'Fees & Sponsors (Revenue)':
-                return <FeesAndSponsorsContent />;
             case 'Show Expenses':
                 return (
                     <div className="space-y-3">
-                        {expenses.length > 0 ? (
+                        {expenses.filter(e => e.name).length > 0 ? (
                             <>
                                 {expenses.filter(e => e.name).map(e => (
                                     <div key={e.id} className="p-2 border-b">
-                                        <p><span className="font-semibold text-foreground">{e.name}:</span> ${e.amount}</p>
+                                        <p><span className="font-semibold text-foreground">{e.name}:</span> ${e.amount}{e.quantity > 1 ? ` x ${e.quantity}` : ''}</p>
                                         <p className="text-xs">{e.timing?.replace('_', ' ')} {e.category ? `/ ${e.category}` : ''}</p>
                                     </div>
                                 ))}
@@ -186,7 +453,7 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
                         )}
                     </>
                 );
-            case 'Entry & Scheduling':
+            case 'General Information':
                 return (
                     <>
                         <ReviewField label="Entry Deadlines" value={details.entry?.deadlines} />
@@ -197,9 +464,22 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
                         <ReviewField label="Liability Release" value={details.healthSafety?.liability} />
                     </>
                 );
+            case 'Fee Structure':
+                return (
+                    <div className="space-y-2">
+                        {(formData.fees || []).filter(f => f.name).length > 0 ? (
+                            (formData.fees || []).filter(f => f.name).map(fee => (
+                                <div key={fee.id} className="p-2 border-b">
+                                    <p><span className="font-semibold text-foreground">{fee.name}:</span> ${fee.amount}</p>
+                                    {fee.type && <p className="text-xs">{fee.type}</p>}
+                                </div>
+                            ))
+                        ) : <p>No fees defined.</p>}
+                    </div>
+                );
             case 'Sponsors':
                 return sponsors.length > 0
-                    ? <p>{sponsors.length} sponsor{sponsors.length !== 1 ? 's' : ''} added. Total: ${totalSponsorshipRevenue.toFixed(2)}</p>
+                    ? <p>{sponsors.filter(s => s.name).length} sponsor{sponsors.filter(s => s.name).length !== 1 ? 's' : ''} added. Total: ${totalSponsorshipRevenue.toFixed(2)}</p>
                     : <p>No sponsors added.</p>;
             default:
                 return null;
@@ -209,11 +489,42 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Review</CardTitle>
-                <CardDescription>Review all details before saving. Click Edit to jump to any section.</CardDescription>
+                <CardTitle>{isFull ? '7. Save & Manage Your Show' : '4. Save & Manage'}</CardTitle>
+                <CardDescription>
+                    {isFull
+                        ? 'Save your show, manage status, and publish when ready.'
+                        : 'Save your fee structure & sponsors, manage status, and publish when ready.'}
+                    <span className="block mt-1 text-xs text-muted-foreground/70">
+                        Building a show is free — licensing applies only when publishing/exporting.
+                    </span>
+                </CardDescription>
             </CardHeader>
-            <CardContent className="pt-2">
-                 <Accordion type="multiple" defaultValue={['Associations']} className="w-full">
+            <CardContent className="space-y-6">
+                {/* Admin & Owner Assignment */}
+                <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} />
+
+                {/* 3-Column Layout: Project Info | Manage Show | Licensing */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-3">
+                        <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} totalAllExpenses={totalAllExpenses} isFull={isFull} />
+                    </div>
+                    <div className="lg:col-span-5">
+                        <ActionPanel
+                            formData={formData}
+                            currentStatus={currentStatus}
+                            onStatusChange={handleStatusChange}
+                            onExportBudget={isFull ? handleExportBudget : null}
+                            isSaving={isSaving}
+                            isFull={isFull}
+                        />
+                    </div>
+                    <div className="lg:col-span-4">
+                        <LicensingCard />
+                    </div>
+                </div>
+
+                {/* Review Sections */}
+                <Accordion type="multiple" defaultValue={['1. Event Setup']} className="w-full">
                     {sections.map(({ num, title, step }) => (
                         <ReviewSection key={title} title={`${num}. ${title}`} onEditClick={() => setCurrentStep(step)}>
                             {renderSectionContent(title)}
@@ -221,28 +532,28 @@ export const ReviewStep = ({ formData, setCurrentStep, variant = 'full' }) => {
                     ))}
                 </Accordion>
 
-                {/* Budget Summary */}
-                {(totalRevenue > 0 || totalExpenses > 0 || totalAwardExpenses > 0) && (
-                    <div className="mt-6 border rounded-lg overflow-hidden">
+                {/* Expense Summary — full variant only */}
+                {isFull && (totalExpenses > 0 || totalAwardExpenses > 0) && (
+                    <div className="border rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-muted/50 border-b">
-                            <h4 className="font-semibold text-base">Budget Summary</h4>
+                            <h4 className="font-semibold text-base">Expense Summary</h4>
                         </div>
                         <div className="p-4 space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <span>Total Revenue</span>
-                                <span className="font-semibold text-emerald-600">${totalRevenue.toFixed(2)}</span>
-                            </div>
-                            {(isFull || totalExpenses > 0 || totalAwardExpenses > 0) && (
+                            {totalExpenses > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span>Total Expenses</span>
-                                    <span className="font-semibold text-red-600">${(totalExpenses + totalAwardExpenses).toFixed(2)}</span>
+                                    <span>Show Expenses</span>
+                                    <span className="font-semibold text-red-600">${totalExpenses.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {totalAwardExpenses > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span>Award Expenses</span>
+                                    <span className="font-semibold text-red-600">${totalAwardExpenses.toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="border-t pt-2 flex justify-between text-sm font-bold">
-                                <span>Projected Profit / Loss</span>
-                                <span className={cn(netProfitLoss >= 0 ? "text-emerald-600" : "text-red-600")}>
-                                    {netProfitLoss >= 0 ? '' : '-'}${Math.abs(netProfitLoss).toFixed(2)}
-                                </span>
+                                <span>Total Expenses</span>
+                                <span className="text-red-600">${totalAllExpenses.toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

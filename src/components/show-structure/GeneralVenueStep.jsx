@@ -135,7 +135,7 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
     return (
         <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 2: General Information</CardTitle>
+                <CardTitle>Step 2: General & Venue</CardTitle>
                 <CardDescription>Enter the basic details for your show, populated from your association selections.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -242,9 +242,9 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                     <h4 className="font-semibold text-xl mb-4 text-primary">Venue Information</h4>
                     <div className="space-y-4">
                         <div>
-                            <Label>Facility</Label>
+                            <Label>Venue</Label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
-                                <Input className="md:col-span-1" value={formData.showDetails?.venue?.facilityName || ''} onChange={(e) => handleDetailChange('venue', 'facilityName', e.target.value)} placeholder="Facility Name" />
+                                <Input className="md:col-span-1" value={formData.showDetails?.venue?.facilityName || ''} onChange={(e) => handleDetailChange('venue', 'facilityName', e.target.value)} placeholder="Venue Name" />
                                 <Input className="md:col-span-1" type="url" value={formData.showDetails?.venue?.venueWebsite || ''} onChange={(e) => handleDetailChange('venue', 'venueWebsite', e.target.value)} placeholder="Venue Website" />
                                 <LogoUploader
                                     fieldId="venue"
@@ -268,8 +268,15 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                             </div>
                         </div>
                         
+                        {renderTextarea('venue', 'directions', 'Directions / Parking Instructions', 'e.g., Trailer parking is located at the north entrance...')}
+                    </div>
+                </div>
+
+                <div className="p-6 border rounded-lg bg-background/50">
+                    <h4 className="font-semibold text-xl mb-4 text-primary">Facility Details</h4>
+                    <div className="space-y-4">
                         <div>
-                            <Label>Facility Details</Label>
+                            <Label>Capacity</Label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
                                 <Input type="number" min="0" value={formData.showDetails?.venue?.numberOfStalls || ''} onChange={(e) => handleDetailChange('venue', 'numberOfStalls', e.target.value)} placeholder="Number of Stalls" />
                                 <Input type="number" min="0" value={formData.showDetails?.venue?.numberOfRVSpots || ''} onChange={(e) => handleDetailChange('venue', 'numberOfRVSpots', e.target.value)} placeholder="Number of RV Spots" />
@@ -294,8 +301,6 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                                 </div>
                             </div>
                         )}
-
-                        {renderTextarea('venue', 'directions', 'Directions / Parking Instructions', 'e.g., Trailer parking is located at the north entrance...')}
                     </div>
                 </div>
 

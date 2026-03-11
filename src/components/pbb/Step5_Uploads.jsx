@@ -22,7 +22,7 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
   return (
     <motion.div key="step5-uploads" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>Step 5: Uploads & Media</CardTitle>
+        <CardTitle>Step 6: Uploads & Media</CardTitle>
         <CardDescription>Customize the look of your pattern book and add media assets.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">

@@ -19,7 +19,7 @@ export const Step7_Preview = ({ formData, setFormData }) => {
     return (
         <motion.div key="step7" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 7: Preview & Finalize</CardTitle>
+                <CardTitle>Step 7: Save & Manage</CardTitle>
                 <CardDescription>Review your complete show setup before finalizing.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

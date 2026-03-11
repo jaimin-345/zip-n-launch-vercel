@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
+import { useUsageGate } from '@/hooks/useUsageGate';
 
 /* ── Custom folder SVG icons ── */
 
@@ -104,6 +105,7 @@ const sections = [
       { icon: CalendarDays, label: 'Horse Show Schedule Builder', link: '/horse-show-manager/create' },
       { icon: Info, label: 'Show Structure & Expenses', link: '/horse-show-manager/show-structure-expenses' },
       { icon: DollarSign, label: 'Fee Structure & Sponsors', link: '/horse-show-manager/fee-structure' },
+      { icon: FileText, label: 'Contract Management', link: '/horse-show-manager/employee-management/contracts' },
     ],
   },
   {
@@ -111,7 +113,6 @@ const sections = [
     title: 'Employee Management',
     link: '/horse-show-manager/employee-management',
     items: [
-      { icon: FileText, label: 'Contract Management', link: '/horse-show-manager/employee-management/contracts' },
       { icon: DollarSign, label: 'Employee Budgeting Tool', link: '/horse-show-manager/employee-budgeting' },
       { icon: LayoutGrid, label: 'Employee / Arena Scheduling', link: '/horse-show-manager/employee-scheduling' },
     ],
@@ -124,7 +125,7 @@ const sections = [
       { icon: Radio, label: 'Equipment Management', link: '/horse-show-manager/equipment-planning', line: 1 },
       { icon: Award, label: 'Awards Management', link: '/horse-show-manager/awards-management', line: 2 },
       { icon: DollarSign, label: 'Horse Show Financials / Analytics', link: '/horse-show-manager/financials', line: 3 },
-      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 4 },
+      { icon: Building2, label: 'Stalling Service', link: '/horse-show-manager/stalling-service-manager', line: 4, unimplemented: true },
     ],
   },
 ];
@@ -213,10 +214,24 @@ const HorseShowManagerPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { canCreate, showCount, freeLimit } = useUsageGate();
   const [shows, setShows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+
+  const handleCreateNew = () => {
+    if (canCreate) {
+      navigate('/horse-show-manager/create');
+    } else {
+      toast({
+        title: 'Free Limit Reached',
+        description: `You've used all ${freeLimit} free shows. Upgrade to create more.`,
+        variant: 'destructive',
+      });
+      navigate('/pricing');
+    }
+  };
 
   const handleDelete = async (e, show) => {
     e.stopPropagation();
@@ -295,7 +310,7 @@ const HorseShowManagerPage = () => {
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-bold text-foreground">Your Horse Shows</h2>
               <Button
-                onClick={() => navigate('/horse-show-manager/create')}
+                onClick={handleCreateNew}
                 className="bg-blue-500 hover:bg-blue-600 text-white"
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -329,7 +344,7 @@ const HorseShowManagerPage = () => {
                     Get started by creating your first horse show.
                   </p>
                   <Button
-                    onClick={() => navigate('/horse-show-manager/create')}
+                    onClick={handleCreateNew}
                     className="bg-blue-500 hover:bg-blue-600 text-white"
                   >
                     <Plus className="mr-2 h-4 w-4" />

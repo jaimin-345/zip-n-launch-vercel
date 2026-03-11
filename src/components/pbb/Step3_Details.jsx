@@ -10,7 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { JudgesAndStaff } from './JudgesAndStaff';
+import { OfficialsStaffSection } from '@/components/shared/OfficialsStaffSection';
 
 export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isEducationMode = false, purposeName = null, stepNumber = 4, isReadOnly = false }) => {
   const handleUpdate = (key, value) => {
@@ -18,8 +18,6 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const selectedAssociationIds = Object.keys(formData.associations);
-  
   // Determine mode based on props
   const mode = purposeName ? 'custom' : isClinicMode ? 'clinic' : isEducationMode ? 'education' : 'show';
 
@@ -148,17 +146,11 @@ export const Step3_Details = ({ formData, setFormData, isClinicMode = false, isE
                 </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-                <AccordionTrigger className="text-base font-semibold">
-                    {mode === 'clinic' ? 'Clinicians & Staff' : mode === 'education' ? 'Instructors & Contributors' : 'Judges & Show Staff'}
-                </AccordionTrigger>
+                <AccordionTrigger className="text-base font-semibold">Officials & Staff</AccordionTrigger>
                 <AccordionContent className="pt-3">
-                    <JudgesAndStaff
+                    <OfficialsStaffSection
                         formData={formData}
                         setFormData={setFormData}
-                        selectedAssociationIds={selectedAssociationIds}
-                        isClinicMode={isClinicMode}
-                        isEducationMode={isEducationMode}
-                        isReadOnly={isReadOnly}
                     />
                 </AccordionContent>
             </AccordionItem>

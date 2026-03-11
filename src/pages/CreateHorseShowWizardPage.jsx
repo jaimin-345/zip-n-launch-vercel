@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { UsageLimitGate } from '@/components/shared/UsageLimitGate';
 
 import { AssociationStep } from '@/components/show-structure/AssociationStep';
 import { FeeStructureStep } from '@/components/show-structure/FeeStructureStep';
@@ -18,10 +19,10 @@ import { SponsorsStep } from '@/components/show-structure/SponsorsStep';
 import { ReviewStep } from '@/components/show-structure/ReviewStep';
 
 const WIZARD_STEPS = [
-    { id: 1, name: 'Associations', icon: Shield },
+    { id: 1, name: 'Event Setup', icon: Shield },
     { id: 2, name: 'Fee Structure', icon: DollarSign },
     { id: 3, name: 'Sponsors', icon: HeartHandshake },
-    { id: 4, name: 'Review', icon: Search },
+    { id: 4, name: 'Save & Manage', icon: Search },
 ];
 
 const STEP_COMPONENTS = [
@@ -31,53 +32,62 @@ const STEP_COMPONENTS = [
     { id: 4, component: ReviewStep },
 ];
 
-const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => (
-    <div className="flex justify-center items-start mb-8 px-4 overflow-x-auto pb-4">
-        {WIZARD_STEPS.map((step, index) => {
-            const isCompleted = completedSteps.has(step.id);
-            const isActive = currentStep === step.id;
-            return (
-                <React.Fragment key={step.id}>
-                    <button
-                        type="button"
-                        className="flex flex-col items-center text-center w-28 cursor-pointer flex-shrink-0 bg-transparent border-none"
-                        onClick={() => onStepClick(step.id)}
-                    >
-                        <div className={cn(
-                            'w-11 h-11 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                            isActive && 'bg-primary border-primary text-primary-foreground shadow-lg scale-110',
-                            !isActive && !isCompleted && 'bg-secondary border-border text-muted-foreground',
-                            isCompleted && !isActive && 'bg-green-600 border-green-600 text-white'
-                        )}>
-                            {isCompleted && !isActive
-                                ? <Check className="h-5 w-5" />
-                                : <step.icon className="h-5 w-5" />
-                            }
+const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => {
+    const nextStepId = (() => {
+        for (const step of WIZARD_STEPS) {
+            if (!completedSteps.has(step.id)) return step.id;
+        }
+        return WIZARD_STEPS[WIZARD_STEPS.length - 1]?.id;
+    })();
+
+    return (
+        <div className="flex items-start mb-8 w-full">
+            {WIZARD_STEPS.map((step, index) => {
+                const isCompleted = completedSteps.has(step.id);
+                const isActive = currentStep === step.id;
+                const isNext = step.id === nextStepId && !isActive;
+                const isNavigable = isCompleted || isActive || isNext;
+                return (
+                    <React.Fragment key={step.id}>
+                        <div
+                            className={cn(
+                                'flex flex-col items-center text-center flex-1',
+                                isNavigable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                            )}
+                            onClick={() => isNavigable && onStepClick(step.id)}
+                        >
+                            <div className={cn(
+                                'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                                isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
+                                isNext && 'highlight-next-step'
+                            )}>
+                                {isCompleted ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                            </div>
+                            <p className={cn(
+                                'mt-2 text-xs font-medium leading-tight',
+                                isActive ? 'text-foreground' : 'text-muted-foreground',
+                                isCompleted && !isActive && 'text-green-600'
+                            )}>
+                                {step.name}
+                            </p>
                         </div>
-                        <p className={cn(
-                            'mt-2 text-xs font-medium transition-colors',
-                            isActive && 'text-foreground font-semibold',
-                            !isActive && !isCompleted && 'text-muted-foreground',
-                            isCompleted && !isActive && 'text-green-600'
-                        )}>
-                            {step.name}
-                        </p>
-                    </button>
-                    {index < WIZARD_STEPS.length - 1 && (
-                        <div className={cn(
-                            'flex-1 h-1 mt-5 mx-1 rounded-full transition-colors duration-300 min-w-[2rem]',
-                            isCompleted && completedSteps.has(WIZARD_STEPS[index + 1]?.id)
-                                ? 'bg-green-600'
-                                : currentStep > step.id
-                                    ? 'bg-primary'
-                                    : 'bg-border'
-                        )} />
-                    )}
-                </React.Fragment>
-            );
-        })}
-    </div>
-);
+                        {index < WIZARD_STEPS.length - 1 && (
+                            <div className={cn(
+                                'w-full h-0.5 mt-5 rounded-full transition-colors duration-300',
+                                isCompleted && completedSteps.has(WIZARD_STEPS[index + 1]?.id)
+                                    ? 'bg-green-600'
+                                    : currentStep > WIZARD_STEPS[index + 1]?.id
+                                        ? 'bg-primary'
+                                        : 'bg-border'
+                            )} />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+};
 
 const AUTO_SAVE_DELAY = 3000;
 
@@ -169,7 +179,7 @@ const CreateHorseShowWizardPage = () => {
     }
 
     return (
-        <>
+        <UsageLimitGate toolName="Fee Structure & Sponsors" isEditing={!!showId}>
             <Helmet>
                 <title>Fee Structure & Sponsors</title>
                 <meta name="description" content="Manage entry fees, stall fees, and sponsorship packages for your horse show." />
@@ -180,6 +190,7 @@ const CreateHorseShowWizardPage = () => {
                     <PageHeader
                         title="Fee Structure & Sponsors"
                         subtitle={`Step ${currentStep} of ${WIZARD_STEPS.length} — ${WIZARD_STEPS[currentStep - 1]?.name}`}
+                        backTo={showId ? `/horse-show-manager/show/${showId}` : '/horse-show-manager'}
                     />
 
                     {/* Step Indicator */}
@@ -190,7 +201,7 @@ const CreateHorseShowWizardPage = () => {
                     />
 
                     {/* Link to Existing Show - only on step 1 */}
-                    {currentStep === 1 && (
+                    {currentStep === 1 && !showId && (
                         <LinkToExistingShow
                             existingProjects={existingProjects}
                             linkedProjectId={formData.linkedProjectId || null}
@@ -293,7 +304,7 @@ const CreateHorseShowWizardPage = () => {
                     </div>
                 </main>
             </div>
-        </>
+        </UsageLimitGate>
     );
 };
 

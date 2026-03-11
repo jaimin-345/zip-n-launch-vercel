@@ -23,12 +23,12 @@ import { Step5_PreviewReview } from '@/components/contract-management/Step5_Prev
 import { Step6_CloseOut } from '@/components/contract-management/Step6_CloseOut';
 
 const steps = [
-  { id: 1, name: 'Select Association / Affiliation', icon: Building2 },
+  { id: 1, name: 'Event Setup', icon: Building2 },
   { id: 2, name: 'Officials & Staff', icon: Users },
   { id: 3, name: 'Contract Template', icon: FileText },
   { id: 4, name: 'Generate & Send', icon: Send },
   { id: 5, name: 'Track & Documents', icon: FolderOpen },
-  { id: 6, name: 'Close Out', icon: CheckCircle },
+  { id: 6, name: 'Save & Manage', icon: CheckCircle },
 ];
 
 const initialFormData = {
@@ -387,7 +387,7 @@ const ContractManagementPage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navigation />
         <main className="container mx-auto px-4 py-4">
-          <PageHeader title="Contract Management" />
+          <PageHeader title="Contract Management" backTo={projectId ? `/horse-show-manager/show/${projectId}` : '/horse-show-manager'} />
           <div className="max-w-7xl mx-auto">
             <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} />
             <Card className="glass-effect">

@@ -260,7 +260,7 @@ export const Step4_Schedule = ({ formData, setFormData }) => {
     return (
         <motion.div key="step5" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader>
-                <CardTitle>Step 5: Build Your Show Schedule</CardTitle>
+                <CardTitle>Step 6: Organize Schedule</CardTitle>
                 <CardDescription>Drag and drop classes from the palette to the schedule. The system will help you manage times, arenas, and conflicts.</CardDescription>
             </CardHeader>
             <CardContent className="h-[calc(100vh-350px)]">

@@ -913,7 +913,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     return (
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader className="pb-4">
-                <CardTitle>Step {stepNumber}: Close Out & Review</CardTitle>
+                <CardTitle>Step {stepNumber}: Save & Manage</CardTitle>
                 <CardDescription>Assign admin/owner, set publication date, and manage staff access.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
