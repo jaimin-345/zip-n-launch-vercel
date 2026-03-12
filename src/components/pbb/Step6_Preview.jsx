@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import PatternGroupPreview from './PatternGroupPreview';
 import ScoresheetGroupPreview from './ScoresheetGroupPreview';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -77,7 +78,7 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                     </Badge>
                 </span>
             </HoverCardTrigger>
-            <HoverCardContent className="w-96" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <HoverCardContent className="w-[90vw] sm:w-96" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                 <div className="space-y-3">
                     <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
                     <p className="text-xs text-muted-foreground mb-2">{displayText}</p>
@@ -105,11 +106,11 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                                                 />
                                             </div>
                                         </HoverCardTrigger>
-                                        <HoverCardContent className="w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
+                                        <HoverCardContent className="w-[95vw] sm:w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
                                             <div className="space-y-2">
                                                 <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
                                                 <div className="rounded-md border bg-muted/20 relative">
-                                                    <div className="overflow-auto max-h-[600px] min-h-[400px]">
+                                                    <div className="overflow-auto max-h-[60vh] sm:max-h-[600px] min-h-[200px] sm:min-h-[400px]">
                                                         <div 
                                                             className="flex items-center justify-center p-4"
                                                             style={{ 
@@ -221,7 +222,7 @@ const getGroupDisplayState = (rawSelection) => {
   return 'placeholder';
 };
 
-export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7, onGoToStep, purposeName = null }) => {
+export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumber = 7, onGoToStep, purposeName = null, isHubMode = false }) => {
   const [availablePatterns, setAvailablePatterns] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
@@ -874,12 +875,12 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
   return (
     <motion.div key="step6-preview" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
-        <CardTitle>Step {stepNumber}: Preview</CardTitle>
-        <CardDescription>Review your selected patterns and scoresheets. Use the carousel to see alternatives for each group.</CardDescription>
+        <CardTitle>Step {stepNumber}: {isHubMode ? 'Preview Pattern' : 'Preview'}</CardTitle>
+        <CardDescription>{isHubMode ? 'Review your selected pattern and scoresheet.' : 'Review your selected patterns and scoresheets. Use the carousel to see alternatives for each group.'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Layout & Design Section */}
-        <section>
+        {/* Layout & Design Section — hidden in Hub mode (single pattern) */}
+        {!isHubMode && <section>
           <h3 className="text-lg font-semibold mb-4">Layout & Design</h3>
           <RadioGroup
             value={formData.layoutSelection || 'layout-a'}
@@ -980,7 +981,38 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
               </Label>
             </div>
           </RadioGroup>
-        </section>
+        </section>}
+
+        {/* Download Includes — Hub mode only */}
+        {isHubMode && (
+          <section>
+            <h3 className="text-lg font-semibold mb-3">What to include</h3>
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="include-pattern"
+                  checked={formData.downloadIncludes?.pattern !== false}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    downloadIncludes: { ...prev.downloadIncludes, pattern: !!checked }
+                  }))}
+                />
+                <Label htmlFor="include-pattern" className="cursor-pointer">Pattern</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="include-scoresheet"
+                  checked={formData.downloadIncludes?.scoresheet !== false}
+                  onCheckedChange={(checked) => setFormData(prev => ({
+                    ...prev,
+                    downloadIncludes: { ...prev.downloadIncludes, scoresheet: !!checked }
+                  }))}
+                />
+                <Label htmlFor="include-scoresheet" className="cursor-pointer">Score Sheet</Label>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Disciplines Preview - Grouped by Discipline */}
         <section>
@@ -1062,7 +1094,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                       className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <span className="font-semibold text-base text-primary">{pbbDiscipline.name}</span>
+                        <span className="font-semibold text-base text-primary">{pbbDiscipline.name.replace(' at Halter', '')}</span>
                         {pbbDiscipline.hasScoresheet && !pbbDiscipline.hasPattern && (
                           <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
                             (Scoresheet Only)
@@ -1096,9 +1128,9 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                     
                     {/* Expanded Discipline Content - Nested Pattern and Scoresheet Sections */}
                     {isDisciplineExpanded && (
-                      <div className="px-4 py-4 border-t bg-background/50 space-y-3">
+                      <div className="px-2 sm:px-4 py-3 sm:py-4 border-t bg-background/50 space-y-3">
                         {/* Pattern Preview Section */}
-                        {pbbDiscipline.hasPattern && (
+                        {pbbDiscipline.hasPattern && (!isHubMode || formData.downloadIncludes?.pattern !== false) && (
                           <div className="border rounded-lg overflow-hidden">
                             <button
                               type="button"
@@ -1248,7 +1280,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                         )}
                         
                         {/* Scoresheet Preview Section */}
-                        {pbbDiscipline.hasScoresheet && (
+                        {pbbDiscipline.hasScoresheet && (!isHubMode || formData.downloadIncludes?.scoresheet !== false) && (
                           <div className="border rounded-lg overflow-hidden">
                             <button
                               type="button"
@@ -1315,7 +1347,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                               {/* Generic scoresheet visual */}
                                               <div className="p-4 bg-white dark:bg-slate-800 space-y-2">
                                                 <p className="text-center text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Score Sheet</p>
-                                                <p className="text-center text-[10px] text-slate-500 dark:text-slate-400">{pbbDiscipline.name}</p>
+                                                <p className="text-center text-[10px] text-slate-500 dark:text-slate-400">{pbbDiscipline.name.replace(' at Halter', '')}</p>
                                                 {/* Mini 3x5 grid */}
                                                 <div className="grid grid-cols-3 gap-1 px-2">
                                                   {Array.from({ length: 15 }, (_, i) => (

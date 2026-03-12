@@ -47,6 +47,11 @@ const initialFormData = {
     patternGroups: [],
     selectedDivisions: {},
     selectedLevels: {},
+    downloadIncludes: { pattern: true, scoresheet: true },
+    // Future-safe: accessory documents (cone spacing, arena setup, warm-up guides, etc.)
+    // Each entry: { id, type, name, fileUrl?, patternId?, disciplineId? }
+    // Types: 'cone_spacing', 'arena_setup', 'warmup_guide', 'custom'
+    accessoryDocuments: [],
 };
 
 export const usePatternHub = (projectId) => {

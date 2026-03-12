@@ -1,11 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Download, ChevronDown, ChevronRight, Check, CalendarDays } from 'lucide-react';
+import { PlusCircle, Trash2, Download, ChevronDown, ChevronRight, Check, StickyNote, GripVertical } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
 import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 import { cn } from '@/lib/utils';
 import { isBudgetFrozen } from '@/lib/contractUtils';
@@ -440,107 +445,111 @@ const feeTimingLabels = {
     settlement: 'Post-Show / Settlement',
 };
 
-const ExpenseDetailCard = ({ expense, onUpdateExpense, onRemoveExpense, locked, isCustom }) => {
-    const lineTotal = (parseFloat(expense.amount) || 0) * (parseInt(expense.quantity) || 1);
+const ExpenseDetailRow = ({ expense, onUpdateExpense, onRemoveExpense, locked, isCustom }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: expense.id });
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
     return (
-        <div className="p-3 border rounded-lg bg-background space-y-3">
-            <div className="flex items-center justify-between">
+        <div ref={setNodeRef} style={style} className="flex items-center gap-1.5 py-1.5 px-2 border-b last:border-0 hover:bg-muted/30 bg-background">
+            {/* Drag handle */}
+            {!locked && (
+                <button type="button" className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground" {...attributes} {...listeners}>
+                    <GripVertical className="h-3.5 w-3.5" />
+                </button>
+            )}
+            {/* Name */}
+            <div className="min-w-[160px] flex-shrink-0">
                 {isCustom ? (
                     <Input
                         value={expense.name}
                         onChange={(e) => onUpdateExpense(expense.id, 'name', e.target.value)}
                         placeholder="Expense name"
-                        className="font-medium text-sm h-8 max-w-xs"
+                        className="h-7 text-xs font-medium"
                         disabled={locked}
                     />
                 ) : (
-                    <span className="text-sm font-semibold">{expense.name}</span>
+                    <span className="text-xs font-medium truncate block" title={expense.name}>{expense.name}</span>
                 )}
-                <div className="flex items-center gap-2">
-                    {lineTotal > 0 && <span className="text-xs font-semibold text-muted-foreground">${lineTotal.toFixed(2)}</span>}
-                    {!locked && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => onRemoveExpense(expense.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                    )}
-                </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Amount</label>
-                    <Input
-                        type="number"
-                        value={expense.amount}
-                        onChange={(e) => onUpdateExpense(expense.id, 'amount', e.target.value)}
-                        placeholder="$0.00"
-                        className="h-8 text-sm"
-                        disabled={locked}
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Unit</label>
-                    <Select value={expense.unit || 'flat'} onValueChange={(val) => onUpdateExpense(expense.id, 'unit', val)} disabled={locked}>
-                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {UNIT_OPTIONS.map(u => (
-                                <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Quantity</label>
-                    <Input
-                        type="number"
-                        min="1"
-                        value={expense.quantity || ''}
-                        onChange={(e) => onUpdateExpense(expense.id, 'quantity', e.target.value)}
-                        placeholder="1"
-                        className="h-8 text-sm"
-                        disabled={locked}
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Timing</label>
-                    <Select value={expense.timing || ''} onValueChange={(val) => onUpdateExpense(expense.id, 'timing', val)} disabled={locked}>
-                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="When..." /></SelectTrigger>
-                        <SelectContent>
-                            {TIMING_OPTIONS.map(t => (
-                                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase flex items-center gap-1">
-                        <CalendarDays className="h-3 w-3" /> Due Date
-                    </label>
-                    <Input
-                        type="date"
-                        value={expense.dueDate || ''}
-                        onChange={(e) => onUpdateExpense(expense.id, 'dueDate', e.target.value)}
-                        className="h-8 text-sm"
-                        disabled={locked}
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-muted-foreground uppercase">Notes</label>
-                    <Input
+            {/* Amount */}
+            <Input
+                type="number"
+                value={expense.amount}
+                onChange={(e) => onUpdateExpense(expense.id, 'amount', e.target.value)}
+                placeholder="$0"
+                className="h-7 text-xs w-20 flex-shrink-0"
+                disabled={locked}
+            />
+            {/* Unit */}
+            <Select value={expense.unit || 'flat'} onValueChange={(val) => onUpdateExpense(expense.id, 'unit', val)} disabled={locked}>
+                <SelectTrigger className="h-7 text-xs w-24 flex-shrink-0"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    {UNIT_OPTIONS.map(u => (
+                        <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            {/* Qty */}
+            <Input
+                type="number"
+                min="1"
+                value={expense.quantity || ''}
+                onChange={(e) => onUpdateExpense(expense.id, 'quantity', e.target.value)}
+                placeholder="1"
+                className="h-7 text-xs w-14 flex-shrink-0"
+                disabled={locked}
+            />
+            {/* Timing */}
+            <Select value={expense.timing || ''} onValueChange={(val) => onUpdateExpense(expense.id, 'timing', val)} disabled={locked}>
+                <SelectTrigger className="h-7 text-xs w-28 flex-shrink-0"><SelectValue placeholder="When..." /></SelectTrigger>
+                <SelectContent>
+                    {TIMING_OPTIONS.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            {/* Due Date */}
+            <Input
+                type="date"
+                value={expense.dueDate || ''}
+                onChange={(e) => onUpdateExpense(expense.id, 'dueDate', e.target.value)}
+                className="h-7 text-xs w-32 flex-shrink-0"
+                disabled={locked}
+            />
+            {/* Notes popover */}
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn('h-7 w-7 flex-shrink-0', expense.notes ? 'text-primary' : 'text-muted-foreground')}
+                    >
+                        <StickyNote className="h-3.5 w-3.5" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64 p-3">
+                    <p className="text-xs font-medium mb-1.5">Notes</p>
+                    <Textarea
                         value={expense.notes || ''}
                         onChange={(e) => onUpdateExpense(expense.id, 'notes', e.target.value)}
                         placeholder="e.g., Paid by sponsor, discount applied..."
-                        className="h-8 text-sm"
+                        className="text-xs min-h-[80px] resize-none"
                         disabled={locked}
                     />
-                </div>
-            </div>
+                </PopoverContent>
+            </Popover>
+            {/* Delete */}
+            {!locked && (
+                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 text-destructive hover:bg-destructive/10" onClick={() => onRemoveExpense(expense.id)}>
+                    <Trash2 className="h-3 w-3" />
+                </Button>
+            )}
         </div>
     );
 };
 
-const CategorySection = ({ category, expenses, onToggleItem, onUpdateExpense, onRemoveExpense, onAddCustom, locked }) => {
+const CategorySection = ({ category, expenses, onToggleItem, onUpdateExpense, onRemoveExpense, onAddCustom, onReorderExpenses, locked }) => {
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
     const [expanded, setExpanded] = useState(false);
     const categoryExpenses = expenses.filter(e => e.category === category.id);
     const categoryTotal = categoryExpenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0);
@@ -611,34 +620,50 @@ const CategorySection = ({ category, expenses, onToggleItem, onUpdateExpense, on
                             </Button>
                         </div>
 
-                        {/* Right panel (2/3) — detail forms */}
-                        <div className="lg:w-2/3 space-y-2">
+                        {/* Right panel (2/3) — compact detail rows */}
+                        <div className="lg:w-2/3">
                             {categoryExpenses.length === 0 ? (
                                 <div className="flex items-center justify-center h-32 text-sm text-muted-foreground border border-dashed rounded-lg">
                                     Select items from the left to configure details
                                 </div>
                             ) : (
-                                <>
-                                    {categoryExpenses.filter(e => allPresetNames.has(e.name)).map(expense => (
-                                        <ExpenseDetailCard
-                                            key={expense.id}
-                                            expense={expense}
-                                            onUpdateExpense={onUpdateExpense}
-                                            onRemoveExpense={onRemoveExpense}
-                                            locked={locked}
-                                        />
-                                    ))}
-                                    {customExpenses.map(expense => (
-                                        <ExpenseDetailCard
-                                            key={expense.id}
-                                            expense={expense}
-                                            onUpdateExpense={onUpdateExpense}
-                                            onRemoveExpense={onRemoveExpense}
-                                            locked={locked}
-                                            isCustom
-                                        />
-                                    ))}
-                                </>
+                                <div className="border rounded-lg overflow-hidden">
+                                    {/* Column header */}
+                                    <div className="flex items-center gap-1.5 py-1 px-2 bg-muted/50 border-b text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                                        {!locked && <div className="w-3.5 flex-shrink-0"></div>}
+                                        <div className="min-w-[160px] flex-shrink-0">Item</div>
+                                        <div className="w-20 flex-shrink-0">Amount</div>
+                                        <div className="w-24 flex-shrink-0">Unit</div>
+                                        <div className="w-14 flex-shrink-0">Qty</div>
+                                        <div className="w-28 flex-shrink-0">Timing</div>
+                                        <div className="w-32 flex-shrink-0">Due Date</div>
+                                        <div className="w-7 flex-shrink-0"></div>
+                                        <div className="w-7 flex-shrink-0"></div>
+                                    </div>
+                                    <DndContext
+                                        sensors={sensors}
+                                        collisionDetection={closestCenter}
+                                        onDragEnd={(event) => {
+                                            const { active, over } = event;
+                                            if (over && active.id !== over.id) {
+                                                onReorderExpenses(category.id, active.id, over.id);
+                                            }
+                                        }}
+                                    >
+                                        <SortableContext items={categoryExpenses.map(e => e.id)} strategy={verticalListSortingStrategy}>
+                                            {categoryExpenses.map(expense => (
+                                                <ExpenseDetailRow
+                                                    key={expense.id}
+                                                    expense={expense}
+                                                    onUpdateExpense={onUpdateExpense}
+                                                    onRemoveExpense={onRemoveExpense}
+                                                    locked={locked}
+                                                    isCustom={!allPresetNames.has(expense.name)}
+                                                />
+                                            ))}
+                                        </SortableContext>
+                                    </DndContext>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -661,7 +686,11 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
 
     const totalShowExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
     const totalAwardExpenses = useMemo(() => awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0), [awardExpenses]);
-    const totalClassAwards = useMemo(() => Object.values(classAwards).reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0), [classAwards]);
+    const totalClassAwards = useMemo(() => Object.values(classAwards).reduce((sum, ca) => {
+        const items = ca.items || [];
+        if (items.length === 0 && ca.budget) return sum + (parseFloat(ca.budget) || 0);
+        return sum + items.reduce((s, i) => s + ((parseFloat(i.cost) || 0) * (parseInt(i.qty) || 1)), 0);
+    }, 0), [classAwards]);
     const totalExpenses = totalShowExpenses + totalAwardExpenses + totalClassAwards;
 
     const netProfitLoss = totalRevenue - totalExpenses;
@@ -689,6 +718,19 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
 
     const removeExpense = (id) => {
         setFormData(prev => ({ ...prev, showExpenses: (prev.showExpenses || []).filter(e => e.id !== id) }));
+    };
+
+    const reorderExpenses = (categoryId, activeId, overId) => {
+        setFormData(prev => {
+            const all = prev.showExpenses || [];
+            const catItems = all.filter(e => e.category === categoryId);
+            const others = all.filter(e => e.category !== categoryId);
+            const oldIndex = catItems.findIndex(e => e.id === activeId);
+            const newIndex = catItems.findIndex(e => e.id === overId);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            const reordered = arrayMove(catItems, oldIndex, newIndex);
+            return { ...prev, showExpenses: [...others, ...reordered] };
+        });
     };
 
     const timingSummary = useMemo(() => {
@@ -734,6 +776,7 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                         onUpdateExpense={updateExpense}
                         onRemoveExpense={removeExpense}
                         onAddCustom={addCustomExpense}
+                        onReorderExpenses={reorderExpenses}
                         locked={locked}
                     />
                 ))}
@@ -745,54 +788,16 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                 )}
 
                 {/* ========== BUDGET SUMMARY / P&L ========== */}
-                {(fees.length > 0 || sponsorshipRevenue.length > 0 || expenses.length > 0) && (
+                {expenses.length > 0 && (
                     <div className="border rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-muted/50 border-b flex items-center justify-between">
-                            <h4 className="font-semibold text-base">Budget Summary</h4>
+                            <h4 className="font-semibold text-base">Expense Summary</h4>
                             <Button variant="outline" size="sm" onClick={() => exportShowBudgetToExcel(formData)}>
                                 <Download className="h-4 w-4 mr-2" /> Export Spreadsheet
                             </Button>
                         </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b bg-emerald-500/5">
-                                        <th className="text-left px-4 py-2 font-medium text-emerald-700 dark:text-emerald-400" colSpan={2}>REVENUE</th>
-                                        <th className="text-right px-4 py-2 font-medium text-emerald-700 dark:text-emerald-400">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {fees.filter(f => f.name && f.amount).map(fee => (
-                                        <tr key={fee.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{fee.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">{feeTimingLabels[fee.payment_timing] || fee.payment_timing}</td>
-                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(fee.amount).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {fees.length > 0 && (
-                                        <tr className="bg-emerald-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Fee Revenue</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${totalFeeRevenue.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    {sponsorshipRevenue.filter(s => s.name && s.amount).map(item => (
-                                        <tr key={item.id} className="border-b last:border-0">
-                                            <td className="px-4 py-2">{item.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">Sponsorship</td>
-                                            <td className="px-4 py-2 text-right font-medium">${parseFloat(item.amount).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    {sponsorshipRevenue.length > 0 && (
-                                        <tr className="bg-emerald-500/5">
-                                            <td className="px-4 py-2 font-semibold" colSpan={2}>Subtotal Sponsorship</td>
-                                            <td className="px-4 py-2 text-right font-semibold">${totalSponsorshipRevenue.toFixed(2)}</td>
-                                        </tr>
-                                    )}
-                                    <tr className="bg-emerald-500/10 font-bold">
-                                        <td className="px-4 py-3" colSpan={2}>TOTAL REVENUE</td>
-                                        <td className="px-4 py-3 text-right text-emerald-700 dark:text-emerald-400">${totalRevenue.toFixed(2)}</td>
-                                    </tr>
-                                </tbody>
                                 <thead>
                                     <tr className="border-b bg-red-500/5">
                                         <th className="text-left px-4 py-2 font-medium text-red-700 dark:text-red-400" colSpan={2}>EXPENSES</th>
@@ -878,14 +883,6 @@ export const ShowExpensesStep = ({ formData, setFormData }) => {
                                         <td className="px-4 py-3 text-right text-red-700 dark:text-red-400">${totalExpenses.toFixed(2)}</td>
                                     </tr>
                                 </tbody>
-                                <tfoot>
-                                    <tr className="bg-muted/50 font-bold text-base">
-                                        <td className="px-4 py-4" colSpan={2}>PROJECTED PROFIT / LOSS</td>
-                                        <td className={cn("px-4 py-4 text-right", netProfitLoss >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>
-                                            {netProfitLoss >= 0 ? '' : '-'}${Math.abs(netProfitLoss).toFixed(2)}
-                                        </td>
-                                    </tr>
-                                </tfoot>
                             </table>
                         </div>
                     </div>

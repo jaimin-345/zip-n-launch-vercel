@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ShieldCheck, Calendar, Users, FileText, Palette, Upload, DollarSign } from 'lucide-react';
+import { ArrowLeft, Download, ShieldCheck, Calendar, Users, FileText, Palette, BookOpen, Image } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
@@ -29,10 +29,13 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
     venueName,
     venueAddress,
     officials,
-    sponsors,
     coverPageOption,
     layoutSelection,
     patternSelections,
+    marketing,
+    generalMarketing,
+    showDocuments,
+    associationJudges,
   } = pbbData;
 
   const getAssociationNames = () => {
@@ -44,6 +47,10 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
     if (!patternSelections) return 0;
     return Object.values(patternSelections).reduce((total, disc) => total + Object.keys(disc).length, 0);
   };
+
+  const sponsorLogoCount = (marketing?.sponsorLogos || []).length;
+  const showLogoCount = (generalMarketing || []).length;
+  const attachmentCount = (showDocuments || []).length;
 
   return (
     <motion.div key="step8-review" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -59,7 +66,7 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
             <p><strong>Associations:</strong> {getAssociationNames()}</p>
           </ReviewItem>
 
-          <ReviewItem icon={<Calendar className="w-5 h-5" />} title="Dates & Location">
+          <ReviewItem icon={<Calendar className="w-5 h-5" />} title="Show Information">
             <p><strong>Dates:</strong> {startDate ? `${format(new Date(startDate), 'PPP')} to ${endDate ? format(new Date(endDate), 'PPP') : 'N/A'}` : 'N/A'}</p>
             <p><strong>Venue:</strong> {venueName || 'N/A'}</p>
             <p><strong>Address:</strong> {venueAddress || 'N/A'}</p>
@@ -70,19 +77,20 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
             <p><strong>Patterns Assigned:</strong> {totalPatternsSelected()} patterns</p>
           </ReviewItem>
 
-          <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel & Sponsors">
-            <p><strong>Officials:</strong> {(officials || []).length} added</p>
-            <p><strong>Sponsors:</strong> {(sponsors || []).length} added</p>
+          <ReviewItem icon={<BookOpen className="w-5 h-5" />} title="Pattern Book Layout">
+            <p><strong>Book Layout:</strong> {layoutSelection || 'N/A'}</p>
+            <p><strong>Cover Page:</strong> {coverPageOption || 'N/A'}</p>
           </ReviewItem>
 
-          <ReviewItem icon={<Palette className="w-5 h-5" />} title="Design & Layout">
-            <p><strong>Cover Page:</strong> {coverPageOption || 'N/A'}</p>
-            <p><strong>Book Layout:</strong> {layoutSelection || 'N/A'}</p>
+          <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel">
+            <p><strong>Judges:</strong> {Object.values(associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
+            <p><strong>Officials:</strong> {(officials || []).length} added</p>
           </ReviewItem>
-          
-          <ReviewItem icon={<DollarSign className="w-5 h-5" />} title="Customizations & Fees">
-            <p><strong>Custom Classes:</strong> {(disciplines || []).filter(d => d.isCustom).length}</p>
-            <p><strong>Estimated Custom Fees:</strong> ${((disciplines || []).filter(d => d.isCustom).length * 50).toFixed(2)}</p>
+
+          <ReviewItem icon={<Image className="w-5 h-5" />} title="Sponsors / Media">
+            <p><strong>Sponsor Logos:</strong> {sponsorLogoCount}</p>
+            <p><strong>Show Logos:</strong> {showLogoCount}</p>
+            <p><strong>Attachments:</strong> {attachmentCount}</p>
           </ReviewItem>
         </div>
       </CardContent>

@@ -55,7 +55,7 @@ import React, { useState, useMemo } from 'react';
 
         // Add Discipline Badge first
         if (pbbDiscipline.name) {
-            badges.push(<Badge key="discipline-badge" variant="outline" className="text-xs bg-gray-100 dark:bg-gray-800">{pbbDiscipline.name}</Badge>);
+            badges.push(<Badge key="discipline-badge" variant="outline" className="text-xs bg-gray-100 dark:bg-gray-800">{pbbDiscipline.name.replace(' at Halter', '')}</Badge>);
         }
 
         const assoc = associationsData.find(a => a.id === assocId);

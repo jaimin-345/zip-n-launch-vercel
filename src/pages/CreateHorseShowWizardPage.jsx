@@ -186,7 +186,7 @@ const CreateHorseShowWizardPage = () => {
             </Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                     <PageHeader
                         title="Fee Structure & Sponsors"
                         subtitle={`Step ${currentStep} of ${WIZARD_STEPS.length} — ${WIZARD_STEPS[currentStep - 1]?.name}`}

@@ -16,7 +16,7 @@ import DropZoneGroup from './DropZoneGroup';
 
 const UNGROUPED_ID = 'ungrouped-list';
 
-export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData, divisionsData }) => {
+export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, formData, associationsData, divisionsData, onAutoGroupComplete }) => {
     const [selectedForBulkMove, setSelectedForBulkMove] = useState([]);
     const [isDuplicateGroupsDialogOpen, setIsDuplicateGroupsDialogOpen] = useState(false);
     const [selectedSourceDisciplineId, setSelectedSourceDisciplineId] = useState(null);
@@ -795,6 +795,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         });
 
         toast({ title: 'Auto-Grouping Complete!', description: 'Divisions have been automatically grouped.' });
+        if (onAutoGroupComplete) onAutoGroupComplete();
     };
 
     const allDivisions = useMemo(() => {
@@ -997,7 +998,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                     <DialogHeader>
                         <DialogTitle>Duplicate Groups From</DialogTitle>
                         <DialogDescription>
-                            Select a discipline to copy all its pattern groups to "{pbbDiscipline.name}".
+                            Select a discipline to copy all its pattern groups to "{pbbDiscipline.name.replace(' at Halter', '')}".
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">

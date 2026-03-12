@@ -66,7 +66,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
     
         return (
             <div className="space-y-3">
-                <h4 className="font-semibold text-base">Select Divisions for "{pbbDiscipline.name}"</h4>
+                <h4 className="font-semibold text-base">Select Divisions for "{pbbDiscipline.name.replace(' at Halter', '')}"</h4>
                 <div className="space-y-2">
                     {openShowSuggestions.divisions.map(group => (
                         <div key={group.group}>
@@ -105,7 +105,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
         );
     };
     
-    export const ClassTabs = ({ pbbDiscipline, mergedDisciplines, setFormData, isOpenShowMode, formData, associationsData, divisionsData, isComplete }) => {
+    export const ClassTabs = ({ pbbDiscipline, mergedDisciplines, setFormData, isOpenShowMode, formData, associationsData, divisionsData, isComplete, onAutoGroupComplete }) => {
         const [customDivisionName, setCustomDivisionName] = React.useState('');
         const [isCustomDivisionModalOpen, setIsCustomDivisionModalOpen] = React.useState(false);
         const [customDivisionAssocId, setCustomDivisionAssocId] = React.useState(null);
@@ -891,7 +891,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                     <DialogHeader>
                                         <DialogTitle>Duplicate Divisions From</DialogTitle>
                                         <DialogDescription>
-                                            Select a discipline to copy all its divisions, levels, and custom divisions to "{pbbDiscipline.name}".
+                                            Select a discipline to copy all its divisions, levels, and custom divisions to "{pbbDiscipline.name.replace(' at Halter', '')}".
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
@@ -1504,6 +1504,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         formData={formData}
                         associationsData={associationsData}
                         divisionsData={divisionsData}
+                        onAutoGroupComplete={onAutoGroupComplete}
                     />
                 </TabsContent>
             </Tabs>

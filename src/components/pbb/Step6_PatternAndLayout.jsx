@@ -84,7 +84,7 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                     </Badge>
                 </span>
             </HoverCardTrigger>
-            <HoverCardContent className="w-96" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <HoverCardContent className="w-[90vw] sm:w-96" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                 <div className="space-y-3">
                     <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
                     <p className="text-xs text-muted-foreground mb-2">{displayText}</p>
@@ -112,7 +112,7 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                                                 />
                                             </div>
                                         </HoverCardTrigger>
-                                        <HoverCardContent className="w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
+                                        <HoverCardContent className="w-[95vw] sm:w-[700px] max-w-[95vw]" align="start" side="right" sideOffset={10}>
                                             <div className="space-y-2">
                                                 <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
                                                 <div className="rounded-md border bg-muted/20 relative">
@@ -227,7 +227,7 @@ const PATTERN_VERSIONS = [
   { id: 'Walk-Trot', label: 'Walk-Trot', color: 'bg-pink-100 text-pink-800', dotColor: 'bg-pink-500' },
 ];
 
-export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false, isClinicMode = false }) => {
+export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData = [], stepNumber = 5, isReadOnly = false, isClinicMode = false, isHubMode = false }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [openDisciplineId, setOpenDisciplineId] = useState(null);
@@ -517,14 +517,22 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       const { data: { publicUrl } } = supabase.storage.from('project_files').getPublicUrl(filePath);
       setFormData(prev => {
         const newSelections = { ...(prev.patternSelections || {}) };
-        newSelections[disciplineId][groupId] = {
-          ...newSelections[disciplineId][groupId],
+        if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+        const fileData = {
           uploadedFileUrl: publicUrl,
           uploadedFilePath: filePath,
           uploadedFileName: file.name,
           uploadedFileType: file.type,
           requestStatus: 'uploaded',
         };
+        // Apply to ALL groups in the discipline
+        const allGroupIds = Object.keys(newSelections[disciplineId]);
+        allGroupIds.forEach(gId => {
+          newSelections[disciplineId][gId] = {
+            ...newSelections[disciplineId][gId],
+            ...fileData,
+          };
+        });
         return { ...prev, patternSelections: newSelections };
       });
       toast({ title: 'Upload successful', description: `${file.name} has been uploaded.` });
@@ -547,11 +555,15 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     }
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
-      const { uploadedFileUrl, uploadedFilePath, uploadedFileName, uploadedFileType, ...rest } = newSelections[disciplineId][groupId];
-      newSelections[disciplineId][groupId] = {
-        ...rest,
-        requestStatus: selection.requestStatus === 'uploaded' ? 'requested' : rest.requestStatus,
-      };
+      // Remove file data from ALL groups in the discipline
+      const allGroupIds = Object.keys(newSelections[disciplineId] || {});
+      allGroupIds.forEach(gId => {
+        const { uploadedFileUrl: _u, uploadedFilePath: _p, uploadedFileName: _n, uploadedFileType: _t, ...rest } = newSelections[disciplineId][gId] || {};
+        newSelections[disciplineId][gId] = {
+          ...rest,
+          requestStatus: rest.requestStatus === 'uploaded' ? 'requested' : rest.requestStatus,
+        };
+      });
       return { ...prev, patternSelections: newSelections };
     });
     toast({ title: 'File removed' });
@@ -599,13 +611,30 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   // Get association name(s) and abbreviation(s) for a group based on Primary logic (similar to DropZoneGroup)
-  const getGroupAssociationNames = (group) => {
-    if (!group?.divisions || group.divisions.length === 0) {
-      return { names: [], abbreviations: [], ids: [] };
+  const getGroupAssociationNames = (group, discipline) => {
+    // Get all unique associations from divisions in this group
+    let uniqueAssocIds = group?.divisions?.length > 0
+      ? [...new Set(group.divisions.map(div => div.assocId).filter(Boolean))]
+      : [];
+
+    // Fallback: if no assocIds from divisions, use discipline or formData associations
+    if (uniqueAssocIds.length === 0 && discipline) {
+      const discAssocIds = Object.keys(discipline.selectedAssociations || {})
+        .filter(id => discipline.selectedAssociations[id]);
+      if (discAssocIds.length > 0) {
+        uniqueAssocIds = discAssocIds;
+      } else if (discipline.association_id) {
+        uniqueAssocIds = [discipline.association_id];
+      }
+    }
+    if (uniqueAssocIds.length === 0) {
+      // Last resort: user's selected associations from Event Setup
+      uniqueAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
     }
 
-    // Get all unique associations from divisions in this group
-    const uniqueAssocIds = [...new Set(group.divisions.map(div => div.assocId).filter(Boolean))];
+    if (uniqueAssocIds.length === 0) {
+      return { names: [], abbreviations: [], ids: [] };
+    }
     
     // If only one association, use it
     if (uniqueAssocIds.length === 1) {
@@ -757,7 +786,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         {formData.showName && (
           <div className="mt-4 pt-4 border-t">
             <h3 className="text-xl font-semibold">
-              Horse Show {formData.showName}
+              {formData.showName}
             </h3>
           </div>
         )}
@@ -1029,7 +1058,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                           )}
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-base leading-tight">{discipline.name}</h4>
+                            <h4 className="font-bold text-base leading-tight">{discipline.name.replace(' at Halter', '')}</h4>
                             {subtitle && (
                               <p className={cn("text-sm mt-1", subtitleColor)}>
                                 {subtitle}
@@ -1097,40 +1126,85 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                 
                 // Check if this is a scoresheet-only discipline
                 const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
-                
+
+                // Determine discipline-level assignment type from first group
+                const firstGroupSelection = groups.length > 0 ? getPatternSelection(discipline.id, groups[0].id) : null;
+                const disciplineAssignType = firstGroupSelection?.type || null;
+
+                // Helper: apply assignment type to ALL groups in this discipline
+                const setDisciplineAssignType = (type, extraData = {}) => {
+                  if (isReadOnly) return;
+                  setFormData(prev => {
+                    const newSelections = { ...(prev.patternSelections || {}) };
+                    if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
+                    groups.forEach(group => {
+                      if (type) {
+                        newSelections[discipline.id][group.id] = {
+                          type,
+                          ...(type === 'judgeAssigned' && { judgeName: firstGroupSelection?.judgeName || '', patternId: null, patternName: null, maneuversRange: null }),
+                          ...(type === 'customRequest' && { customPatternRequested: true, patternId: null, patternName: null, requestedFromName: '', requestedFromEmail: '', requestNotes: '', requestStatus: 'requested' }),
+                          ...extraData
+                        };
+                      } else {
+                        newSelections[discipline.id][group.id] = { patternId: null, patternName: null, maneuversRange: null };
+                      }
+                    });
+                    return { ...prev, patternSelections: newSelections };
+                  });
+                };
+
+                // Helper: update a field on ALL groups for this discipline
+                const updateDisciplineAssignField = (field, value) => {
+                  if (isReadOnly) return;
+                  setFormData(prev => {
+                    const newSelections = { ...(prev.patternSelections || {}) };
+                    if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
+                    groups.forEach(group => {
+                      if (newSelections[discipline.id][group.id]) {
+                        newSelections[discipline.id][group.id] = {
+                          ...newSelections[discipline.id][group.id],
+                          [field]: value
+                        };
+                      }
+                    });
+                    return { ...prev, patternSelections: newSelections };
+                  });
+                };
 
                 return (
-                  <div 
-                    key={discipline.id} 
+                  <div
+                    key={discipline.id}
                     className={cn(
                       "bg-card rounded-lg border transition-all duration-300",
                       isOpen && "border-primary"
                     )}
                     ref={(el) => disciplineRefs.current[discipline.id] = el}
                   >
-                    {/* Toggle row with inline pattern selection */}
-                    <div 
-                      className="w-full flex items-center gap-3 px-4 py-3 border-b cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() =>
-                        setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
-                      }
-                    >
-                      <div className="flex items-center gap-2 hover:text-primary transition-colors">
-                        <span className="font-semibold text-base">{discipline.name}</span>
-                        {groups.length > 0 && (
-                          <Badge variant="secondary" className="ml-1">
-                            {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
-                          </Badge>
-                        )}
-                        <ChevronDown
-                          className={cn(
-                            'w-4 h-4 transition-transform text-muted-foreground',
-                            isOpen ? 'rotate-180' : 'rotate-0'
+                    {/* Discipline header row */}
+                    <div className="px-3 sm:px-4 py-2 sm:py-3 border-b">
+                      {/* Row 1: Name + Pattern selector + badges */}
+                      <div
+                        className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 cursor-pointer hover:bg-muted/50 active:bg-muted/70 transition-colors -mx-3 sm:-mx-4 px-3 sm:px-4 -my-2 sm:-my-3 py-2 sm:py-3"
+                        onClick={() =>
+                          setOpenDisciplineId(prev => (prev === discipline.id ? null : discipline.id))
+                        }
+                      >
+                        <div className="flex items-center gap-2 hover:text-primary transition-colors">
+                          <span className="font-semibold text-base">{discipline.name.replace(' at Halter', '')}</span>
+                          {!isHubMode && groups.length > 0 && (
+                            <Badge variant="secondary" className="ml-1">
+                              {groups.length} {groups.length === 1 ? 'Group' : 'Groups'}
+                            </Badge>
                           )}
-                        />
-                      </div>
-                      
-                      <div className="flex-1 flex items-center gap-2 flex-wrap min-h-[40px]">
+                          <ChevronDown
+                            className={cn(
+                              'w-4 h-4 transition-transform text-muted-foreground',
+                              isOpen ? 'rotate-180' : 'rotate-0'
+                            )}
+                          />
+                        </div>
+
+                        <div className="flex-1 flex items-center gap-2 flex-wrap min-h-[40px]">
                         {/* Show scoresheet-only badge */}
                         {isScoresheetOnly && (
                           <Badge variant="secondary" className="bg-blue-100 text-blue-700 border-blue-200">
@@ -1138,8 +1212,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </Badge>
                         )}
                         
-                        {/* Pattern selection UI - only show for non-scoresheet-only disciplines */}
-                        {!isScoresheetOnly && (
+                        {/* Pattern selection UI - only show for non-scoresheet-only disciplines, hidden in hub mode (flat layout) */}
+                        {!isScoresheetOnly && !isHubMode && (
                           <>
                         {/* Pattern Dropdown - Apply to all groups */}
                         <div onClick={(e) => e.stopPropagation()}>
@@ -1156,7 +1230,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               }
                             }}
                           >
-                            <SelectTrigger className="h-8 w-[200px] text-xs bg-background">
+                            <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs bg-background">
                               <SelectValue placeholder="Select Pattern for All Groups" />
                             </SelectTrigger>
                             <SelectContent 
@@ -1186,7 +1260,24 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                       });
                                     }
                                   });
-                                  
+
+                                  // Fallback: if no assocIds from divisions, use discipline's own association
+                                  // or the user's selected associations from Step 1
+                                  if (uniqueAssocIds.size === 0) {
+                                    const discAssocIds = Object.keys(discipline.selectedAssociations || {})
+                                      .filter(id => discipline.selectedAssociations[id]);
+                                    if (discAssocIds.length > 0) {
+                                      discAssocIds.forEach(id => uniqueAssocIds.add(id));
+                                    } else if (discipline.association_id) {
+                                      uniqueAssocIds.add(discipline.association_id);
+                                    } else {
+                                      // Last resort: use formData.associations (user's selections from Event Setup)
+                                      Object.keys(formData.associations || {}).forEach(id => {
+                                        if (formData.associations[id]) uniqueAssocIds.add(id);
+                                      });
+                                    }
+                                  }
+
                                   const assocIdsArray = Array.from(uniqueAssocIds);
                                   
                                   // If discipline has 2+ associations: show patterns from all of them
@@ -1314,35 +1405,36 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           </Select>
                         </div>
 
-                        {/* Display pattern badges from Step 3 selections */}
+                          </>
+                        )}
+
+                        {/* Display pattern badges for selected patterns */}
                         {(() => {
-                          const groupSelections = groups.map((group) => {
+                          const groupSelections = (isHubMode ? groups.slice(0, 1) : groups).map((group) => {
                             const selection = getPatternSelection(discipline.id, group.id);
                             if (!selection?.patternId && !selection?.patternName) return null;
-                            
+
                             const patternName = selection.patternName || '';
-                            // Remove .pdf extension if present and use the actual pattern name
                             const cleanPatternName = patternName.replace(/\.(pdf|PDF)$/, '');
                             const version = selection.version || '';
-                            // Format: "WesternRiding0001.L1 (L1)" or just "WesternRiding0001.L1" if no version
                             const displayText = version && version !== 'ALL' ? `${cleanPatternName} (${version})` : cleanPatternName;
-                            
+
                             return {
                               groupName: group.name,
                               patternId: selection.patternId,
                               displayText
                             };
                           }).filter(Boolean);
-                          
+
                           return groupSelections.length > 0 && (
-                            <div 
+                            <div
                               className="flex items-center gap-1 flex-wrap"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {groupSelections.map((sel, idx) => (
-                                <PatternBadgeWithHover 
-                                  key={idx} 
-                                  patternId={sel.patternId} 
+                                <PatternBadgeWithHover
+                                  key={idx}
+                                  patternId={sel.patternId}
                                   displayText={sel.displayText}
                                   formData={formData}
                                 />
@@ -1350,30 +1442,214 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             </div>
                           );
                         })()}
-                          </>
-                        )}
 
+                        </div>
                       </div>
+
+                      {/* Row 2: Discipline-level action buttons — always visible */}
+                      {!isScoresheetOnly && !isHubMode && !isReadOnly && (
+                        <div className="flex items-center gap-2 mt-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant={disciplineAssignType === 'judgeAssigned' ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn("h-7 text-xs", disciplineAssignType === 'judgeAssigned' && "bg-amber-600 hover:bg-amber-700")}
+                            onClick={() => setDisciplineAssignType(disciplineAssignType === 'judgeAssigned' ? null : 'judgeAssigned')}
+                          >
+                            {disciplineAssignType === 'judgeAssigned' ? `Judge: ${firstGroupSelection?.judgeName || 'TBD'}` : 'Assign Judge'}
+                          </Button>
+
+                          {(discipline.isCustom || discipline.pattern_type === 'custom') && (
+                            <Button
+                              variant={disciplineAssignType === 'customRequest' ? 'default' : 'outline'}
+                              size="sm"
+                              className={cn("h-7 text-xs", disciplineAssignType === 'customRequest' && "bg-purple-600 hover:bg-purple-700")}
+                              onClick={() => setDisciplineAssignType(disciplineAssignType === 'customRequest' ? null : 'customRequest')}
+                            >
+                              {disciplineAssignType === 'customRequest' ? 'Custom Pattern Requested' : 'Request Custom Pattern'}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Status badges when read-only */}
+                      {!isScoresheetOnly && !isHubMode && isReadOnly && disciplineAssignType && (
+                        <div className="flex items-center gap-2 mt-2">
+                          {disciplineAssignType === 'judgeAssigned' && (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">
+                              Judge: {firstGroupSelection?.judgeName || 'TBD'}
+                            </Badge>
+                          )}
+                          {disciplineAssignType === 'customRequest' && (
+                            <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+                              Custom Pattern Requested
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {isOpen && (
-                      <div className="px-4 pb-4 pt-2 space-y-4">
+                      <div className="px-2 sm:px-4 pb-3 sm:pb-4 pt-2 space-y-3 sm:space-y-4">
+                        {/* ── Discipline-Level Detail Forms (expanded) ── */}
+                        {!isScoresheetOnly && !isHubMode && (
+                          <div className="space-y-3">
+                            {/* Judge Assignment Details — discipline level */}
+                            {disciplineAssignType === 'judgeAssigned' && (
+                              <div className="p-3 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
+                                <Label className="text-xs text-muted-foreground mb-1 block">Assigned Judge for {discipline.name.replace(' at Halter', '')}</Label>
+                                <Select
+                                  value={firstGroupSelection?.judgeName || ''}
+                                  onValueChange={(judgeName) => updateDisciplineAssignField('judgeName', judgeName)}
+                                  disabled={isReadOnly}
+                                >
+                                  <SelectTrigger className="bg-background">
+                                    <SelectValue placeholder="Select a judge..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {(() => {
+                                      const judges = new Map();
+                                      // From associationJudges (legacy/JudgesAndStaff)
+                                      Object.values(formData.associationJudges || {})
+                                        .flatMap(assocData => (assocData.judges || []))
+                                        .filter(j => j?.name)
+                                        .forEach(j => judges.set(j.name, j.name));
+                                      // From showDetails.officials (OfficialsStaffSection)
+                                      Object.values(formData.showDetails?.officials || {})
+                                        .flatMap(assocRoles => assocRoles?.JUDGE || [])
+                                        .filter(j => j?.name)
+                                        .forEach(j => judges.set(j.name, j.name));
+                                      return [...judges.values()].map((name, idx) => (
+                                        <SelectItem key={idx} value={name}>{name}</SelectItem>
+                                      ));
+                                    })()}
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                                  Pattern will be selected by the assigned judge for all classes in this discipline.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Custom Pattern Request Details — discipline level */}
+                            {disciplineAssignType === 'customRequest' && (
+                              <div className="p-3 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 space-y-3">
+                                <p className="text-sm font-medium text-purple-800 dark:text-purple-300">Custom Pattern Requested for {discipline.name.replace(' at Halter', '')}</p>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Request From Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    placeholder="Name of person to request pattern from..."
+                                    value={firstGroupSelection?.requestedFromName || ''}
+                                    onChange={(e) => updateDisciplineAssignField('requestedFromName', e.target.value)}
+                                    disabled={isReadOnly}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">
+                                    Request From Email <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    type="email"
+                                    placeholder="Email address..."
+                                    value={firstGroupSelection?.requestedFromEmail || ''}
+                                    onChange={(e) => updateDisciplineAssignField('requestedFromEmail', e.target.value)}
+                                    disabled={isReadOnly}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Optional Notes</Label>
+                                  <Textarea
+                                    placeholder="Optional notes for custom pattern request..."
+                                    value={firstGroupSelection?.requestNotes || ''}
+                                    onChange={(e) => updateDisciplineAssignField('requestNotes', e.target.value)}
+                                    disabled={isReadOnly}
+                                    rows={3}
+                                  />
+                                </div>
+
+                                {/* Custom Pattern Upload — applies to all groups */}
+                                <div>
+                                  <Label className="text-xs text-muted-foreground mb-1 block">Upload Custom Pattern</Label>
+                                  {firstGroupSelection?.uploadedFileUrl ? (
+                                    <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+                                      {firstGroupSelection.uploadedFileType?.startsWith('image/') ? (
+                                        <img src={firstGroupSelection.uploadedFileUrl} alt="Custom pattern" className="w-full max-h-48 object-contain bg-slate-50 dark:bg-slate-800" />
+                                      ) : (
+                                        <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800">
+                                          <FileText className="h-8 w-8 text-red-500 flex-shrink-0" />
+                                          <div className="overflow-hidden">
+                                            <p className="text-sm font-medium truncate">{firstGroupSelection.uploadedFileName}</p>
+                                            <p className="text-xs text-muted-foreground">PDF Document</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      <div className="flex items-center justify-between p-2 border-t">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs flex-shrink-0">Uploaded</Badge>
+                                          <span className="text-xs text-muted-foreground truncate">{firstGroupSelection.uploadedFileName}</span>
+                                        </div>
+                                        {!isReadOnly && groups.length > 0 && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                                            onClick={() => handleRemoveCustomPatternUpload(discipline.id, groups[0].id)}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <label
+                                      className={cn(
+                                        "flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
+                                        "border-purple-200 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/30",
+                                        isReadOnly && "opacity-50 cursor-not-allowed"
+                                      )}
+                                    >
+                                      <UploadCloud className="h-6 w-6 text-purple-400" />
+                                      <span className="text-xs text-purple-600">Drop or click to upload PDF, JPG, or PNG</span>
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        disabled={isReadOnly}
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file && groups.length > 0) handleCustomPatternUpload(file, discipline.id, groups[0].id);
+                                          e.target.value = '';
+                                        }}
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+
+                                {!firstGroupSelection?.uploadedFileUrl && (
+                                  <p className="text-xs text-purple-700 dark:text-purple-400">
+                                    A custom pattern will be assigned later. No standard pattern will be selected.
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {/* Group Level Details */}
                         <div className="space-y-3">
                           {groups.length > 0 ? (
-                            groups.map((group, groupIndex) => {
+                            (isHubMode ? groups.slice(0, 1) : groups).map((group, groupIndex) => {
                               const currentSelection = getPatternSelection(discipline.id, group.id);
                               const filteredPatterns = getFilteredPatterns(discipline.id);
-                              
+
                               return (
                                 <div
                                   key={group.id}
-                                  className="p-4 border rounded-lg bg-background/50 space-y-4"
+                                  className="p-2 sm:p-4 border rounded-lg bg-background/50 space-y-3 sm:space-y-4"
                                 >
                                   <div>
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <Label className="font-semibold text-base">{group.name}</Label>
+                                      {!isHubMode && <Label className="font-semibold text-base">{group.name}</Label>}
                                       {/* Show pattern badge, judge-assigned badge, or custom-request badge */}
                                       {!isScoresheetOnly && currentSelection?.type === 'judgeAssigned' && (
                                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">
@@ -1421,34 +1697,62 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     </div>
                                     <div className="flex flex-wrap gap-1 mt-2">
                                       {(group.divisions || []).map(div => {
-                                        // Remove first word, "Pro", and "Non-Pro" from division name
                                         const divisionName = div.division || div.id || '';
+
+                                        // If structured tags exist (from Division & Level step), render separate badges
+                                        if (div.category) {
+                                          // Parse level name: remove category prefix to get the rest
+                                          // e.g., "Open Junior Level 2" with category "Open" → "Junior Level 2"
+                                          const categoryPrefix = div.category;
+                                          let remainder = divisionName;
+                                          if (remainder.toLowerCase().startsWith(categoryPrefix.toLowerCase())) {
+                                            remainder = remainder.slice(categoryPrefix.length).trim();
+                                          }
+
+                                          // Split remainder into division and level parts
+                                          // e.g., "Junior Level 2" → division="Junior", level="Level 2"
+                                          // e.g., "All Aged" → just show as-is
+                                          // e.g., "Senior Level 1" → division="Senior", level="Level 1"
+                                          const levelMatch = remainder.match(/^(.*?)\s*(Level\s+\d+)$/i);
+                                          const tags = [categoryPrefix];
+                                          if (levelMatch) {
+                                            const divPart = levelMatch[1].trim();
+                                            const levelPart = levelMatch[2].trim();
+                                            if (divPart) tags.push(divPart);
+                                            tags.push(levelPart);
+                                          } else if (remainder) {
+                                            tags.push(remainder);
+                                          }
+
+                                          return tags.map((tag, tagIdx) => (
+                                            <Badge
+                                              key={`${div.id || divisionName}-${tagIdx}`}
+                                              variant="secondary"
+                                              className="text-xs"
+                                            >
+                                              {tag}
+                                            </Badge>
+                                          ));
+                                        }
+
+                                        // Fallback: remove first word for legacy division format
                                         const removeFirstWord = (name) => {
                                           if (!name) return name;
                                           let cleaned = name;
-                                          
-                                          // Remove first word and any separator (dash, hyphen, etc.)
                                           cleaned = cleaned.replace(/^[^\s-]+\s*[-–—]\s*/, '').trim();
-                                          
-                                          // Remove "Pro" or "Non-Pro" at the start
                                           cleaned = cleaned.replace(/^(Pro|Non-Pro)\s*[-–—]?\s*/i, '').trim();
-                                          
-                                          // If no separator found and still original, try removing just the first word
                                           if (cleaned === name) {
                                             const parts = name.split(/\s+/);
-                                            // Skip first word if it's not "Pro" or "Non-Pro"
                                             if (parts.length > 1 && !/^(Pro|Non-Pro)$/i.test(parts[0])) {
                                               cleaned = parts.slice(1).join(' ');
                                             } else if (parts.length > 1) {
-                                              // If first word is "Pro" or "Non-Pro", remove it and separator if present
                                               cleaned = parts.slice(1).join(' ').replace(/^\s*[-–—]\s*/, '').trim();
                                             }
                                           }
-                                          
                                           return cleaned || name;
                                         };
                                         const displayName = removeFirstWord(divisionName);
-                                        
+
                                         return (
                                           <Badge
                                             key={div.id || `${div.assocId}-${div.division}`}
@@ -1462,320 +1766,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     </div>
                                   </div>
 
-                                {/* Judge Assignment & Custom Pattern Options */}
-                                {!isScoresheetOnly && (
-                                  <div className="flex flex-wrap gap-4 pt-1">
-                                    {/* Judge Assignment Checkbox */}
-                                    <div className="flex items-center gap-2">
-                                      <Checkbox
-                                        id={`judge-assign-${discipline.id}-${group.id}`}
-                                        checked={currentSelection?.type === 'judgeAssigned'}
-                                        onCheckedChange={(checked) => {
-                                          if (isReadOnly) return;
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
-                                            if (checked) {
-                                              newSelections[discipline.id][group.id] = {
-                                                type: 'judgeAssigned',
-                                                judgeName: '',
-                                                patternId: null,
-                                                patternName: null,
-                                                maneuversRange: null
-                                              };
-                                            } else {
-                                              newSelections[discipline.id][group.id] = {
-                                                patternId: null,
-                                                patternName: null,
-                                                maneuversRange: null
-                                              };
-                                            }
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                        disabled={isReadOnly || currentSelection?.type === 'customRequest'}
-                                      />
-                                      <Label htmlFor={`judge-assign-${discipline.id}-${group.id}`} className="text-sm cursor-pointer">
-                                        Assign Judge to Select Pattern
-                                      </Label>
-                                    </div>
-
-                                    {/* Custom Pattern Request Checkbox - only for custom disciplines */}
-                                    {(discipline.isCustom || discipline.pattern_type === 'custom') && (
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox
-                                          id={`custom-request-${discipline.id}-${group.id}`}
-                                          checked={currentSelection?.type === 'customRequest'}
-                                          onCheckedChange={(checked) => {
-                                            if (isReadOnly) return;
-                                            setFormData(prev => {
-                                              const newSelections = { ...(prev.patternSelections || {}) };
-                                              if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
-                                              if (checked) {
-                                                newSelections[discipline.id][group.id] = {
-                                                  type: 'customRequest',
-                                                  customPatternRequested: true,
-                                                  patternId: null,
-                                                  patternName: null,
-                                                  requestedFromName: '',
-                                                  requestedFromEmail: '',
-                                                  requestNotes: '',
-                                                  requestStatus: 'requested'
-                                                };
-                                              } else {
-                                                newSelections[discipline.id][group.id] = {
-                                                  patternId: null,
-                                                  patternName: null,
-                                                  maneuversRange: null
-                                                };
-                                              }
-                                              return { ...prev, patternSelections: newSelections };
-                                            });
-                                          }}
-                                          disabled={isReadOnly || currentSelection?.type === 'judgeAssigned'}
-                                        />
-                                        <Label htmlFor={`custom-request-${discipline.id}-${group.id}`} className="text-sm cursor-pointer">
-                                          Request Custom Pattern
-                                        </Label>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Judge Assignment Details */}
-                                {currentSelection?.type === 'judgeAssigned' && (
-                                  <div className="p-3 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
-                                    <Label className="text-xs text-muted-foreground mb-1 block">Assigned Judge</Label>
-                                    <Select
-                                      value={currentSelection.judgeName || ''}
-                                      onValueChange={(judgeName) => {
-                                        if (isReadOnly) return;
-                                        setFormData(prev => {
-                                          const newSelections = { ...(prev.patternSelections || {}) };
-                                          newSelections[discipline.id][group.id] = {
-                                            ...newSelections[discipline.id][group.id],
-                                            judgeName
-                                          };
-                                          return { ...prev, patternSelections: newSelections };
-                                        });
-                                      }}
-                                      disabled={isReadOnly}
-                                    >
-                                      <SelectTrigger className="bg-background">
-                                        <SelectValue placeholder="Select a judge..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {Object.values(formData.associationJudges || {})
-                                          .flatMap(assocData => (assocData.judges || []))
-                                          .filter(judge => judge?.name)
-                                          .map((judge, idx) => (
-                                            <SelectItem key={idx} value={judge.name}>{judge.name}</SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                                      Pattern will be selected by the assigned judge. No pattern will be auto-assigned.
-                                    </p>
-                                  </div>
-                                )}
-
-                                {/* Custom Pattern Request Details */}
-                                {currentSelection?.type === 'customRequest' && (
-                                  <div className="p-3 border-2 border-dashed border-purple-300 rounded-lg bg-purple-50/50 dark:bg-purple-950/20 space-y-3">
-                                    <p className="text-sm font-medium text-purple-800 dark:text-purple-300">Custom Pattern Requested</p>
-
-                                    {/* Request From Name */}
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground mb-1 block">
-                                        Request From Name <span className="text-red-500">*</span>
-                                      </Label>
-                                      <Input
-                                        placeholder="Name of person to request pattern from..."
-                                        value={currentSelection.requestedFromName || ''}
-                                        onChange={(e) => {
-                                          if (isReadOnly) return;
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            newSelections[discipline.id][group.id] = {
-                                              ...newSelections[discipline.id][group.id],
-                                              requestedFromName: e.target.value
-                                            };
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                        disabled={isReadOnly}
-                                        className={!currentSelection.requestedFromName?.trim() && currentSelection._touched?.name ? 'border-red-400' : ''}
-                                        onBlur={() => {
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            newSelections[discipline.id][group.id] = {
-                                              ...newSelections[discipline.id][group.id],
-                                              _touched: { ...newSelections[discipline.id][group.id]._touched, name: true }
-                                            };
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                      />
-                                      {!currentSelection.requestedFromName?.trim() && currentSelection._touched?.name && (
-                                        <p className="text-xs text-red-500 mt-1">Name is required when requesting a custom pattern.</p>
-                                      )}
-                                    </div>
-
-                                    {/* Request From Email */}
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground mb-1 block">
-                                        Request From Email <span className="text-red-500">*</span>
-                                      </Label>
-                                      <Input
-                                        type="email"
-                                        placeholder="Email address..."
-                                        value={currentSelection.requestedFromEmail || ''}
-                                        onChange={(e) => {
-                                          if (isReadOnly) return;
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            newSelections[discipline.id][group.id] = {
-                                              ...newSelections[discipline.id][group.id],
-                                              requestedFromEmail: e.target.value
-                                            };
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                        disabled={isReadOnly}
-                                        className={
-                                          currentSelection._touched?.email &&
-                                          (!currentSelection.requestedFromEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSelection.requestedFromEmail))
-                                            ? 'border-red-400' : ''
-                                        }
-                                        onBlur={() => {
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            newSelections[discipline.id][group.id] = {
-                                              ...newSelections[discipline.id][group.id],
-                                              _touched: { ...newSelections[discipline.id][group.id]._touched, email: true }
-                                            };
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                      />
-                                      {currentSelection._touched?.email && !currentSelection.requestedFromEmail?.trim() && (
-                                        <p className="text-xs text-red-500 mt-1">Email is required when requesting a custom pattern.</p>
-                                      )}
-                                      {currentSelection._touched?.email && currentSelection.requestedFromEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSelection.requestedFromEmail) && (
-                                        <p className="text-xs text-red-500 mt-1">Please enter a valid email address.</p>
-                                      )}
-                                    </div>
-
-                                    {/* Optional Notes */}
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground mb-1 block">Optional Notes</Label>
-                                      <Textarea
-                                        placeholder="Optional notes for custom pattern request..."
-                                        value={currentSelection.requestNotes || ''}
-                                        onChange={(e) => {
-                                          if (isReadOnly) return;
-                                          setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            newSelections[discipline.id][group.id] = {
-                                              ...newSelections[discipline.id][group.id],
-                                              requestNotes: e.target.value
-                                            };
-                                            return { ...prev, patternSelections: newSelections };
-                                          });
-                                        }}
-                                        disabled={isReadOnly}
-                                        rows={3}
-                                      />
-                                    </div>
-
-                                    {/* Custom Pattern Upload */}
-                                    <div>
-                                      <Label className="text-xs text-muted-foreground mb-1 block">Upload Custom Pattern</Label>
-                                      {currentSelection.uploadedFileUrl ? (
-                                        <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-900">
-                                          {/* Uploaded file preview */}
-                                          {currentSelection.uploadedFileType?.startsWith('image/') ? (
-                                            <img
-                                              src={currentSelection.uploadedFileUrl}
-                                              alt="Custom pattern"
-                                              className="w-full max-h-48 object-contain bg-slate-50 dark:bg-slate-800"
-                                            />
-                                          ) : (
-                                            <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800">
-                                              <FileText className="h-8 w-8 text-red-500 flex-shrink-0" />
-                                              <div className="overflow-hidden">
-                                                <p className="text-sm font-medium truncate">{currentSelection.uploadedFileName}</p>
-                                                <p className="text-xs text-muted-foreground">PDF Document</p>
-                                              </div>
-                                            </div>
-                                          )}
-                                          <div className="flex items-center justify-between p-2 border-t">
-                                            <div className="flex items-center gap-1.5 min-w-0">
-                                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs flex-shrink-0">Uploaded</Badge>
-                                              <span className="text-xs text-muted-foreground truncate">{currentSelection.uploadedFileName}</span>
-                                            </div>
-                                            {!isReadOnly && (
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
-                                                onClick={() => handleRemoveCustomPatternUpload(discipline.id, group.id)}
-                                              >
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <label
-                                          className={cn(
-                                            "flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors",
-                                            "border-purple-200 hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/30",
-                                            isReadOnly && "opacity-50 cursor-not-allowed",
-                                            uploadingCustomPattern === `${discipline.id}-${group.id}` && "pointer-events-none opacity-70"
-                                          )}
-                                        >
-                                          {uploadingCustomPattern === `${discipline.id}-${group.id}` ? (
-                                            <>
-                                              <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
-                                              <span className="text-xs text-purple-600">Uploading...</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <UploadCloud className="h-6 w-6 text-purple-400" />
-                                              <span className="text-xs text-purple-600">
-                                                Drop or click to upload PDF, JPG, or PNG
-                                              </span>
-                                            </>
-                                          )}
-                                          <input
-                                            type="file"
-                                            className="hidden"
-                                            accept=".pdf,.jpg,.jpeg,.png"
-                                            disabled={isReadOnly || uploadingCustomPattern === `${discipline.id}-${group.id}`}
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0];
-                                              if (file) handleCustomPatternUpload(file, discipline.id, group.id);
-                                              e.target.value = '';
-                                            }}
-                                          />
-                                        </label>
-                                      )}
-                                    </div>
-
-                                    {!currentSelection.uploadedFileUrl && (
-                                      <p className="text-xs text-purple-700 dark:text-purple-400">
-                                        A custom pattern will be assigned later. No standard pattern will be selected.
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
+                                {/* Judge/Custom badges shown inline at group level (controls moved to discipline level) */}
 
                                 {/* Pattern Selection - Only show for non-scoresheet-only disciplines and when not judge-assigned/custom-request */}
                                 {!isScoresheetOnly && currentSelection?.type !== 'judgeAssigned' && currentSelection?.type !== 'customRequest' && (
                                   <div className="space-y-2">
                                       <Label className="text-sm text-muted-foreground">Pattern Selection</Label>
-                                      <div className="grid grid-cols-2 gap-3">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                                           {/* Pattern Selector */}
                                           <div>
                                               <Label className="text-xs text-muted-foreground mb-1 block">Select Pattern</Label>
@@ -1817,7 +1814,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             associationNamesToFilter = [currentSelection.filterAssociation];
                                                         } else {
                                                             // Fallback to group associations based on Primary logic
-                                                        const groupAssociations = getGroupAssociationNames(group);
+                                                        const groupAssociations = getGroupAssociationNames(group, discipline);
                                                             associationNamesToFilter = [...groupAssociations.names, ...groupAssociations.abbreviations, ...groupAssociations.ids];
                                                         }
                                                         
@@ -2037,7 +2034,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         {/* Hover Preview - Rendered via portal at body level, centered */}
                                         {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                             <div
-                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-none"
+                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-2 sm:p-4 w-[90vw] sm:w-[600px] max-w-[95vw] pointer-events-none hidden sm:block"
                                                 style={{
                                                     left: '50%',
                                                     top: '50%',

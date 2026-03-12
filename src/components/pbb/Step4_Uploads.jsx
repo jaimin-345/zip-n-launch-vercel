@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, File, Trash2, Image as ImageIcon, Facebook, Instagram, Youtube, Pencil, Loader2 } from 'lucide-react';
+import { UploadCloud, File, Trash2, Image as ImageIcon, Pencil, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -76,19 +76,6 @@ const FileUploadZone = ({ dropzone, files, onRemove, onEdit, title, description,
   );
 };
 
-const SocialMediaInput = ({ icon: Icon, id, value, onChange, placeholder }) => (
-  <div className="relative">
-    <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-    <Input
-      id={id}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      className="pl-10"
-    />
-  </div>
-);
-
 export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducationMode, stepNumber = 6, purposeName }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -133,16 +120,6 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
     setEditingFile(null);
     setEditingFileIndex(null);
     setEditingFileType(null);
-  };
-
-  const handleMarketingChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      marketing: {
-        ...(prev.marketing || {}),
-        [field]: value
-      }
-    }));
   };
 
   const uploadFile = async (file, type) => {
@@ -297,33 +274,6 @@ export const Step4_Uploads = ({ formData, setFormData, isClinicMode, isEducation
           isUploading={isUploading}
         />
         
-        <div className="space-y-4">
-          <Label className="text-base font-semibold">Social Media & Sharing (Optional)</Label>
-          <p className="text-sm text-muted-foreground">Add links to your social media pages for event promotion.</p>
-          <div className="space-y-3">
-            <SocialMediaInput
-              icon={Facebook}
-              id="facebookLink"
-              value={formData.marketing?.facebook || ''}
-              onChange={(e) => handleMarketingChange('facebook', e.target.value)}
-              placeholder="https://facebook.com/your-page"
-            />
-            <SocialMediaInput
-              icon={Instagram}
-              id="instagramLink"
-              value={formData.marketing?.instagram || ''}
-              onChange={(e) => handleMarketingChange('instagram', e.target.value)}
-              placeholder="https://instagram.com/your-handle"
-            />
-            <SocialMediaInput
-              icon={Youtube}
-              id="youtubeLink"
-              value={formData.marketing?.youtube || ''}
-              onChange={(e) => handleMarketingChange('youtube', e.target.value)}
-              placeholder="https://youtube.com/c/your-channel"
-            />
-          </div>
-        </div>
       </div>
       <FileUploadEditor
         isOpen={!!editingFile}

@@ -6,9 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Pencil, Save, Loader2, ShieldCheck, Lock, Rocket, Download,
-    CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone
+    CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone,
+    LayoutDashboard, Trophy, DollarSign, Users, ClipboardList, FileSpreadsheet
 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -16,9 +20,8 @@ import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 
 const STATUS_CONFIG = {
     draft:     { label: 'Draft',     color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
-    approved:  { label: 'Approved',  color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
     locked:    { label: 'Locked',    color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
-    published: { label: 'Published', color: 'bg-purple-100 text-purple-800 border-purple-300', dotColor: 'bg-purple-600' },
+    published: { label: 'Published', color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
 };
 
 // --- Admin & Owner Assignment ---
@@ -134,9 +137,9 @@ const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull
                     </div>
                 )}
                 <div>
-                    <p className="text-xs text-muted-foreground mb-1">Current Status</p>
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${cfg.color}`}>
-                        <span className={`w-2 h-2 rounded-full ${cfg.dotColor}`} />
+                    <p className="text-xs text-muted-foreground mb-1">Status</p>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold rounded-full border ${cfg.color}`}>
+                        <span className={`w-2.5 h-2.5 rounded-full ${cfg.dotColor}`} />
                         {cfg.label}
                     </span>
                 </div>
@@ -197,56 +200,66 @@ const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull
     );
 };
 
-// --- Center Panel: Action Buttons ---
+// --- Center Panel: Action Buttons (grouped) ---
 const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportBudget, isSaving, isFull }) => {
     const isFinalized = currentStatus === 'published';
     const isLocked = currentStatus === 'locked' || isFinalized;
 
     return (
-        <div className="space-y-3">
-            <h3 className="text-base font-semibold mb-1">Manage Show</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-                {isFull
-                    ? 'Save, approve & lock, and finalize your show structure & expenses.'
-                    : 'Save, approve & lock, and finalize your fee structure & sponsors.'}
-            </p>
-
-            <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12" onClick={() => onStatusChange('draft')} disabled={isSaving || isLocked}>
-                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
-                <div className="text-left">
-                    <span className="font-semibold">Save Draft</span>
-                    <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
+        <div className="space-y-5">
+            {/* Section 1: Manage Status */}
+            <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    <h3 className="text-base font-semibold">Manage Status</h3>
                 </div>
-            </Button>
+                <p className="text-xs text-muted-foreground mb-3">
+                    {isFull
+                        ? 'Save, lock, and publish your show structure & expenses.'
+                        : 'Save, lock, and publish your fee structure & sponsors.'}
+                </p>
 
-            <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300" onClick={() => onStatusChange('locked')} disabled={isSaving || isLocked}>
-                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
-                    <div className="mr-3 relative">
-                        <ShieldCheck className="h-5 w-5 text-blue-600" />
-                        <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
+                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12" onClick={() => onStatusChange('draft')} disabled={isSaving || isLocked}>
+                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
+                    <div className="text-left">
+                        <span className="font-semibold">Save as Draft</span>
+                        <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
                     </div>
-                )}
-                <div className="text-left">
-                    <span className="font-semibold text-blue-700">Approve & Lock</span>
-                    <span className="block text-xs text-muted-foreground">Approve and lock editing — export & view only</span>
-                </div>
-            </Button>
+                </Button>
 
-            <Button size="lg" className="w-full justify-start text-sm h-12 bg-purple-600 hover:bg-purple-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isFinalized}>
-                {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
-                <div className="text-left">
-                    <span className="font-semibold">Finalize Show</span>
-                    <span className="block text-xs text-purple-200">Publish official structure — final state</span>
-                </div>
-            </Button>
+                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300" onClick={() => onStatusChange('locked')} disabled={isSaving || isLocked}>
+                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
+                        <div className="mr-3 relative">
+                            <ShieldCheck className="h-5 w-5 text-blue-600" />
+                            <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
+                        </div>
+                    )}
+                    <div className="text-left">
+                        <span className="font-semibold text-blue-700">Lock Editing</span>
+                        <span className="block text-xs text-muted-foreground">Lock all editing — export & view only</span>
+                    </div>
+                </Button>
 
+                <Button size="lg" className="w-full justify-start text-sm h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isFinalized}>
+                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+                    <div className="text-left">
+                        <span className="font-semibold">Publish Show</span>
+                        <span className="block text-xs text-green-200">Publish official structure — final state</span>
+                    </div>
+                </Button>
+            </div>
+
+            {/* Section 2: Exports */}
             {onExportBudget && (
-                <>
-                    <hr className="my-2 border-border" />
+                <div className="space-y-3 pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-primary" />
+                        <h3 className="text-base font-semibold">Exports</h3>
+                    </div>
                     <Button size="lg" className="w-full text-sm font-semibold h-12" onClick={onExportBudget} disabled={isSaving}>
-                        <Download className="mr-2 h-5 w-5" /> Export Budget Spreadsheet
+                        <Download className="mr-2 h-5 w-5" /> Export Show Budget Spreadsheet
                     </Button>
-                </>
+                </div>
             )}
         </div>
     );
@@ -311,13 +324,82 @@ const ReviewField = ({ label, value }) => {
     return <p><span className="font-semibold text-foreground">{label}:</span> {value}</p>;
 };
 
+// --- Show Summary Panel ---
+const ShowSummaryPanel = ({ formData, totalExpenses, totalAwardExpenses, totalFeeIncome, totalSponsorship }) => {
+    const disciplines = formData.disciplines || [];
+    const totalClasses = disciplines.reduce((sum, d) => sum + (d.divisionOrder?.length || 0), 0);
+
+    const judges = (formData.staff || []).filter(s =>
+        s.role?.toLowerCase().includes('judge') || s.position?.toLowerCase().includes('judge')
+    );
+    const judgeCount = judges.length;
+
+    const totalIncome = totalFeeIncome + totalSponsorship;
+    const totalAllExpenses = totalExpenses + totalAwardExpenses;
+    const projectedProfit = totalIncome - totalAllExpenses;
+
+    const stats = [
+        { label: 'Classes', value: totalClasses, icon: LayoutDashboard, color: 'text-blue-600' },
+        { label: 'Judges', value: judgeCount, icon: Users, color: 'text-indigo-600' },
+        { label: 'Awards Budget', value: `$${totalAwardExpenses.toFixed(0)}`, icon: Trophy, color: 'text-amber-600' },
+        { label: 'Expenses Total', value: `$${totalAllExpenses.toFixed(0)}`, icon: DollarSign, color: 'text-red-600' },
+        { label: 'Projected Profit', value: `$${projectedProfit.toFixed(0)}`, icon: DollarSign, color: projectedProfit >= 0 ? 'text-green-600' : 'text-red-600' },
+    ];
+
+    return (
+        <div className="border rounded-lg overflow-hidden bg-gradient-to-r from-primary/5 to-primary/10">
+            <div className="px-4 py-3 border-b bg-primary/10">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-primary" />
+                    Show Summary
+                </h3>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 divide-x divide-border">
+                {stats.map(({ label, value, icon: Icon, color }) => (
+                    <div key={label} className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                            <Icon className={`h-3.5 w-3.5 ${color}`} />
+                            <span className="text-xs text-muted-foreground">{label}</span>
+                        </div>
+                        <p className={`text-lg font-bold ${color}`}>{value}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// --- Success Confirmation Dialog ---
+const SuccessDialog = ({ open, onClose, onGoToDashboard, statusLabel }) => (
+    <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    Show Saved Successfully
+                </DialogTitle>
+                <DialogDescription className="pt-2">
+                    Your show has been saved successfully with status: <span className="font-semibold">{statusLabel}</span>.
+                    <br /><br />
+                    Would you like to return to the dashboard?
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+                <Button variant="outline" onClick={onClose}>Stay on Page</Button>
+                <Button onClick={onGoToDashboard}>Go to Dashboard</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+);
+
 // --- Main Component ---
-export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'full' }) => {
+export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'full', onNavigateToDashboard }) => {
     const { associations = {} } = formData;
     const { toast } = useToast();
     const { user, profile } = useAuth();
     const [associationsData, setAssociationsData] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [successDialog, setSuccessDialog] = useState({ open: false, statusLabel: '' });
 
     useEffect(() => {
         const fetchAssociations = async () => {
@@ -334,6 +416,8 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
     const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
     const sponsors = formData.sponsors || [];
+    const fees = formData.fees || [];
+    const totalFeeIncome = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
     const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
     const expenses = formData.showExpenses || [];
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
@@ -347,23 +431,25 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
 
     const isFull = variant === 'full';
 
+    const handleGoToDashboard = useCallback(() => {
+        setSuccessDialog({ open: false, statusLabel: '' });
+        if (onNavigateToDashboard) {
+            onNavigateToDashboard();
+        } else {
+            window.location.href = '/horse-show-manager';
+        }
+    }, [onNavigateToDashboard]);
+
     const handleStatusChange = useCallback(async (newStatus) => {
         setIsSaving(true);
         try {
             setFormData(prev => ({ ...prev, showStatus: newStatus }));
             const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
-            toast({
-                title: `Show ${statusLabel}!`,
-                description: newStatus === 'published'
-                    ? 'Your show structure has been finalized.'
-                    : newStatus === 'locked'
-                    ? 'Show is now locked. Editing is disabled — export and view only.'
-                    : `Your show has been saved with status: ${statusLabel}.`,
-            });
+            setSuccessDialog({ open: true, statusLabel });
         } finally {
             setIsSaving(false);
         }
-    }, [setFormData, toast]);
+    }, [setFormData]);
 
     const handleExportBudget = useCallback(() => {
         try {
@@ -500,6 +586,17 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                {/* Show Summary Panel */}
+                {isFull && (
+                    <ShowSummaryPanel
+                        formData={formData}
+                        totalExpenses={totalExpenses}
+                        totalAwardExpenses={totalAwardExpenses}
+                        totalFeeIncome={totalFeeIncome}
+                        totalSponsorship={totalSponsorshipRevenue}
+                    />
+                )}
+
                 {/* Admin & Owner Assignment */}
                 <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} />
 
@@ -558,6 +655,13 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                         </div>
                     </div>
                 )}
+                {/* Success Confirmation Dialog */}
+                <SuccessDialog
+                    open={successDialog.open}
+                    onClose={() => setSuccessDialog({ open: false, statusLabel: '' })}
+                    onGoToDashboard={handleGoToDashboard}
+                    statusLabel={successDialog.statusLabel}
+                />
             </CardContent>
         </motion.div>
     );

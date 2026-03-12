@@ -295,31 +295,30 @@ const detectGroupType = (divisions) => {
       };
 
 
-      // Extract judges from associationJudges structure with their associations
+      // Extract judges from associationJudges AND showDetails.officials
       const judgesWithAssociations = [];
+      const addJudge = (judgeName, assocId) => {
+        const association = (formData.associations || []).find(a => a.id === assocId);
+        const assocName = association?.name || assocId;
+        const existing = judgesWithAssociations.find(j => j.name === judgeName);
+        if (existing) {
+          if (!existing.associations.includes(assocName)) existing.associations.push(assocName);
+        } else {
+          judgesWithAssociations.push({ name: judgeName, associations: [assocName] });
+        }
+      };
+      // From associationJudges (legacy/JudgesAndStaff)
       if (formData.associationJudges) {
         Object.keys(formData.associationJudges).forEach(assocId => {
           const assocJudges = formData.associationJudges[assocId]?.judges || [];
-          assocJudges.forEach(judge => {
-            if (judge.name) {
-              // Find association name
-              const association = (formData.associations || []).find(a => a.id === assocId);
-              const assocName = association?.name || assocId;
-              
-              // Check if judge already exists
-              const existingJudge = judgesWithAssociations.find(j => j.name === judge.name);
-              if (existingJudge) {
-                // Add association to existing judge
-                existingJudge.associations.push(assocName);
-              } else {
-                // Add new judge with association
-                judgesWithAssociations.push({
-                  name: judge.name,
-                  associations: [assocName]
-                });
-              }
-            }
-          });
+          assocJudges.forEach(judge => { if (judge.name) addJudge(judge.name, assocId); });
+        });
+      }
+      // From showDetails.officials (OfficialsStaffSection)
+      if (formData.showDetails?.officials) {
+        Object.keys(formData.showDetails.officials).forEach(assocId => {
+          const judges = formData.showDetails.officials[assocId]?.JUDGE || [];
+          judges.forEach(judge => { if (judge.name) addJudge(judge.name, assocId); });
         });
       }
       
@@ -448,7 +447,7 @@ const detectGroupType = (divisions) => {
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <AlertCircle className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{pbbDiscipline.name}</p>
+                              <p className="font-medium text-sm truncate">{pbbDiscipline.name.replace(' at Halter', '')}</p>
                               <p className="text-xs text-muted-foreground">
                                 {patternCount} patterns assigned
                               </p>
@@ -484,15 +483,20 @@ const detectGroupType = (divisions) => {
                     const disciplineDbPatterns = dbPatternsMap[pbbDiscipline.id] || [];
                     const isLoadingDiscipline = loadingPatterns[pbbDiscipline.id];
                     
-                    // Filter judges by this discipline's association
+                    // Filter judges by this discipline's association (from both data sources)
                     const disciplineJudges = [];
-                    if (pbbDiscipline.association_id && formData.associationJudges) {
-                      const assocJudges = formData.associationJudges[pbbDiscipline.association_id]?.judges || [];
-                      assocJudges.forEach(judge => {
-                        if (judge.name) {
-                          disciplineJudges.push(judge);
-                        }
-                      });
+                    const seenJudgeNames = new Set();
+                    const pushJudge = (judge) => {
+                      if (judge.name && !seenJudgeNames.has(judge.name)) {
+                        seenJudgeNames.add(judge.name);
+                        disciplineJudges.push(judge);
+                      }
+                    };
+                    if (pbbDiscipline.association_id) {
+                      // From associationJudges (legacy)
+                      (formData.associationJudges?.[pbbDiscipline.association_id]?.judges || []).forEach(pushJudge);
+                      // From showDetails.officials (OfficialsStaffSection)
+                      (formData.showDetails?.officials?.[pbbDiscipline.association_id]?.JUDGE || []).forEach(pushJudge);
                     }
                     
                     // Get unique maneuvers ranges from database patterns
@@ -509,7 +513,7 @@ const detectGroupType = (divisions) => {
                     >
                       <AccordionTrigger className="px-4 hover:no-underline">
                         <div className="flex items-center justify-between w-full pr-2">
-                          <h4 className="font-bold text-md">{pbbDiscipline.name}</h4>
+                          <h4 className="font-bold text-md">{pbbDiscipline.name.replace(' at Halter', '')}</h4>
                           <div className="flex items-center gap-2 flex-wrap">
                             {/* Show all group pattern selections from Step 3 data */}
                             {(() => {
@@ -677,14 +681,14 @@ const detectGroupType = (divisions) => {
                                         {availableManeuversRanges.length > 0 ? (
                                           availableManeuversRanges.map(range => (
                                             <SelectItem key={range} value={range}>
-                                              {pbbDiscipline.name} Pattern {range}
+                                              {pbbDiscipline.name.replace(' at Halter', '')} Pattern {range}
                                             </SelectItem>
                                           ))
                                         ) : (
                                           // Fallback to static options if no DB patterns
                                           PATTERN_SETS.map(set => (
                                             <SelectItem key={set.setNumber} value={set.setNumber.toString()}>
-                                              {pbbDiscipline.name} {set.name}
+                                              {pbbDiscipline.name.replace(' at Halter', '')} {set.name}
                                             </SelectItem>
                                           ))
                                         )}
@@ -697,7 +701,7 @@ const detectGroupType = (divisions) => {
                                     <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
                                     <Select 
                                       value={currentSelection?.patternId?.toString() || ''}
-                                      onValueChange={(patternId) => {
+                                      onValueChange={(patterId) => {
                                         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
                                         setPatternSelection(pbbDiscipline.id, group.id, {
                                           maneuversRange: selectedManeuversRange,

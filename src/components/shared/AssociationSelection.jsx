@@ -471,7 +471,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   const isClinic = context === 'hub' && formData.usageType === 'clinic';
 
   const getShowNameLabel = () => {
-    if (isClinic) return "Clinic Number";
+    if (isClinic) return "Clinic Name";
     if (context === 'hub' && selectedPurposeName) {
         return `${selectedPurposeName} Name`;
     }
@@ -482,10 +482,10 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getShowNamePlaceholder = () => {
-     if (isClinic) return "E.g., C-2026-001";
+     if (isClinic) return "E.g., Western Horsemanship Clinic";
      if (context === 'hub') {
         if (formData.usageType === 'just_for_fun') return "E.g., My Pattern Collection";
-        return "E.g., Individual Pattern Purchase";
+        return "E.g., Choose a Pattern";
     }
     if (context === 'pattern-upload') return "E.g., Championship Horsemanship Finals 2025";
     if (context === 'pbb') return "E.g., Summer Sizzler Pattern Book";
@@ -500,7 +500,7 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
   };
 
   const getDescription = () => {
-    if (isClinic) return "Enter your clinic number and select which groups you're teaching.";
+    if (isClinic) return "Enter your clinic name and number, then select which groups you're teaching.";
     if (context === 'pattern-upload') return "Name your pattern set and select all applicable legal associations. These will automatically apply to every pattern in this set.";
     if (context === 'hub') return "Choose which governing body's patterns you're looking for.";
     if (context === 'pbb') return "Name your pattern book and select the affiliated associations.";
@@ -540,12 +540,12 @@ export const AssociationSelection = ({ formData, setFormData, associationsData, 
             />
           </div>
           
-          {!isClinic && context !== 'pattern-upload' && (
+          {context !== 'pattern-upload' && (
             <div className="space-y-1.5">
-              <Label htmlFor="showNumber" className="font-semibold">Show Number</Label>
+              <Label htmlFor="showNumber" className="font-semibold">{isClinic ? 'Clinic Number' : 'Show Number'}</Label>
               <Input
                   id="showNumber"
-                  placeholder="E.g., 2024-001"
+                  placeholder={isClinic ? "E.g., C-2026-001" : "E.g., 2024-001"}
                   value={formData.showNumber || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, showNumber: e.target.value }))}
                   disabled={isReadOnly}

@@ -415,7 +415,7 @@ const PatternBookBuilderPage = () => {
             case 5: return <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} isReadOnly={isReadOnly} />;
             case 6: return <Step4_Uploads formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
             case 7: return <Step6_Preview formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} onGoToStep={setCurrentStep} />;
-            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} />;
+            case 8: return <Step_CloseOutAndDelegate formData={formData} setFormData={setFormData} isReadOnly={isReadOnly} createOrUpdateProject={createOrUpdateProject} />;
             default: return null;
         }
     };
@@ -476,11 +476,7 @@ const PatternBookBuilderPage = () => {
                                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                                 Save Project
                                             </Button>
-                                            {currentStep === steps.length ? (
-                                                <Button onClick={handlePayAndPublish} disabled={isNextDisabled}>
-                                                    <Download className="mr-2 h-4 w-4" /> Save & Publish Pattern Book
-                                                </Button>
-                                            ) : (
+                                            {currentStep < steps.length && (
                                                 <Button onClick={handleNext} disabled={isNextDisabled}>
                                                     Next <ArrowRight className="ml-2 h-4 w-4" />
                                                 </Button>

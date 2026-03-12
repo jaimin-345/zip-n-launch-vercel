@@ -301,7 +301,7 @@ export const usePatternBookBuilder = (projectId) => {
     }
   }, []);
 
-  const createOrUpdateProject = useCallback(async () => {
+  const createOrUpdateProject = useCallback(async (explicitStatus) => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save a project.', variant: 'destructive' });
       return null;
@@ -319,16 +319,24 @@ export const usePatternBookBuilder = (projectId) => {
     // Add current step to completedSteps before saving
     const updatedCompletedSteps = new Set(completedSteps);
     updatedCompletedSteps.add(step);
-    
+
     // Update the state so it's reflected immediately
     setCompletedSteps(updatedCompletedSteps);
 
-    // Check if completedSteps contains all steps 1-8
-    const completedStepsArray = Array.from(updatedCompletedSteps);
-    const allSteps = [1, 2, 3, 4, 5, 6, 7, 8];
-    const allStepsComplete = allSteps.every(step => completedStepsArray.includes(step));
-    // If all steps are complete (including step 8), set status to "Draft", otherwise "In progress"
-    const projectStatus = allStepsComplete ? 'Draft' : 'In progress';
+    // If an explicit status is provided (from closeout step), use it directly.
+    // Otherwise, auto-determine based on step completion.
+    let projectStatus;
+    if (explicitStatus) {
+      projectStatus = explicitStatus;
+      // Persist the status in formData so it's available on reload
+      finalFormData.projectStatus = explicitStatus;
+      setFormData(prev => ({ ...prev, projectStatus: explicitStatus }));
+    } else {
+      const completedStepsArray = Array.from(updatedCompletedSteps);
+      const allSteps = [1, 2, 3, 4, 5, 6, 7, 8];
+      const allStepsComplete = allSteps.every(step => completedStepsArray.includes(step));
+      projectStatus = allStepsComplete ? 'Draft' : 'In progress';
+    }
 
     const projectToSave = {
       ...finalFormData,

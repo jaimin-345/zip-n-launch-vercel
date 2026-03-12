@@ -41,22 +41,30 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                             onClick={() => handleStepClick(step.id)}
                         >
                             <div className={cn(
-                                'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
+                                'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                                 isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
                                 isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
                                 isNext && 'highlight-next-step'
                             )}>
-                                {isCompleted ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
+                                {isCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : <step.icon className="h-3 w-3 sm:h-4 sm:w-4" />}
                             </div>
                             <p className={cn(
-                                'mt-2 text-xs font-medium leading-tight',
+                                'mt-1 sm:mt-2 text-[10px] sm:text-xs font-medium leading-tight hidden sm:block',
                                 isActive ? 'text-foreground' : 'text-muted-foreground',
                                 isCompleted && !isActive && 'text-green-600'
                             )}>
                                 {step.name}
                             </p>
+                            {/* Mobile: only show label for active step */}
+                            <p className={cn(
+                                'mt-1 text-[9px] font-medium leading-tight sm:hidden max-w-[60px] truncate',
+                                isActive ? 'text-foreground' : 'text-muted-foreground',
+                                isCompleted && !isActive && 'text-green-600'
+                            )}>
+                                {isActive ? step.name : ''}
+                            </p>
                         </div>
-                        {index < steps.length - 1 && (<div className={`w-full h-0.5 mt-5 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(steps[index + 1]?.id) ? 'bg-green-600' : (currentStep > steps[index + 1]?.id ? 'bg-primary' : 'bg-border')}`} />)}
+                        {index < steps.length - 1 && (<div className={`w-full h-0.5 mt-4 sm:mt-5 rounded-full transition-colors duration-300 ${completedSteps.has(step.id) && completedSteps.has(steps[index + 1]?.id) ? 'bg-green-600' : (currentStep > steps[index + 1]?.id ? 'bg-primary' : 'bg-border')}`} />)}
                     </React.Fragment>
                 )
             })}

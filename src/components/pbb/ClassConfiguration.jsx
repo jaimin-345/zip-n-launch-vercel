@@ -477,7 +477,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div className="flex-grow text-left min-w-0">
-                            <span className="font-semibold text-sm">{pbbDiscipline.name}</span>
+                            <span className="font-semibold text-sm">{pbbDiscipline.name.replace(' at Halter', '')}</span>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 {divisionCounts.map(item => (
                                     <span key={item.id} className="text-xs text-amber-600 font-medium">{item.abbreviation}</span>
@@ -535,6 +535,7 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
                         associationsData={associationsData}
                         divisionsData={divisionsData}
                         isComplete={isComplete}
+                        onAutoGroupComplete={() => setOpenAccordion(null)}
                     />
                 </AccordionContent>
             </AccordionItem>

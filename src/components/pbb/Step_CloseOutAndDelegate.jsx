@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, DollarSign, Users, UserCog, Crown, Mail, Phone, Pencil, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, Users, UserCog, Crown, Mail, Phone, Pencil, Loader2, Save, Lock, Rocket, Download, Info, CheckCircle2, Image, Paperclip, BookOpen, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -18,6 +18,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
+
+const STATUS_CONFIG = {
+  'In progress': { label: 'In Progress', color: 'bg-orange-100 text-orange-800 border-orange-300', dotColor: 'bg-orange-500' },
+  'Draft':       { label: 'Draft',       color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
+  'Locked':      { label: 'Locked',      color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
+  'Final':       { label: 'Final',       color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-600' },
+};
 
 const accessPhases = [
     { id: 'draft', name: 'Draft, Build, Review' },
@@ -659,9 +667,207 @@ const StaffDelegationCard = ({ staffMember, disciplines, onUpdate, onContactUpda
     );
 };
 
-export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8, isReadOnly = false }) => {
+// --- Project Info Card (Left Panel) ---
+const ProjectInfoCard = ({ formData, user }) => {
+  const status = formData.projectStatus || 'In progress';
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['In progress'];
+
+  return (
+    <div className="border rounded-lg bg-card p-5 space-y-4">
+      <h3 className="text-base font-semibold">Project Info</h3>
+      <div className="space-y-3">
+        <div>
+          <p className="text-xs text-muted-foreground">Pattern Book</p>
+          <p className="text-sm font-medium">{formData.showName || 'Untitled Pattern Book'}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Owner</p>
+          <p className="text-sm font-medium">{user?.user_metadata?.full_name || user?.email || 'Unknown'}</p>
+        </div>
+        {formData.startDate && (
+          <div>
+            <p className="text-xs text-muted-foreground">Show Dates</p>
+            <p className="text-sm">
+              {parseLocalDate(formData.startDate).toLocaleDateString()}
+              {formData.endDate && ` — ${parseLocalDate(formData.endDate).toLocaleDateString()}`}
+            </p>
+          </div>
+        )}
+        {formData.venueAddress && (
+          <div>
+            <p className="text-xs text-muted-foreground">Venue</p>
+            <p className="text-sm">{formData.venueAddress}</p>
+          </div>
+        )}
+        <div>
+          <p className="text-xs text-muted-foreground mb-1">Current Status</p>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border ${cfg.color}`}>
+            <span className={`w-2 h-2 rounded-full ${cfg.dotColor}`} />
+            {cfg.label}
+          </span>
+        </div>
+      </div>
+      <div className="pt-3 border-t space-y-1.5">
+        <p className="text-xs text-muted-foreground">
+          {formData.disciplines?.length || 0} discipline(s)
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {Object.values(formData.patternSelections || {}).reduce((total, disc) => total + Object.keys(disc).length, 0)} pattern(s) assigned
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// --- Action Panel (Center Panel) ---
+const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly }) => {
+  const isFinalized = currentStatus === 'Final';
+  const isLocked = currentStatus === 'Locked' || isFinalized;
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold mb-1">Manage Pattern Book</h3>
+      <p className="text-xs text-muted-foreground mb-4">
+        Save your pattern book, lock when ready for review, and finalize for export.
+      </p>
+
+      {/* Save Draft */}
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full justify-start text-sm h-12"
+        onClick={() => onStatusChange('Draft')}
+        disabled={isSaving || isReadOnly || isLocked}
+      >
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
+        <div className="text-left">
+          <span className="font-semibold">Save Draft</span>
+          <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
+        </div>
+      </Button>
+
+      {/* Approve & Lock */}
+      <Button
+        variant="outline"
+        size="lg"
+        className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+        onClick={() => onStatusChange('Locked')}
+        disabled={isSaving || isReadOnly || isLocked}
+      >
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
+          <div className="mr-3 relative">
+            <ShieldCheck className="h-5 w-5 text-blue-600" />
+            <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
+          </div>
+        )}
+        <div className="text-left">
+          <span className="font-semibold text-blue-700">Approve & Lock</span>
+          <span className="block text-xs text-muted-foreground">Lock editing — export & view only</span>
+        </div>
+      </Button>
+
+      {/* Finalize */}
+      <Button
+        size="lg"
+        className="w-full justify-start text-sm h-12 bg-green-600 hover:bg-green-700 text-white"
+        onClick={() => onStatusChange('Final')}
+        disabled={isSaving || isReadOnly || isFinalized}
+      >
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+        <div className="text-left">
+          <span className="font-semibold">Finalize Pattern Book</span>
+          <span className="block text-xs text-green-200">Mark as final — ready for export</span>
+        </div>
+      </Button>
+
+      <hr className="my-2 border-border" />
+
+      {/* Export PDF */}
+      <Button
+        size="lg"
+        className="w-full text-sm font-semibold h-12"
+        disabled={isSaving || isReadOnly}
+      >
+        <Download className="mr-2 h-5 w-5" /> Export Pattern Book PDF
+      </Button>
+    </div>
+  );
+};
+
+// --- Licensing & Info Card (Right Panel) ---
+const LicensingCard = () => (
+  <div className="border rounded-lg bg-card p-5 space-y-4">
+    <h3 className="text-base font-semibold flex items-center gap-2">
+      <Info className="h-4 w-4 text-primary" />
+      Project Ownership & Licensing
+    </h3>
+    <div className="space-y-2.5">
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Ownership retained by creator</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Stored in your My Projects folder</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Admin access assigned</p>
+      </div>
+      <div className="flex items-start gap-2">
+        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+        <p className="text-sm">Can be edited until locked</p>
+      </div>
+    </div>
+    <hr className="border-border" />
+    <div className="bg-muted/50 rounded-md p-3">
+      <p className="text-sm font-medium">Pricing Notice</p>
+      <p className="text-xs text-muted-foreground mt-1">
+        Building a pattern book is free for members. Licensing applies only when exporting the final PDF.
+      </p>
+    </div>
+  </div>
+);
+
+// --- Success Confirmation Dialog ---
+const SuccessConfirmationDialog = ({ open, onClose, onGoHome, statusLabel }) => (
+  <Dialog open={open} onOpenChange={onClose}>
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          </div>
+        </div>
+        <DialogTitle className="text-center text-xl">Pattern Book Saved</DialogTitle>
+        <DialogDescription className="text-center text-base mt-2">
+          Thank you for building your pattern book.
+          <span className="block mt-1 text-sm">
+            Status: <strong>{statusLabel}</strong>
+          </span>
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
+        <Button variant="outline" onClick={onClose} className="flex-1">
+          Continue Editing
+        </Button>
+        <Button onClick={onGoHome} className="flex-1">
+          <Home className="mr-2 h-4 w-4" />
+          Return to Home
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
+export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8, isReadOnly = false, createOrUpdateProject }) => {
     const { user, profile } = useAuth();
-    
+    const { toast } = useToast();
+    const navigate = useNavigate();
+    const [isSaving, setIsSaving] = useState(false);
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+    const [lastSavedStatus, setLastSavedStatus] = useState('');
+
     const getAssociationNames = () => {
         if (!formData.associations) return 'N/A';
         return Object.keys(formData.associations).filter(key => formData.associations[key]).join(', ') || 'None';
@@ -671,6 +877,34 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
         if (!formData.patternSelections) return 0;
         return Object.values(formData.patternSelections).reduce((total, disc) => total + Object.keys(disc).length, 0);
     };
+
+    // Count logos and attachments from uploads/media (Step 6: Uploads & Media)
+    const sponsorLogoCount = (formData.marketing?.sponsorLogos || []).length;
+    const showLogoCount = (formData.generalMarketing || []).length;
+    const attachmentCount = (formData.showDocuments || []).length;
+
+    const currentStatus = formData.projectStatus || 'In progress';
+
+    const handleStatusChange = useCallback(async (newStatus) => {
+      if (!createOrUpdateProject) return;
+      setIsSaving(true);
+      try {
+        const project = await createOrUpdateProject(newStatus);
+        if (project) {
+          const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
+          setLastSavedStatus(statusLabel);
+          setShowSuccessDialog(true);
+        }
+      } catch (error) {
+        toast({
+          title: 'Save Failed',
+          description: 'Could not save pattern book. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }, [createOrUpdateProject, toast]);
 
     const staffList = useMemo(() => {
         const staff = new Map();
@@ -914,10 +1148,15 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
         <motion.div key="step-close-out" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader className="pb-4">
                 <CardTitle>Step {stepNumber}: Save & Manage</CardTitle>
-                <CardDescription>Assign admin/owner, set publication date, and manage staff access.</CardDescription>
+                <CardDescription>
+                    Review your pattern book, set status, and manage access.
+                    <span className="block mt-1 text-xs text-muted-foreground/70">
+                        Building a pattern book is free — licensing applies only when exporting.
+                    </span>
+                </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                
+
                 {/* 1. Admin & Owner Assignment - TOP PRIORITY */}
                 <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
                     <div className="flex items-center gap-2">
@@ -927,7 +1166,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         </h3>
                     </div>
                     <p className="text-sm text-muted-foreground">Must assign Admin and Owner (EquiPatterns members). Both default to creator but can be delegated.</p>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Admin Assignment */}
                         <div className="space-y-3 p-3 bg-background rounded-md border">
@@ -935,32 +1174,15 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                                 <UserCog className="h-4 w-4 text-primary" />
                                 <Label className="font-semibold">Admin (Required)</Label>
                             </div>
-                            <Input
-                                placeholder="Admin Name"
-                                value={adminOwner.adminName || ''}
-                                onChange={(e) => handleAdminOwnerUpdate('adminName', e.target.value)}
-                                disabled={isReadOnly}
-                            />
+                            <Input placeholder="Admin Name" value={adminOwner.adminName || ''} onChange={(e) => handleAdminOwnerUpdate('adminName', e.target.value)} disabled={isReadOnly} />
                             <div className="flex gap-2">
                                 <div className="flex-1 relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Email"
-                                        className="pl-9"
-                                        value={adminOwner.adminEmail || ''}
-                                        onChange={(e) => handleAdminOwnerUpdate('adminEmail', e.target.value)}
-                                        disabled={isReadOnly}
-                                    />
+                                    <Input placeholder="Email" className="pl-9" value={adminOwner.adminEmail || ''} onChange={(e) => handleAdminOwnerUpdate('adminEmail', e.target.value)} disabled={isReadOnly} />
                                 </div>
                                 <div className="flex-1 relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Phone"
-                                        className="pl-9"
-                                        value={adminOwner.adminPhone || ''}
-                                        onChange={(e) => handleAdminOwnerUpdate('adminPhone', e.target.value)}
-                                        disabled={isReadOnly}
-                                    />
+                                    <Input placeholder="Phone" className="pl-9" value={adminOwner.adminPhone || ''} onChange={(e) => handleAdminOwnerUpdate('adminPhone', e.target.value)} disabled={isReadOnly} />
                                 </div>
                             </div>
                         </div>
@@ -971,32 +1193,15 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                                 <Crown className="h-4 w-4 text-amber-500" />
                                 <Label className="font-semibold">Owner (Required)</Label>
                             </div>
-                            <Input
-                                placeholder="Owner Name"
-                                value={adminOwner.ownerName || ''}
-                                onChange={(e) => handleAdminOwnerUpdate('ownerName', e.target.value)}
-                                disabled={isReadOnly}
-                            />
+                            <Input placeholder="Owner Name" value={adminOwner.ownerName || ''} onChange={(e) => handleAdminOwnerUpdate('ownerName', e.target.value)} disabled={isReadOnly} />
                             <div className="flex gap-2">
                                 <div className="flex-1 relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Email"
-                                        className="pl-9"
-                                        value={adminOwner.ownerEmail || ''}
-                                        onChange={(e) => handleAdminOwnerUpdate('ownerEmail', e.target.value)}
-                                        disabled={isReadOnly}
-                                    />
+                                    <Input placeholder="Email" className="pl-9" value={adminOwner.ownerEmail || ''} onChange={(e) => handleAdminOwnerUpdate('ownerEmail', e.target.value)} disabled={isReadOnly} />
                                 </div>
                                 <div className="flex-1 relative">
                                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Phone"
-                                        className="pl-9"
-                                        value={adminOwner.ownerPhone || ''}
-                                        onChange={(e) => handleAdminOwnerUpdate('ownerPhone', e.target.value)}
-                                        disabled={isReadOnly}
-                                    />
+                                    <Input placeholder="Phone" className="pl-9" value={adminOwner.ownerPhone || ''} onChange={(e) => handleAdminOwnerUpdate('ownerPhone', e.target.value)} disabled={isReadOnly} />
                                 </div>
                             </div>
                         </div>
@@ -1009,37 +1214,43 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             <Label className="font-medium text-muted-foreground">Second Admin (Optional)</Label>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                            <Input
-                                placeholder="Name"
-                                value={adminOwner.secondAdminName || ''}
-                                onChange={(e) => handleAdminOwnerUpdate('secondAdminName', e.target.value)}
-                                disabled={isReadOnly}
-                            />
+                            <Input placeholder="Name" value={adminOwner.secondAdminName || ''} onChange={(e) => handleAdminOwnerUpdate('secondAdminName', e.target.value)} disabled={isReadOnly} />
                             <div className="relative">
                                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Email"
-                                    className="pl-9"
-                                    value={adminOwner.secondAdminEmail || ''}
-                                    onChange={(e) => handleAdminOwnerUpdate('secondAdminEmail', e.target.value)}
-                                    disabled={isReadOnly}
-                                />
+                                <Input placeholder="Email" className="pl-9" value={adminOwner.secondAdminEmail || ''} onChange={(e) => handleAdminOwnerUpdate('secondAdminEmail', e.target.value)} disabled={isReadOnly} />
                             </div>
                             <div className="relative">
                                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Phone"
-                                    className="pl-9"
-                                    value={adminOwner.secondAdminPhone || ''}
-                                    onChange={(e) => handleAdminOwnerUpdate('secondAdminPhone', e.target.value)}
-                                    disabled={isReadOnly}
-                                />
+                                <Input placeholder="Phone" className="pl-9" value={adminOwner.secondAdminPhone || ''} onChange={(e) => handleAdminOwnerUpdate('secondAdminPhone', e.target.value)} disabled={isReadOnly} />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 2. Publication Date - OPTIONAL */}
+                {/* 2. Status-Based Save Flow — 3-Panel Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Panel: Project Info */}
+                    <div className="lg:col-span-3">
+                        <ProjectInfoCard formData={formData} user={user} />
+                    </div>
+
+                    {/* Center Panel: Action Buttons */}
+                    <div className="lg:col-span-5">
+                        <ActionPanel
+                            currentStatus={currentStatus}
+                            onStatusChange={handleStatusChange}
+                            isSaving={isSaving}
+                            isReadOnly={isReadOnly}
+                        />
+                    </div>
+
+                    {/* Right Panel: Licensing */}
+                    <div className="lg:col-span-4">
+                        <LicensingCard />
+                    </div>
+                </div>
+
+                {/* 3. Publication Date - OPTIONAL */}
                 <div className="space-y-3 p-4 border rounded-lg">
                     <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">OPTIONAL</Badge>
@@ -1071,7 +1282,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     </Popover>
                 </div>
 
-                {/* 3. Staff Delegation */}
+                {/* 4. Staff Delegation */}
                 {staffList.length > 0 && (
                     <div className="space-y-4 p-4 border rounded-lg">
                         <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -1094,7 +1305,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                     </div>
                 )}
 
-                {/* 4. Review & Finalize Summary - BOTTOM */}
+                {/* 5. Review & Finalize Summary - BOTTOM */}
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <FileText className="h-5 w-5 text-green-600" />
@@ -1107,7 +1318,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             <p><strong>Associations:</strong> {getAssociationNames()}</p>
                         </ReviewItem>
 
-                        <ReviewItem icon={<CalendarIcon className="w-5 h-5" />} title="Dates & Location">
+                        <ReviewItem icon={<CalendarIcon className="w-5 h-5" />} title="Show Information">
                             <p><strong>Dates:</strong> {formData.startDate ? `${format(parseLocalDate(formData.startDate), 'MMMM do, yyyy')} to ${formData.endDate ? format(parseLocalDate(formData.endDate), 'MMMM do, yyyy') : 'N/A'}` : 'N/A'}</p>
                             <p><strong>Venue:</strong> {formData.venueName || 'N/A'}</p>
                             <p><strong>Address:</strong> {formData.venueAddress || 'N/A'}</p>
@@ -1118,24 +1329,32 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             <p><strong>Patterns Assigned:</strong> {totalPatternsSelected()} patterns</p>
                         </ReviewItem>
 
-                        <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel & Sponsors">
-                            <p><strong>Judges:</strong> {Object.values(formData.associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
-                            <p><strong>Officials:</strong> {(formData.officials || []).filter(o => o.name).length} added</p>
-                            <p><strong>Sponsors:</strong> {(formData.sponsors || []).length} added</p>
+                        <ReviewItem icon={<BookOpen className="w-5 h-5" />} title="Pattern Book Layout">
+                            <p><strong>Book Layout:</strong> {formData.layoutSelection || 'N/A'}</p>
+                            <p><strong>Cover Page:</strong> {formData.coverPageOption || 'N/A'}</p>
                         </ReviewItem>
 
-                        <ReviewItem icon={<Palette className="w-5 h-5" />} title="Design & Layout">
-                            <p><strong>Cover Page:</strong> {formData.coverPageOption || 'N/A'}</p>
-                            <p><strong>Book Layout:</strong> {formData.layoutSelection || 'N/A'}</p>
+                        <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel">
+                            <p><strong>Judges:</strong> {Object.values(formData.associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
+                            <p><strong>Officials:</strong> {(formData.officials || []).filter(o => o.name).length} added</p>
                         </ReviewItem>
-                        
-                        <ReviewItem icon={<DollarSign className="w-5 h-5" />} title="Customizations & Fees">
-                            <p><strong>Custom Classes:</strong> {(formData.disciplines || []).filter(d => d.isCustom).length}</p>
-                            <p><strong>Estimated Custom Fees:</strong> ${((formData.disciplines || []).filter(d => d.isCustom).length * 50).toFixed(2)}</p>
+
+                        <ReviewItem icon={<Image className="w-5 h-5" />} title="Sponsors / Media">
+                            <p><strong>Sponsor Logos:</strong> {sponsorLogoCount}</p>
+                            <p><strong>Show Logos:</strong> {showLogoCount}</p>
+                            <p><strong>Attachments:</strong> {attachmentCount}</p>
                         </ReviewItem>
                     </div>
                 </div>
             </CardContent>
+
+            {/* Success Confirmation Dialog */}
+            <SuccessConfirmationDialog
+                open={showSuccessDialog}
+                onClose={() => setShowSuccessDialog(false)}
+                onGoHome={() => navigate('/')}
+                statusLabel={lastSavedStatus}
+            />
         </motion.div>
     );
 };

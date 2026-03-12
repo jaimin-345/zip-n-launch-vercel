@@ -38,7 +38,7 @@ const DraggableDivision = ({ division, id, pbbDiscipline, formData, associations
         const nsbaDualApprovedWith = formData.nsbaDualApprovedWith || [];
 
         if (pbbDiscipline.name) {
-            badges.push(<Badge key="discipline-badge" variant="discipline" className="text-xs">{pbbDiscipline.name}</Badge>);
+            badges.push(<Badge key="discipline-badge" variant="discipline" className="text-xs">{pbbDiscipline.name.replace(' at Halter', '')}</Badge>);
         }
         
         const assoc = associationsData.find(a => a.id === division.assocId);

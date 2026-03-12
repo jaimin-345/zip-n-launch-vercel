@@ -1,10 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, UploadCloud, Eye, ArrowLeft, ArrowRight, Save, Download } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, UploadCloud, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, Image as ImageIcon, Printer, Mail, Share2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker at module level so Vite resolves it as a static asset
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+).toString();
 
 import { StepContainer } from './StepContainer';
 import { Step3_DivisionAndLevel } from './Step3_DivisionAndLevel';
@@ -28,7 +38,7 @@ const ALL_STEPS = [
   { id: 3, name: 'Division & Level', icon: Layers, horseShowOnly: true },
   { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
   { id: 5, name: 'Uploads & Media', icon: UploadCloud },
-  { id: 6, name: 'Preview', icon: Eye },
+  { id: 6, name: 'Preview Pattern', icon: Eye },
   { id: 7, name: 'Generate', icon: Download },
 ];
 
@@ -36,8 +46,8 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     const getShowName = (type) => {
         if (type === 'horse_show') return 'Horse Show Patterns';
         if (type === 'clinic') return '';
-        if (type === 'just_for_fun') return 'Individual Pattern Purchase';
-        return 'Individual Pattern Purchase';
+        if (type === 'just_for_fun') return 'Choose a Pattern';
+        return 'Choose a Pattern';
     };
 
     return (
@@ -65,29 +75,145 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     );
 };
 
-const GenerateStep = ({ isGenerated }) => (
-    <motion.div key="step-generate" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
-        <CardHeader className="pb-3">
-            <CardTitle className="text-xl">{isGenerated ? 'Generation Complete' : 'Generate Pattern'}</CardTitle>
-            <CardDescription className="text-sm">
-                {isGenerated
-                    ? 'Your pattern has been generated, downloaded, and saved to your projects.'
-                    : 'Your pattern is ready to generate. Click the button below to create and download your PDF.'}
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                <Download className="h-16 w-16 text-muted-foreground" />
-                <p className="text-lg font-medium">{isGenerated ? 'Done!' : 'Ready to Generate'}</p>
-                <p className="text-sm text-muted-foreground max-w-md">
+const GENERATE_OPTIONS = [
+    { id: 'pdf', label: 'Download as PDF', icon: FileText, description: 'Save pattern as a PDF file' },
+    { id: 'png', label: 'Download as PNG', icon: ImageIcon, description: 'Save pattern as an image' },
+    { id: 'print', label: 'Print', icon: Printer, description: 'Send directly to printer' },
+    { id: 'email', label: 'Send Email', icon: Mail, description: 'Email pattern to yourself or others' },
+    { id: 'share', label: 'Share Link', icon: Share2, description: 'Copy a shareable link' },
+];
+
+const GenerateStep = ({ isGenerated, formData, setFormData, onGenerateOption, isGenerating }) => {
+    // Extract pattern summary from formData
+    const patternSummary = useMemo(() => {
+        const summaries = [];
+        const disciplines = formData?.disciplines?.filter(d => d.pattern) || [];
+        for (const disc of disciplines) {
+            const groups = disc.patternGroups || [];
+            for (const group of groups) {
+                const selection = formData?.patternSelections?.[disc.id]?.[group.id];
+                if (selection?.patternId) {
+                    const divisions = (group.divisions || []).map(d => d.division).filter(Boolean);
+                    const categories = [...new Set((group.divisions || []).map(d => d.category).filter(Boolean))];
+                    summaries.push({
+                        patternName: selection.patternName || selection.patternId,
+                        discipline: disc.name || disc.label || 'Unknown',
+                        divisions,
+                        categories,
+                    });
+                }
+            }
+        }
+        return summaries;
+    }, [formData]);
+
+    const downloadIncludes = formData?.downloadIncludes || { pattern: true, scoresheet: true };
+
+    const toggleInclude = (key) => {
+        setFormData(prev => ({
+            ...prev,
+            downloadIncludes: {
+                ...prev.downloadIncludes,
+                [key]: !prev.downloadIncludes?.[key],
+            },
+        }));
+    };
+
+    return (
+        <motion.div key="step-generate" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-xl">{isGenerated ? 'Generation Complete' : 'Generate Pattern'}</CardTitle>
+                <CardDescription className="text-sm">
                     {isGenerated
-                        ? 'Your pattern PDF was downloaded and saved to My Projects. You can close this page.'
-                        : 'Click "Generate Pattern" to create your pattern PDF. It will be downloaded automatically and saved to your projects.'}
-                </p>
-            </div>
-        </CardContent>
-    </motion.div>
-);
+                        ? 'Your pattern has been generated and saved to your projects.'
+                        : 'Your pattern is ready. Choose how you\'d like to get it.'}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isGenerated ? (
+                    <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center space-y-4">
+                        <Download className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
+                        <p className="text-lg font-medium">Done!</p>
+                        <p className="text-sm text-muted-foreground max-w-md">
+                            Your pattern has been downloaded and saved to My Projects.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Pattern Summary */}
+                        {patternSummary.length > 0 && (
+                            <div className="rounded-lg border bg-muted/30 p-3 sm:p-4 space-y-3">
+                                <p className="text-sm font-semibold text-foreground">Pattern Summary</p>
+                                {patternSummary.map((item, idx) => (
+                                    <div key={idx} className="space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                                            <span className="text-sm font-medium">{item.patternName}</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+                                            <Badge variant="secondary" className="text-xs">{item.discipline}</Badge>
+                                            {item.categories.map((cat, i) => (
+                                                <Badge key={`cat-${i}`} variant="outline" className="text-xs">{cat}</Badge>
+                                            ))}
+                                            {item.divisions.map((div, i) => (
+                                                <Badge key={`div-${i}`} variant="outline" className="text-xs">{div}</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* What to Include */}
+                        <div className="space-y-2">
+                            <p className="text-sm font-semibold text-foreground">What to include</p>
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => toggleInclude('pattern')}
+                                    className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors text-sm"
+                                >
+                                    {downloadIncludes.pattern ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
+                                    Pattern
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleInclude('scoresheet')}
+                                    className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors text-sm"
+                                >
+                                    {downloadIncludes.scoresheet ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4 text-muted-foreground" />}
+                                    Score Sheet
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Export Options */}
+                        <div className="space-y-2">
+                            <p className="text-sm font-semibold text-foreground">Export options</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {GENERATE_OPTIONS.map(option => (
+                                    <button
+                                        key={option.id}
+                                        onClick={() => onGenerateOption(option.id)}
+                                        disabled={isGenerating}
+                                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 active:bg-muted/70 transition-colors text-left disabled:opacity-50"
+                                    >
+                                        <div className="flex-shrink-0 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <option.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-medium text-sm">{option.label}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{option.description}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </motion.div>
+    );
+};
 
 export const PatternHub = ({ projectId }) => {
     const { toast } = useToast();
@@ -107,6 +233,7 @@ export const PatternHub = ({ projectId }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isGenerated, setIsGenerated] = useState(false);
+    const [showGenerateModal, setShowGenerateModal] = useState(false);
 
     const isHorseShow = formData.usageType === 'horse_show';
     const isClinic = formData.usageType === 'clinic';
@@ -131,6 +258,58 @@ export const PatternHub = ({ projectId }) => {
         let nextStep = currentStep + 1;
         // Skip Division & Level step for non-horse-show
         if (nextStep === 3 && !isHorseShow) nextStep = 4;
+
+        // When leaving Division & Level (step 3), carry selected levels into discipline patternGroups
+        if (currentStep === 3 && isHorseShow) {
+            setFormData(prev => {
+                const updatedDisciplines = (prev.disciplines || []).map(discipline => {
+                    // Find which associations this discipline belongs to
+                    const discAssocIds = Object.keys(discipline.selectedAssociations || {})
+                        .filter(id => discipline.selectedAssociations[id]);
+                    // Fallback to association_id if selectedAssociations is empty
+                    if (discAssocIds.length === 0 && discipline.association_id) {
+                        discAssocIds.push(discipline.association_id);
+                    }
+
+                    // Collect all selected levels for this discipline's associations
+                    const divisionEntries = [];
+                    discAssocIds.forEach(assocId => {
+                        const assocLevels = prev.selectedLevels?.[assocId] || {};
+                        Object.entries(assocLevels).forEach(([groupName, levels]) => {
+                            (levels || []).forEach(levelName => {
+                                divisionEntries.push({
+                                    id: `${assocId}-${groupName}-${levelName}`,
+                                    assocId,
+                                    division: levelName,
+                                    category: groupName,
+                                });
+                            });
+                        });
+                    });
+
+                    if (divisionEntries.length === 0) return discipline;
+
+                    // Inject into the first patternGroup's divisions (or create one)
+                    const groups = [...(discipline.patternGroups || [])];
+                    if (groups.length > 0) {
+                        groups[0] = { ...groups[0], divisions: divisionEntries };
+                    } else if (discipline.pattern) {
+                        groups.push({
+                            id: `pattern-group-${Date.now()}-${discipline.id}`,
+                            name: 'Group 1',
+                            divisions: divisionEntries,
+                            rulebookPatternId: '',
+                            competitionDate: null,
+                        });
+                    }
+
+                    return { ...discipline, patternGroups: groups };
+                });
+
+                return { ...prev, disciplines: updatedDisciplines };
+            });
+        }
+
         if (nextStep <= maxStepId) {
             setCurrentStep(nextStep);
             if (nextStep > highestStepReached) {
@@ -227,26 +406,87 @@ export const PatternHub = ({ projectId }) => {
         }
     };
 
-    const handleDirectGenerate = async () => {
+    const handleGenerateOption = async (optionId) => {
+        setShowGenerateModal(false);
         setIsGenerating(true);
         try {
-            toast({ title: 'Generating PDF...', description: 'Your pattern is being created.' });
+            const fileName = (formData.showName || 'Pattern').replace(/ /g, '_');
 
-            const pdfDataUri = await generatePatternBookPdf(formData);
+            if (optionId === 'pdf') {
+                toast({ title: 'Generating PDF...', description: 'Your pattern is being created.' });
+                const pdfDataUri = await generatePatternBookPdf(formData);
+                const link = document.createElement('a');
+                link.href = pdfDataUri;
+                link.download = `${fileName}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                await handleSaveProject();
+                setIsGenerated(true);
+                toast({ title: 'Success!', description: 'Your pattern PDF has been downloaded.' });
+            } else if (optionId === 'png') {
+                toast({ title: 'Generating PNG...', description: 'Converting pattern to image.' });
+                const pdfDataUri = await generatePatternBookPdf(formData);
+                // Convert PDF to PNG via pdfjs-dist (worker set at module level)
+                const pdfDoc = await pdfjsLib.getDocument(pdfDataUri).promise;
+                const totalPages = pdfDoc.numPages;
 
-            // Auto-download
-            const link = document.createElement('a');
-            link.href = pdfDataUri;
-            link.download = (formData.showName || 'Pattern').replace(/ /g, '_') + '.pdf';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+                // Find the first non-blank page (cover page is blank when coverPageOption='none')
+                let targetPageNum = 1;
+                for (let p = 1; p <= Math.min(totalPages, 3); p++) {
+                    const testPage = await pdfDoc.getPage(p);
+                    const textContent = await testPage.getTextContent();
+                    if (textContent.items.length > 0) {
+                        targetPageNum = p;
+                        break;
+                    }
+                }
 
-            // Auto-save to projects
-            await handleSaveProject();
-
-            setIsGenerated(true);
-            toast({ title: 'Success!', description: 'Your pattern has been generated and downloaded.' });
+                const page = await pdfDoc.getPage(targetPageNum);
+                const scale = 2;
+                const viewport = page.getViewport({ scale });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                // Add platform branding watermark
+                ctx.save();
+                ctx.font = '12px Helvetica, Arial, sans-serif';
+                ctx.fillStyle = 'rgba(120, 120, 120, 0.7)';
+                ctx.textAlign = 'right';
+                ctx.fillText('Generated by EQ Patterns', canvas.width - 20, canvas.height - 14);
+                ctx.restore();
+                const pngDataUri = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.href = pngDataUri;
+                link.download = `${fileName}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                await handleSaveProject();
+                setIsGenerated(true);
+                toast({ title: 'Success!', description: 'Your pattern PNG has been downloaded.' });
+            } else if (optionId === 'print') {
+                toast({ title: 'Preparing to print...', description: 'Opening print dialog.' });
+                const pdfDataUri = await generatePatternBookPdf(formData);
+                const printWindow = window.open('', '_blank');
+                if (printWindow) {
+                    printWindow.document.write(`<html><head><title>Print Pattern</title></head><body style="margin:0"><iframe src="${pdfDataUri}" style="width:100%;height:100%;border:none" onload="setTimeout(()=>{window.print()},500)"></iframe></body></html>`);
+                    printWindow.document.close();
+                }
+                await handleSaveProject();
+                setIsGenerated(true);
+            } else if (optionId === 'email') {
+                toast({ title: 'Preparing email...', description: 'Opening email client.' });
+                const subject = encodeURIComponent(`Pattern: ${formData.showName || 'My Pattern'}`);
+                const body = encodeURIComponent(`Here is the pattern for ${formData.showName || 'my selection'}.\n\nGenerated from EQ Patterns.`);
+                window.location.href = `mailto:?subject=${subject}&body=${body}`;
+            } else if (optionId === 'share') {
+                const shareUrl = window.location.href;
+                await navigator.clipboard.writeText(shareUrl);
+                toast({ title: 'Link Copied!', description: 'Shareable link has been copied to your clipboard.' });
+            }
         } catch (error) {
             console.error('Failed to generate pattern:', error);
             toast({
@@ -299,7 +539,7 @@ export const PatternHub = ({ projectId }) => {
                 );
             case 4:
                 return (
-                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} stepNumber={getDisplayStepNumber(4)} isClinicMode={formData.usageType === 'clinic'} />
+                    <Step6_PatternAndLayout formData={formData} setFormData={setFormData} associationsData={associationsData} stepNumber={getDisplayStepNumber(4)} isClinicMode={formData.usageType === 'clinic'} isHubMode={true} />
                 );
             case 5:
                 return (
@@ -307,10 +547,10 @@ export const PatternHub = ({ projectId }) => {
                 );
             case 6:
                 return (
-                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(6)} purposeName={isClinic ? 'Clinic Materials' : null} />
+                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(6)} purposeName={isClinic ? 'Clinic Materials' : null} isHubMode={true} />
                 );
             case 7:
-                return <GenerateStep isGenerated={isGenerated} />;
+                return <GenerateStep isGenerated={isGenerated} formData={formData} setFormData={setFormData} onGenerateOption={handleGenerateOption} isGenerating={isGenerating} />;
             default:
                 return null;
         }
@@ -406,33 +646,61 @@ export const PatternHub = ({ projectId }) => {
                     {renderStepContent()}
                 </CardContent>
               </AnimatePresence>
-               <div className="p-6 flex justify-between items-center border-t border-border">
-                    <Button variant="outline" onClick={handleBack} disabled={currentStep === 0}><ArrowLeft className="mr-2 h-4 w-4" /> Back</Button>
-                    <div className="flex items-center gap-2">
+               <div className="p-3 sm:p-6 flex justify-between items-center gap-2 border-t border-border">
+                    <Button variant="outline" size="sm" className="sm:size-default" onClick={handleBack} disabled={currentStep === 0}><ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" /> <span className="hidden sm:inline">Back</span><span className="sm:hidden">Back</span></Button>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         {!isClinic && (
-                            <Button variant="secondary" onClick={handleSaveProject} disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Save Project
+                            <Button variant="secondary" size="sm" className="sm:size-default" onClick={handleSaveProject} disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 sm:mr-2 h-4 w-4" />}
+                                <span className="hidden sm:inline">Save Project</span><span className="sm:hidden">Save</span>
                             </Button>
                         )}
                         {isFinalStep ? (
-                            <Button onClick={handleDirectGenerate} disabled={isGenerating || isGenerated}>
-                                {isGenerating ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating...</>
-                                ) : isGenerated ? (
-                                    <><Download className="mr-2 h-4 w-4" /> Generated</>
-                                ) : (
-                                    <><Download className="mr-2 h-4 w-4" /> Generate Pattern</>
-                                )}
-                            </Button>
+                            isGenerating ? (
+                                <Button size="sm" className="sm:size-default" disabled>
+                                    <Loader2 className="mr-1 h-4 w-4 animate-spin" /> <span className="hidden sm:inline">Generating...</span><span className="sm:hidden">...</span>
+                                </Button>
+                            ) : isGenerated ? (
+                                <Button size="sm" className="sm:size-default" onClick={() => { setIsGenerated(false); setCurrentStep(0); }}>
+                                    <ArrowRight className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">New Pattern</span><span className="sm:hidden">New</span>
+                                </Button>
+                            ) : null
                         ) : (
-                            <Button onClick={handleNext} disabled={isFinalStep || !isCurrentStepComplete}>
-                                Next <ArrowRight className="ml-2 h-4 w-4" />
+                            <Button size="sm" className="sm:size-default" onClick={handleNext} disabled={isFinalStep || !isCurrentStepComplete}>
+                                Next <ArrowRight className="ml-1 sm:ml-2 h-4 w-4" />
                             </Button>
                         )}
                     </div>
               </div>
             </Card>
+
+            {/* Generate Options Modal */}
+            <Dialog open={showGenerateModal} onOpenChange={setShowGenerateModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Generate Pattern</DialogTitle>
+                        <DialogDescription>Choose how you'd like to get your pattern.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 pt-2">
+                        {GENERATE_OPTIONS.map(option => (
+                            <button
+                                key={option.id}
+                                onClick={() => handleGenerateOption(option.id)}
+                                disabled={isGenerating}
+                                className="w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-3 rounded-lg border hover:bg-muted/50 active:bg-muted/70 transition-colors text-left disabled:opacity-50"
+                            >
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <option.icon className="h-5 w-5 text-primary" />
+                                </div>
+                                <div>
+                                    <p className="font-medium text-sm">{option.label}</p>
+                                    <p className="text-xs text-muted-foreground">{option.description}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

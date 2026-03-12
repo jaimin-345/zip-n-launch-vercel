@@ -1,95 +1,137 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, User, PlusCircle, Copy, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, User, Copy, ChevronsUpDown, Check, Award } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandSeparator } from '@/components/ui/command';
 import { staffRoles, associationStaffing, roleGroups } from '@/lib/staffingData';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 
 // ─── Role Icon ───────────────────────────────────────────────────
-const RoleIcon = ({ roleId }) => {
+const RoleIcon = ({ roleId, className = "h-4 w-4 text-muted-foreground" }) => {
     const role = staffRoles[roleId];
-    if (!role || !role.icon) return <User className="h-5 w-5 text-muted-foreground" />;
+    if (!role || !role.icon) return <User className={className} />;
     const IconComponent = role.icon;
-    return <IconComponent className="h-5 w-5 text-muted-foreground" />;
+    return <IconComponent className={className} />;
 };
 
 // ─── Staff Member Row ────────────────────────────────────────────
-const StaffMemberRow = ({ member, roleId, associationId, onUpdate, onRemove }) => {
+const StaffMemberRow = ({ member, roleId, roleName, associationId, onUpdate, onRemove }) => {
     const isCustom = roleId === 'CUSTOM';
 
     return (
-        <div className="flex items-center gap-2 pl-7">
+        <div className="flex items-center gap-2 p-2 rounded-md border bg-background/70">
+            <div className="flex items-center gap-2 shrink-0">
+                <RoleIcon roleId={roleId} />
+                <span className="text-xs font-medium text-muted-foreground min-w-[80px]">
+                    {isCustom ? (member.custom_role_name || 'Custom') : roleName}
+                </span>
+            </div>
             {isCustom && (
                 <Input
                     value={member.custom_role_name || ''}
                     onChange={(e) => onUpdate(member.id, associationId, roleId, 'custom_role_name', e.target.value)}
                     placeholder="Role name"
-                    className="max-w-[160px] text-sm"
+                    className="max-w-[140px] text-sm h-8"
                 />
             )}
             <Input
                 value={member.name || ''}
                 onChange={(e) => onUpdate(member.id, associationId, roleId, 'name', e.target.value)}
                 placeholder="Name"
-                className="text-sm"
+                className="text-sm h-8"
             />
             <Input
                 value={member.email || ''}
                 onChange={(e) => onUpdate(member.id, associationId, roleId, 'email', e.target.value)}
                 placeholder="Email"
                 type="email"
-                className="text-sm hidden md:block"
+                className="text-sm h-8 hidden md:block"
             />
             <Input
                 value={member.phone || ''}
                 onChange={(e) => onUpdate(member.id, associationId, roleId, 'phone', e.target.value)}
                 placeholder="Phone"
                 type="tel"
-                className="text-sm hidden md:block"
+                className="text-sm h-8 hidden md:block"
             />
-            <div className="flex items-center gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemove(member.id, associationId, roleId)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" title="Show contact fields">
-                    <ChevronDown className="h-4 w-4" />
-                </Button>
-            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onRemove(member.id, associationId, roleId)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
         </div>
     );
 };
 
-// ─── Staff Role Section ──────────────────────────────────────────
-const StaffRoleSection = ({ roleId, staff, associationId, onAdd, onUpdate, onRemove }) => {
-    const role = staffRoles[roleId];
-    if (!role) return null;
-    const roleName = role.name;
+// ─── Add Staff Dropdown ──────────────────────────────────────────
+const AddStaffDropdown = ({ availableRoles, onAdd, associationId }) => {
+    const [open, setOpen] = useState(false);
+
+    // Group available roles by category
+    const grouped = useMemo(() => {
+        const groups = {};
+        Object.entries(roleGroups)
+            .sort(([, a], [, b]) => a.order - b.order)
+            .forEach(([key, value]) => {
+                if (key !== 'custom') {
+                    const rolesInGroup = availableRoles.filter(rId => staffRoles[rId]?.group === key);
+                    if (rolesInGroup.length > 0) {
+                        groups[key] = { ...value, roles: rolesInGroup };
+                    }
+                }
+            });
+        return groups;
+    }, [availableRoles]);
+
+    const handleSelect = (roleId) => {
+        onAdd(associationId, roleId);
+        setOpen(false);
+    };
 
     return (
-        <div className="space-y-2">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <RoleIcon roleId={roleId} />
-                    <h4 className="font-medium text-sm">{roleName}</h4>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => onAdd(associationId, roleId)}>
-                    <Plus className="h-4 w-4 mr-1" /> Add {roleName}
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" role="combobox" aria-expanded={open}>
+                    <Plus className="h-4 w-4 mr-1" /> Add Staff Member
+                    <ChevronsUpDown className="ml-2 h-3 w-3 opacity-50" />
                 </Button>
-            </div>
-            {staff.map(member => (
-                <StaffMemberRow
-                    key={member.id}
-                    member={member}
-                    roleId={roleId}
-                    associationId={associationId}
-                    onUpdate={onUpdate}
-                    onRemove={onRemove}
-                />
-            ))}
-        </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-0" align="start">
+                <Command>
+                    <CommandInput placeholder="Search roles..." />
+                    <CommandEmpty>No role found.</CommandEmpty>
+                    {Object.entries(grouped).map(([key, group], idx) => (
+                        <React.Fragment key={key}>
+                            {idx > 0 && <CommandSeparator />}
+                            <CommandGroup heading={group.name}>
+                                {group.roles.map(roleId => (
+                                    <CommandItem
+                                        key={roleId}
+                                        value={staffRoles[roleId].name}
+                                        onSelect={() => handleSelect(roleId)}
+                                    >
+                                        <RoleIcon roleId={roleId} className="h-4 w-4 mr-2 text-muted-foreground" />
+                                        {staffRoles[roleId].name}
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </React.Fragment>
+                    ))}
+                    <CommandSeparator />
+                    <CommandGroup>
+                        <CommandItem onSelect={() => handleSelect('CUSTOM')}>
+                            <Plus className="h-4 w-4 mr-2 text-muted-foreground" />
+                            Custom Role
+                        </CommandItem>
+                    </CommandGroup>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
 };
 
@@ -117,6 +159,7 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
     }, [toast]);
 
     const officials = (formData.showDetails?.officials) || {};
+    const judgeCount = formData.showDetails?.judgeCount || {};
 
     const getAssociationName = (id) => {
         if (id === 'default') return 'General';
@@ -170,6 +213,14 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
         });
     };
 
+    const handleJudgeCountChange = (assocId, count) => {
+        setFormData(prev => {
+            const currentDetails = prev.showDetails || {};
+            const newJudgeCount = { ...(currentDetails.judgeCount || {}), [assocId]: count };
+            return { ...prev, showDetails: { ...currentDetails, judgeCount: newJudgeCount } };
+        });
+    };
+
     const handleSyncStaff = (targetAssocId) => {
         const primaryAssocId = primaryAffiliates[0];
         if (!primaryAssocId || primaryAssocId === targetAssocId) return;
@@ -196,7 +247,14 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
                 }));
                 newOfficials[targetAssocId][roleId].push(...syncedMembers);
             }
-            return { ...prev, showDetails: { ...currentDetails, officials: newOfficials } };
+
+            // Also sync judge count
+            const newJudgeCount = { ...(currentDetails.judgeCount || {}) };
+            if (newJudgeCount[primaryAssocId] !== undefined) {
+                newJudgeCount[targetAssocId] = newJudgeCount[primaryAssocId];
+            }
+
+            return { ...prev, showDetails: { ...currentDetails, officials: newOfficials, judgeCount: newJudgeCount } };
         });
         toast({ title: 'Staff Synced', description: `Synced staff from ${getAssociationName(primaryAssocId)}.` });
     };
@@ -211,25 +269,6 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
         });
         return roles;
     }, [selectedAssociationIds]);
-
-    // Group roles by category
-    const groupedRoles = useMemo(() => {
-        const groups = {};
-        Object.entries(roleGroups)
-            .sort(([, a], [, b]) => a.order - b.order)
-            .forEach(([key, value]) => {
-                if (key !== 'custom') {
-                    groups[key] = { ...value, roles: [] };
-                }
-            });
-        Object.keys(staffRoles).forEach(roleId => {
-            const role = staffRoles[roleId];
-            if (role.group && groups[role.group]) {
-                groups[role.group].roles.push(roleId);
-            }
-        });
-        return groups;
-    }, []);
 
     const sortedAssociations = useMemo(() => {
         const uniqueAssociations = [...new Set(selectedAssociationIds)];
@@ -246,13 +285,26 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
     const hasPrimary = primaryAffiliates.length > 0;
     const primaryAssocId = hasPrimary ? primaryAffiliates[0] : null;
 
+    // Flatten all staff for an association into a single list
+    const getStaffList = (assocId) => {
+        const assocOfficials = officials[assocId] || {};
+        const list = [];
+        Object.entries(assocOfficials).forEach(([roleId, members]) => {
+            members.forEach(member => {
+                list.push({ ...member, roleId, roleName: staffRoles[roleId]?.name || roleId });
+            });
+        });
+        return list;
+    };
+
     return (
         <Accordion type="multiple" defaultValue={sortedAssociations} className="w-full space-y-4">
             {sortedAssociations.map((assocId) => {
                 const rolesForAssoc = associationRoles[assocId];
                 if (!rolesForAssoc) return null;
                 const isPrimary = primaryAffiliates.includes(assocId);
-                const staffCount = Object.values(officials[assocId] || {}).reduce((sum, arr) => sum + arr.length, 0);
+                const staffList = getStaffList(assocId);
+                const currentJudgeCount = judgeCount[assocId] ?? 0;
 
                 return (
                     <AccordionItem key={assocId} value={assocId} className="border rounded-lg bg-background/50">
@@ -262,69 +314,81 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
                                     {getAssociationName(assocId)} Staff
                                     {isPrimary && <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-md">Primary</span>}
                                 </div>
-                                {staffCount > 0 && (
-                                    <span className="text-xs font-medium text-muted-foreground mr-2">
-                                        {staffCount} member{staffCount !== 1 ? 's' : ''}
+                                <div className="flex items-center gap-3 mr-2">
+                                    {currentJudgeCount > 0 && (
+                                        <span className="text-xs font-medium text-primary flex items-center gap-1">
+                                            <Award className="h-3 w-3" /> {currentJudgeCount} judge{currentJudgeCount !== 1 ? 's' : ''}
+                                        </span>
+                                    )}
+                                    {staffList.length > 0 && (
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            {staffList.length} staff
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="p-4 pt-2 space-y-4">
+                            {/* ── Judge Count (prominent, always visible) ── */}
+                            <div className="flex items-center gap-4 p-3 rounded-lg border bg-primary/5">
+                                <Award className="h-5 w-5 text-primary shrink-0" />
+                                <Label className="font-semibold text-sm whitespace-nowrap">Number of Judges</Label>
+                                <Select
+                                    value={String(currentJudgeCount)}
+                                    onValueChange={(val) => handleJudgeCountChange(assocId, parseInt(val, 10))}
+                                >
+                                    <SelectTrigger className="w-20 h-8">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                                            <SelectItem key={num} value={String(num)}>{num}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {currentJudgeCount > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                        Score sheets = {currentJudgeCount} × classes
                                     </span>
                                 )}
                             </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="p-4 pt-0 space-y-6">
-                            {!isPrimary && hasPrimary && (
-                                <div className="flex justify-end -mt-4 mb-4">
+
+                            {/* ── Actions row ── */}
+                            <div className="flex items-center gap-2">
+                                <AddStaffDropdown
+                                    availableRoles={rolesForAssoc}
+                                    onAdd={handleAddStaff}
+                                    associationId={assocId}
+                                />
+                                {!isPrimary && hasPrimary && (
                                     <Button variant="outline" size="sm" onClick={() => handleSyncStaff(assocId)}>
-                                        <Copy className="h-4 w-4 mr-2" />
-                                        Sync Staff from {getAssociationName(primaryAssocId)}
+                                        <Copy className="h-4 w-4 mr-1" />
+                                        Sync from {getAssociationName(primaryAssocId)}
                                     </Button>
+                                )}
+                            </div>
+
+                            {/* ── Added Staff List ── */}
+                            {staffList.length > 0 && (
+                                <div className="space-y-2">
+                                    {staffList.map(member => (
+                                        <StaffMemberRow
+                                            key={member.id}
+                                            member={member}
+                                            roleId={member.roleId}
+                                            roleName={member.roleName}
+                                            associationId={assocId}
+                                            onUpdate={handleUpdateStaff}
+                                            onRemove={handleRemoveStaff}
+                                        />
+                                    ))}
                                 </div>
                             )}
-                            {Object.values(groupedRoles).map(group => {
-                                const relevantRoles = group.roles.filter(roleId => rolesForAssoc.includes(roleId));
-                                if (relevantRoles.length === 0) return null;
 
-                                return (
-                                    <div key={group.name} className="pt-4">
-                                        <h3 className="text-md font-semibold mb-3 border-b pb-2">{group.name}</h3>
-                                        <div className="space-y-4">
-                                            {relevantRoles.map(roleId => (
-                                                <StaffRoleSection
-                                                    key={roleId}
-                                                    roleId={roleId}
-                                                    staff={(officials[assocId]?.[roleId]) || []}
-                                                    associationId={assocId}
-                                                    onAdd={handleAddStaff}
-                                                    onUpdate={handleUpdateStaff}
-                                                    onRemove={handleRemoveStaff}
-                                                />
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {/* Add Custom Role */}
-                            <div className="pt-6 text-center">
-                                <Button variant="outline" onClick={() => handleAddStaff(assocId, 'CUSTOM')}>
-                                    <PlusCircle className="h-4 w-4 mr-2" />
-                                    Add Custom Role
-                                </Button>
-                            </div>
-                            {/* Custom Roles List */}
-                            {officials[assocId]?.['CUSTOM'] && officials[assocId]['CUSTOM'].length > 0 && (
-                                <div className="pt-4">
-                                    <h3 className="text-md font-semibold mb-3 border-b pb-2">{roleGroups.custom.name}</h3>
-                                    <div className="space-y-2">
-                                        {officials[assocId]['CUSTOM'].map(member => (
-                                            <StaffMemberRow
-                                                key={member.id}
-                                                member={member}
-                                                roleId="CUSTOM"
-                                                associationId={assocId}
-                                                onUpdate={handleUpdateStaff}
-                                                onRemove={handleRemoveStaff}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
+                            {staffList.length === 0 && (
+                                <p className="text-sm text-muted-foreground text-center py-2">
+                                    No staff added yet. Use the dropdown above to add staff members.
+                                </p>
                             )}
                         </AccordionContent>
                     </AccordionItem>

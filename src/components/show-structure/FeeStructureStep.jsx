@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Calendar, Layers, Banknote, GripVertical, BadgeCent, Building2, Shield, ClipboardList, Settings, Trophy, Users, Megaphone, Wrench, UtensilsCrossed, Download, TrendingUp, TrendingDown, HeartHandshake } from 'lucide-react';
+import { PlusCircle, Trash2, Calendar, Layers, Banknote, GripVertical, BadgeCent, Building2, Shield, ClipboardList, Settings, Trophy, Users, Megaphone, Wrench, UtensilsCrossed, Download, TrendingUp, TrendingDown, HeartHandshake, ArrowRightLeft } from 'lucide-react';
 import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,27 +25,51 @@ import { BudgetFrozenBanner } from '@/components/contract-management/BudgetFroze
 import { Lock } from 'lucide-react';
 
 const standardFees = [
-    { standard_id: 'stall_fee', name: 'Stall Fee', type: 'ancillary', amount: 295, payment_timing: 'pre_entry', tier: 1, is_standard: true, notes: 'Non-refundable, paid up front' },
-    { standard_id: 'class_entry_fee', name: 'Class Entry Fee', type: 'per_class', amount: 20, payment_timing: 'settlement', tier: 1, is_standard: true, notes: 'Pay-to-play cost, multiplied by judges' },
-    { standard_id: 'office_fee', name: 'Office / Processing Fee', type: 'per_horse', amount: 50, payment_timing: 'at_check_in', tier: 1, is_standard: true, notes: 'Per horse, non-refundable' },
-    { standard_id: 'aqha_admin_fee', name: 'AQHA Admin Fee', type: 'per_horse', amount: 10, association_specific: 'AQHA', payment_timing: 'at_check_in', tier: 1, is_standard: true },
-    { standard_id: 'apha_admin_fee', name: 'APHA Admin Fee', type: 'per_class', amount: 3, association_specific: 'APHA', payment_timing: 'at_check_in', tier: 1, is_standard: true },
-    { standard_id: 'nsba_admin_fee', name: 'NSBA Admin Fee', type: 'per_class', amount: 5, association_specific: 'NSBA', payment_timing: 'at_check_in', tier: 1, is_standard: true, notes: 'Per class entry' },
-    { standard_id: 'haul_in_fee', name: 'Grounds / Haul-In Fee', type: 'per_horse', amount: 25, payment_timing: 'at_check_in', tier: 2, is_standard: true, notes: 'Per day, if not stalling' },
-    { standard_id: 'rv_fee', name: 'RV / Camping Fee', type: 'ancillary', amount: 45, payment_timing: 'pre_entry', tier: 2, is_standard: true, notes: 'Per night' },
-    { standard_id: 'shavings_fee', name: 'Shavings / Bedding', type: 'ancillary', amount: 12, payment_timing: 'pre_entry', tier: 2, is_standard: true, notes: 'Per bag' },
-    { standard_id: 'trail_equip_fee', name: 'Trail Equipment Fee', type: 'ancillary', amount: 25, payment_timing: 'settlement', tier: 3, is_standard: true, notes: 'Per horse, for Trail/Ranch Trail' },
-    { standard_id: 'cattle_fee', name: 'Cattle Fee', type: 'per_class', amount: 100, payment_timing: 'settlement', tier: 3, is_standard: true, notes: 'Per run, non-refundable' },
-    { standard_id: 'late_entry_fee', name: 'Post-Entry / Late Fee', type: 'flat', amount: 25, payment_timing: 'at_check_in', tier: 4, is_standard: true, notes: 'If after pre-entry deadline' },
-    { standard_id: 'scratch_fee', name: 'Change / Scratch Fee', type: 'flat', amount: 10, payment_timing: 'settlement', tier: 4, is_standard: true, notes: 'Applied after cutoff' },
-    { standard_id: 'nsf_fee', name: 'Returned Check / NSF Fee', type: 'flat', amount: 50, payment_timing: 'settlement', tier: 4, is_standard: true },
+    { standard_id: 'stall_fee', name: 'Stall Fee', type: 'ancillary', unit_type: 'flat', amount: 295, payment_timing: 'pre_entry', tier: 1, is_standard: true, notes: 'Non-refundable, paid up front' },
+    { standard_id: 'class_entry_fee', name: 'Class Entry Fee', type: 'per_class', unit_type: 'per_class', amount: 20, payment_timing: 'settlement', tier: 1, is_standard: true, notes: 'Pay-to-play cost, multiplied by judges' },
+    { standard_id: 'office_fee', name: 'Office / Processing Fee', type: 'per_horse', unit_type: 'per_horse', amount: 50, payment_timing: 'at_check_in', tier: 1, is_standard: true, notes: 'Per horse, non-refundable' },
+    { standard_id: 'aqha_admin_fee', name: 'AQHA Admin Fee', type: 'per_horse', unit_type: 'per_horse', amount: 10, association_specific: 'AQHA', payment_timing: 'at_check_in', tier: 1, is_standard: true },
+    { standard_id: 'apha_admin_fee', name: 'APHA Admin Fee', type: 'per_class', unit_type: 'per_class', amount: 3, association_specific: 'APHA', payment_timing: 'at_check_in', tier: 1, is_standard: true },
+    { standard_id: 'nsba_admin_fee', name: 'NSBA Admin Fee', type: 'per_class', unit_type: 'per_class', amount: 5, association_specific: 'NSBA', payment_timing: 'at_check_in', tier: 1, is_standard: true, notes: 'Per class entry' },
+    { standard_id: 'haul_in_fee', name: 'Grounds / Haul-In Fee', type: 'per_horse', unit_type: 'per_horse', amount: 25, payment_timing: 'at_check_in', tier: 2, is_standard: true, notes: 'Per day, if not stalling' },
+    { standard_id: 'rv_fee', name: 'RV / Camping Fee', type: 'ancillary', unit_type: 'per_night', amount: 45, payment_timing: 'pre_entry', tier: 2, is_standard: true, notes: 'Per night' },
+    { standard_id: 'shavings_fee', name: 'Shavings / Bedding', type: 'ancillary', unit_type: 'per_bag', amount: 12, payment_timing: 'pre_entry', tier: 2, is_standard: true, notes: 'Per bag' },
+    { standard_id: 'trail_equip_fee', name: 'Trail Equipment Fee', type: 'ancillary', unit_type: 'per_horse', amount: 25, payment_timing: 'settlement', tier: 3, is_standard: true, notes: 'Per horse, for Trail/Ranch Trail' },
+    { standard_id: 'cattle_fee', name: 'Cattle Fee', type: 'per_class', unit_type: 'per_class', amount: 100, payment_timing: 'settlement', tier: 3, is_standard: true, notes: 'Per run, non-refundable' },
+    { standard_id: 'late_entry_fee', name: 'Post-Entry / Late Fee', type: 'flat', unit_type: 'flat', amount: 25, payment_timing: 'at_check_in', tier: 4, is_standard: true, notes: 'If after pre-entry deadline' },
+    { standard_id: 'scratch_fee', name: 'Change / Scratch Fee', type: 'flat', unit_type: 'flat', amount: 10, payment_timing: 'settlement', tier: 4, is_standard: true, notes: 'Applied after cutoff' },
+    { standard_id: 'nsf_fee', name: 'Returned Check / NSF Fee', type: 'flat', unit_type: 'flat', amount: 50, payment_timing: 'settlement', tier: 4, is_standard: true },
 ];
+
+const UNIT_TYPE_OPTIONS = [
+    { value: 'flat', label: 'Flat Fee' },
+    { value: 'per_horse', label: 'Per Horse' },
+    { value: 'per_night', label: 'Per Night' },
+    { value: 'per_bag', label: 'Per Bag' },
+    { value: 'per_class', label: 'Per Class' },
+    { value: 'custom', label: 'Custom Unit' },
+];
+
+const UNIT_TYPE_LABELS = {
+    flat: 'Flat Fee',
+    per_horse: 'Per Horse',
+    per_night: 'Per Night',
+    per_bag: 'Per Bag',
+    per_class: 'Per Class',
+    custom: 'Custom',
+};
 
 const timingCategories = [
     { id: 'pre_entry', title: 'Pre-Entry / Reservation', description: 'Fees due before the show (e.g., stalls, RVs).' },
     { id: 'at_check_in', title: 'At Check-In', description: 'Fees paid upon arrival (e.g., office, haul-in).' },
     { id: 'settlement', title: 'Post-Show / Settlement', description: 'Fees on the final bill (e.g., class entries).' },
+    { id: 'custom_timing', title: 'Custom Timing', description: 'Fees with custom payment timing.' },
 ];
+
+const getUnitLabel = (fee) => {
+    if (fee.unit_type === 'custom' && fee.custom_unit_label) return fee.custom_unit_label;
+    return UNIT_TYPE_LABELS[fee.unit_type] || UNIT_TYPE_LABELS[fee.type] || 'Flat Fee';
+};
 
 const EditableFeeItem = ({ fee, onUpdate, onRemove, associations, allAssociationsData }) => {
     const getAssociationName = (id) => allAssociationsData.find(a => a.id === id)?.name || id;
@@ -60,6 +84,27 @@ const EditableFeeItem = ({ fee, onUpdate, onRemove, associations, allAssociation
                 <Label>Amount ($)</Label>
                 <Input type="number" value={fee.amount} onChange={(e) => onUpdate(fee.id, 'amount', e.target.value)} placeholder="e.g., 50.00" />
             </div>
+            <div className="space-y-1.5">
+                <Label>Unit Type</Label>
+                <Select value={fee.unit_type || 'flat'} onValueChange={(value) => onUpdate(fee.id, 'unit_type', value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        {UNIT_TYPE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            {fee.unit_type === 'custom' && (
+                <div className="space-y-1.5">
+                    <Label>Custom Unit Label</Label>
+                    <Input
+                        value={fee.custom_unit_label || ''}
+                        onChange={(e) => onUpdate(fee.id, 'custom_unit_label', e.target.value)}
+                        placeholder='e.g., "Per Stall", "Per Run"'
+                    />
+                </div>
+            )}
             <div className="space-y-1.5">
                 <Label>Payment Timing</Label>
                 <Select value={fee.payment_timing} onValueChange={(value) => onUpdate(fee.id, 'payment_timing', value)}>
@@ -119,6 +164,7 @@ const EditableFeeItem = ({ fee, onUpdate, onRemove, associations, allAssociation
 const SortableFeeItem = ({ fee, onUpdate, onRemove, associations, allAssociationsData }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: fee.id });
     const style = { transform: CSS.Transform.toString(transform), transition };
+    const unitLabel = getUnitLabel(fee);
 
     return (
         <div ref={setNodeRef} style={style} {...attributes}>
@@ -131,8 +177,9 @@ const SortableFeeItem = ({ fee, onUpdate, onRemove, associations, allAssociation
                         <AccordionTrigger className="flex-grow text-left hover:no-underline py-0">
                             <div className="flex items-center justify-between w-full">
                                 <span className="font-semibold">{fee.name}</span>
-                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <span>${fee.amount || '0.00'}</span>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                    <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{unitLabel}</span>
+                                    <span className="font-medium">${fee.amount || '0.00'}</span>
                                     {fee.apply_per_judge && <BadgeCent className="h-4 w-4 text-primary" />}
                                 </div>
                             </div>
@@ -292,9 +339,9 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* LEFT COLUMN — Fee Catalog */}
-                        <Card className="bg-background/30 self-start lg:sticky lg:top-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                        {/* LEFT COLUMN — Fee Catalog (4 cols) */}
+                        <Card className="lg:col-span-4 bg-background/30 self-start lg:sticky lg:top-4">
                             <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-emerald-600"/> Fee Catalog</CardTitle>
                                 <CardDescription>Add standard industry fees or create a custom fee.</CardDescription>
@@ -306,7 +353,11 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                                             <div key={fee.standard_id} className="flex items-center justify-between p-3 border rounded-md bg-background hover:bg-secondary/20 transition-colors">
                                                 <div className="min-w-0 mr-3">
                                                     <p className="font-semibold text-sm">{fee.name}</p>
-                                                    {fee.notes && <p className="text-xs text-muted-foreground truncate">{fee.notes}</p>}
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{getUnitLabel(fee)}</span>
+                                                        <span className="text-xs text-muted-foreground">${fee.amount}</span>
+                                                    </div>
+                                                    {fee.notes && <p className="text-xs text-muted-foreground truncate mt-0.5">{fee.notes}</p>}
                                                 </div>
                                                 <Button size="sm" variant="outline" onClick={() => addFee(fee)} disabled={budgetLocked} className="flex-shrink-0">
                                                     <PlusCircle className="h-4 w-4 mr-1.5" /> Add
@@ -317,14 +368,14 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                                         <p className="text-center text-muted-foreground py-6 text-sm">All relevant standard fees have been added.</p>
                                     )}
                                 </div>
-                                <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full" disabled={budgetLocked}>
+                                <Button onClick={() => addFee({ name: 'Custom Fee', type: 'flat', unit_type: 'flat', amount: '', payment_timing: 'settlement' }, true)} variant="secondary" className="w-full" disabled={budgetLocked}>
                                     {budgetLocked ? <Lock className="h-4 w-4 mr-1.5" /> : <PlusCircle className="h-4 w-4 mr-1.5" />} Add Custom Fee
                                 </Button>
                             </CardContent>
                         </Card>
 
-                        {/* RIGHT COLUMN — Assigned Fees by Category */}
-                        <div className="space-y-4">
+                        {/* RIGHT COLUMN — Assigned Fees by Category (8 cols) */}
+                        <div className="lg:col-span-8 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h3 className="font-semibold text-lg">Assigned Fees</h3>
                                 {totalFeeRevenue > 0 && (
@@ -343,9 +394,8 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                             ) : (
                                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                                     <div className="space-y-4">
-                                        {timingCategories.map(category => {
+                                        {timingCategories.filter(cat => cat.id !== 'custom_timing' || fees.some(f => f.payment_timing === 'custom_timing')).map(category => {
                                             const categoryFees = fees.filter(f => f.payment_timing === category.id);
-                                            if (categoryFees.length === 0) return null;
                                             return (
                                                 <FeeCategory
                                                     key={category.id}
@@ -433,11 +483,20 @@ const FeeCategory = ({ id, title, description, fees, onUpdate, onRemove, associa
 
     return (
         <Card ref={setNodeRef} className="flex flex-col bg-background/30">
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
+            <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-base">{title}</CardTitle>
+                        <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
+                    </div>
+                    {fees.length > 0 && (
+                        <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                            {fees.length} fee{fees.length !== 1 ? 's' : ''}
+                        </span>
+                    )}
+                </div>
             </CardHeader>
-            <CardContent className="flex-grow space-y-4">
+            <CardContent className="flex-grow space-y-4 pt-0">
                 <SortableContext items={fees.map(f => f.id)}>
                      <div className="space-y-3">
                     {fees.length > 0 ? (
@@ -445,9 +504,9 @@ const FeeCategory = ({ id, title, description, fees, onUpdate, onRemove, associa
                             <SortableFeeItem key={fee.id} fee={fee} onUpdate={onUpdate} onRemove={onRemove} associations={associations} allAssociationsData={allAssociationsData} />
                         ))
                     ) : (
-                        <div className="text-center py-6 border-2 border-dashed rounded-lg flex flex-col items-center justify-center">
-                            <Banknote className="h-6 w-6 text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">No fees in this category yet.</p>
+                        <div className="text-center py-4 border-2 border-dashed rounded-lg flex flex-col items-center justify-center">
+                            <ArrowRightLeft className="h-5 w-5 text-muted-foreground mb-1.5" />
+                            <p className="text-xs text-muted-foreground">Drag fees here or change timing in fee details.</p>
                         </div>
                     )}
                     </div>

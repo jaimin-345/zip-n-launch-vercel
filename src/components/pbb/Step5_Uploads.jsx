@@ -5,8 +5,66 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
-import { Palette, FileUp, QrCode, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Palette, FileUp, QrCode, Zap, PlusCircle, Trash2, Image } from 'lucide-react';
 import { LogoUploader } from '@/components/show-structure/LogoUploader';
+import { v4 as uuidv4 } from 'uuid';
+
+const MultiLogoSection = ({ title, description, logos = [], field, formData, setFormData }) => {
+  const addLogo = () => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: [...(prev[field] || []), { id: uuidv4(), name: '', url: '' }]
+    }));
+  };
+
+  const updateLogo = (id, key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: (prev[field] || []).map(l => l.id === id ? { ...l, [key]: value } : l)
+    }));
+  };
+
+  const removeLogo = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: (prev[field] || []).filter(l => l.id !== id)
+    }));
+  };
+
+  return (
+    <div>
+      <Label className="text-lg font-semibold flex items-center gap-2"><Image className="w-5 h-5 text-violet-500" />{title}</Label>
+      <p className="text-sm text-muted-foreground mb-3">{description}</p>
+      <div className="space-y-3">
+        {logos.map((logo) => (
+          <div key={logo.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+            <div className="flex-1">
+              <Input
+                placeholder="Name (e.g. AQHA, Sponsor Brand)"
+                value={logo.name}
+                onChange={(e) => updateLogo(logo.id, 'name', e.target.value)}
+                className="h-8 text-sm mb-1"
+              />
+              <LogoUploader
+                fieldId={`${field}_${logo.id}`}
+                currentLogoUrl={logo.url}
+                onUploadComplete={(url) => updateLogo(logo.id, 'url', url)}
+                showId={formData.id || 'temp'}
+              />
+            </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => removeLogo(logo.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="outline" size="sm" className="w-full" onClick={addLogo}>
+          <PlusCircle className="h-4 w-4 mr-2" />Add Another
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 export const Step5_Uploads = ({ formData, setFormData }) => {
   const handleFileChange = (e) => {
@@ -19,6 +77,27 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Migrate legacy single-logo fields to arrays on first render
+  React.useEffect(() => {
+    setFormData(prev => {
+      let updated = false;
+      const next = { ...prev };
+      if (prev.showLogoUrl && !prev.showLogos?.length) {
+        next.showLogos = [{ id: uuidv4(), name: 'Show Logo', url: prev.showLogoUrl }];
+        delete next.showLogoUrl;
+        updated = true;
+      }
+      if (prev.sponsorLogoUrl && !prev.sponsorLogos?.length) {
+        next.sponsorLogos = [{ id: uuidv4(), name: 'Sponsor', url: prev.sponsorLogoUrl }];
+        delete next.sponsorLogoUrl;
+        updated = true;
+      }
+      if (!next.showLogos) { next.showLogos = []; updated = true; }
+      if (!next.sponsorLogos) { next.sponsorLogos = []; updated = true; }
+      return updated ? next : prev;
+    });
+  }, []);
+
   return (
     <motion.div key="step5-uploads" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
       <CardHeader>
@@ -26,7 +105,8 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
         <CardDescription>Customize the look of your pattern book and add media assets.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        
+
+        {/* Layout Style - full width */}
         <div>
           <Label className="text-lg font-semibold">Layout Style</Label>
           <p className="text-sm text-muted-foreground mb-3">Choose the visual theme for your generated documents.</p>
@@ -46,46 +126,55 @@ export const Step5_Uploads = ({ formData, setFormData }) => {
           </RadioGroup>
         </div>
 
-        <div>
-          <Label className="text-lg font-semibold">Show Logos (optional)</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload custom logos for your pattern book cover page.</p>
-          <LogoUploader
-            fieldId="show_logo"
-            currentLogoUrl={formData.showLogoUrl || ''}
-            onUploadComplete={(url) => handleValueChange('showLogoUrl', url)}
-            showId={formData.id || 'temp'}
-          />
+        {/* Two-column: Documents + Logos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column */}
+          <div className="space-y-6">
+            <div className="p-5 border rounded-lg space-y-4">
+              <div>
+                <Label htmlFor="showSchedule" className="text-lg font-semibold flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-500" />Upload Schedule</Label>
+                <p className="text-sm text-muted-foreground mb-3">Upload the show schedule document.</p>
+                <Input id="showSchedule" name="showSchedule" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+              </div>
+              <div>
+                <Label htmlFor="showBill" className="text-lg font-semibold flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-500" />Upload Show Bill</Label>
+                <p className="text-sm text-muted-foreground mb-3">Upload the show bill document.</p>
+                <Input id="showBill" name="showBill" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+              </div>
+              <div>
+                <Label htmlFor="eventThumbnail" className="text-lg font-semibold flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-500" />Event Page Thumbnail</Label>
+                <p className="text-sm text-muted-foreground mb-3">This image will be used on the main Events page.</p>
+                <Input id="eventThumbnail" name="eventThumbnail" type="file" accept="image/*" onChange={handleFileChange} />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            <div className="p-5 border rounded-lg space-y-5">
+              <MultiLogoSection
+                title="Show Logos (optional)"
+                description="Upload logos for your pattern book cover page."
+                logos={formData.showLogos || []}
+                field="showLogos"
+                formData={formData}
+                setFormData={setFormData}
+              />
+              <div className="border-t pt-5">
+                <MultiLogoSection
+                  title="Sponsor Logos (optional)"
+                  description="Upload sponsor logos to display in your pattern book."
+                  logos={formData.sponsorLogos || []}
+                  field="sponsorLogos"
+                  formData={formData}
+                  setFormData={setFormData}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <Label className="text-lg font-semibold">Sponsor Logos (optional)</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload sponsor logos to display in your pattern book.</p>
-          <LogoUploader
-            fieldId="sponsor_logo"
-            currentLogoUrl={formData.sponsorLogoUrl || ''}
-            onUploadComplete={(url) => handleValueChange('sponsorLogoUrl', url)}
-            showId={formData.id || 'temp'}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="eventThumbnail" className="text-lg font-semibold">Event Page Thumbnail</Label>
-          <p className="text-sm text-muted-foreground mb-3">This image will be used on the main Events page.</p>
-          <Input id="eventThumbnail" name="eventThumbnail" type="file" accept="image/*" onChange={handleFileChange} />
-        </div>
-
-        <div>
-          <Label htmlFor="showSchedule" className="text-lg font-semibold">Show Schedule</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload the show schedule document.</p>
-          <Input id="showSchedule" name="showSchedule" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-        </div>
-
-        <div>
-          <Label htmlFor="showBill" className="text-lg font-semibold">Show Bill</Label>
-          <p className="text-sm text-muted-foreground mb-3">Upload the show bill document.</p>
-          <Input id="showBill" name="showBill" type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-        </div>
-
+        {/* Office Pro Package - full width */}
         <div className="p-6 border rounded-lg bg-primary/10 border-primary/30 space-y-4">
           <div className="flex items-center justify-between">
             <div>

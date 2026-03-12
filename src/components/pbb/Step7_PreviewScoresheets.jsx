@@ -19,7 +19,7 @@ export const Step7_PreviewScoresheets = ({ formData, setFormData }) => {
               const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
               return (
                 <div key={originalDisciplineIndex} className="p-4 border rounded-lg bg-background/50">
-                  <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name}</h4>
+                  <h4 className="font-bold text-lg mb-4 text-primary">{pbbDiscipline.name.replace(' at Halter', '')}</h4>
                   <div className="space-y-6">
                     {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => (
                       <ScoresheetGroupPreview
