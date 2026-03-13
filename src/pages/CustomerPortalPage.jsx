@@ -4557,6 +4557,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         setNewFolderName('');
         setEditingFolderId(null);
         setRenameFolderDialogOpen(false);
+        //test
         
         toast({
             title: "Folder Renamed",
