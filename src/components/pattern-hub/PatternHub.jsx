@@ -1,20 +1,12 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, UploadCloud, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, Image as ImageIcon, Printer, Mail, Share2, CheckSquare, Square } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, UploadCloud, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, CheckCircle, CheckSquare, Square, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Set worker at module level so Vite resolves it as a static asset
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url,
-).toString();
 
 import { StepContainer } from './StepContainer';
 import { Step3_DivisionAndLevel } from './Step3_DivisionAndLevel';
@@ -75,15 +67,7 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     );
 };
 
-const GENERATE_OPTIONS = [
-    { id: 'pdf', label: 'Download as PDF', icon: FileText, description: 'Save pattern as a PDF file' },
-    { id: 'png', label: 'Download as PNG', icon: ImageIcon, description: 'Save pattern as an image' },
-    { id: 'print', label: 'Print', icon: Printer, description: 'Send directly to printer' },
-    { id: 'email', label: 'Send Email', icon: Mail, description: 'Email pattern to yourself or others' },
-    { id: 'share', label: 'Share Link', icon: Share2, description: 'Copy a shareable link' },
-];
-
-const GenerateStep = ({ isGenerated, formData, setFormData, onGenerateOption, isGenerating }) => {
+const GenerateStep = ({ isGenerated, formData, setFormData, onGenerate, isGenerating, onGoToProjects, onDownloadAgain }) => {
     // Extract pattern summary from formData
     const patternSummary = useMemo(() => {
         const summaries = [];
@@ -122,21 +106,35 @@ const GenerateStep = ({ isGenerated, formData, setFormData, onGenerateOption, is
     return (
         <motion.div key="step-generate" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
             <CardHeader className="pb-3">
-                <CardTitle className="text-xl">{isGenerated ? 'Generation Complete' : 'Generate Pattern'}</CardTitle>
+                <CardTitle className="text-xl">{isGenerated ? 'Pattern Generated Successfully' : 'Generate Pattern'}</CardTitle>
                 <CardDescription className="text-sm">
                     {isGenerated
-                        ? 'Your pattern has been generated and saved to your projects.'
-                        : 'Your pattern is ready. Choose how you\'d like to get it.'}
+                        ? 'Your pattern has been downloaded and saved to My Projects.'
+                        : 'Your pattern is ready. Select what to include and generate.'}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 {isGenerated ? (
-                    <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center space-y-4">
-                        <Download className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
-                        <p className="text-lg font-medium">Done!</p>
-                        <p className="text-sm text-muted-foreground max-w-md">
-                            Your pattern has been downloaded and saved to My Projects.
-                        </p>
+                    <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-center space-y-6">
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                            <CheckCircle className="h-10 w-10 sm:h-12 sm:w-12 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-lg font-semibold">Pattern Generated Successfully</p>
+                            <p className="text-sm text-muted-foreground max-w-md">
+                                Your pattern PDF has been downloaded and saved to My Projects.
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                            <Button onClick={onGoToProjects} className="gap-2">
+                                <FolderOpen className="h-4 w-4" />
+                                Go to My Projects
+                            </Button>
+                            <Button variant="outline" onClick={onDownloadAgain} className="gap-2">
+                                <Download className="h-4 w-4" />
+                                Download Again
+                            </Button>
+                        </div>
                     </div>
                 ) : (
                     <div className="space-y-6">
@@ -186,28 +184,25 @@ const GenerateStep = ({ isGenerated, formData, setFormData, onGenerateOption, is
                             </div>
                         </div>
 
-                        {/* Export Options */}
-                        <div className="space-y-2">
-                            <p className="text-sm font-semibold text-foreground">Export options</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {GENERATE_OPTIONS.map(option => (
-                                    <button
-                                        key={option.id}
-                                        onClick={() => onGenerateOption(option.id)}
-                                        disabled={isGenerating}
-                                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 active:bg-muted/70 transition-colors text-left disabled:opacity-50"
-                                    >
-                                        <div className="flex-shrink-0 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                            <option.icon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="font-medium text-sm">{option.label}</p>
-                                            <p className="text-xs text-muted-foreground truncate">{option.description}</p>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        {/* Single Generate & Download Button */}
+                        <Button
+                            onClick={onGenerate}
+                            disabled={isGenerating}
+                            className="w-full gap-2"
+                            size="lg"
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                    Generating...
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="h-5 w-5" />
+                                    Generate & Download
+                                </>
+                            )}
+                        </Button>
                     </div>
                 )}
             </CardContent>
@@ -230,10 +225,11 @@ export const PatternHub = ({ projectId }) => {
         setHighestStepReached,
     } = usePatternHub(projectId);
 
+    const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isGenerated, setIsGenerated] = useState(false);
-    const [showGenerateModal, setShowGenerateModal] = useState(false);
+    const [lastPdfBlob, setLastPdfBlob] = useState(null);
 
     const isHorseShow = formData.usageType === 'horse_show';
     const isClinic = formData.usageType === 'clinic';
@@ -406,87 +402,47 @@ export const PatternHub = ({ projectId }) => {
         }
     };
 
-    const handleGenerateOption = async (optionId) => {
-        setShowGenerateModal(false);
+    // Helper: convert data URI to Blob for reliable downloads
+    const dataUriToBlob = (dataUri) => {
+        const [header, base64] = dataUri.split(',');
+        const mime = header.match(/:(.*?);/)[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
+    };
+
+    const triggerDownload = (blob, fileName) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    };
+
+    const handleGenerate = async () => {
         setIsGenerating(true);
         try {
             const fileName = (formData.showName || 'Pattern').replace(/ /g, '_');
+            toast({ title: 'Generating PDF...', description: 'Your pattern is being created.' });
 
-            if (optionId === 'pdf') {
-                toast({ title: 'Generating PDF...', description: 'Your pattern is being created.' });
-                const pdfDataUri = await generatePatternBookPdf(formData);
-                const link = document.createElement('a');
-                link.href = pdfDataUri;
-                link.download = `${fileName}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                await handleSaveProject();
-                setIsGenerated(true);
-                toast({ title: 'Success!', description: 'Your pattern PDF has been downloaded.' });
-            } else if (optionId === 'png') {
-                toast({ title: 'Generating PNG...', description: 'Converting pattern to image.' });
-                const pdfDataUri = await generatePatternBookPdf(formData);
-                // Convert PDF to PNG via pdfjs-dist (worker set at module level)
-                const pdfDoc = await pdfjsLib.getDocument(pdfDataUri).promise;
-                const totalPages = pdfDoc.numPages;
+            const pdfDataUri = await generatePatternBookPdf(formData);
+            const blob = dataUriToBlob(pdfDataUri);
 
-                // Find the first non-blank page (cover page is blank when coverPageOption='none')
-                let targetPageNum = 1;
-                for (let p = 1; p <= Math.min(totalPages, 3); p++) {
-                    const testPage = await pdfDoc.getPage(p);
-                    const textContent = await testPage.getTextContent();
-                    if (textContent.items.length > 0) {
-                        targetPageNum = p;
-                        break;
-                    }
-                }
+            // Download the PDF
+            triggerDownload(blob, `${fileName}.pdf`);
 
-                const page = await pdfDoc.getPage(targetPageNum);
-                const scale = 2;
-                const viewport = page.getViewport({ scale });
-                const canvas = document.createElement('canvas');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                const ctx = canvas.getContext('2d');
-                await page.render({ canvasContext: ctx, viewport }).promise;
-                // Add platform branding watermark
-                ctx.save();
-                ctx.font = '12px Helvetica, Arial, sans-serif';
-                ctx.fillStyle = 'rgba(120, 120, 120, 0.7)';
-                ctx.textAlign = 'right';
-                ctx.fillText('Generated by EQ Patterns', canvas.width - 20, canvas.height - 14);
-                ctx.restore();
-                const pngDataUri = canvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.href = pngDataUri;
-                link.download = `${fileName}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                await handleSaveProject();
-                setIsGenerated(true);
-                toast({ title: 'Success!', description: 'Your pattern PNG has been downloaded.' });
-            } else if (optionId === 'print') {
-                toast({ title: 'Preparing to print...', description: 'Opening print dialog.' });
-                const pdfDataUri = await generatePatternBookPdf(formData);
-                const printWindow = window.open('', '_blank');
-                if (printWindow) {
-                    printWindow.document.write(`<html><head><title>Print Pattern</title></head><body style="margin:0"><iframe src="${pdfDataUri}" style="width:100%;height:100%;border:none" onload="setTimeout(()=>{window.print()},500)"></iframe></body></html>`);
-                    printWindow.document.close();
-                }
-                await handleSaveProject();
-                setIsGenerated(true);
-            } else if (optionId === 'email') {
-                toast({ title: 'Preparing email...', description: 'Opening email client.' });
-                const subject = encodeURIComponent(`Pattern: ${formData.showName || 'My Pattern'}`);
-                const body = encodeURIComponent(`Here is the pattern for ${formData.showName || 'my selection'}.\n\nGenerated from EQ Patterns.`);
-                window.location.href = `mailto:?subject=${subject}&body=${body}`;
-            } else if (optionId === 'share') {
-                const shareUrl = window.location.href;
-                await navigator.clipboard.writeText(shareUrl);
-                toast({ title: 'Link Copied!', description: 'Shareable link has been copied to your clipboard.' });
-            }
+            // Keep blob for "Download Again"
+            setLastPdfBlob(blob);
+
+            // Auto-save to My Projects
+            await handleSaveProject();
+
+            setIsGenerated(true);
+            toast({ title: 'Success!', description: 'Your pattern has been downloaded and saved to My Projects.' });
         } catch (error) {
             console.error('Failed to generate pattern:', error);
             toast({
@@ -497,6 +453,21 @@ export const PatternHub = ({ projectId }) => {
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const handleDownloadAgain = () => {
+        const fileName = (formData.showName || 'Pattern').replace(/ /g, '_');
+        if (lastPdfBlob) {
+            triggerDownload(lastPdfBlob, `${fileName}.pdf`);
+            toast({ title: 'Downloaded!', description: 'Your pattern PDF has been downloaded again.' });
+        } else {
+            // Re-generate if blob was lost
+            handleGenerate();
+        }
+    };
+
+    const handleGoToProjects = () => {
+        navigate('/customer-portal');
     };
 
     const renderStepContent = () => {
@@ -550,7 +521,7 @@ export const PatternHub = ({ projectId }) => {
                     <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(6)} purposeName={isClinic ? 'Clinic Materials' : null} isHubMode={true} />
                 );
             case 7:
-                return <GenerateStep isGenerated={isGenerated} formData={formData} setFormData={setFormData} onGenerateOption={handleGenerateOption} isGenerating={isGenerating} />;
+                return <GenerateStep isGenerated={isGenerated} formData={formData} setFormData={setFormData} onGenerate={handleGenerate} isGenerating={isGenerating} onGoToProjects={handleGoToProjects} onDownloadAgain={handleDownloadAgain} />;
             default:
                 return null;
         }
@@ -656,12 +627,8 @@ export const PatternHub = ({ projectId }) => {
                             </Button>
                         )}
                         {isFinalStep ? (
-                            isGenerating ? (
-                                <Button size="sm" className="sm:size-default" disabled>
-                                    <Loader2 className="mr-1 h-4 w-4 animate-spin" /> <span className="hidden sm:inline">Generating...</span><span className="sm:hidden">...</span>
-                                </Button>
-                            ) : isGenerated ? (
-                                <Button size="sm" className="sm:size-default" onClick={() => { setIsGenerated(false); setCurrentStep(0); }}>
+                            isGenerated ? (
+                                <Button size="sm" className="sm:size-default" onClick={() => { setIsGenerated(false); setLastPdfBlob(null); setCurrentStep(0); }}>
                                     <ArrowRight className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">New Pattern</span><span className="sm:hidden">New</span>
                                 </Button>
                             ) : null
@@ -674,33 +641,6 @@ export const PatternHub = ({ projectId }) => {
               </div>
             </Card>
 
-            {/* Generate Options Modal */}
-            <Dialog open={showGenerateModal} onOpenChange={setShowGenerateModal}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Generate Pattern</DialogTitle>
-                        <DialogDescription>Choose how you'd like to get your pattern.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-2 pt-2">
-                        {GENERATE_OPTIONS.map(option => (
-                            <button
-                                key={option.id}
-                                onClick={() => handleGenerateOption(option.id)}
-                                disabled={isGenerating}
-                                className="w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-3 rounded-lg border hover:bg-muted/50 active:bg-muted/70 transition-colors text-left disabled:opacity-50"
-                            >
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <option.icon className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-sm">{option.label}</p>
-                                    <p className="text-xs text-muted-foreground">{option.description}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 };

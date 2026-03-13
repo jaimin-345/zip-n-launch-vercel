@@ -45,6 +45,7 @@ const TravelManagementPage = () => {
           .from('projects')
           .select('id, project_name, project_type, project_data, created_at')
           .eq('project_type', 'contract')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -224,11 +225,15 @@ const TravelManagementPage = () => {
                         <SelectValue placeholder="Choose a contract project..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {contractProjects.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.project_data?.showName || p.project_name || 'Untitled'}
-                          </SelectItem>
-                        ))}
+                        {contractProjects.map((p) => {
+                          const name = p.project_data?.showName || p.project_name || 'Untitled';
+                          const date = p.project_data?.contractSettings?.effectiveDate?.slice(0, 4);
+                          return (
+                            <SelectItem key={p.id} value={p.id}>
+                              {name}{date ? ` - ${date}` : ''}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   )}

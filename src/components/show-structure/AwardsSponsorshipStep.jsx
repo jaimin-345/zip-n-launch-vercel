@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { PlusCircle, Trash2, ChevronDown, ChevronRight, Trophy, Award, Medal, Gift, ShoppingCart, Calculator, Copy } from 'lucide-react';
+import { PlusCircle, Trash2, ChevronDown, ChevronRight, Trophy, Award, Medal, Gift, ShoppingCart, Calculator, Copy, CopyCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const AWARD_TYPES = ['Trophy', 'Buckle', 'Ribbon', 'Halter', 'Plaque', 'Prize Money', 'Cooler', 'Blanket', 'Gift Card', 'Jacket', 'Saddle', 'Scholarship', 'Other'];
@@ -520,7 +520,7 @@ export const AwardsSponsorshipStep = ({ formData, setFormData }) => {
         for (const disc of disciplines) {
             for (const divId of (disc.divisionOrder || [])) {
                 const name = disc.divisionPrintTitles?.[divId] || divId.split('-').slice(1).join('-');
-                items.push({ id: divId, name, disciplineName: disc.name });
+                items.push({ id: `${disc.name}::${divId}`, name, disciplineName: disc.name });
             }
         }
         return items;
@@ -820,10 +820,32 @@ export const AwardsSponsorshipStep = ({ formData, setFormData }) => {
                                                     </div>
                                                 )}
 
-                                                <div className="px-3 py-1.5 border-t">
+                                                <div className="px-3 py-1.5 border-t flex items-center gap-1">
                                                     <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground" onClick={() => addClassAwardItem(cls.id)}>
                                                         <PlusCircle className="h-3 w-3 mr-1" /> Add Award
                                                     </Button>
+                                                    {(() => {
+                                                        const flatIdx = classes.findIndex(c => c.id === cls.id);
+                                                        const prevClass = flatIdx > 0 ? classes[flatIdx - 1] : null;
+                                                        const prevHasAwards = prevClass && (classAwards[prevClass.id]?.items?.length > 0);
+                                                        if (!prevHasAwards) return null;
+                                                        return (
+                                                            <Button variant="ghost" size="sm" className="h-6 text-xs text-muted-foreground"
+                                                                onClick={() => {
+                                                                    const sourceItems = classAwards[prevClass.id]?.items || [];
+                                                                    const cloned = sourceItems.map(item => ({ ...item, id: uuidv4() }));
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        classAwards: {
+                                                                            ...(prev.classAwards || {}),
+                                                                            [cls.id]: { items: [...(prev.classAwards?.[cls.id]?.items || []), ...cloned] },
+                                                                        },
+                                                                    }));
+                                                                }}>
+                                                                <CopyCheck className="h-3 w-3 mr-1" /> Duplicate From Above
+                                                            </Button>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
                                         );

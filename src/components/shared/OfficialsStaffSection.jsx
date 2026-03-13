@@ -4,14 +4,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2, User, Copy, ChevronsUpDown, Check, Award } from 'lucide-react';
+import { Plus, Trash2, User, Copy, ChevronsUpDown, Award } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandSeparator } from '@/components/ui/command';
 import { staffRoles, associationStaffing, roleGroups } from '@/lib/staffingData';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
-import { cn } from '@/lib/utils';
+
 
 // ─── Role Icon ───────────────────────────────────────────────────
 const RoleIcon = ({ roleId, className = "h-4 w-4 text-muted-foreground" }) => {
@@ -217,7 +217,52 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
         setFormData(prev => {
             const currentDetails = prev.showDetails || {};
             const newJudgeCount = { ...(currentDetails.judgeCount || {}), [assocId]: count };
-            return { ...prev, showDetails: { ...currentDetails, judgeCount: newJudgeCount } };
+            // Auto-generate judge entries to match the new count
+            const newJudges = { ...(currentDetails.judges || {}) };
+            const currentJudges = newJudges[assocId] || [];
+            if (count > currentJudges.length) {
+                // Add new empty judge entries
+                const additional = Array.from({ length: count - currentJudges.length }, () => ({
+                    id: uuidv4(), name: '', email: '', phone: ''
+                }));
+                newJudges[assocId] = [...currentJudges, ...additional];
+            } else if (count < currentJudges.length) {
+                // Trim from the end
+                newJudges[assocId] = currentJudges.slice(0, count);
+            }
+            return { ...prev, showDetails: { ...currentDetails, judgeCount: newJudgeCount, judges: newJudges } };
+        });
+    };
+
+    const handleAddJudge = (assocId) => {
+        setFormData(prev => {
+            const currentDetails = prev.showDetails || {};
+            const newJudges = { ...(currentDetails.judges || {}) };
+            const currentJudges = newJudges[assocId] || [];
+            newJudges[assocId] = [...currentJudges, { id: uuidv4(), name: '', email: '', phone: '' }];
+            const newJudgeCount = { ...(currentDetails.judgeCount || {}), [assocId]: newJudges[assocId].length };
+            return { ...prev, showDetails: { ...currentDetails, judges: newJudges, judgeCount: newJudgeCount } };
+        });
+    };
+
+    const handleUpdateJudge = (assocId, judgeId, field, value) => {
+        setFormData(prev => {
+            const currentDetails = prev.showDetails || {};
+            const newJudges = { ...(currentDetails.judges || {}) };
+            newJudges[assocId] = (newJudges[assocId] || []).map(j =>
+                j.id === judgeId ? { ...j, [field]: value } : j
+            );
+            return { ...prev, showDetails: { ...currentDetails, judges: newJudges } };
+        });
+    };
+
+    const handleRemoveJudge = (assocId, judgeId) => {
+        setFormData(prev => {
+            const currentDetails = prev.showDetails || {};
+            const newJudges = { ...(currentDetails.judges || {}) };
+            newJudges[assocId] = (newJudges[assocId] || []).filter(j => j.id !== judgeId);
+            const newJudgeCount = { ...(currentDetails.judgeCount || {}), [assocId]: newJudges[assocId].length };
+            return { ...prev, showDetails: { ...currentDetails, judges: newJudges, judgeCount: newJudgeCount } };
         });
     };
 
@@ -305,6 +350,7 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
                 const isPrimary = primaryAffiliates.includes(assocId);
                 const staffList = getStaffList(assocId);
                 const currentJudgeCount = judgeCount[assocId] ?? 0;
+                const judgesList = (formData.showDetails?.judges || {})[assocId] || [];
 
                 return (
                     <AccordionItem key={assocId} value={assocId} className="border rounded-lg bg-background/50">
@@ -329,27 +375,74 @@ export const OfficialsStaffSection = ({ formData, setFormData }) => {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent className="p-4 pt-2 space-y-4">
-                            {/* ── Judge Count (prominent, always visible) ── */}
-                            <div className="flex items-center gap-4 p-3 rounded-lg border bg-primary/5">
-                                <Award className="h-5 w-5 text-primary shrink-0" />
-                                <Label className="font-semibold text-sm whitespace-nowrap">Number of Judges</Label>
-                                <Select
-                                    value={String(currentJudgeCount)}
-                                    onValueChange={(val) => handleJudgeCountChange(assocId, parseInt(val, 10))}
-                                >
-                                    <SelectTrigger className="w-20 h-8">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                                            <SelectItem key={num} value={String(num)}>{num}</SelectItem>
+                            {/* ── Judges Section ── */}
+                            <div className="rounded-lg border bg-primary/5 overflow-hidden">
+                                <div className="flex items-center gap-4 p-3">
+                                    <Award className="h-5 w-5 text-primary shrink-0" />
+                                    <Label className="font-semibold text-sm whitespace-nowrap">Number of Judges</Label>
+                                    <Select
+                                        value={String(currentJudgeCount)}
+                                        onValueChange={(val) => handleJudgeCountChange(assocId, parseInt(val, 10))}
+                                    >
+                                        <SelectTrigger className="w-20 h-8">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                                                <SelectItem key={num} value={String(num)}>{num}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {currentJudgeCount > 0 && (
+                                        <span className="text-xs text-muted-foreground">
+                                            Score sheets = {currentJudgeCount} × classes
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* ── Auto-generated Judge Fields ── */}
+                                {judgesList.length > 0 && (
+                                    <div className="px-3 pb-3 space-y-2">
+                                        {judgesList.map((judge, idx) => (
+                                            <div key={judge.id} className="flex items-center gap-2 p-2 rounded-md border bg-background/70">
+                                                <Award className="h-4 w-4 text-primary shrink-0" />
+                                                <span className="text-xs font-medium text-muted-foreground min-w-[60px] shrink-0">Judge {idx + 1}</span>
+                                                <Input
+                                                    value={judge.name || ''}
+                                                    onChange={(e) => handleUpdateJudge(assocId, judge.id, 'name', e.target.value)}
+                                                    placeholder={`Judge ${idx + 1} Name`}
+                                                    className="text-sm h-8"
+                                                />
+                                                <Input
+                                                    value={judge.email || ''}
+                                                    onChange={(e) => handleUpdateJudge(assocId, judge.id, 'email', e.target.value)}
+                                                    placeholder="Email"
+                                                    type="email"
+                                                    className="text-sm h-8 hidden md:block"
+                                                />
+                                                <Input
+                                                    value={judge.phone || ''}
+                                                    onChange={(e) => handleUpdateJudge(assocId, judge.id, 'phone', e.target.value)}
+                                                    placeholder="Phone"
+                                                    type="tel"
+                                                    className="text-sm h-8 hidden md:block"
+                                                />
+                                                <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+                                                    onClick={() => handleRemoveJudge(assocId, judge.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </div>
                                         ))}
-                                    </SelectContent>
-                                </Select>
-                                {currentJudgeCount > 0 && (
-                                    <span className="text-xs text-muted-foreground">
-                                        Score sheets = {currentJudgeCount} × classes
-                                    </span>
+                                        <Button
+                                            variant="outline" size="sm"
+                                            className="w-full mt-1"
+                                            onClick={() => handleAddJudge(assocId)}
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" /> Add Judge
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
 

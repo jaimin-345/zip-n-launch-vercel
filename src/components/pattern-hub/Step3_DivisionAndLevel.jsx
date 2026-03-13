@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -6,8 +6,29 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 
+// Disciplines that should NOT show the "Open" division group
+const NO_OPEN_DISCIPLINES = ['Showmanship at Halter', 'Hunt Seat Equitation', 'Western Horsemanship'];
+
 export const Step3_DivisionAndLevel = ({ formData, setFormData, divisionsData, associationsData, stepNumber = 3 }) => {
   const selectedAssocIds = Object.keys(formData.associations || {}).filter(id => formData.associations[id]);
+
+  // Determine if "Open" division should be hidden based on selected disciplines
+  const shouldHideOpen = useMemo(() => {
+    const disciplines = formData.disciplines || [];
+    if (disciplines.length === 0) return false;
+    // Hide Open if ALL selected disciplines are in the no-open list
+    return disciplines.every(d =>
+      NO_OPEN_DISCIPLINES.includes(d.name) ||
+      (d.name && d.name.toLowerCase().includes('amateur'))
+    );
+  }, [formData.disciplines]);
+
+  // Filter divisions per association based on discipline rules
+  const getFilteredDivisions = (assocId) => {
+    const divisions = divisionsData[assocId] || [];
+    if (!shouldHideOpen) return divisions;
+    return divisions.filter(d => d.group.toLowerCase() !== 'open');
+  };
 
   const handleToggleDivision = (assocId, groupName, checked) => {
     setFormData(prev => ({
@@ -86,7 +107,7 @@ export const Step3_DivisionAndLevel = ({ formData, setFormData, divisionsData, a
         ) : (
           <Accordion type="multiple" defaultValue={selectedAssocIds} className="w-full">
             {selectedAssocIds.map(assocId => {
-              const divisions = divisionsData[assocId] || [];
+              const divisions = getFilteredDivisions(assocId);
               const association = associationsData.find(a => a.id === assocId);
               if (divisions.length === 0) return null;
 

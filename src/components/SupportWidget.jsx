@@ -73,7 +73,7 @@ const FAQ_ITEMS = [
   {
     id: 'publishing-show',
     question: 'How do I publish a show to the Events page?',
-    answer: 'In the Show Builder, go to Step 7 (Save & Manage). Use the "Publish Show" button to make your show official. Published shows automatically appear on the public Events page with your show details, location, dates, and any website/Facebook links you provide.',
+    answer: 'In the Show Builder, go to the Save & Manage step. Use the "Make Schedule Public" button to publish your schedule. Published schedules automatically appear on the public Events page with your show details, location, dates, and any website/Facebook links you provide.',
   },
   {
     id: 'membership-tiers',

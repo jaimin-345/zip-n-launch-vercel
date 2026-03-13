@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 
-    import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+    import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
     import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
     import { CSS } from '@dnd-kit/utilities';
     import { GripVertical, Calendar as CalendarIcon, X, Plus, Check } from 'lucide-react';
@@ -29,8 +29,10 @@ import React, { useState, useMemo } from 'react';
         pbbDiscipline,
         associationsData,
     }) => {
-        const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: divisionIdentifier });
-        const style = { transform: CSS.Transform.toString(transform), transition };
+        const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: divisionIdentifier });
+        const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+        const [isEditing, setIsEditing] = useState(false);
+        const [editValue, setEditValue] = useState('');
 
     const [assocId, ...divisionParts] = divisionIdentifier.split('-');
     const originalDivisionName = divisionParts.join('-');
@@ -80,10 +82,37 @@ import React, { useState, useMemo } from 'react';
                     <GripVertical className="h-4 w-4 text-muted-foreground" />
                 </Button>
                 <Checkbox id={`select-${divisionIdentifier}`} checked={isSelected} onCheckedChange={(checked) => onSelectionChange(divisionIdentifier, checked)} />
-        <div className="flex-grow text-sm">
-            <Label htmlFor={`select-${divisionIdentifier}`} className="font-normal">
-                {customTitle || divisionName}
-            </Label>
+        <div className="flex-grow text-sm min-w-0">
+            {isEditing ? (
+                <Input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => {
+                        onTitleChange(divisionIdentifier, editValue.trim() === divisionName ? '' : editValue.trim());
+                        setIsEditing(false);
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            onTitleChange(divisionIdentifier, editValue.trim() === divisionName ? '' : editValue.trim());
+                            setIsEditing(false);
+                        }
+                        if (e.key === 'Escape') setIsEditing(false);
+                    }}
+                    className="h-7 text-sm"
+                />
+            ) : (
+                <span
+                    className="cursor-text hover:text-primary transition-colors"
+                    onDoubleClick={() => {
+                        setEditValue(customTitle || divisionName);
+                        setIsEditing(true);
+                    }}
+                    title="Double-click to edit title"
+                >
+                    {customTitle || divisionName}
+                </span>
+            )}
         </div>
         {divisionTag && (
             <Badge variant="outline" className="text-xs rounded-full px-2">
@@ -129,10 +158,11 @@ import React, { useState, useMemo } from 'react';
     };
 
     export const ScheduleOrganizer = ({ pbbDiscipline, setFormData, formData, associationsData }) => {
-        const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+        const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
         const [selectedDivisions, setSelectedDivisions] = useState([]);
         const [go1DateForPopover, setGo1DateForPopover] = useState(null);
         const [go2DateForPopover, setGo2DateForPopover] = useState(null);
+        const [activeDragId, setActiveDragId] = useState(null);
 
         const divisionsWithData = useMemo(() => {
             if (!pbbDiscipline) return [];
@@ -194,8 +224,14 @@ import React, { useState, useMemo } from 'react';
             return <div className="text-center p-4">Loading discipline data...</div>;
         }
 
+        const handleDragStart = (event) => {
+            setActiveDragId(event.active.id);
+        };
+
         const handleDragEnd = (event) => {
+            setActiveDragId(null);
             const { active, over } = event;
+            if (!over || active.id === over.id) return;
             if (active.id !== over.id) {
                 setFormData(prev => {
                     const newDisciplines = prev.disciplines.map(disc => {
@@ -474,7 +510,7 @@ import React, { useState, useMemo } from 'react';
                     </div>
 
                     <div>
-                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                             <SortableContext items={divisionsWithData.map(d => d.id)} strategy={verticalListSortingStrategy}>
                                 <div className="space-y-2">
                                      {Object.entries(groupedDivisions).map(([dateKey, divisions]) => (
@@ -506,6 +542,23 @@ import React, { useState, useMemo } from 'react';
                                     ))}
                                 </div>
                             </SortableContext>
+                            <DragOverlay>
+                                {activeDragId && (() => {
+                                    const divData = divisionsWithData.find(d => d.id === activeDragId);
+                                    if (!divData) return null;
+                                    const parts = activeDragId.split('-');
+                                    const divName = parts.slice(1).join('-');
+                                    const cleanName = divName.startsWith('custom-') ? divName.substring(7) : divName;
+                                    const nameParts = cleanName.split(' - ');
+                                    const displayName = nameParts.length === 2 ? nameParts[1] : cleanName;
+                                    return (
+                                        <div className="flex items-center gap-2 p-1.5 bg-background rounded-lg border shadow-lg cursor-grabbing">
+                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                            <span className="text-sm font-semibold">{divData.customTitle || displayName}</span>
+                                        </div>
+                                    );
+                                })()}
+                            </DragOverlay>
                         </DndContext>
                     </div>
                 </div>

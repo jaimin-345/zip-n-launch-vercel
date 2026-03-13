@@ -2,30 +2,20 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
 
-const ShowBuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {} }) => {
+const ShowBuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, isEditMode = false }) => {
     const nextStepId = (() => {
         for (const step of steps) {
-            if (!completedSteps.has(step.id)) {
-                return step.id;
-            }
+            if (!completedSteps.has(step.id)) return step.id;
         }
         return steps[steps.length - 1]?.id;
     })();
-
-    const canNavigateTo = (stepId) => {
-        if (stepId === currentStep) return true;
-        if (completedSteps.has(stepId)) return true;
-        if (stepId === nextStepId) return true;
-        return false;
-    };
 
     return (
         <div className="flex items-start mb-8 w-full">
             {steps.map((step, index) => {
                 const isCompleted = completedSteps.has(step.id);
                 const isActive = currentStep === step.id;
-                const isNext = step.id === nextStepId && !isActive;
-                const isNavigable = canNavigateTo(step.id);
+                const isNavigable = isEditMode || isCompleted || isActive || step.id === nextStepId;
                 const Icon = step.icon;
 
                 return (
@@ -40,8 +30,7 @@ const ShowBuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setC
                             <div className={cn(
                                 'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                                 isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
-                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
-                                isNext && 'highlight-next-step'
+                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white'
                             )}>
                                 {isCompleted ? <Check className="h-4 w-4" /> : Icon ? <Icon className="h-4 w-4" /> : step.id}
                             </div>

@@ -290,6 +290,7 @@ const PatternUploadWizardPage = () => {
               currentStep={currentStep}
               completedSteps={completedSteps}
               setCurrentStep={setCurrentStep}
+              isEditMode={!!projectId}
             />
 
             <Card className="glass-effect">

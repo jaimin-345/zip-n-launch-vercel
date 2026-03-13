@@ -21,12 +21,10 @@ import { jsPDF } from 'jspdf';
 import JSZip from 'jszip';
 import {
   flattenPersonnel,
-  calculateMemberFinancials,
   resolvePlaceholders,
-  currency,
   formatDate,
 } from '@/lib/contractUtils';
-import { exportBudgetToExcel } from '@/lib/contractBudgetExport';
+import * as XLSX from 'xlsx';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -310,13 +308,71 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
     }
   };
 
-  const handleExportBudget = () => {
-    const success = exportBudgetToExcel(formData);
-    if (success) {
-      toast({ title: 'Budget Exported', description: 'Excel budget sheet downloaded successfully.' });
-    } else {
+  const handleExportContractsToExcel = () => {
+    if (personnel.length === 0) {
       toast({ title: 'No Data', description: 'Add personnel in Step 2 before exporting.', variant: 'destructive' });
+      return;
     }
+    const rows = personnel.map((member) => {
+      const folder = employeeFolders[member.id];
+      const sigStatus = folder?.signatureStatus || 'not_sent';
+      const docsComplete = countComplete(folder?.documents);
+      return {
+        Name: member.name || 'Unnamed',
+        Role: member.roleName || '',
+        Association: member.assocId || '',
+        Email: member.email || '',
+        'Contract Status': sigStatus === 'signed' ? 'Signed' : sigStatus === 'sent' ? 'Sent' : sigStatus === 'approved' ? 'Approved' : 'Not Sent',
+        'Docs Collected': `${docsComplete}/${REQUIRED_DOC_IDS.length}`,
+        'Employment Start': member.employment_start_date || '',
+        'Employment End': member.employment_end_date || '',
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Contracts');
+    const fileName = `${(formData.showName || 'Contracts').replace(/[^a-zA-Z0-9 ]/g, '').trim()} - Contracts.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast({ title: 'Contracts Exported', description: 'Excel file downloaded successfully.' });
+  };
+
+  const handleExportStaffToExcel = () => {
+    if (personnel.length === 0) {
+      toast({ title: 'No Data', description: 'Add personnel in Step 2 before exporting.', variant: 'destructive' });
+      return;
+    }
+    const rows = personnel.map((member) => ({
+      Name: member.name || 'Unnamed',
+      Role: member.roleName || '',
+      Association: member.assocId || '',
+      Email: member.email || '',
+      Phone: member.phone || '',
+      'Employment Start': member.employment_start_date || '',
+      'Employment End': member.employment_end_date || '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Staff');
+    const fileName = `${(formData.showName || 'Staff').replace(/[^a-zA-Z0-9 ]/g, '').trim()} - Staff List.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    toast({ title: 'Staff Exported', description: 'Excel file downloaded successfully.' });
+  };
+
+  const handlePrintAll = () => {
+    if (personnel.length === 0) {
+      toast({ title: 'No Contracts', description: 'No personnel to print contracts for.', variant: 'destructive' });
+      return;
+    }
+    const doc = new jsPDF();
+    personnel.forEach((member, idx) => {
+      if (idx > 0) doc.addPage();
+      const resolved = resolvePlaceholders(formData, member);
+      const lines = doc.splitTextToSize(resolved, 170);
+      doc.setFontSize(10);
+      doc.text(lines, 20, 20);
+    });
+    doc.autoPrint();
+    window.open(doc.output('bloburl'), '_blank');
   };
 
   const paymentMethodMap = { check: 'Check', direct_deposit: 'Direct Deposit', wire: 'Wire Transfer', paypal: 'PayPal' };
@@ -383,14 +439,12 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                     <th className="text-left px-4 py-2 font-medium text-xs uppercase tracking-wider">Role</th>
                     <th className="text-center px-4 py-2 font-medium text-xs uppercase tracking-wider">Contract</th>
                     <th className="text-center px-4 py-2 font-medium text-xs uppercase tracking-wider">Documents</th>
-                    <th className="text-right px-4 py-2 font-medium text-xs uppercase tracking-wider">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {personnel.map((member) => {
                     const folder = employeeFolders[member.id];
                     if (!folder) return null;
-                    const financials = calculateMemberFinancials(member);
                     const docsComplete = countComplete(folder.documents);
                     const sigCfg = SIGNATURE_LABELS[folder.signatureStatus] || SIGNATURE_LABELS.not_sent;
 
@@ -411,11 +465,6 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                                   <p><span className="font-medium text-foreground">Association:</span> {member.assocId}</p>
                                   {member.email && <p><span className="font-medium text-foreground">Email:</span> {member.email}</p>}
                                   {member.phone && <p><span className="font-medium text-foreground">Phone:</span> {member.phone}</p>}
-                                  <div className="pt-1 border-t mt-1">
-                                    <p><span className="font-medium text-foreground">Day Rate:</span> {currency(financials.dayFee)} x {financials.employmentDays} day(s)</p>
-                                    <p><span className="font-medium text-foreground">Expenses:</span> {currency(financials.totalExpenses)}</p>
-                                    <p className="font-semibold text-primary">Total: {currency(financials.totalCompensation)}</p>
-                                  </div>
                                 </div>
                               </div>
                             </HoverCardContent>
@@ -433,7 +482,6 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
                             {docsComplete}/{REQUIRED_DOC_IDS.length} {docsComplete === REQUIRED_DOC_IDS.length ? 'Complete' : 'Pending'}
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-right font-semibold">{currency(financials.totalCompensation)}</td>
                       </tr>
                     );
                   })}
@@ -831,19 +879,23 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
         <div className="flex flex-wrap gap-3">
           <Button onClick={handleSendAllUnsigned}>
             <Send className="h-4 w-4 mr-2" />
-            Send All Unsigned
-          </Button>
-          <Button variant="outline" onClick={handleExportBudget}>
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            Export Budget to Excel
+            Send All Contracts
           </Button>
           <Button variant="outline" onClick={handleDownloadAllZip}>
             <Download className="h-4 w-4 mr-2" />
-            Download All as ZIP
+            Download All Contracts
           </Button>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handlePrintAll}>
             <Printer className="h-4 w-4 mr-2" />
-            Print All
+            Print All Contracts
+          </Button>
+          <Button variant="outline" onClick={handleExportContractsToExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Contracts to Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportStaffToExcel}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Staff to Excel
           </Button>
         </div>
       </CardContent>

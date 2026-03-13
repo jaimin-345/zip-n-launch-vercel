@@ -83,6 +83,7 @@ const CreateShowPage = () => {
                             completedSteps={completedSteps}
                             setCurrentStep={setCurrentStep}
                             steps={steps}
+                            isEditMode={isEditMode}
                         />
 
                         {!isEditMode && currentStep === 1 && (
@@ -115,7 +116,7 @@ const CreateShowPage = () => {
                                             showBill: pd.showBill || prev.showBill,
                                             layoutSettings: pd.layoutSettings || prev.layoutSettings,
                                         }));
-                                        toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
+                                        // Silent link — no popup
                                     }
                                 }}
                                 onDuplicated={(newProject) => {

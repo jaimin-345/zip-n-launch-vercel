@@ -8,6 +8,16 @@ import { AlertTriangle, Link2 } from 'lucide-react';
 import { applyLinkedProjectData } from '@/lib/contractUtils';
 
 export const Step1_ShowStructure = ({ formData, setFormData, associationsData = [], existingProjects = [] }) => {
+  // Only show-type projects in the "Link to Existing Show" dropdown, deduplicated by name
+  const linkableProjects = useMemo(() => {
+    const seen = new Set();
+    return existingProjects.filter((p) => {
+      const name = (p.project_name || '').trim().toLowerCase();
+      if (seen.has(name)) return false;
+      seen.add(name);
+      return true;
+    });
+  }, [existingProjects]);
   // Check for duplicate show name (skip when linked to an existing project)
   const duplicateNameWarning = useMemo(() => {
     if (formData.linkedProjectId) return null;
@@ -80,11 +90,14 @@ export const Step1_ShowStructure = ({ formData, setFormData, associationsData = 
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="none">No linked project</SelectItem>
-            {existingProjects.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.project_name || 'Untitled'} ({p.project_type})
-              </SelectItem>
-            ))}
+            {linkableProjects.map((p) => {
+              const year = p.project_data?.startDate?.slice(0, 4);
+              return (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.project_name || 'Untitled'}{year ? ` - ${year}` : ''} ({p.project_type})
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
         {formData.linkedProjectId && (

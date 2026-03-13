@@ -5,22 +5,19 @@ import Navigation from '@/components/Navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    Loader2, DollarSign, TrendingUp, TrendingDown, Hash,
-    ChevronRight, FolderOpen, Calendar, Users, Building2,
-    HeartHandshake, Banknote, PiggyBank, Target, Receipt,
-    Trophy, Briefcase, BarChart3, Link2,
+    Loader2, DollarSign, TrendingDown, Hash,
+    ChevronRight, FolderOpen, Calendar, Users,
+    Receipt, Briefcase, FileSpreadsheet,
 } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
-import { calculateProjections, DEFAULT_ASSUMPTIONS } from '@/lib/showFinancialProjections';
 import { flattenPersonnel, calculateMemberFinancials } from '@/lib/contractUtils';
+import { exportBudgetToExcel } from '@/lib/contractBudgetExport';
 import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 
 const currency = (val) => {
@@ -136,19 +133,14 @@ const BudgetDashboard = ({ show, contractProject }) => {
     const pd = show.project_data || {};
     const cpd = contractProject?.project_data || {};
 
-    const [assumptions, setAssumptions] = useState({ ...DEFAULT_ASSUMPTIONS });
-    const updateAssumption = (key, val) => setAssumptions(prev => ({ ...prev, [key]: parseFloat(val) || 0 }));
-
-    // Financial projections from show data
-    const projections = useMemo(() => calculateProjections(pd, assumptions), [pd, assumptions]);
-
-    // Employee costs from contract management
+    // Employee costs from contract management (the primary data source)
     const employeeCosts = useMemo(() => {
         const personnel = flattenPersonnel(cpd);
         let totalDayPay = 0;
         let totalExpenses = 0;
         let totalCompensation = 0;
         const byRole = {};
+        const byExpenseType = {};
 
         for (const member of personnel) {
             const fin = calculateMemberFinancials(member);
@@ -157,295 +149,205 @@ const BudgetDashboard = ({ show, contractProject }) => {
             totalCompensation += fin.totalCompensation;
 
             const role = member.roleName || 'Other';
-            if (!byRole[role]) byRole[role] = { count: 0, total: 0 };
+            if (!byRole[role]) byRole[role] = { count: 0, total: 0, dayPay: 0, expenses: 0 };
             byRole[role].count += 1;
             byRole[role].total += fin.totalCompensation;
+            byRole[role].dayPay += fin.totalDayFee;
+            byRole[role].expenses += fin.totalExpenses;
+
+            // Aggregate expense types
+            for (const [expId, amount] of Object.entries(fin.expenseBreakdown)) {
+                byExpenseType[expId] = (byExpenseType[expId] || 0) + amount;
+            }
         }
 
-        return { personnelCount: personnel.length, totalDayPay, totalExpenses, totalCompensation, byRole, personnel };
+        return { personnelCount: personnel.length, totalDayPay, totalExpenses, totalCompensation, byRole, byExpenseType, personnel };
     }, [cpd]);
 
-    // Combined totals
-    const totalRevenue = projections.revenue.total;
-    const showExpenses = projections.costs.subtotal;
     const employeeTotal = employeeCosts.totalCompensation;
-    const totalExpenses = showExpenses + employeeTotal;
-    const contingency = totalExpenses * (assumptions.expenseContingency || 0.05);
-    const totalWithContingency = totalExpenses + contingency;
-    const netProfit = totalRevenue - totalWithContingency;
-    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
-    // Revenue breakdown
-    const feeRevenue = projections.revenue.fees.total;
-    const sponsorRevenue = projections.revenue.sponsors.projected;
-
-    // Stall income (extract from fee breakdown)
-    const stallIncome = projections.revenue.fees.breakdown
-        .filter(f => (f.name || '').toLowerCase().includes('stall'))
-        .reduce((sum, f) => sum + f.revenue, 0);
-
-    // Entry fee income
-    const entryFeeIncome = projections.revenue.fees.breakdown
-        .filter(f => f.timing === 'settlement')
-        .reduce((sum, f) => sum + f.revenue, 0);
-
-    // Other fee income
-    const otherFeeIncome = feeRevenue - stallIncome - entryFeeIncome;
+    const EXPENSE_LABELS = {
+        airfare: 'Airline Tickets',
+        baggage: 'Baggage',
+        airportParking: 'Airport Parking',
+        tolls: 'Tolls',
+        fuel: 'Fuel',
+        rentalCar: 'Rental Car',
+        perDiem: 'Per Diem',
+        hotel: 'Hotel Costs',
+        mileage: 'Mileage',
+    };
 
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold">{show.project_name}</h2>
-                {pd.showNumber && <Badge variant="secondary"><Hash className="h-3 w-3 mr-0.5" />#{pd.showNumber}</Badge>}
-                {!contractProject && (
-                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">No contract data linked</Badge>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold">{show.project_name}</h2>
+                    {pd.showNumber && <Badge variant="secondary"><Hash className="h-3 w-3 mr-0.5" />#{pd.showNumber}</Badge>}
+                    {!contractProject && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">No contract data linked</Badge>
+                    )}
+                </div>
+                {contractProject && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            const success = exportBudgetToExcel(contractProject.project_data || {});
+                            if (!success) alert('No personnel data to export.');
+                        }}
+                    >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Export Budget to Excel
+                    </Button>
                 )}
             </div>
 
-            {/* KPI Cards */}
+            {/* KPI Cards — staff expenses only */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <KpiCard title="Total Revenue" value={currency(totalRevenue)} subtitle={`${(pd.fees || []).length} fee types`} icon={TrendingUp} color="green" />
-                <KpiCard title="Total Expenses" value={currency(totalWithContingency)} subtitle={`Incl. ${(assumptions.expenseContingency * 100).toFixed(0)}% contingency`} icon={TrendingDown} color="red" />
-                <KpiCard title="Net Profit" value={currency(netProfit)} subtitle={`${profitMargin.toFixed(1)}% margin`} icon={netProfit >= 0 ? PiggyBank : TrendingDown} color={netProfit >= 0 ? 'blue' : 'red'} />
-                <KpiCard title="Employee Costs" value={currency(employeeTotal)} subtitle={`${employeeCosts.personnelCount} personnel`} icon={Users} color="purple" />
+                <KpiCard title="Total Staff Costs" value={currency(employeeTotal)} subtitle={`${employeeCosts.personnelCount} personnel`} icon={Users} color="purple" />
+                <KpiCard title="Day Pay" value={currency(employeeCosts.totalDayPay)} subtitle="Compensation fees" icon={Briefcase} color="blue" />
+                <KpiCard title="Travel & Expenses" value={currency(employeeCosts.totalExpenses)} subtitle="Reimbursable costs" icon={TrendingDown} color="amber" />
+                <KpiCard title="Roles" value={String(Object.keys(employeeCosts.byRole).length)} subtitle={`${employeeCosts.personnelCount} staff total`} icon={Users} color="green" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left column: Revenue + Expenses */}
+                {/* Left column: Staff Cost Breakdown */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Revenue Breakdown */}
+                    {/* Cost Breakdown by Role */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /> Revenue Breakdown</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2"><Users className="h-4 w-4 text-purple-600" /> Staff Costs by Role</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-3">
-                                <BudgetBar label="Entry Fees (Settlement)" amount={entryFeeIncome} total={totalRevenue} color="bg-emerald-500" />
-                                <BudgetBar label="Stall Income" amount={stallIncome} total={totalRevenue} color="bg-blue-500" />
-                                <BudgetBar label="Other Fees" amount={otherFeeIncome} total={totalRevenue} color="bg-sky-400" />
-                                <BudgetBar label="Sponsor Income" amount={sponsorRevenue} total={totalRevenue} color="bg-amber-500" />
-                            </div>
-                            <Accordion type="single" collapsible>
-                                <AccordionItem value="fee-detail">
-                                    <AccordionTrigger className="text-sm hover:no-underline">Fee Detail ({projections.revenue.fees.breakdown.length} items)</AccordionTrigger>
-                                    <AccordionContent>
-                                        {projections.revenue.fees.breakdown.map(f => (
-                                            <BudgetLine key={f.id} label={f.label} amount={f.revenue} indent />
+                            {employeeCosts.personnelCount > 0 ? (
+                                <>
+                                    <div className="space-y-3">
+                                        {Object.entries(employeeCosts.byRole).map(([role, data]) => (
+                                            <BudgetBar key={role} label={`${role} (${data.count})`} amount={data.total} total={employeeTotal} color="bg-purple-500" />
                                         ))}
-                                        <BudgetLine label="Total Fee Revenue" amount={feeRevenue} bold />
-                                    </AccordionContent>
-                                </AccordionItem>
-                                <AccordionItem value="sponsor-detail">
-                                    <AccordionTrigger className="text-sm hover:no-underline">Sponsor Detail ({projections.revenue.sponsors.breakdown.length} levels)</AccordionTrigger>
-                                    <AccordionContent>
-                                        {projections.revenue.sponsors.breakdown.map(s => (
-                                            <BudgetLine key={s.levelId} label={`${s.levelName} (${s.sponsorCount} sponsors)`} amount={s.projected} indent />
-                                        ))}
-                                        <BudgetLine label="Pledged" amount={projections.revenue.sponsors.pledged} indent />
-                                        <BudgetLine label="Projected (after collection rate)" amount={sponsorRevenue} bold />
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-                            <BudgetLine label="TOTAL REVENUE" amount={totalRevenue} bold color="text-emerald-600" />
-                        </CardContent>
-                    </Card>
-
-                    {/* Expense Breakdown */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-600" /> Expense Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-3">
-                                <BudgetBar label="Show Expenses" amount={projections.costs.expenses.total} total={totalWithContingency} color="bg-red-500" />
-                                <BudgetBar label="Award Expenses" amount={projections.costs.awards.total} total={totalWithContingency} color="bg-orange-500" />
-                                <BudgetBar label="Employee Costs" amount={employeeTotal} total={totalWithContingency} color="bg-purple-500" />
-                                <BudgetBar label="Contingency" amount={contingency} total={totalWithContingency} color="bg-gray-400" />
-                            </div>
-
-                            <Accordion type="single" collapsible>
-                                <AccordionItem value="show-expenses">
-                                    <AccordionTrigger className="text-sm hover:no-underline">Show Expenses by Category ({projections.costs.expenses.breakdown.length})</AccordionTrigger>
-                                    <AccordionContent>
-                                        {projections.costs.expenses.breakdown.map(cat => (
-                                            <BudgetLine key={cat.category} label={`${cat.category} (${cat.itemCount} items)`} amount={cat.total} indent />
-                                        ))}
-                                        <BudgetLine label="Total Show Expenses" amount={projections.costs.expenses.total} bold />
-                                    </AccordionContent>
-                                </AccordionItem>
-                                {projections.costs.awards.breakdown.length > 0 && (
-                                    <AccordionItem value="award-expenses">
-                                        <AccordionTrigger className="text-sm hover:no-underline">Award Expenses ({projections.costs.awards.breakdown.length})</AccordionTrigger>
-                                        <AccordionContent>
-                                            {projections.costs.awards.breakdown.map(a => (
-                                                <BudgetLine key={a.name} label={`${a.name} x${a.qty}`} amount={a.cost} indent />
-                                            ))}
-                                            <BudgetLine label="Total Award Expenses" amount={projections.costs.awards.total} bold />
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                )}
-                                {employeeCosts.personnelCount > 0 && (
-                                    <AccordionItem value="employee-costs">
-                                        <AccordionTrigger className="text-sm hover:no-underline">Employee Costs ({employeeCosts.personnelCount} personnel)</AccordionTrigger>
-                                        <AccordionContent>
-                                            {Object.entries(employeeCosts.byRole).map(([role, data]) => (
-                                                <BudgetLine key={role} label={`${role} (${data.count})`} amount={data.total} indent />
-                                            ))}
-                                            <BudgetLine label="Day Pay Subtotal" amount={employeeCosts.totalDayPay} indent />
-                                            <BudgetLine label="Travel & Expenses" amount={employeeCosts.totalExpenses} indent />
-                                            <BudgetLine label="Total Employee Costs" amount={employeeTotal} bold />
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                )}
-                            </Accordion>
-                            <BudgetLine label="TOTAL EXPENSES (with contingency)" amount={totalWithContingency} bold color="text-red-600" />
-                        </CardContent>
-                    </Card>
-
-                    {/* P&L Summary */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4 text-blue-600" /> Profit & Loss Summary</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-1">
-                                <BudgetLine label="Total Revenue" amount={totalRevenue} color="text-emerald-600" />
-                                <BudgetLine label="Show Expenses" amount={-projections.costs.subtotal} indent />
-                                <BudgetLine label="Employee Costs" amount={-employeeTotal} indent />
-                                <BudgetLine label="Contingency" amount={-contingency} indent />
-                                <BudgetLine label="NET PROFIT" amount={netProfit} bold color={netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'} />
-                            </div>
-
-                            {/* Visual profit bar */}
-                            <div className="mt-4 pt-4 border-t">
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                                    <span>Revenue vs Expenses</span>
-                                </div>
-                                <div className="flex h-8 rounded-lg overflow-hidden border">
-                                    <div className="bg-emerald-500 flex items-center justify-center text-[10px] text-white font-medium" style={{ width: `${totalRevenue > 0 ? Math.min((totalRevenue / Math.max(totalRevenue, totalWithContingency)) * 100, 100) : 0}%` }}>
-                                        Revenue
                                     </div>
-                                    <div className="bg-red-400 flex items-center justify-center text-[10px] text-white font-medium" style={{ width: `${totalWithContingency > 0 ? Math.min((totalWithContingency / Math.max(totalRevenue, totalWithContingency)) * 100, 100) : 0}%` }}>
-                                        Expenses
-                                    </div>
-                                </div>
-                            </div>
+                                    <Accordion type="single" collapsible>
+                                        {Object.entries(employeeCosts.byRole).map(([role, data]) => (
+                                            <AccordionItem key={role} value={role}>
+                                                <AccordionTrigger className="text-sm hover:no-underline">{role} — {data.count} staff</AccordionTrigger>
+                                                <AccordionContent>
+                                                    <BudgetLine label="Day Pay" amount={data.dayPay} indent />
+                                                    <BudgetLine label="Travel & Expenses" amount={data.expenses} indent />
+                                                    <BudgetLine label={`Total ${role} Costs`} amount={data.total} bold />
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
+                                    <BudgetLine label="TOTAL STAFF COSTS" amount={employeeTotal} bold color="text-purple-600" />
+                                </>
+                            ) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">No staff data. Link a contract project to see employee costs.</p>
+                            )}
                         </CardContent>
                     </Card>
+
+                    {/* Expense Type Breakdown */}
+                    {Object.keys(employeeCosts.byExpenseType).length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2"><Receipt className="h-4 w-4 text-amber-600" /> Travel & Expense Breakdown</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {Object.entries(employeeCosts.byExpenseType).map(([expId, amount]) => (
+                                    <BudgetBar key={expId} label={EXPENSE_LABELS[expId] || expId} amount={amount} total={employeeCosts.totalExpenses} color="bg-amber-500" />
+                                ))}
+                                <BudgetLine label="TOTAL TRAVEL & EXPENSES" amount={employeeCosts.totalExpenses} bold color="text-amber-600" />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Staff Summary Table */}
+                    {employeeCosts.personnel.length > 0 && (
+                        <Card>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base flex items-center gap-2"><Briefcase className="h-4 w-4 text-blue-600" /> Staff Summary</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-muted/50 border-b">
+                                                <th className="text-left px-3 py-2 font-medium text-xs uppercase">Name</th>
+                                                <th className="text-left px-3 py-2 font-medium text-xs uppercase">Role</th>
+                                                <th className="text-right px-3 py-2 font-medium text-xs uppercase">Day Pay</th>
+                                                <th className="text-right px-3 py-2 font-medium text-xs uppercase">Expenses</th>
+                                                <th className="text-right px-3 py-2 font-medium text-xs uppercase">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {employeeCosts.personnel.map((member) => {
+                                                const fin = calculateMemberFinancials(member);
+                                                return (
+                                                    <tr key={member.id} className="border-b last:border-0">
+                                                        <td className="px-3 py-2 font-medium">{member.name || 'Unnamed'}</td>
+                                                        <td className="px-3 py-2 text-muted-foreground">{member.roleName || ''}</td>
+                                                        <td className="px-3 py-2 text-right">{currency(fin.totalDayFee)}</td>
+                                                        <td className="px-3 py-2 text-right">{currency(fin.totalExpenses)}</td>
+                                                        <td className="px-3 py-2 text-right font-semibold">{currency(fin.totalCompensation)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            <tr className="bg-muted/30 font-semibold">
+                                                <td className="px-3 py-2" colSpan={2}>TOTAL</td>
+                                                <td className="px-3 py-2 text-right">{currency(employeeCosts.totalDayPay)}</td>
+                                                <td className="px-3 py-2 text-right">{currency(employeeCosts.totalExpenses)}</td>
+                                                <td className="px-3 py-2 text-right">{currency(employeeTotal)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
-                {/* Right column: Assumptions + Quick Stats */}
+                {/* Right column: Quick Stats */}
                 <div className="space-y-6">
-                    {/* Assumptions */}
+                    {/* Cost Split */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4" /> Budget Assumptions</CardTitle>
-                            <CardDescription className="text-xs">Adjust to match your expected attendance.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {[
-                                { key: 'expectedHorses', label: 'Expected Horses' },
-                                { key: 'avgClassesPerHorse', label: 'Avg Classes/Horse' },
-                                { key: 'expectedStalls', label: 'Available Stalls' },
-                                { key: 'stallOccupancyRate', label: 'Stall Occupancy %', pct: true },
-                                { key: 'haulInPercentage', label: 'Haul-In %', pct: true },
-                                { key: 'rvSpots', label: 'RV Spots' },
-                                { key: 'showDays', label: 'Show Days' },
-                                { key: 'judgeCount', label: 'Judge Count' },
-                                { key: 'sponsorCollectionRate', label: 'Sponsor Collection %', pct: true },
-                                { key: 'expenseContingency', label: 'Contingency %', pct: true },
-                            ].map(({ key, label, pct }) => (
-                                <div key={key} className="space-y-1">
-                                    <Label className="text-xs">{label}</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input
-                                            type="number"
-                                            value={pct ? (assumptions[key] * 100) : assumptions[key]}
-                                            onChange={(e) => updateAssumption(key, pct ? parseFloat(e.target.value) / 100 : e.target.value)}
-                                            className="h-8 text-sm"
-                                        />
-                                        {pct && <span className="text-xs text-muted-foreground">%</span>}
-                                    </div>
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-
-                    {/* Revenue by Category */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Banknote className="h-4 w-4 text-emerald-600" /> Revenue Sources</CardTitle>
+                            <CardTitle className="text-base flex items-center gap-2"><DollarSign className="h-4 w-4 text-purple-600" /> Cost Split</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                             <div className="flex justify-between text-sm">
-                                <span className="flex items-center gap-1.5"><Receipt className="h-3.5 w-3.5 text-emerald-500" /> Entry Fees</span>
-                                <span className="font-medium">{currency(entryFeeIncome)}</span>
+                                <span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5 text-blue-500" /> Day Pay</span>
+                                <span className="font-medium">{currency(employeeCosts.totalDayPay)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-blue-500" /> Stall Income</span>
-                                <span className="font-medium">{currency(stallIncome)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5 text-sky-500" /> Other Fees</span>
-                                <span className="font-medium">{currency(otherFeeIncome)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="flex items-center gap-1.5"><HeartHandshake className="h-3.5 w-3.5 text-amber-500" /> Sponsors</span>
-                                <span className="font-medium">{currency(sponsorRevenue)}</span>
+                                <span className="flex items-center gap-1.5"><TrendingDown className="h-3.5 w-3.5 text-amber-500" /> Travel & Expenses</span>
+                                <span className="font-medium">{currency(employeeCosts.totalExpenses)}</span>
                             </div>
                             <div className="border-t pt-2 mt-2 flex justify-between text-sm font-semibold">
                                 <span>Total</span>
-                                <span className="text-emerald-600">{currency(totalRevenue)}</span>
+                                <span className="text-purple-600">{currency(employeeTotal)}</span>
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Break-Even */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base flex items-center gap-2"><Target className="h-4 w-4 text-amber-600" /> Break-Even Analysis</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {(() => {
-                                const revenuePerHorse = assumptions.expectedHorses > 0 ? feeRevenue / assumptions.expectedHorses : 0;
-                                const breakEvenHorses = revenuePerHorse > 0 ? Math.ceil(totalWithContingency / revenuePerHorse) : 0;
-                                const surplus = assumptions.expectedHorses - breakEvenHorses;
-                                return (
-                                    <div className="space-y-3">
-                                        <div className="text-center">
-                                            <p className="text-3xl font-bold">{breakEvenHorses}</p>
-                                            <p className="text-xs text-muted-foreground">horses needed to break even</p>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Expected horses</span>
-                                            <span>{assumptions.expectedHorses}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Revenue/horse</span>
-                                            <span>{currency(revenuePerHorse)}</span>
-                                        </div>
-                                        <div className={cn('flex justify-between text-sm font-semibold', surplus >= 0 ? 'text-emerald-600' : 'text-red-600')}>
-                                            <span>Buffer</span>
-                                            <span>{surplus >= 0 ? '+' : ''}{surplus} horses</span>
-                                        </div>
+                            {employeeTotal > 0 && (
+                                <div className="flex h-6 rounded-lg overflow-hidden border mt-3">
+                                    <div className="bg-blue-500 flex items-center justify-center text-[10px] text-white font-medium" style={{ width: `${(employeeCosts.totalDayPay / employeeTotal * 100)}%` }}>
+                                        Pay
                                     </div>
-                                );
-                            })()}
+                                    <div className="bg-amber-500 flex items-center justify-center text-[10px] text-white font-medium" style={{ width: `${(employeeCosts.totalExpenses / employeeTotal * 100)}%` }}>
+                                        Travel
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
                     {/* Data Completeness */}
                     <Card>
                         <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Data Completeness</CardTitle>
+                            <CardTitle className="text-base">Data Status</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
                             {[
-                                { label: 'Fees configured', ok: (pd.fees || []).length > 0 },
-                                { label: 'Sponsors added', ok: (pd.sponsors || []).length > 0 },
-                                { label: 'Show expenses entered', ok: (pd.showExpenses || []).length > 0 },
-                                { label: 'Award expenses entered', ok: (pd.awardExpenses || []).length > 0 },
                                 { label: 'Employee contracts linked', ok: employeeCosts.personnelCount > 0 },
                             ].map(item => (
                                 <div key={item.label} className="flex items-center gap-2 text-sm">

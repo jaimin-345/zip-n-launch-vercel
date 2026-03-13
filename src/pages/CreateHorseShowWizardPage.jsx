@@ -32,7 +32,7 @@ const STEP_COMPONENTS = [
     { id: 4, component: ReviewStep },
 ];
 
-const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => {
+const StepIndicator = ({ currentStep, completedSteps, onStepClick, isEditMode = false }) => {
     const nextStepId = (() => {
         for (const step of WIZARD_STEPS) {
             if (!completedSteps.has(step.id)) return step.id;
@@ -45,8 +45,7 @@ const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => {
             {WIZARD_STEPS.map((step, index) => {
                 const isCompleted = completedSteps.has(step.id);
                 const isActive = currentStep === step.id;
-                const isNext = step.id === nextStepId && !isActive;
-                const isNavigable = isCompleted || isActive || isNext;
+                const isNavigable = isEditMode || isCompleted || isActive || step.id === nextStepId;
                 return (
                     <React.Fragment key={step.id}>
                         <div
@@ -59,8 +58,7 @@ const StepIndicator = ({ currentStep, completedSteps, onStepClick }) => {
                             <div className={cn(
                                 'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
                                 isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
-                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
-                                isNext && 'highlight-next-step'
+                                isCompleted && !isActive && 'bg-green-600 border-green-600 text-white'
                             )}>
                                 {isCompleted ? <Check className="h-4 w-4" /> : <step.icon className="h-4 w-4" />}
                             </div>
@@ -198,6 +196,7 @@ const CreateHorseShowWizardPage = () => {
                         currentStep={currentStep}
                         completedSteps={completedSteps}
                         onStepClick={setCurrentStep}
+                        isEditMode={!!showId}
                     />
 
                     {/* Link to Existing Show - only on step 1 */}
@@ -221,7 +220,7 @@ const CreateHorseShowWizardPage = () => {
                                         sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
                                         sponsors: pd.sponsors || prev.sponsors,
                                     }));
-                                    toast({ title: 'Show Linked', description: `Data loaded from "${project?.project_name || 'linked show'}".` });
+                                    // Silent link — no popup
                                 }
                             }}
                             onDuplicated={(newProject) => {

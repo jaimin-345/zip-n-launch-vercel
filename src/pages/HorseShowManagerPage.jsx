@@ -105,7 +105,6 @@ const sections = [
       { icon: CalendarDays, label: 'Horse Show Schedule Builder', link: '/horse-show-manager/create' },
       { icon: Info, label: 'Show Structure & Expenses', link: '/horse-show-manager/show-structure-expenses' },
       { icon: DollarSign, label: 'Fee Structure & Sponsors', link: '/horse-show-manager/fee-structure' },
-      { icon: FileText, label: 'Contract Management', link: '/horse-show-manager/employee-management/contracts' },
     ],
   },
   {
@@ -115,6 +114,7 @@ const sections = [
     items: [
       { icon: DollarSign, label: 'Employee Budgeting Tool', link: '/horse-show-manager/employee-budgeting' },
       { icon: LayoutGrid, label: 'Employee / Arena Scheduling', link: '/horse-show-manager/employee-scheduling' },
+      { icon: FileText, label: 'Contract Management Tool', link: '/horse-show-manager/employee-management/contracts' },
     ],
   },
   {

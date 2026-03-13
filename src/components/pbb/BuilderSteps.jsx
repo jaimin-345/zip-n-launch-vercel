@@ -2,7 +2,7 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, disabled = false, nextStepId: nextStepIdProp }) => {
+export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), setCurrentStep = () => {}, disabled = false, nextStepId: nextStepIdProp, isEditMode = false }) => {
     const computedNextStepId = (() => {
         for (const step of steps) {
             if (!completedSteps.has(step.id)) {
@@ -15,6 +15,10 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
 
     const handleStepClick = (stepId) => {
         if (disabled || !setCurrentStep) return;
+        if (isEditMode) {
+            setCurrentStep(stepId);
+            return;
+        }
         // Only allow navigation to completed steps, current step, or the next available step
         const isCompleted = completedSteps.has(stepId);
         const isCurrent = stepId === currentStep;
@@ -30,13 +34,14 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                 const isCompleted = completedSteps.has(step.id);
                 const isActive = currentStep === step.id;
                 const isNext = step.id === nextStepId && !isActive;
+                const isNavigable = isEditMode || isCompleted || isActive || isNext;
                 return (
                     <React.Fragment key={step.id}>
                         <div
                             className={cn(
                                 "flex flex-col items-center text-center flex-1",
                                 disabled ? "cursor-default opacity-80" :
-                                (isCompleted || isActive || isNext) ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                                isNavigable ? "cursor-pointer" : "cursor-not-allowed opacity-50"
                             )}
                             onClick={() => handleStepClick(step.id)}
                         >

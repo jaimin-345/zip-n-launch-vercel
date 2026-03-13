@@ -201,6 +201,7 @@ const ShowStructurePage = () => {
                                 } else {
                                     const project = existingProjects.find(p => p.id === projectId);
                                     const pd = project?.project_data || {};
+                                    const arenasList = pd.arenas || prev.arenas || [];
                                     setFormData(prev => ({
                                         ...prev,
                                         linkedProjectId: projectId,
@@ -213,11 +214,24 @@ const ShowStructurePage = () => {
                                         endDate: pd.endDate || prev.endDate,
                                         venueAddress: pd.venueAddress || prev.venueAddress,
                                         venueName: pd.venueName || prev.venueName,
-                                        arenas: pd.arenas || prev.arenas,
+                                        arenas: arenasList,
                                         officials: pd.officials || prev.officials,
                                         staff: pd.staff || prev.staff,
                                         sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
                                         sponsors: pd.sponsors || prev.sponsors,
+                                        showDetails: {
+                                            ...prev.showDetails,
+                                            venue: {
+                                                ...(prev.showDetails?.venue || {}),
+                                                facilityName: pd.venueName || prev.showDetails?.venue?.facilityName || '',
+                                                address: pd.venueAddress || prev.showDetails?.venue?.address || '',
+                                                numberOfArenas: String(arenasList.length || prev.showDetails?.venue?.numberOfArenas || 0),
+                                                arenas: arenasList.map((a, i) => ({
+                                                    id: a.id || `arena-${i}`,
+                                                    name: a.name || `Arena ${i + 1}`,
+                                                })),
+                                            },
+                                        },
                                     }));
                                 }
                             }}

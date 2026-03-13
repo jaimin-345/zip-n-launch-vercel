@@ -1463,7 +1463,18 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               variant={disciplineAssignType === 'customRequest' ? 'default' : 'outline'}
                               size="sm"
                               className={cn("h-7 text-xs", disciplineAssignType === 'customRequest' && "bg-purple-600 hover:bg-purple-700")}
-                              onClick={() => setDisciplineAssignType(disciplineAssignType === 'customRequest' ? null : 'customRequest')}
+                              onClick={() => {
+                                const isToggling = disciplineAssignType !== 'customRequest';
+                                setDisciplineAssignType(isToggling ? 'customRequest' : null);
+                                if (isToggling) {
+                                  // Auto-open the discipline and scroll to reveal the custom pattern section
+                                  setOpenDisciplineId(discipline.id);
+                                  setTimeout(() => {
+                                    const ref = disciplineRefs.current[discipline.id];
+                                    if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }, 100);
+                                }
+                              }}
                             >
                               {disciplineAssignType === 'customRequest' ? 'Custom Pattern Requested' : 'Request Custom Pattern'}
                             </Button>

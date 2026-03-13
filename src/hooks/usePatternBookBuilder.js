@@ -364,7 +364,7 @@ export const usePatternBookBuilder = (projectId) => {
         toast({ title: 'Error saving project', description: error.message, variant: 'destructive' });
         return null;
       }
-      toast({ title: 'Project Saved!', description: 'Your progress has been successfully saved.' });
+      // Silent save — no popup during normal editing
       // Auto-lock Step 1 and structure after save
       setFormData(prev => ({
         ...prev,
@@ -396,7 +396,7 @@ export const usePatternBookBuilder = (projectId) => {
         lockedSections: { ...prev.lockedSections, step1: true, structure: true }
       }));
       navigate(`/pattern-book-builder/${newProjectId}`, { replace: true });
-      toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
+      // Silent save — no popup during normal editing
       return newProjectId;
     }
   }, [formData, step, completedSteps, setCompletedSteps, sanitizedProjectId, toast, navigate, user, getNextShowNumber]);

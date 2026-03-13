@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { GripVertical, Loader2, Eye, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
@@ -250,10 +250,12 @@ const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
 
 
 const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMode, formData, associationsData, divisionsData, setFormData, isOpen }) => {
-    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: pbbDiscipline.id });
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: pbbDiscipline.id });
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
+        opacity: isDragging ? 0.4 : 1,
+        zIndex: isDragging ? 50 : undefined,
     };
     
     // Check completion for all merged disciplines - aggregate divisions and groups across all
@@ -544,11 +546,18 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
 };
 
 export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, associationsData, divisionsData }) => {
-    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
     const [openAccordion, setOpenAccordion] = useState(null);
+    const [activeDragId, setActiveDragId] = useState(null);
+
+    const handleDragStart = (event) => {
+        setActiveDragId(event.active.id);
+    };
 
     const handleDragEnd = (event) => {
+        setActiveDragId(null);
         const { active, over } = event;
+        if (!over || active.id === over.id) return;
         if (active.id !== over.id) {
             setFormData(prev => {
                 const disciplines = prev.disciplines || [];
@@ -598,17 +607,19 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
         );
     }
 
+    const activeDiscipline = activeDragId ? disciplines.find(d => d.id === activeDragId) : null;
+
     return (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <SortableContext items={disciplines.map(c => c.id)} strategy={verticalListSortingStrategy}>
                 <Accordion type="single" collapsible className="w-full space-y-1.5" value={openAccordion} onValueChange={setOpenAccordion}>
                     {uniqueNames.map(name => {
                         const mergedDisciplines = groupedDisciplines[name];
                         const primaryDiscipline = mergedDisciplines[0];
-                        
+
                         return (
-                            <SortableDisciplineItem 
-                                key={primaryDiscipline.id} 
+                            <SortableDisciplineItem
+                                key={primaryDiscipline.id}
                                 pbbDiscipline={primaryDiscipline}
                                 mergedDisciplines={mergedDisciplines}
                                 isOpenShowMode={isOpenShowMode}
@@ -622,6 +633,14 @@ export const ClassConfiguration = ({ formData, setFormData, isOpenShowMode, asso
                     })}
                 </Accordion>
             </SortableContext>
+            <DragOverlay>
+                {activeDiscipline && (
+                    <div className="p-2 border rounded-lg bg-background shadow-lg cursor-grabbing flex items-center gap-2">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{activeDiscipline.name.replace(' at Halter', '')}</span>
+                    </div>
+                )}
+            </DragOverlay>
         </DndContext>
     );
 };

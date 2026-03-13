@@ -132,7 +132,8 @@ const ContractManagementPage = () => {
           supabase
             .from('projects')
             .select('id, project_name, project_type, project_data, created_at')
-            .in('project_type', ['show', 'pattern_book', 'contract'])
+            .eq('user_id', user.id)
+            .in('project_type', ['show', 'pattern_book'])
             .order('created_at', { ascending: false }),
           supabase
             .from('associations')
@@ -263,9 +264,7 @@ const ContractManagementPage = () => {
           if (!silent) toast({ title: 'Error saving project', description: error.message, variant: 'destructive' });
           return null;
         }
-        if (!silent) {
-          toast({ title: 'Project Saved!', description: 'Your progress has been successfully saved.' });
-        }
+        // Silent save — no popup during normal editing
         return currentProjectId;
       } else {
         const newId = uuidv4();
@@ -284,9 +283,7 @@ const ContractManagementPage = () => {
         setFormData(prev => ({ ...prev, id: newProjectId }));
         skipReloadRef.current = true;
         navigate(`/horse-show-manager/employee-management/contracts/${newProjectId}`, { replace: true });
-        if (!silent) {
-          toast({ title: 'Project Created & Saved!', description: 'Your new project has been saved.' });
-        }
+        // Silent save — no popup during normal editing
         return newProjectId;
       }
     } catch (error) {
@@ -389,7 +386,7 @@ const ContractManagementPage = () => {
         <main className="container mx-auto px-4 py-4">
           <PageHeader title="Contract Management" backTo={projectId ? `/horse-show-manager/show/${projectId}` : '/horse-show-manager'} />
           <div className="max-w-7xl mx-auto">
-            <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} />
+            <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} isEditMode={!!sanitizedProjectId} />
             <Card className="glass-effect">
               <CardContent className="p-0 sm:p-6">
                 <AnimatePresence mode="wait">

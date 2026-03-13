@@ -386,15 +386,10 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Delivery Method</Label>
-              <Select
-                value={deliverySettings.deliveryMethod || 'email'}
-                onValueChange={(value) => handleDeliveryChange('deliveryMethod', value)}
-              >
+              <Select value="email" disabled>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="email">Email</SelectItem>
-                  <SelectItem value="portal">Secure Portal</SelectItem>
-                  <SelectItem value="both">Email + Secure Portal</SelectItem>
                 </SelectContent>
               </Select>
             </div>

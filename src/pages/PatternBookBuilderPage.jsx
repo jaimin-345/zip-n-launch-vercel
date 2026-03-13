@@ -435,7 +435,7 @@ const PatternBookBuilderPage = () => {
                         <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">Generate a compliant, auto-filled pattern book for your show in minutes.</p>
                     </motion.div>
                     <div className="max-w-7xl mx-auto">
-                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={setCurrentStep} />
+                        <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={setCurrentStep} isEditMode={!!projectId} />
                         <Card className="glass-effect">
                             <AnimatePresence mode="wait">
                                 {currentStep !== 3 ? (

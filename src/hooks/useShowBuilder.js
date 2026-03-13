@@ -215,7 +215,7 @@ export const useShowBuilder = (showId) => {
         toast({ title: 'Error saving show', description: error.message, variant: 'destructive' });
         return null;
       }
-      toast({ title: 'Show Saved!', description: 'Your progress has been successfully saved.' });
+      // Silent save — no popup during normal editing
       return data;
     } else {
       // Generate sequential show number

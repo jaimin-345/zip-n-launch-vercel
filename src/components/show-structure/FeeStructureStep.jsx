@@ -315,9 +315,16 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
 
     const sponsors = formData.sponsors || [];
     const sponsorLevels = formData.sponsorLevels || [];
+    const classSponsors = formData.classSponsors || [];
+    const arenaSponsors = formData.arenaSponsors || [];
+    const customSponsors = formData.customSponsors || [];
 
     const totalFeeRevenue = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
-    const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
+    const levelSponsorRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
+    const classSponsorRevenue = useMemo(() => classSponsors.reduce((sum, cs) => sum + (parseFloat(cs.amount) || 0), 0), [classSponsors]);
+    const arenaSponsorRevenue = useMemo(() => arenaSponsors.reduce((sum, as) => sum + (parseFloat(as.amount) || 0), 0), [arenaSponsors]);
+    const customSponsorRevenue = useMemo(() => customSponsors.reduce((sum, cs) => sum + (parseFloat(cs.amount) || 0), 0), [customSponsors]);
+    const totalSponsorshipRevenue = levelSponsorRevenue + classSponsorRevenue + arenaSponsorRevenue + customSponsorRevenue;
     const totalRevenue = totalFeeRevenue + totalSponsorshipRevenue;
 
     return (
@@ -422,8 +429,9 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                             <CardDescription>Sponsors are managed in the Sponsors step of the Create Show wizard. Below is a summary.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {sponsors.length > 0 ? (
+                            {totalSponsorshipRevenue > 0 ? (
                                 <div className="space-y-3">
+                                    {/* Level sponsors */}
                                     {sponsorLevels.map(level => {
                                         const levelSponsors = sponsors.filter(s => s.levelId === level.id);
                                         if (levelSponsors.length === 0) return null;
@@ -452,6 +460,40 @@ export const FeeStructureStep = ({ formData, setFormData }) => {
                                             </div>
                                         );
                                     })()}
+
+                                    {/* Class sponsors */}
+                                    {classSponsorRevenue > 0 && (
+                                        <div className="flex items-center justify-between p-3 border rounded-md bg-background">
+                                            <div>
+                                                <p className="font-semibold">Class Sponsors <span className="text-xs text-muted-foreground ml-1">({classSponsors.filter(cs => cs.sponsorName).length} class{classSponsors.filter(cs => cs.sponsorName).length !== 1 ? 'es' : ''})</span></p>
+                                                <p className="text-xs text-muted-foreground">{classSponsors.filter(cs => cs.sponsorName).map(cs => `${cs.className}: ${cs.sponsorName}`).join(', ') || 'No names entered'}</p>
+                                            </div>
+                                            <p className="font-semibold text-emerald-600">${classSponsorRevenue.toLocaleString()}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Arena sponsors */}
+                                    {arenaSponsorRevenue > 0 && (
+                                        <div className="flex items-center justify-between p-3 border rounded-md bg-background">
+                                            <div>
+                                                <p className="font-semibold">Arena Sponsors <span className="text-xs text-muted-foreground ml-1">({arenaSponsors.filter(as => as.sponsorName).length} arena{arenaSponsors.filter(as => as.sponsorName).length !== 1 ? 's' : ''})</span></p>
+                                                <p className="text-xs text-muted-foreground">{arenaSponsors.filter(as => as.sponsorName).map(as => `${as.arenaName}: ${as.sponsorName}`).join(', ') || 'No names entered'}</p>
+                                            </div>
+                                            <p className="font-semibold text-emerald-600">${arenaSponsorRevenue.toLocaleString()}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Custom sponsors */}
+                                    {customSponsorRevenue > 0 && (
+                                        <div className="flex items-center justify-between p-3 border rounded-md bg-background">
+                                            <div>
+                                                <p className="font-semibold">Custom Sponsors <span className="text-xs text-muted-foreground ml-1">({customSponsors.filter(cs => cs.name).length})</span></p>
+                                                <p className="text-xs text-muted-foreground">{customSponsors.filter(cs => cs.name).map(cs => cs.name).join(', ') || 'No names entered'}</p>
+                                            </div>
+                                            <p className="font-semibold text-emerald-600">${customSponsorRevenue.toLocaleString()}</p>
+                                        </div>
+                                    )}
+
                                     <div className="text-right pt-2">
                                         <p className="text-sm font-semibold text-emerald-600">Total Sponsorship Revenue: ${totalSponsorshipRevenue.toLocaleString()}</p>
                                     </div>

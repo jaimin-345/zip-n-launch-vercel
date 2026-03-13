@@ -164,7 +164,7 @@ const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull
                             {(formData.fees || []).filter(f => f.name).length} fee(s) configured
                         </p>
                         <p className="text-xs text-muted-foreground">
-                            {(formData.sponsors || []).filter(s => s.name).length} sponsor(s) added
+                            {(formData.sponsors || []).filter(s => s.name).length + (formData.classSponsors || []).filter(cs => cs.sponsorName).length + (formData.arenaSponsors || []).filter(as => as.sponsorName).length + (formData.customSponsors || []).filter(cs => cs.name).length} sponsor(s) added
                         </p>
                     </>
                 )}
@@ -243,8 +243,8 @@ const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportBudget, 
                 <Button size="lg" className="w-full justify-start text-sm h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isFinalized}>
                     {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
                     <div className="text-left">
-                        <span className="font-semibold">Publish Show</span>
-                        <span className="block text-xs text-green-200">Publish official structure — final state</span>
+                        <span className="font-semibold">Make Schedule Public</span>
+                        <span className="block text-xs text-green-200">Publish your schedule — visible to exhibitors</span>
                     </div>
                 </Button>
             </div>
@@ -416,9 +416,17 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
     const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
     const sponsors = formData.sponsors || [];
+    const classSponsors = formData.classSponsors || [];
+    const arenaSponsors = formData.arenaSponsors || [];
+    const customSponsors = formData.customSponsors || [];
     const fees = formData.fees || [];
     const totalFeeIncome = useMemo(() => fees.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0), [fees]);
-    const totalSponsorshipRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
+    const levelSponsorRevenue = useMemo(() => sponsors.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0), [sponsors]);
+    const classSponsorRevenue = useMemo(() => classSponsors.reduce((sum, cs) => sum + (parseFloat(cs.amount) || 0), 0), [classSponsors]);
+    const arenaSponsorRevenue = useMemo(() => arenaSponsors.reduce((sum, as) => sum + (parseFloat(as.amount) || 0), 0), [arenaSponsors]);
+    const customSponsorRevenue = useMemo(() => customSponsors.reduce((sum, cs) => sum + (parseFloat(cs.amount) || 0), 0), [customSponsors]);
+    const totalSponsorshipRevenue = levelSponsorRevenue + classSponsorRevenue + arenaSponsorRevenue + customSponsorRevenue;
+    const totalSponsorCount = sponsors.filter(s => s.name).length + classSponsors.filter(cs => cs.sponsorName).length + arenaSponsors.filter(as => as.sponsorName).length + customSponsors.filter(cs => cs.name).length;
     const expenses = formData.showExpenses || [];
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
     const awardExpenses = formData.awardExpenses || [];
@@ -564,8 +572,8 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                     </div>
                 );
             case 'Sponsors':
-                return sponsors.length > 0
-                    ? <p>{sponsors.filter(s => s.name).length} sponsor{sponsors.filter(s => s.name).length !== 1 ? 's' : ''} added. Total: ${totalSponsorshipRevenue.toFixed(2)}</p>
+                return totalSponsorCount > 0
+                    ? <p>{totalSponsorCount} sponsor{totalSponsorCount !== 1 ? 's' : ''} added. Total: ${totalSponsorshipRevenue.toFixed(2)}</p>
                     : <p>No sponsors added.</p>;
             default:
                 return null;

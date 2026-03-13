@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2 } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2, Printer, Mail, Link2, Image as LucideImage } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -55,7 +55,7 @@ import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { jsPDF } from 'jspdf';
 import ResultsTab from '@/components/customer-portal/ResultsTab';
-// Removed drag-and-drop imports - no longer needed
+import { SendPatternEmailDialog } from '@/components/pattern-hub/SendPatternEmailDialog';
 
 const accessPhaseLabels = {
     draft: 'Draft, Build, Review',
@@ -7171,6 +7171,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [emailDialogOpen, setEmailDialogOpen] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     const [isHovered, setIsHovered] = useState(false);
@@ -7243,6 +7244,92 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
         }
     };
 
+    // Helper: convert data URI to Blob for reliable downloads
+    const dataUriToBlob = (dataUri) => {
+        const [header, base64] = dataUri.split(',');
+        const mime = header.match(/:(.*?);/)[1];
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
+    };
+
+    const triggerBlobDownload = (blob, fileName) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    };
+
+    const handlePatternExport = async (exportType) => {
+        const projectData = project.project_data || {};
+        const fileName = (project.project_name || projectData.showName || 'Pattern').replace(/ /g, '_');
+
+        try {
+            if (exportType === 'pdf') {
+                toast({ title: 'Generating PDF...', description: 'Preparing your pattern.' });
+                const pdfDataUri = await generatePatternBookPdf(projectData);
+                const blob = dataUriToBlob(pdfDataUri);
+                triggerBlobDownload(blob, `${fileName}.pdf`);
+                toast({ title: 'Downloaded!', description: 'Your pattern PDF has been downloaded.' });
+            } else if (exportType === 'png') {
+                toast({ title: 'Generating PNG...', description: 'Converting to image.' });
+                const { default: pdfjsLib } = await import('pdfjs-dist');
+                const { default: pdfjsWorkerUrl } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+                pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+                const pdfDataUri = await generatePatternBookPdf(projectData);
+                const pdfDoc = await pdfjsLib.getDocument(pdfDataUri).promise;
+                let targetPageNum = 1;
+                for (let p = 1; p <= Math.min(pdfDoc.numPages, 3); p++) {
+                    const testPage = await pdfDoc.getPage(p);
+                    const textContent = await testPage.getTextContent();
+                    if (textContent.items.length > 0) { targetPageNum = p; break; }
+                }
+                const page = await pdfDoc.getPage(targetPageNum);
+                const viewport = page.getViewport({ scale: 2 });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                ctx.save();
+                ctx.font = '12px Helvetica, Arial, sans-serif';
+                ctx.fillStyle = 'rgba(120, 120, 120, 0.7)';
+                ctx.textAlign = 'right';
+                ctx.fillText('Generated by EQ Patterns', canvas.width - 20, canvas.height - 14);
+                ctx.restore();
+                const pngDataUri = canvas.toDataURL('image/png');
+                const pngBlob = dataUriToBlob(pngDataUri);
+                triggerBlobDownload(pngBlob, `${fileName}.png`);
+                toast({ title: 'Downloaded!', description: 'Your pattern PNG has been downloaded.' });
+            } else if (exportType === 'print') {
+                toast({ title: 'Preparing to print...', description: 'Opening print dialog.' });
+                const pdfDataUri = await generatePatternBookPdf(projectData);
+                const blob = dataUriToBlob(pdfDataUri);
+                const blobUrl = URL.createObjectURL(blob);
+                const printWindow = window.open(blobUrl, '_blank');
+                if (printWindow) {
+                    printWindow.addEventListener('afterprint', () => URL.revokeObjectURL(blobUrl));
+                    printWindow.addEventListener('load', () => setTimeout(() => printWindow.print(), 500));
+                }
+            } else if (exportType === 'email') {
+                setEmailDialogOpen(true);
+                return; // Dialog handles the rest
+            } else if (exportType === 'share') {
+                const shareUrl = `${window.location.origin}/pattern-hub/${project.id}`;
+                await navigator.clipboard.writeText(shareUrl);
+                toast({ title: 'Link Copied!', description: 'Shareable link has been copied to your clipboard.' });
+            }
+        } catch (error) {
+            console.error('Export error:', error);
+            toast({ title: 'Export Failed', description: error.message || 'There was a problem exporting your pattern.', variant: 'destructive' });
+        }
+    };
+
     const handleMenuAction = async (action) => {
         switch (action) {
             case 'open':
@@ -7267,6 +7354,21 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                 break;
             case 'download':
                 handleDownloadFolder();
+                break;
+            case 'export-pdf':
+                handlePatternExport('pdf');
+                break;
+            case 'export-png':
+                handlePatternExport('png');
+                break;
+            case 'export-print':
+                handlePatternExport('print');
+                break;
+            case 'export-email':
+                handlePatternExport('email');
+                break;
+            case 'export-share':
+                handlePatternExport('share');
                 break;
             default:
         }
@@ -7302,9 +7404,38 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
         toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
     };
 
+    const isCompletedPatternHub = isPatternHub && (project.status || '').toLowerCase() !== 'in progress';
+
     // Render menu items based on menuType
     const renderMenuItems = () => {
-        if (menuType === 'folder') {
+        if (isCompletedPatternHub) {
+            // Completed Pattern Hub: export actions + open/archive
+            return (
+                <>
+                    <DropdownMenuItem onClick={() => handleMenuAction('open')}>
+                        <Pencil className="mr-2 h-4 w-4" /> Open Pattern
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('export-pdf')}>
+                        <FileText className="mr-2 h-4 w-4" /> Download PDF
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('export-png')}>
+                        <LucideImage className="mr-2 h-4 w-4" /> Download PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('export-print')}>
+                        <Printer className="mr-2 h-4 w-4" /> Print
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('export-email')}>
+                        <Mail className="mr-2 h-4 w-4" /> Send Email
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('export-share')}>
+                        <Link2 className="mr-2 h-4 w-4" /> Share Link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                        <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                </>
+            );
+        } else if (menuType === 'folder') {
             // Pattern Folder: open card, change cover, preview only (hide open card for Past Pattern Portal)
             return (
                 <>
@@ -7542,44 +7673,92 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     {/* Project Type Badge */}
                     <div className="mb-3">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary text-primary-foreground">
-                            {isPatternBook ? 'Pattern Book' : 'Horse Show'}
+                            {isPatternHub ? 'Pattern' : isPatternBook ? 'Pattern Book' : 'Horse Show'}
                         </span>
                     </div>
-                    
+
                     {/* Project Details */}
                     <div className="space-y-1 text-sm text-muted-foreground mb-4">
                         <p>Last saved: {format(new Date(project.updated_at), "MMM d, yyyy")}</p>
-                        <p>
-                            Status: {' '}
-                            <span className={`font-medium ${
-                                (project.status || '').toString().toLowerCase() === 'in progress' 
-                                    ? 'text-green-500' 
-                                    : 'text-foreground'
-                            }`}>
-                                {(project.status || '').toString().toLowerCase() === 'in progress' 
-                                    ? 'In progress' 
-                                    : project.status === 'Draft' 
-                                        ? 'Draft' 
-                                        : project.status === 'Lock & Approve Mode' 
-                                            ? 'Lock & Approve Mode' 
-                                            : project.status || 'Draft'}
-                            </span>
-                        </p>
+                        {!isCompletedPatternHub && (
+                            <p>
+                                Status: {' '}
+                                <span className={`font-medium ${
+                                    (project.status || '').toString().toLowerCase() === 'in progress'
+                                        ? 'text-green-500'
+                                        : 'text-foreground'
+                                }`}>
+                                    {(project.status || '').toString().toLowerCase() === 'in progress'
+                                        ? 'In progress'
+                                        : project.status === 'Draft'
+                                            ? 'Draft'
+                                            : project.status === 'Lock & Approve Mode'
+                                                ? 'Lock & Approve Mode'
+                                                : project.status || 'Draft'}
+                                </span>
+                            </p>
+                        )}
                         {dueDate && (
                             <p>Due: <span className="font-medium text-foreground">{format(new Date(dueDate), 'MMM d, yyyy')}</span></p>
                         )}
                     </div>
-                    
-                    {/* Action Button - Hide for Past Pattern Portal */}
+
+                    {/* Action Buttons */}
                     {!isPastPatternPortal && (
-                        <Button 
-                            onClick={handleContinueEditing} 
-                            className="w-full" 
-                            size="sm"
-                            disabled={isLocked}
-                        >
-                            Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
+                        isCompletedPatternHub ? (
+                            <div className="space-y-1.5">
+                                <Button
+                                    onClick={() => handlePatternExport('pdf')}
+                                    className="w-full"
+                                    size="sm"
+                                >
+                                    <Download className="mr-2 h-4 w-4" /> Download PDF
+                                </Button>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <Button
+                                        onClick={() => handlePatternExport('png')}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                    >
+                                        <LucideImage className="mr-1 h-3 w-3" /> PNG
+                                    </Button>
+                                    <Button
+                                        onClick={() => handlePatternExport('print')}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                    >
+                                        <Printer className="mr-1 h-3 w-3" /> Print
+                                    </Button>
+                                    <Button
+                                        onClick={() => handlePatternExport('email')}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                    >
+                                        <Mail className="mr-1 h-3 w-3" /> Email
+                                    </Button>
+                                    <Button
+                                        onClick={() => handlePatternExport('share')}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs"
+                                    >
+                                        <Link2 className="mr-1 h-3 w-3" /> Share
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <Button
+                                onClick={handleContinueEditing}
+                                className="w-full"
+                                size="sm"
+                                disabled={isLocked}
+                            >
+                                Continue Editing <ArrowRight className="ml-2 h-4 w-4" />
+                            </Button>
+                        )
                     )}
                 </div>
             </div>
@@ -7605,6 +7784,15 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                 project={project}
                 onRefresh={onRefresh}
             />
+
+            {isPatternHub && (
+                <SendPatternEmailDialog
+                    open={emailDialogOpen}
+                    onOpenChange={setEmailDialogOpen}
+                    projectData={project.project_data}
+                    patternName={project.project_name || project.project_data?.showName}
+                />
+            )}
         </motion.div>
     );
 };
@@ -7639,7 +7827,7 @@ const CustomerPortalPage = () => {
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
     const showManagerProjects = projects.filter(p => {
         const mode = (p.mode || '').toString().trim();
-        return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && mode.toLowerCase() !== 'archived';
+        return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && p.project_type !== 'pattern_hub' && mode.toLowerCase() !== 'archived';
     });
     
     // Filter pattern books by status (case-insensitive comparison)
@@ -7657,19 +7845,14 @@ const CustomerPortalPage = () => {
         return status.toLowerCase() === 'in progress' && mode.toLowerCase() !== 'archived';
     });
     
-    // Pattern Portal: Show only projects with project_type = 'pattern_hub' AND Status !== 'Draft' AND Status !== 'Publication' AND Status !== 'Lock & Approve Mode' AND Status !== 'In progress' AND mode !== 'archived'
+    // Pattern Portal: Show pattern_hub projects that are completed (Draft = all steps done) or other non-in-progress statuses
     const patternPortalBooks = projects.filter(p => {
         const projectType = (p.project_type || '').toString().trim();
         const status = (p.status || 'Draft').toString().trim();
         const statusLower = status.toLowerCase();
         const mode = (p.mode || '').toString().trim();
         return projectType.toLowerCase() === 'pattern_hub' &&
-               statusLower !== 'draft' && 
-               statusLower !== 'publication' && 
-               statusLower !== 'lock & approve mode' && 
                statusLower !== 'in progress' &&
-               !statusLower.includes('lock') && 
-               !statusLower.includes('approve') &&
                mode.toLowerCase() !== 'archived';
     });
     
@@ -7823,11 +8006,11 @@ const CustomerPortalPage = () => {
                             {renderProjectList(
                                 patternPortalBooks,
                                 "Pattern Portal",
-                                "Organize and store your pattern collections.",
+                                "Your generated patterns. Download, print, email, or share.",
                                 "",
                                 "",
                                 "patternPortal",
-                                "folder",
+                                "default",
                                 true
                             )}
                             {renderProjectList(
