@@ -373,7 +373,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         setFormData(p => ({ ...p, showBill: nextState }));
     }, [redoStack, formData.showBill, setFormData]);
 
-    // Toggle arena closed/open
+    // Toggle arena closed/open — closing removes all items back to the unplaced palette
     const handleToggleArenaClosed = useCallback((dayId, arenaId) => {
         const key = `${dayId}::${arenaId}`;
         const sb = JSON.parse(JSON.stringify(showBill));
@@ -382,6 +382,12 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
             delete sb.closedArenas[key];
         } else {
             sb.closedArenas[key] = true;
+            // Remove all items from this arena so they return to the unplaced palette
+            const day = sb.days.find(d => d.id === dayId);
+            const arena = day?.arenas.find(a => a.id === arenaId);
+            if (arena) {
+                arena.items = [];
+            }
         }
         setShowBill(renumberShowBill(sb));
     }, [showBill, setShowBill]);

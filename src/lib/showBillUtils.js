@@ -104,17 +104,7 @@ export function initializeShowBill(formData) {
     days.forEach(day => { day.arenas = [{ ...defaultArena, items: [] }]; });
   }
 
-  // Auto-populate all selected classes into the first arena of the first day
-  const allClasses = getAllClassItems(formData);
-  if (allClasses.length > 0 && days.length > 0 && days[0].arenas.length > 0) {
-    days[0].arenas[0].items = allClasses.map(cls => ({
-      type: 'classBox',
-      id: uuidv4(),
-      number: 0,
-      title: cls.name,
-      classes: [cls.divisionId],
-    }));
-  }
+  // Classes start unplaced — users drag them from the palette into arenas
 
   const result = {
     header: {

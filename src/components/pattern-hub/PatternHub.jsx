@@ -378,6 +378,22 @@ export const PatternHub = ({ projectId }) => {
                 projectData.id = projectId;
             } else if (formDataId) {
                 projectData.id = formDataId;
+            } else {
+                // No existing project ID — check if a project with this name already exists
+                // to prevent creating duplicates
+                const projectName = projectData.project_name;
+                const { data: existingProject } = await supabase
+                    .from('projects')
+                    .select('id')
+                    .eq('project_type', 'pattern_hub')
+                    .eq('user_id', user.id)
+                    .ilike('project_name', projectName)
+                    .limit(1)
+                    .single();
+
+                if (existingProject) {
+                    projectData.id = existingProject.id;
+                }
             }
 
             const { error } = await supabase

@@ -81,15 +81,7 @@ const aLaCarteProducts = [
     period: '/per show',
     icon: BookOpen,
   },
-  {
-    key: 'pattern_book_full',
-    name: 'Pattern Book Builder',
-    subtitle: 'Association Compliant Patterns and Score Sheets',
-    price: '$79.99',
-    period: '/per show',
-    icon: BookOpen,
-  },
-  {
+{
     key: 'horse_show_manager_full',
     name: 'Horse Show Manager — Full Access',
     subtitle: 'Association Compliant Patterns and Score Sheets',
@@ -298,7 +290,7 @@ const PricingPage = () => {
               <p className="text-center text-muted-foreground mb-10">
                 Members get free tools included with their plan. Additional purchases available below.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                 {aLaCarteProducts.map((product) => {
                   const Icon = product.icon;
                   const isLoading = loadingKey === product.key && checkoutLoading;

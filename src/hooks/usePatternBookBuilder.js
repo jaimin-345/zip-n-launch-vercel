@@ -344,8 +344,10 @@ export const usePatternBookBuilder = (projectId) => {
       completedSteps: Array.from(updatedCompletedSteps),
     };
 
+    const trimmedName = (finalFormData.showName || '').trim() || 'Untitled Pattern Book';
+
     const projectPayload = {
-      project_name: formData.showName || 'Untitled Pattern Book',
+      project_name: trimmedName,
       project_type: 'pattern_book',
       project_data: projectToSave,
       status: projectStatus,
@@ -353,6 +355,23 @@ export const usePatternBookBuilder = (projectId) => {
     };
 
     let currentProjectId = sanitizedProjectId || formData.id || formData.linkedProjectId;
+
+    // If no project ID yet, check if a project with this name already exists for this user
+    // and reuse it instead of creating a duplicate
+    if (!currentProjectId && trimmedName !== 'Untitled Pattern Book') {
+      const { data: existingProject } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_type', 'pattern_book')
+        .eq('user_id', user.id)
+        .ilike('project_name', trimmedName)
+        .limit(1)
+        .single();
+
+      if (existingProject) {
+        currentProjectId = existingProject.id;
+      }
+    }
 
     if (currentProjectId) {
       const { error } = await supabase
