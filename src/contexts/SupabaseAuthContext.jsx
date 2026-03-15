@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [permissions, setPermissions] = useState([]);
   const [authModalState, setAuthModalState] = useState({ isOpen: false, initialTab: 'signin' });
+  const skipAutoCloseRef = useRef(false);
 
   const fetchProfileAndPermissions = useCallback(async (user) => {
     if (!user) {
@@ -86,7 +87,9 @@ export const AuthProvider = ({ children }) => {
           // User clicked password reset link — redirect to update password page
           navigate('/update-password');
         } else if (event === "SIGNED_IN" && session?.user) {
-          closeAuthModal();
+          if (!skipAutoCloseRef.current) {
+            closeAuthModal();
+          }
         } else if (event === "USER_UPDATED") {
           setUser(session?.user ?? null);
           await fetchProfileAndPermissions(session?.user);
@@ -271,7 +274,12 @@ export const AuthProvider = ({ children }) => {
   };
   
   const closeAuthModal = () => {
+    skipAutoCloseRef.current = false;
     setAuthModalState({ isOpen: false, initialTab: 'signin' });
+  };
+
+  const setSkipAutoClose = (value) => {
+    skipAutoCloseRef.current = value;
   };
 
   const value = useMemo(() => ({
@@ -292,6 +300,7 @@ export const AuthProvider = ({ children }) => {
     authModalInitialTab: authModalState.initialTab,
     openAuthModal,
     closeAuthModal,
+    setSkipAutoClose,
     // Subscription fields (synced from profiles table via Stripe webhook)
     subscriptionStatus: profile?.subscription_status || 'none',
     subscriptionTier: profile?.subscription_tier || null,

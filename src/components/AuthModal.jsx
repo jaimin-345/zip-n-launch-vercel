@@ -75,7 +75,7 @@ const AGE_DIVISIONS = [
 ];
 
 const AuthModal = () => {
-    const { isAuthModalOpen, authModalInitialTab, closeAuthModal, signIn, signUp, sendPasswordResetEmail } = useAuth();
+    const { isAuthModalOpen, authModalInitialTab, closeAuthModal, signIn, signUp, sendPasswordResetEmail, setSkipAutoClose } = useAuth();
     const { toast } = useToast();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
@@ -176,6 +176,7 @@ const AuthModal = () => {
             publiclyDisplayCards: isCardedJudge ? publiclyDisplayCards : false
         };
         
+        setSkipAutoClose(true);
         const { error } = await signUp(signUpEmail, signUpPassword, metadata);
         if (!error) {
             setWelcomeName(firstName);
@@ -187,6 +188,8 @@ const AuthModal = () => {
                     userEmail: signUpEmail,
                 }),
             }).catch(err => console.error('Welcome email failed:', err));
+        } else {
+            setSkipAutoClose(false);
         }
         setIsLoading(false);
         setIsSubmitting(false);
