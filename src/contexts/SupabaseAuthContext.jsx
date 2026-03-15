@@ -82,7 +82,10 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         handleSession(session);
-        if (event === "SIGNED_IN" && session?.user) {
+        if (event === "PASSWORD_RECOVERY" && session?.user) {
+          // User clicked password reset link — redirect to update password page
+          navigate('/update-password');
+        } else if (event === "SIGNED_IN" && session?.user) {
           closeAuthModal();
         } else if (event === "USER_UPDATED") {
           setUser(session?.user ?? null);
@@ -127,6 +130,7 @@ export const AuthProvider = ({ children }) => {
                 description: "Please check your email to confirm your account.",
             });
         }
+        // Session exists = auto-confirmed, welcome handled by AuthModal
     }
     return { data, error };
   }, [toast]);

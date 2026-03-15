@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
 
 const UpdatePasswordPage = () => {
@@ -22,15 +22,15 @@ const UpdatePasswordPage = () => {
 
     useEffect(() => {
       setIsMounted(true);
-      // If there's no session or the user is not recovering, they shouldn't be here.
-      // Supabase handles the session after the user clicks the magic link.
-      // We check for `session` on mount. If it's not a recovery session, redirect.
-      const hash = window.location.hash;
-      if (!loading && !hash.includes('type=recovery')) {
-          if(!session) {
-             navigate('/');
-          }
-      }
+      // Give Supabase time to exchange the recovery token and establish a session.
+      // The URL may contain hash fragments or query params depending on the auth flow.
+      // Wait for loading to finish, then check if we have a valid session.
+      const timeout = setTimeout(() => {
+        if (!loading && !session) {
+          navigate('/');
+        }
+      }, 3000); // Allow 3 seconds for token exchange
+      return () => clearTimeout(timeout);
     }, [session, loading, navigate]);
 
     const handleSubmit = async (e) => {

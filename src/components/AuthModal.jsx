@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera, AlertTriangle, Sparkles } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { Loader2, Eye, EyeOff, User, MapPin, Award, Users, ChevronRight, ChevronLeft, Plus, Trash2, Camera, AlertTriangle, Sparkles, CheckCircle2, PartyPopper } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -75,10 +77,12 @@ const AGE_DIVISIONS = [
 const AuthModal = () => {
     const { isAuthModalOpen, authModalInitialTab, closeAuthModal, signIn, signUp, sendPasswordResetEmail } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(authModalInitialTab);
-    const [view, setView] = useState('tabs'); // 'tabs' or 'forgot_password'
+    const [view, setView] = useState('tabs'); // 'tabs', 'forgot_password', or 'welcome'
     const [signUpStep, setSignUpStep] = useState(1); // 1: Basic, 2: Profile, 3: Horses, 4: Judge Profile
+    const [welcomeName, setWelcomeName] = useState('');
     
     // Form States - Sign In
     const [signInEmail, setSignInEmail] = useState('');
@@ -174,7 +178,15 @@ const AuthModal = () => {
         
         const { error } = await signUp(signUpEmail, signUpPassword, metadata);
         if (!error) {
-            closeAuthModal();
+            setWelcomeName(firstName);
+            setView('welcome');
+            // Send welcome email (fire and forget — don't block signup flow)
+            supabase.functions.invoke('send-welcome-email', {
+                body: JSON.stringify({
+                    userName: firstName,
+                    userEmail: signUpEmail,
+                }),
+            }).catch(err => console.error('Welcome email failed:', err));
         }
         setIsLoading(false);
         setIsSubmitting(false);
@@ -914,6 +926,80 @@ const AuthModal = () => {
                                     </Button>
                                     <Button variant="link" type="button" onClick={() => setView('tabs')} className="w-full text-sm">Back to Sign In</Button>
                                 </form>
+                            </div>
+                        </motion.div>
+                    )}
+                    {view === 'welcome' && (
+                        <motion.div
+                            key="welcome"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.4, ease: "easeOut" }}
+                        >
+                            <div className="p-8 text-center space-y-5">
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                                    className="flex justify-center"
+                                >
+                                    <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                        <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400" />
+                                    </div>
+                                </motion.div>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="space-y-2"
+                                >
+                                    <h2 className="text-2xl font-bold text-foreground">
+                                        Welcome to EquiPatterns{welcomeName ? `, ${welcomeName}` : ''}!
+                                    </h2>
+                                    <p className="text-muted-foreground text-sm">
+                                        Your account has been created successfully. You're all set to explore professionally curated patterns, build pattern books, and manage horse shows.
+                                    </p>
+                                </motion.div>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.6 }}
+                                    className="space-y-3 pt-2"
+                                >
+                                    <Button
+                                        className="w-full"
+                                        size="lg"
+                                        onClick={() => {
+                                            closeAuthModal();
+                                            navigate('/profile');
+                                        }}
+                                    >
+                                        <User className="mr-2 h-4 w-4" />
+                                        View My Profile
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full"
+                                        size="lg"
+                                        onClick={() => {
+                                            closeAuthModal();
+                                            navigate('/choose-a-pattern');
+                                        }}
+                                    >
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Explore Patterns
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className="w-full text-sm text-muted-foreground"
+                                        onClick={() => {
+                                            closeAuthModal();
+                                        }}
+                                    >
+                                        Continue to Home
+                                    </Button>
+                                </motion.div>
                             </div>
                         </motion.div>
                     )}

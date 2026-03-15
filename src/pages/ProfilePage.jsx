@@ -273,6 +273,20 @@ const ProfilePage = () => {
 
         await updateUserProfile(metadata);
         setIsSubmitting(false);
+        return true;
+    };
+
+    const handleSaveAndExit = async () => {
+        setIsSubmitting(true);
+        const metadata = {
+            firstName, lastName, first_name: firstName, last_name: lastName,
+            mobile, full_name: `${firstName} ${lastName}`.trim(),
+            state, primaryDisciplines, levelDesignations, associationMemberships,
+            horses: horses.filter(h => h.name)
+        };
+        await updateUserProfile(metadata);
+        setIsSubmitting(false);
+        navigate('/');
     };
 
     if (loading) {
@@ -813,9 +827,12 @@ const ProfilePage = () => {
                                     </div>
 
                                 </CardContent>
-                                <CardFooter className="flex justify-end">
-                                    <Button type="submit" disabled={isSubmitting} size="lg">
+                                <CardFooter className="flex justify-end gap-3">
+                                    <Button type="submit" disabled={isSubmitting} size="lg" variant="outline">
                                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Save Changes'}
+                                    </Button>
+                                    <Button type="button" disabled={isSubmitting} size="lg" onClick={handleSaveAndExit}>
+                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Save & Exit'}
                                     </Button>
                                 </CardFooter>
                             </form>

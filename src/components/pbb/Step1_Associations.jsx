@@ -63,6 +63,7 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
 
   return (
     <>
+      {!isHub && (
       <div className="mb-4">
         <LinkToExistingShow
           existingProjects={existingProjects}
@@ -71,6 +72,7 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
           description="Link to an existing show or pattern book project to auto-fill show details."
         />
       </div>
+      )}
       {isLocked && !isReadOnly && (
         <div className="flex items-center justify-between p-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-800">
           <div className="flex items-center gap-2">

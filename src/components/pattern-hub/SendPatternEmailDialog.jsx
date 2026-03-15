@@ -32,7 +32,7 @@ export const SendPatternEmailDialog = ({ open, onOpenChange, projectData, patter
         try {
             toast({ title: 'Generating pattern...', description: 'Preparing your pattern for email.' });
 
-            const pdfDataUri = await generatePatternBookPdf(projectData);
+            const pdfDataUri = await generatePatternBookPdf(projectData, { skipCoverAndToc: true });
             const bookName = patternName || projectData?.showName || 'My Pattern';
 
             const { data, error } = await supabase.functions.invoke('send-pattern-book', {

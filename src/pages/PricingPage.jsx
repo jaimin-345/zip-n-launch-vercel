@@ -15,7 +15,7 @@ const membershipTiers = [
   {
     key: 'membership_founding_insider',
     name: 'Founding Insider',
-    price: '$39.99',
+    price: '$59',
     period: '/first year',
     renewalNote: 'Then $79/year after first year',
     badge: 'Limited — First 50',
@@ -33,30 +33,11 @@ const membershipTiers = [
     ],
   },
   {
-    key: 'membership_founding_member',
-    name: 'Founding Member',
-    price: '$79.99',
-    period: '/first year',
-    renewalNote: 'Then $79/year after first year',
-    badge: 'Next 950 Members',
-    icon: Star,
-    highlighted: false,
-    features: [
-      'Unlimited access to patterns across all major disciplines',
-      'Access to Horse Show Management features',
-      '1 free Pattern Book Builder tool per year',
-      '1 free Horse Show Management Event per year',
-      'Unlimited, free Horse Show Schedule Builder',
-      'Unlimited Pattern Uploads with membership perks',
-      'Priority support',
-    ],
-  },
-  {
     key: 'membership_standard',
     name: 'Standard',
-    price: '$99.99',
-    period: '/first year',
-    renewalNote: 'Then $99.99/year at renewal',
+    price: '$99',
+    period: '/year',
+    renewalNote: '$99/year',
     badge: null,
     icon: Zap,
     highlighted: false,
@@ -74,18 +55,34 @@ const membershipTiers = [
 
 const aLaCarteProducts = [
   {
-    key: 'pattern_book_discounted',
-    name: 'Pattern Book Builder — Discounted',
-    subtitle: '4-H / Open / Single Judge',
-    price: '$39.99',
+    key: 'pattern_book_basic',
+    name: 'Basic Pattern Book Builder',
+    subtitle: 'Essential pattern book creation tools',
+    price: '$39',
     period: '/per show',
     icon: BookOpen,
   },
-{
+  {
+    key: 'pattern_book_full',
+    name: 'Full Pattern Book Builder',
+    subtitle: 'Complete pattern book with all features',
+    price: '$79',
+    period: '/per show',
+    icon: BookOpen,
+  },
+  {
+    key: 'horse_show_manager_basic',
+    name: 'Horse Show Manager',
+    subtitle: '4-H / Open / Single Judge',
+    price: '$99',
+    period: '/per show',
+    icon: CalendarRange,
+  },
+  {
     key: 'horse_show_manager_full',
-    name: 'Horse Show Manager — Full Access',
+    name: 'Horse Show Manager',
     subtitle: 'Association Compliant Patterns and Score Sheets',
-    price: '$99.99',
+    price: '$149',
     period: '/per show',
     icon: CalendarRange,
   },
@@ -188,7 +185,7 @@ const PricingPage = () => {
             <div className="py-6 px-4 bg-secondary/50 rounded-lg mb-16">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                 <div>
-                  <p className="text-3xl font-bold text-primary">3</p>
+                  <p className="text-3xl font-bold text-primary">2</p>
                   <p className="text-sm text-muted-foreground">Membership Tiers</p>
                 </div>
                 <div>
@@ -212,7 +209,7 @@ const PricingPage = () => {
 
             {/* Membership Tiers */}
             <h2 className="text-3xl font-bold text-center mb-10">Membership Plans</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch mb-20">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-20 max-w-4xl mx-auto">
               {membershipTiers.map((tier, index) => {
                 const Icon = tier.icon;
                 const isLoading = loadingKey === tier.key && checkoutLoading;
@@ -290,7 +287,7 @@ const PricingPage = () => {
               <p className="text-center text-muted-foreground mb-10">
                 Members get free tools included with their plan. Additional purchases available below.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                 {aLaCarteProducts.map((product) => {
                   const Icon = product.icon;
                   const isLoading = loadingKey === product.key && checkoutLoading;
@@ -343,7 +340,7 @@ const PricingPage = () => {
                   <h3 className="text-xl font-semibold mb-3">Questions?</h3>
                   <p className="text-muted-foreground">
                     All memberships are billed annually and include unlimited pattern access, Horse Show tools, and the free Schedule Builder.
-                    Founding Insider and Founding Member plans offer a special first-year rate.
+                    The Founding Insider plan offers a special first-year rate for our earliest members.
                     Cancel anytime from your profile.
                   </p>
                 </CardContent>

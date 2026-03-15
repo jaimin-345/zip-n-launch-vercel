@@ -1,65 +1,85 @@
 // Maps internal tier names to Stripe Price IDs
+// Toggle between live and test IDs by commenting/uncommenting the appropriate block
+
+// --- TEST MODE IDs ---
+const USE_TEST_MODE = false; // Set to true for test mode, false for live
+
+const TEST_IDS = {
+  founding_insider:          { priceId: 'price_1TB7Cu1uq10j2UsKdRtkz6aL', productId: 'prod_U9Q3Z3cu4TgPga' },
+  standard:                  { priceId: 'price_1TB7Cx1uq10j2UsKXxEQdueR', productId: 'prod_U9Q3xxhP1GGGlQ' },
+  pattern_book_basic:        { priceId: 'price_1TB7Cy1uq10j2UsKlt7BfiIb', productId: 'prod_U9Q31YxRsp7FjG' },
+  pattern_book_full:         { priceId: 'price_1TB7Cy1uq10j2UsKlt7BfiIb', productId: 'prod_U9Q31YxRsp7FjG' }, // TODO: create separate test product
+  horse_show_basic:          { priceId: 'price_1TB7Cy1uq10j2UsKs8b4vz2T', productId: 'prod_U9Q3Xv8LbcoPOT' }, // TODO: create separate test product
+  horse_show_association:    { priceId: 'price_1TB7Cy1uq10j2UsKs8b4vz2T', productId: 'prod_U9Q3Xv8LbcoPOT' }, // TODO: create separate test product
+};
+
+const LIVE_IDS = {
+  founding_insider:          { priceId: 'price_1TB8U31uq10j2UsKFMe9qF8q' },
+  standard:                  { priceId: 'price_1TAm111uq10j2UsKkNUE2QLy' },
+  pattern_book_basic:        { priceId: 'price_1TB8XG1uq10j2UsKyT6gKr8R' },
+  pattern_book_full:         { priceId: 'price_1TB8Xx1uq10j2UsKNMvrqWQ2' },
+  horse_show_basic:          { priceId: 'price_1TB8ZL1uq10j2UsKQTG4RqeN' },
+  horse_show_association:    { priceId: 'price_1TB8a91uq10j2UsKAfkMHjV0' },
+};
+
+const IDS = USE_TEST_MODE ? TEST_IDS : LIVE_IDS;
 
 export const STRIPE_PRICES = {
   // Memberships (yearly recurring)
   membership_founding_insider: {
-    priceId: 'price_1TAlzv1uq10j2UsKxjIofvJy',
-    productId: 'prod_U948emSK1oQJuP',
+    priceId: IDS.founding_insider.priceId,
     name: 'Founding Insider',
-    description: 'First 50 members — price locked at $79.99/year forever, 3 free pattern books/year',
-    amount: 7999,
+    description: 'Limited to first 50 members — $59 first year, then $79/year',
+    amount: 5900,
     interval: 'year',
     tier: 'founding_insider',
     limit: 50,
   },
-  membership_founding_member: {
-    priceId: 'price_1TAm0Z1uq10j2UsKTRUsEH4g',
-    productId: 'prod_U948etNRa1qgPL',
-    name: 'Founding Member',
-    description: 'Next 950 members — price locked at $79.99/year',
-    amount: 7999,
-    interval: 'year',
-    tier: 'founding_member',
-    limit: 950,
-  },
   membership_standard: {
-    priceId: 'price_1TAm111uq10j2UsKkNUE2QLy',
-    productId: 'prod_U949KRgUzvApM2',
+    priceId: IDS.standard.priceId,
     name: 'Standard Member',
-    description: 'After first 1,000 members',
-    amount: 9999,
+    description: '$99/year — Unlimited access to patterns and Horse Show tools',
+    amount: 9900,
     interval: 'year',
     tier: 'standard',
     limit: null,
   },
 
-  // Pattern Books
+  // Pattern Books (one-time per show)
   pattern_book_basic: {
-    priceId: 'price_1TAm1y1uq10j2UsKktMEVqY2',
-    productId: 'prod_U94AlgEQuR528r',
-    name: 'Pattern Book — Basic (4H/Open/Single Judge)',
-    amount: 3999,
+    priceId: IDS.pattern_book_basic.priceId,
+    name: 'Basic Pattern Book Builder',
+    description: 'Essential pattern book creation tools — $39 per show',
+    amount: 3900,
     interval: null,
   },
-  pattern_book_discounted: {
-    priceId: 'price_1TAm1y1uq10j2UsKktMEVqY2',
-    productId: 'prod_U94AlgEQuR528r',
-    name: 'Pattern Book Builder — Discounted',
-    amount: 3999,
+  pattern_book_full: {
+    priceId: IDS.pattern_book_full.priceId,
+    name: 'Full Pattern Book Builder',
+    description: 'Complete pattern book with all features — $79 per show',
+    amount: 7900,
     interval: null,
   },
-horse_show_manager_full: {
-    priceId: 'price_1TAm2O1uq10j2UsKxWZoKCbo',
-    productId: 'prod_U94ADXsrtY06zm',
-    name: 'Horse Show Manager — Full Access',
-    amount: 9999,
-    interval: 'month',
+
+  // Horse Show Manager (one-time per show)
+  horse_show_manager_basic: {
+    priceId: IDS.horse_show_basic.priceId,
+    name: 'Horse Show Manager — Basic',
+    description: '4-H / Open / Single Judge — $99 per show',
+    amount: 9900,
+    interval: null,
+  },
+  horse_show_manager_full: {
+    priceId: IDS.horse_show_association.priceId,
+    name: 'Horse Show Manager — Association',
+    description: 'Association Compliant Patterns and Score Sheets — $149 per show',
+    amount: 14900,
+    interval: null,
   },
 
   // Pattern Upload Submission
   pattern_upload_submission: {
     priceId: 'price_PLACEHOLDER_pattern_upload', // TODO: Replace with real Stripe Price ID
-    productId: 'prod_PLACEHOLDER_pattern_upload', // TODO: Replace with real Stripe Product ID
     name: 'Pattern Upload — Submission Fee',
     description: 'One-time fee for submitting a custom pattern set',
     amount: 1999,

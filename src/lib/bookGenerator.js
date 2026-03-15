@@ -7,9 +7,12 @@ import { parseLocalDate } from '@/lib/utils';
 import patternDiagram from '@/assets/pattern-diagram-sample.png';
 import { drawGenericScoreSheetPage } from './genericScoreSheet';
 
-export const generatePatternBookPdf = async (pbbData) => {
+export const generatePatternBookPdf = async (pbbData, options = {}) => {
     console.log('Generating PDF for', pbbData);
-    
+
+    // Hub mode: skip cover page, TOC, and pattern list — only output patterns + scoresheets
+    const skipCoverAndToc = options.skipCoverAndToc || false;
+
     // Get selected layout (default to 'layout-a' if not specified)
     const selectedLayout = pbbData.layoutSelection || 'layout-a';
     console.log('Selected layout:', selectedLayout);
@@ -302,7 +305,9 @@ export const generatePatternBookPdf = async (pbbData) => {
 
 
     // --- Cover Page ---
-    if (selectedLayout === 'layout-b') {
+    if (skipCoverAndToc) {
+        // Hub mode: no cover page, no TOC, no pattern list — jump straight to patterns
+    } else if (selectedLayout === 'layout-b') {
         // LAYOUT B: Classic Design (Programmatic)
         
         // Background - Cream/Off-white
@@ -421,23 +426,24 @@ export const generatePatternBookPdf = async (pbbData) => {
 
 
     // --- Table of Contents ---
+    if (!skipCoverAndToc) {
     addNewPage();
-    
+
     if (selectedLayout === 'layout-b') {
         // LAYOUT B: Specific TOC Style
-        
+
         // Header
         doc.setFont('times', 'bold');
         doc.setFontSize(16);
         doc.setTextColor(0, 0, 0);
         doc.text('TABLE OF CONTENTS', margin, margin + 20);
-        
+
         // Underline header
         doc.setLineWidth(1);
         doc.line(margin, margin + 25, pageWidth - margin, margin + 25);
-        
+
         // Note: Actual TOC entries are filled at the end of the function
-        
+
     } else {
         // LAYOUT A: Default TOC Style
         // Header is added in the finalize step to include Show Name
@@ -533,6 +539,7 @@ export const generatePatternBookPdf = async (pbbData) => {
             yPos += 20; // Space between disciplines
         }
     }
+    } // end if (!skipCoverAndToc)
 
     // --- Pattern Pages ---
     let sequentialClassNumber = 10000;
@@ -973,7 +980,7 @@ export const generatePatternBookPdf = async (pbbData) => {
     }
     
     // --- Sponsor Page ---
-    if(sponsorLogosBase64.length > 0) {
+    if(!skipCoverAndToc && sponsorLogosBase64.length > 0) {
         addNewPage();
         doc.setTextColor(40, 40, 40);
         doc.setFont('helvetica', 'bold');
@@ -1004,12 +1011,27 @@ export const generatePatternBookPdf = async (pbbData) => {
     }
 
     // --- Finalize: Generate TOC with correct page numbers ---
+    if (skipCoverAndToc) {
+        // Hub mode: remove the blank first page (created by new jsPDF), then add simple headers/footers
+        const totalPages = doc.internal.getNumberOfPages();
+        if (totalPages > 1) {
+            doc.deletePage(1);
+        }
+        const finalPageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= finalPageCount; i++) {
+            doc.setPage(i);
+            addPageHeader(pbbData.showName || 'Pattern', null, showLogoHeaderBase64);
+            addPageFooter(i);
+        }
+        return doc.output('datauristring');
+    }
+
     // TOC starts on page 2, but may span multiple pages
     // We need to:
     // 1. First calculate how many pages TOC will need
     // 2. Adjust all page references accordingly
     // 3. Then render the TOC
-    
+
     const tocStartPage = 2;
     let tocPagesNeeded = 1; // Start with 1 page for TOC
     

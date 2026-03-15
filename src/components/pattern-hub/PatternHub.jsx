@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, UploadCloud, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, CheckCircle, CheckSquare, Square, FolderOpen } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, CheckCircle, CheckSquare, Square, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,6 @@ import { Step3_DivisionAndLevel } from './Step3_DivisionAndLevel';
 import { usePatternHub } from '@/hooks/usePatternHub';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
-import { Step4_Uploads } from '@/components/pbb/Step4_Uploads';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 
@@ -23,15 +22,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 
 // All possible steps — step 3 is conditionally shown for horse_show only
+// Step 5 (Uploads & Media) removed per client request
 const ALL_STEPS = [
   { id: 0, name: 'Usage Purpose', icon: Info },
   { id: 1, name: 'Event Setup', icon: GitMerge },
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
   { id: 3, name: 'Division & Level', icon: Layers, horseShowOnly: true },
   { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
-  { id: 5, name: 'Uploads & Media', icon: UploadCloud },
-  { id: 6, name: 'Preview Pattern', icon: Eye },
-  { id: 7, name: 'Generate', icon: Download },
+  { id: 5, name: 'Preview Pattern', icon: Eye },
+  { id: 6, name: 'Generate', icon: Download },
 ];
 
 const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurposes }) => {
@@ -445,7 +444,7 @@ export const PatternHub = ({ projectId }) => {
             const fileName = (formData.showName || 'Pattern').replace(/ /g, '_');
             toast({ title: 'Generating PDF...', description: 'Your pattern is being created.' });
 
-            const pdfDataUri = await generatePatternBookPdf(formData);
+            const pdfDataUri = await generatePatternBookPdf(formData, { skipCoverAndToc: true });
             const blob = dataUriToBlob(pdfDataUri);
 
             // Download the PDF
@@ -512,7 +511,7 @@ export const PatternHub = ({ projectId }) => {
                 );
             case 2:
                 return (
-                    <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} stepNumber={getDisplayStepNumber(2)} />
+                    <Step2_ClassesAndDivisions formData={formData} setFormData={setFormData} disciplineLibrary={disciplineLibrary} associationsData={associationsData} stepNumber={getDisplayStepNumber(2)} isHubMode={true} maxDisciplines={2} />
                 );
             case 3:
                 return (
@@ -530,13 +529,9 @@ export const PatternHub = ({ projectId }) => {
                 );
             case 5:
                 return (
-                    <Step4_Uploads formData={formData} setFormData={setFormData} isClinicMode={isClinic} isEducationMode={false} stepNumber={getDisplayStepNumber(5)} purposeName={usagePurposes.find(p => p.id === formData.usageType)?.name || 'Pattern'} />
+                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(5)} purposeName={isClinic ? 'Clinic Materials' : null} isHubMode={true} />
                 );
             case 6:
-                return (
-                    <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(6)} purposeName={isClinic ? 'Clinic Materials' : null} isHubMode={true} />
-                );
-            case 7:
                 return <GenerateStep isGenerated={isGenerated} formData={formData} setFormData={setFormData} onGenerate={handleGenerate} isGenerating={isGenerating} onGoToProjects={handleGoToProjects} onDownloadAgain={handleDownloadAgain} />;
             default:
                 return null;
@@ -575,10 +570,8 @@ export const PatternHub = ({ projectId }) => {
                 });
             }
             case 5:
-                return true; // Uploads optional
-            case 6:
                 return true; // Preview always completable
-            case 7:
+            case 6:
                 return true; // Generate step
             default:
                 return false;

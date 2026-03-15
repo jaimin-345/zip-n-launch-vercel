@@ -80,6 +80,18 @@ serve(async (req: Request): Promise<Response> => {
 
     let stripeCustomerId = profile?.stripe_customer_id;
 
+    // Verify existing customer is valid in current Stripe mode, create new if not
+    if (stripeCustomerId) {
+      const existing = await fetch(`https://api.stripe.com/v1/customers/${stripeCustomerId}`, {
+        headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+      }).then(r => r.json());
+
+      if (existing.error) {
+        console.log("Existing Stripe customer invalid, creating new one:", existing.error.message);
+        stripeCustomerId = null;
+      }
+    }
+
     if (!stripeCustomerId) {
       const customer = await stripePost("customers", {
         email: user.email || "",

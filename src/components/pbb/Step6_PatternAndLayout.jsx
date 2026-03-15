@@ -783,7 +783,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
         <CardDescription>
           Assign patterns to each group for your book.
         </CardDescription>
-        {formData.showName && (
+        {!isHubMode && formData.showName && (
           <div className="mt-4 pt-4 border-t">
             <h3 className="text-xl font-semibold">
               {formData.showName}
@@ -801,12 +801,21 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold border-b pb-2">Show Structure</h3>
                 <div className="space-y-3 text-sm">
-                  {formData.showName && (
+                  {(formData.showName || isHubMode) && (
                     <div className="flex items-start gap-2">
                       <Trophy className="w-4 h-4 mt-0.5 text-blue-600" />
-                      <div>
-                        <p className="font-semibold text-xs text-muted-foreground">Show Name</p>
-                        <p className="font-medium">{formData.showName}</p>
+                      <div className="flex-1">
+                        <p className="font-semibold text-xs text-muted-foreground">{isHubMode ? 'Pattern Name' : 'Show Name'}</p>
+                        {isHubMode ? (
+                          <Input
+                            value={formData.showName || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, showName: e.target.value }))}
+                            placeholder="Enter pattern name"
+                            className="h-8 mt-1"
+                          />
+                        ) : (
+                          <p className="font-medium">{formData.showName}</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -819,14 +828,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                       </div>
                     </div>
                   )}
-                  <div className="flex items-start gap-2">
-                    <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                    <div>
-                      <p className="font-semibold text-xs text-muted-foreground">Show Dates</p>
-                      <p className="text-muted-foreground">{dateRange}</p>
+                  {!isHubMode && (
+                    <div className="flex items-start gap-2">
+                      <CalendarIcon className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                      <div>
+                        <p className="font-semibold text-xs text-muted-foreground">Show Dates</p>
+                        <p className="text-muted-foreground">{dateRange}</p>
+                      </div>
                     </div>
-                  </div>
-                  {formData.venueAddress && (
+                  )}
+                  {!isHubMode && formData.venueAddress && (
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 mt-0.5 text-blue-600" />
                       <div>
@@ -903,14 +914,16 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   />
                   <Label htmlFor="filter-completed" className="text-sm cursor-pointer">Completed</Label>
                 </div>
+                {!isHubMode && (
                 <div className="flex items-center gap-2">
-                  <Checkbox 
+                  <Checkbox
                     id="filter-patterns-assigned"
                     checked={filters.patternsAssigned}
                     onCheckedChange={(checked) => setFilters(prev => ({ ...prev, patternsAssigned: checked }))}
                   />
                   <Label htmlFor="filter-patterns-assigned" className="text-sm cursor-pointer">Patterns Assigned</Label>
                 </div>
+                )}
                 <div className="flex items-center gap-2 ml-auto">
                   <Label className="text-sm">Sort by:</Label>
                   <Select value={sortBy} onValueChange={setSortBy}>

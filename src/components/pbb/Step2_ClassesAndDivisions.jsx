@@ -15,23 +15,25 @@ import { getAssociationLogo, getDefaultAssociationIcon } from '@/lib/association
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/lib/supabaseClient';
 
-const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName, vrhRanchCowWorkOptions, selectedVrhRanchCowWork, onVrhRanchCowWorkSelect }) => {
+const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, displayName, vrhRanchCowWorkOptions, selectedVrhRanchCowWork, onVrhRanchCowWorkSelect, maxReached = false }) => {
     const isSelected = selectedDisciplineKeys.has(getDisciplineKey(disc));
     const disciplineKey = getDisciplineKey(disc);
-    
+    const isDisabled = !isSelected && maxReached;
+
     // Check if this is VRH-RHC Ranch CowWork for AQHA
-    const showVrhRanchCowWorkDropdown = isSelected && 
-        (disc.name === 'VRH-RHC Ranch CowWork' || disc.name === 'Ranch Cow Work') && 
+    const showVrhRanchCowWorkDropdown = isSelected &&
+        (disc.name === 'VRH-RHC Ranch CowWork' || disc.name === 'Ranch Cow Work') &&
         disc.association_id === 'AQHA' &&
-        vrhRanchCowWorkOptions && 
+        vrhRanchCowWorkOptions &&
         vrhRanchCowWorkOptions.length > 0;
-    
+
     return (
         <div className="space-y-1">
             <div className="flex items-center space-x-2">
                 <Checkbox
                     id={`disc-${disc.id}`}
                     checked={isSelected}
+                    disabled={isDisabled}
                     onCheckedChange={(checked) => onDisciplineToggle(disc, checked)}
                 />
                 <Label htmlFor={`disc-${disc.id}`} className="font-normal cursor-pointer text-sm">
@@ -88,7 +90,7 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
     );
 };
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, maxReached = false }) => {
     // Define the custom 3-column layout based on association
     let leftColumn, middleColumn, rightColumn;
     
@@ -140,6 +142,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
                 vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
                 selectedVrhRanchCowWork={selectedVrhRanchCowWork}
                 onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect}
+                maxReached={maxReached}
             />
         );
     };
@@ -186,7 +189,7 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, associationId, showAddButton }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, associationId, showAddButton, maxReached = false }) => {
     const showEmptyWithButton = disciplines.length === 0 && showAddButton;
     if (disciplines.length === 0 && !showAddButton) return null;
 
@@ -225,6 +228,7 @@ const DisciplineCategory = ({ title, description, disciplines, selectedDisciplin
                                 vrhRanchCowWorkOptions={vrhRanchCowWorkOptions}
                                 selectedVrhRanchCowWork={selectedVrhRanchCowWork}
                                 onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect}
+                                maxReached={maxReached}
                             />
                         );
                     })}
@@ -282,7 +286,7 @@ const FourHCitySelector = ({ availableCities, selectedCity, onCityChange, associ
     );
 };
 
-const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, isOpenShowMode, onAddCustomDiscipline, selected4HCity }) => {
+const AssociationDisciplineGroup = ({ association, disciplines, selectedDisciplineKeys, onDisciplineToggle, subAssociationType, groupKey, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, isOpenShowMode, onAddCustomDiscipline, selected4HCity, maxReached = false }) => {
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
@@ -334,19 +338,19 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
             </AccordionTrigger>
             <AccordionContent className="p-3 space-y-3">
                 {/* Always show Custom Pattern section with Add button */}
-                {(association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ? 
-                    <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} /> :
-                    <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} associationId={association.id} showAddButton={true} />
+                {(association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ?
+                    <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} maxReached={maxReached} /> :
+                    <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} associationId={association.id} showAddButton={true} maxReached={maxReached} />
                 }
-                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
-                {categorized.pattern.length > 0 && <DisciplineCategory title="Pattern" disciplines={categorized.pattern} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
-                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} />}
+                {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} maxReached={maxReached} />}
+                {categorized.pattern.length > 0 && <DisciplineCategory title="Pattern" disciplines={categorized.pattern} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} maxReached={maxReached} />}
+                {categorized.scoresheet.length > 0 && <DisciplineCategory title="Scoresheet Only" disciplines={categorized.scoresheet} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} maxReached={maxReached} />}
             </AccordionContent>
         </AccordionItem>
     );
 };
 
-export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLibrary, associationsData, onRefreshDisciplines, stepNumber = 2 }) => {
+export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLibrary, associationsData, onRefreshDisciplines, stepNumber = 2, isHubMode = false, maxDisciplines = 0 }) => {
     const { toast } = useToast();
     const [customDisciplineName, setCustomDisciplineName] = React.useState('');
     const [isCustomDisciplineModalOpen, setIsCustomDisciplineModalOpen] = React.useState(false);
@@ -721,6 +725,12 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
     const handleDisciplineToggle = (disc, isChecked) => {
         if (isVrhMode) {
             toast({ title: "Disciplines for Versatility Ranch Horse shows are fixed.", variant: "default" });
+            return;
+        }
+
+        // Enforce max disciplines limit (hub mode)
+        if (isChecked && maxDisciplines > 0 && (formData.disciplines || []).length >= maxDisciplines) {
+            toast({ title: `Maximum ${maxDisciplines} disciplines allowed`, description: "Please deselect a discipline before adding another.", variant: "destructive" });
             return;
         }
         
@@ -1130,6 +1140,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     <div className="flex justify-between items-center mb-2 flex-wrap gap-3">
                         <h3 className="text-lg font-bold tracking-tight">Available Disciplines</h3>
                          <div className="flex items-center gap-2">
+                             {!isHubMode && (
                              <Button
                                 variant="outline"
                                 size="sm"
@@ -1138,6 +1149,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                 <ListPlus className="mr-1.5 h-4 w-4" />
                                 Bulk Add Classes
                              </Button>
+                             )}
                              <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
@@ -1193,6 +1205,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     isOpenShowMode={isOpenShowMode}
                                     onAddCustomDiscipline={handleOpenAddCustomModal}
                                     selected4HCity={group.selected4HCity}
+                                    maxReached={maxDisciplines > 0 && (formData.disciplines || []).length >= maxDisciplines}
                                 />
                             );
                         })}
