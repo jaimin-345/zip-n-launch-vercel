@@ -760,12 +760,12 @@ const AuthModal = () => {
                         <Checkbox id="legal-agreed" checked={legalAgreed} onCheckedChange={setLegalAgreed} className="mt-1" />
                         <Label htmlFor="legal-agreed" className="text-xs font-normal leading-tight text-muted-foreground">
                             I acknowledge and agree that by creating an account and purchasing a membership, I have read, understand, and agree to the: {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Membership Agreement</a>, {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Terms of Service</a>, {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Privacy Policy</a>, {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Licensing & Intellectual Property Policy</a>, {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Payment, Renewal & Refund Policy</a>, and {' '}
-                            <a href="#" target="_blank" className="text-primary hover:underline">Electronic Communications Consent</a>.
+                            <a href="/documents/governing/membership-agreement.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Membership Agreement</a>, {' '}
+                            <a href="/documents/governing/terms-of-service.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Terms of Service</a>, {' '}
+                            <a href="/documents/governing/privacy-policy.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a>, {' '}
+                            <a href="/documents/governing/licensing-ip-policy.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Licensing & Intellectual Property Policy</a>, {' '}
+                            <a href="/documents/governing/refund-policy.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Payment, Renewal & Refund Policy</a>, and {' '}
+                            <a href="/documents/governing/communications-sms-policy.docx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Electronic Communications Consent</a>.
                         </Label>
                     </div>
 

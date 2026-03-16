@@ -38,8 +38,8 @@ export const STRIPE_PRICES = {
   membership_standard: {
     priceId: IDS.standard.priceId,
     name: 'Standard Member',
-    description: '$99/year — Unlimited access to patterns and Horse Show tools',
-    amount: 9900,
+    description: '$99.99/year — Unlimited access to patterns and Horse Show tools',
+    amount: 9999,
     interval: 'year',
     tier: 'standard',
     limit: null,
@@ -48,14 +48,14 @@ export const STRIPE_PRICES = {
   // Pattern Books (one-time per show)
   pattern_book_basic: {
     priceId: IDS.pattern_book_basic.priceId,
-    name: 'Basic Pattern Book Builder',
+    name: 'Pattern Book — 4-H/Open',
     description: 'Essential pattern book creation tools — $39 per show',
     amount: 3900,
     interval: null,
   },
   pattern_book_full: {
     priceId: IDS.pattern_book_full.priceId,
-    name: 'Full Pattern Book Builder',
+    name: 'Pattern Book — Association Based',
     description: 'Complete pattern book with all features — $79 per show',
     amount: 7900,
     interval: null,
@@ -64,15 +64,15 @@ export const STRIPE_PRICES = {
   // Horse Show Manager (one-time per show)
   horse_show_manager_basic: {
     priceId: IDS.horse_show_basic.priceId,
-    name: 'Horse Show Manager — Basic',
-    description: '4-H / Open / Single Judge — $99 per show',
+    name: 'Horse Show Manager — 4-H/Open',
+    description: '4-H/Open / Single Judge — $99 per show',
     amount: 9900,
     interval: null,
   },
   horse_show_manager_full: {
     priceId: IDS.horse_show_association.priceId,
-    name: 'Horse Show Manager — Association',
-    description: 'Association Compliant Patterns and Score Sheets — $149 per show',
+    name: 'Horse Show Manager — Association Based',
+    description: 'Association Based Patterns and Score Sheets — $149 per show',
     amount: 14900,
     interval: null,
   },

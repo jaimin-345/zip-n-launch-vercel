@@ -5,7 +5,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Building2, Users, FileText, Send, FolderOpen, CheckCircle, Save, Loader2, RotateCcw, FileSignature } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -66,6 +66,8 @@ const initialFormData = {
     requireSignature: true,
     notifyOnComplete: true,
   },
+  // Email Activity Log
+  emailActivity: [],
   // Step 6: Close Out
   closeOutChecklist: [],
   closeOutNotes: '',
@@ -78,10 +80,13 @@ const initialFormData = {
 
 const ContractManagementPage = () => {
   const { projectId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
   const sanitizedProjectId = projectId && projectId !== 'undefined' ? projectId : null;
+  // showId query param: when navigating from ShowWorkspace, auto-link to this show
+  const showIdFromQuery = searchParams.get('showId');
 
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState(new Set());
@@ -93,6 +98,10 @@ const ContractManagementPage = () => {
   const skipReloadRef = useRef(false);
   const formDataRef = useRef(formData);
   const saveProjectRef = useRef(null);
+  const currentStepRef = useRef(currentStep);
+  const completedStepsRef = useRef(completedSteps);
+  const autoSaveTimerRef = useRef(null);
+  const hasPendingChangesRef = useRef(false);
 
   // Sync selectedAssociations (array) from associations (object) for Step 2 compatibility
   useEffect(() => {
@@ -105,13 +114,57 @@ const ContractManagementPage = () => {
     }
   }, [formData.associations]);
 
-  // Keep formData ref in sync for auto-save on unmount
+  // Keep refs in sync
   useEffect(() => { formDataRef.current = formData; }, [formData]);
+  useEffect(() => { currentStepRef.current = currentStep; }, [currentStep]);
+  useEffect(() => { completedStepsRef.current = completedSteps; }, [completedSteps]);
 
-  // Auto-save when user navigates away from the page
+  // Mark pending changes whenever formData changes (skip initial load)
+  const isInitialLoadRef = useRef(true);
+  useEffect(() => {
+    if (isInitialLoadRef.current) return;
+    hasPendingChangesRef.current = true;
+
+    // Debounced auto-save: save 3 seconds after last change
+    // Only auto-save if we already have a project ID (i.e., the project was explicitly saved before)
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      const latestData = formDataRef.current;
+      const hasProjectId = sanitizedProjectId || latestData.id;
+      if (saveProjectRef.current && hasPendingChangesRef.current && hasProjectId) {
+        saveProjectRef.current({ silent: true });
+        hasPendingChangesRef.current = false;
+      }
+    }, 3000);
+
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [formData]);
+
+  // Clear initial load flag once data is loaded
+  useEffect(() => {
+    if (!isLoading) isInitialLoadRef.current = false;
+  }, [isLoading]);
+
+  // Save on browser refresh / tab close — only if project already exists
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const latestData = formDataRef.current;
+      const hasProjectId = sanitizedProjectId || latestData.id;
+      if (saveProjectRef.current && hasPendingChangesRef.current && hasProjectId) {
+        saveProjectRef.current({ silent: true });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Auto-save when user navigates away (React unmount) — only if project already exists
   useEffect(() => {
     return () => {
-      if (saveProjectRef.current) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      const latestData = formDataRef.current;
+      const hasProjectId = sanitizedProjectId || latestData.id;
+      if (saveProjectRef.current && hasPendingChangesRef.current && hasProjectId) {
         saveProjectRef.current({ silent: true });
       }
     };
@@ -148,7 +201,7 @@ const ContractManagementPage = () => {
         setExistingProjects(projectsRes.data || []);
         setAssociationsData(associationsRes.data || []);
 
-        // Load existing project if projectId is present
+        // Load existing contract project if projectId is present
         if (sanitizedProjectId) {
           const { data: projectData, error: projectError } = await supabase
             .from('projects')
@@ -186,6 +239,30 @@ const ContractManagementPage = () => {
             setCurrentStep(saved.currentStep || 1);
             setCompletedSteps(new Set(saved.completedSteps || []));
           }
+        } else if (showIdFromQuery && projectsRes.data) {
+          // Navigated from ShowWorkspace with ?showId=xxx — find existing contract or auto-link
+          // First, check if a contract already exists for this show
+          const { data: existingContract } = await supabase
+            .from('projects')
+            .select('id')
+            .eq('project_type', 'contract')
+            .eq('user_id', user.id)
+            .filter('project_data->>linkedProjectId', 'eq', showIdFromQuery)
+            .limit(1)
+            .maybeSingle();
+
+          if (existingContract) {
+            // Contract already exists for this show — navigate to it
+            // Don't set skipReloadRef — the new URL needs to trigger a full data load
+            navigate(`/horse-show-manager/employee-management/contracts/${existingContract.id}`, { replace: true });
+            return;
+          }
+
+          // No existing contract — auto-link to the show
+          const showProject = projectsRes.data.find(p => p.id === showIdFromQuery);
+          if (showProject) {
+            setFormData(prev => applyLinkedProjectData(prev, showProject));
+          }
         }
       } catch (error) {
         toast({
@@ -199,27 +276,65 @@ const ContractManagementPage = () => {
     };
 
     fetchData();
-  }, [sanitizedProjectId, toast]);
+  }, [sanitizedProjectId, showIdFromQuery, toast]);
 
-  // Save project to Supabase
+  // Save project to Supabase — uses refs to always capture latest state
   const saveProject = useCallback(async ({ silent = false, stepOverride = null } = {}) => {
+    const latestFormData = formDataRef.current;
+    const latestStep = currentStepRef.current;
+    const latestCompleted = completedStepsRef.current;
+
     if (!user) {
       if (!silent) toast({ title: 'Authentication Error', description: 'You must be logged in to save.', variant: 'destructive' });
       return null;
     }
 
-    if (!formData.showName?.trim()) {
+    if (!latestFormData.showName?.trim()) {
       if (!silent) toast({ title: 'Project Name Required', description: 'Please enter a show/project name before saving.', variant: 'destructive' });
       return null;
     }
 
     setIsSaving(true);
     try {
-      const trimmedName = formData.showName.trim();
-      let currentProjectId = sanitizedProjectId || formData.id;
+      const trimmedName = latestFormData.showName.trim();
+      let currentProjectId = sanitizedProjectId || latestFormData.id;
 
-      // Check for duplicate project name (skip when linked to an existing project)
-      if (!formData.linkedProjectId) {
+      // If linked to a project, find existing contract for that project to avoid duplicates
+      if (!currentProjectId && latestFormData.linkedProjectId) {
+        const { data: linkedContract } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('project_type', 'contract')
+          .eq('user_id', user.id)
+          .filter('project_data->>linkedProjectId', 'eq', latestFormData.linkedProjectId)
+          .limit(1)
+          .maybeSingle();
+
+        if (linkedContract) {
+          currentProjectId = linkedContract.id;
+          setFormData(prev => ({ ...prev, id: currentProjectId }));
+        }
+      }
+
+      // Fallback: if still no ID, check for existing contract with same name
+      if (!currentProjectId && trimmedName) {
+        const { data: nameMatch } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('project_type', 'contract')
+          .eq('user_id', user.id)
+          .ilike('project_name', trimmedName)
+          .limit(1)
+          .maybeSingle();
+
+        if (nameMatch) {
+          currentProjectId = nameMatch.id;
+          setFormData(prev => ({ ...prev, id: currentProjectId }));
+        }
+      }
+
+      // Check for duplicate project name (when not linked to an existing project)
+      if (!currentProjectId && !latestFormData.linkedProjectId) {
         const { data: existing } = await supabase
           .from('projects')
           .select('id')
@@ -235,13 +350,13 @@ const ContractManagementPage = () => {
         }
       }
 
-      const stepToSave = stepOverride ?? currentStep;
-      const updatedCompleted = new Set(completedSteps);
-      updatedCompleted.add(currentStep);
+      const stepToSave = stepOverride ?? latestStep;
+      const updatedCompleted = new Set(latestCompleted);
+      updatedCompleted.add(latestStep);
       setCompletedSteps(updatedCompleted);
 
       const projectToSave = {
-        ...formData,
+        ...latestFormData,
         currentStep: stepToSave,
         completedSteps: Array.from(updatedCompleted),
       };
@@ -264,7 +379,7 @@ const ContractManagementPage = () => {
           if (!silent) toast({ title: 'Error saving project', description: error.message, variant: 'destructive' });
           return null;
         }
-        // Silent save — no popup during normal editing
+        hasPendingChangesRef.current = false;
         return currentProjectId;
       } else {
         const newId = uuidv4();
@@ -283,7 +398,7 @@ const ContractManagementPage = () => {
         setFormData(prev => ({ ...prev, id: newProjectId }));
         skipReloadRef.current = true;
         navigate(`/horse-show-manager/employee-management/contracts/${newProjectId}`, { replace: true });
-        // Silent save — no popup during normal editing
+        hasPendingChangesRef.current = false;
         return newProjectId;
       }
     } catch (error) {
@@ -292,14 +407,17 @@ const ContractManagementPage = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [formData, currentStep, completedSteps, sanitizedProjectId, toast, navigate, user]);
+  }, [sanitizedProjectId, toast, navigate, user]);
 
   // Keep saveProject ref in sync for auto-save on unmount
   useEffect(() => { saveProjectRef.current = saveProject; }, [saveProject]);
 
   // Manual save button
   const handleSaveProject = async () => {
-    await saveProject();
+    const result = await saveProject();
+    if (result) {
+      toast({ title: 'Project Saved', description: 'All changes have been saved successfully.' });
+    }
   };
 
   // Next with auto-save
@@ -384,7 +502,7 @@ const ContractManagementPage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navigation />
         <main className="container mx-auto px-4 py-4">
-          <PageHeader title="Contract Management" backTo={projectId ? `/horse-show-manager/show/${projectId}` : '/horse-show-manager'} />
+          <PageHeader title="Contract Management" backTo={showIdFromQuery ? `/horse-show-manager/show/${showIdFromQuery}` : projectId ? `/horse-show-manager/show/${projectId}` : '/horse-show-manager'} />
           <div className="max-w-7xl mx-auto">
             <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} isEditMode={!!sanitizedProjectId} />
             <Card className="glass-effect">

@@ -161,7 +161,8 @@ export const useShowBuilder = (showId) => {
     }
 
     // Validate: check for duplicate show names (only for new shows or name changes)
-    let currentShowId = showId || formData.id || formData.linkedProjectId;
+    // Never use linkedProjectId as save target — it's a read-only reference to another project
+    let currentShowId = showId || formData.id;
     const dupQuery = supabase
       .from('projects')
       .select('id', { count: 'exact', head: true })

@@ -9,9 +9,10 @@ import {
   Info, CalendarDays, FileText,
   DollarSign, LayoutGrid, Building2, Radio, Award,
   Plus, Loader2, FolderOpen, Hash, Calendar, ChevronRight,
-  Search, MapPin, Trash2,
+  Search, MapPin, Trash2, Shield, Crown, ArrowLeft,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabaseClient';
@@ -219,17 +220,13 @@ const HorseShowManagerPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   const handleCreateNew = () => {
     if (canCreate) {
       navigate('/horse-show-manager/create');
     } else {
-      toast({
-        title: 'Free Limit Reached',
-        description: `You've used all ${freeLimit} free shows. Upgrade to create more.`,
-        variant: 'destructive',
-      });
-      navigate('/pricing');
+      setShowLimitModal(true);
     }
   };
 
@@ -255,7 +252,7 @@ const HorseShowManagerPage = () => {
         .from('projects')
         .select('id, project_name, project_type, project_data, status, created_at')
         .eq('user_id', user.id)
-        .not('project_type', 'in', '("pattern_book","pattern_folder","pattern_hub","pattern_upload")')
+        .not('project_type', 'in', '("pattern_book","pattern_folder","pattern_hub","pattern_upload","contract")')
         .order('created_at', { ascending: false });
 
       if (!error && data) {
@@ -461,6 +458,48 @@ const HorseShowManagerPage = () => {
             </div>
           </div>
         </main>
+
+        {/* Free Limit Reached Modal */}
+        <Dialog open={showLimitModal} onOpenChange={setShowLimitModal}>
+          <DialogContent className="max-w-md">
+            <div className="py-6 text-center space-y-5">
+              <div className="mx-auto w-14 h-14 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                <Shield className="h-7 w-7 text-amber-600" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold">Free Limit Reached</h2>
+                <p className="text-sm text-muted-foreground">
+                  You've created <strong>{showCount}</strong> of your <strong>{freeLimit} free shows</strong>.
+                  To create additional shows, please upgrade to a membership plan.
+                </p>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-3 max-w-xs mx-auto">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Shows Created</span>
+                  <span className="font-semibold">{showCount} / {freeLimit}</span>
+                </div>
+                <div className="mt-2 w-full bg-muted rounded-full h-2">
+                  <div className="bg-amber-500 h-2 rounded-full" style={{ width: '100%' }} />
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+                <Button asChild className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                  <Link to="/pricing">
+                    <Crown className="mr-2 h-4 w-4" />
+                    View Membership Plans
+                  </Link>
+                </Button>
+                <Button variant="outline" onClick={() => setShowLimitModal(false)}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Go Back
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                You can still edit and manage your existing shows at any time.
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );

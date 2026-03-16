@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { Resend } from "https://esm.sh/resend@2.0.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,8 +29,8 @@ serve(async (req: Request) => {
       }
     );
 
-    const resend = new Resend(Deno.env.get('RESEND_API_KEY') ?? '');
-    
+    const postmarkApiToken = Deno.env.get('POSTMARK_API_TOKEN') ?? '';
+
     const { email, name, role }: CreateStaffUserRequest = await req.json();
 
     // Normalize email (trim and lowercase)
@@ -251,25 +250,40 @@ serve(async (req: Request) => {
       console.log('Customer record created successfully using profile id:', newUser.user.id);
     }
 
-    // Send welcome email with role-specific message
+    // Send welcome email with role-specific message via Postmark
     try {
-      await resend.emails.send({
-        from: 'EquiPatterns <onboarding@resend.dev>',
-        to: [email],
-        subject: `Welcome to EquiPatterns - You've Been Added as ${role}`,
-        html: `
-          <h1>Welcome to EquiPatterns, ${name}!</h1>
-          <p>You have been added to EquiPatterns as <strong>${role}</strong>.</p>
-          <p><strong>Your Login Credentials:</strong></p>
-          <ul>
-            <li>Email: ${email}</li>
-            <li>Temporary Password: <strong>12345</strong></li>
-          </ul>
-          <p>Please log in and change your password immediately for security reasons.</p>
-          <p>Best regards,<br>The EquiPatterns Team</p>
-        `,
+      const emailResponse = await fetch('https://api.postmarkapp.com/email', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-Postmark-Server-Token': postmarkApiToken,
+        },
+        body: JSON.stringify({
+          From: 'EquiPatterns <Info@equipatterns.com>',
+          To: email,
+          Subject: `Welcome to EquiPatterns - You've Been Added as ${role}`,
+          HtmlBody: `
+            <h1>Welcome to EquiPatterns, ${name}!</h1>
+            <p>You have been added to EquiPatterns as <strong>${role}</strong>.</p>
+            <p><strong>Your Login Credentials:</strong></p>
+            <ul>
+              <li>Email: ${email}</li>
+              <li>Temporary Password: <strong>12345</strong></li>
+            </ul>
+            <p>Please log in and change your password immediately for security reasons.</p>
+            <p>Best regards,<br>The EquiPatterns Team</p>
+          `,
+          MessageStream: 'outbound',
+        }),
       });
-      console.log('Welcome email sent to:', email);
+
+      if (emailResponse.ok) {
+        console.log('Welcome email sent to:', email);
+      } else {
+        const errorText = await emailResponse.text();
+        console.error('Postmark error sending welcome email:', errorText);
+      }
     } catch (emailError) {
       console.error('Error sending email:', emailError);
       // Don't fail the request if email fails

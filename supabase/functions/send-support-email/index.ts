@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+
+const POSTMARK_API_TOKEN = Deno.env.get("POSTMARK_API_TOKEN") as string;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,17 +22,13 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY_NEW");
-
-    if (!resendApiKey) {
-      console.error("RESEND_API_KEY_NEW not found");
+    if (!POSTMARK_API_TOKEN) {
+      console.error("POSTMARK_API_TOKEN not found");
       return new Response(
         JSON.stringify({ error: "Email service not configured" }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-
-    const resend = new Resend(resendApiKey);
 
     const { userName, userEmail, subject, message }: SupportEmailRequest = await req.json();
 
@@ -44,57 +41,76 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Sending support email:", { userName, userEmail, subject });
 
-    const emailResponse = await resend.emails.send({
-      from: "EquiPatterns <onboarding@resend.dev>",
-      to: [ADMIN_EMAIL],
-      replyTo: userEmail,
-      subject: `[Support] ${subject}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
-            .footer { background: #374151; color: #9ca3af; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; font-size: 12px; }
-            .info-row { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
-            .label { font-weight: bold; color: #6b7280; }
-            .message-box { background: white; border: 1px solid #e5e7eb; border-radius: 4px; padding: 16px; margin: 16px 0; white-space: pre-wrap; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>New Support Request</h1>
-            </div>
-            <div class="content">
-              <div class="info-row">
-                <span class="label">From:</span> ${userName} (${userEmail})
+    const response = await fetch("https://api.postmarkapp.com/email", {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Postmark-Server-Token": POSTMARK_API_TOKEN,
+      },
+      body: JSON.stringify({
+        From: "EquiPatterns <Info@equipatterns.com>",
+        To: ADMIN_EMAIL,
+        ReplyTo: userEmail,
+        Subject: `[Support] ${subject}`,
+        HtmlBody: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+              .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; }
+              .footer { background: #374151; color: #9ca3af; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; font-size: 12px; }
+              .info-row { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
+              .label { font-weight: bold; color: #6b7280; }
+              .message-box { background: white; border: 1px solid #e5e7eb; border-radius: 4px; padding: 16px; margin: 16px 0; white-space: pre-wrap; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>New Support Request</h1>
               </div>
-              <div class="info-row">
-                <span class="label">Subject:</span> ${subject}
+              <div class="content">
+                <div class="info-row">
+                  <span class="label">From:</span> ${userName} (${userEmail})
+                </div>
+                <div class="info-row">
+                  <span class="label">Subject:</span> ${subject}
+                </div>
+                <p><strong>Message:</strong></p>
+                <div class="message-box">${message.replace(/\n/g, '<br>')}</div>
+                <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
+                  You can reply directly to this email to respond to the user.
+                </p>
               </div>
-              <p><strong>Message:</strong></p>
-              <div class="message-box">${message.replace(/\n/g, '<br>')}</div>
-              <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">
-                You can reply directly to this email to respond to the user.
-              </p>
+              <div class="footer">
+                <p>EquiPatterns Support System</p>
+                <p>&copy; ${new Date().getFullYear()} EquiPatterns. All rights reserved.</p>
+              </div>
             </div>
-            <div class="footer">
-              <p>EquiPatterns Support System</p>
-              <p>&copy; ${new Date().getFullYear()} EquiPatterns. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+          </body>
+          </html>
+        `,
+        MessageStream: "outbound",
+      }),
     });
 
-    console.log("Support email sent successfully:", emailResponse);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Postmark error:", errorText);
+      return new Response(
+        JSON.stringify({ error: `Email delivery failed: ${response.status}` }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true, data: emailResponse }), {
+    const result = await response.json();
+    console.log("Support email sent successfully:", result.MessageID);
+
+    return new Response(JSON.stringify({ success: true, data: result }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });

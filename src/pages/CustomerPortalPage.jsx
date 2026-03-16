@@ -17,7 +17,6 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-    //test
 } from '@/components/ui/dropdown-menu';
 import {
     Select,
@@ -7829,7 +7828,7 @@ const CustomerPortalPage = () => {
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
     const showManagerProjects = projects.filter(p => {
         const mode = (p.mode || '').toString().trim();
-        return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && p.project_type !== 'pattern_hub' && mode.toLowerCase() !== 'archived';
+        return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && p.project_type !== 'pattern_hub' && p.project_type !== 'contract' && mode.toLowerCase() !== 'archived';
     });
     
     // Filter pattern books by status (case-insensitive comparison)

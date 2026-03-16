@@ -143,7 +143,7 @@ serve(async (req) => {
         'X-Postmark-Server-Token': POSTMARK_API_TOKEN,
       },
       body: JSON.stringify({
-        From: 'robert@dehnrealestate.com',
+        From: 'EquiPatterns <Info@equipatterns.com>',
         To: user.email,
         Subject: 'Welcome to EquiPatterns.com - Confirm Your Account',
         HtmlBody: html,

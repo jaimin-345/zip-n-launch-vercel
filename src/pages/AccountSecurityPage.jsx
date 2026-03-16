@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import { motion } from 'framer-motion';
-import { Shield, Key, User, Mail, Phone, Globe, Clock, Lock, Smartphone, AlertCircle, Check } from 'lucide-react';
+import { Shield, Key, User, Mail, Phone, Globe, Clock, Lock, Smartphone, AlertCircle, Check, FileText, Eye, Download } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -143,6 +143,18 @@ const AccountSecurityPage = () => {
     'Japan', 'China', 'Brazil', 'Mexico', 'India', 'Other'
   ];
 
+  const governingDocuments = [
+    { name: 'Membership Agreement', file: 'membership-agreement.docx' },
+    { name: 'Terms of Service', file: 'terms-of-service.docx' },
+    { name: 'Privacy Policy', file: 'privacy-policy.docx' },
+    { name: 'Payment, Renewal & Refund Policy', file: 'refund-policy.docx' },
+    { name: 'Licensing & Intellectual Property Policy', file: 'licensing-ip-policy.docx' },
+    { name: 'Electronic Communications Consent', file: 'communications-sms-policy.docx' },
+    { name: 'Creator Content Policy', file: 'creator-content-policy.docx' },
+    { name: 'Horse Show Management Agreement', file: 'horse-show-management-agreement.docx' },
+    { name: 'Pattern Licensing Agreement', file: 'pattern-licensing-agreement.docx' },
+  ];
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background">
@@ -177,7 +189,7 @@ const AccountSecurityPage = () => {
           </div>
 
           <Tabs defaultValue="2fa" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:w-[500px]">
+            <TabsList className="grid w-full grid-cols-4 lg:w-[650px]">
               <TabsTrigger value="2fa" className="flex items-center gap-2">
                 <Key className="h-4 w-4" />
                 <span className="hidden sm:inline">2-Step Verification</span>
@@ -192,6 +204,11 @@ const AccountSecurityPage = () => {
                 <Lock className="h-4 w-4" />
                 <span className="hidden sm:inline">Password & Recovery</span>
                 <span className="sm:hidden">Password</span>
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Documents</span>
+                <span className="sm:hidden">Docs</span>
               </TabsTrigger>
             </TabsList>
 
@@ -435,6 +452,54 @@ const AccountSecurityPage = () => {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+            {/* Documents Tab */}
+            <TabsContent value="documents">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Governing Documents
+                  </CardTitle>
+                  <CardDescription>
+                    View and download EquiPatterns governing policies and agreements
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {governingDocuments.map((doc) => (
+                      <div
+                        key={doc.file}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">{doc.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`/documents/governing/${doc.file}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </a>
+                          <a
+                            href={`/documents/governing/${doc.file}`}
+                            download
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border hover:bg-accent transition-colors"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </motion.div>

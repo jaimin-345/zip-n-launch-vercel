@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import {
   Users, CheckCircle, Send, FileText, Download, Printer, Clock,
   Mail, Settings, Info, FileSpreadsheet, FolderOpen, User, Shield,
-  Upload, Trash2, File,
+  Upload, Trash2, File, Loader2,
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { jsPDF } from 'jspdf';
@@ -24,6 +24,7 @@ import {
   resolvePlaceholders,
   formatDate,
 } from '@/lib/contractUtils';
+import { sendContractEmail } from '@/lib/contractEmailService';
 import * as XLSX from 'xlsx';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,6 +106,7 @@ const SIGNATURE_LABELS = {
 
 export const Step5_PreviewReview = ({ formData, setFormData }) => {
   const { toast } = useToast();
+  const [isBulkSending, setIsBulkSending] = useState(false);
   const personnel = useMemo(() => flattenPersonnel(formData), [formData.showDetails?.officials]);
   const employeeFolders = formData.employeeFolders || {};
   const contractSettings = formData.contractSettings || {};
@@ -225,29 +227,65 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
 
   // ── Bulk Actions ──
 
-  const handleSendAllUnsigned = () => {
+  const handleSendAllUnsigned = async () => {
+    const unsent = personnel.filter(m => {
+      const folder = employeeFolders[m.id];
+      return folder && folder.signatureStatus === 'not_sent' && m.email;
+    });
+
+    if (unsent.length === 0) {
+      toast({ title: 'No Contracts to Send', description: 'All contracts have already been sent or are missing email addresses.', variant: 'destructive' });
+      return;
+    }
+
+    setIsBulkSending(true);
+    const now = new Date().toISOString();
     let sentCount = 0;
-    setFormData(prev => {
-      const updated = { ...prev.employeeFolders };
-      for (const [memberId, folder] of Object.entries(updated)) {
-        if (folder.signatureStatus === 'not_sent') {
-          updated[memberId] = {
-            ...folder,
-            signatureStatus: 'sent',
-            signatureSentAt: new Date().toISOString(),
-          };
-          sentCount++;
-        }
+    let failedCount = 0;
+    const activityEntries = [];
+
+    for (const member of unsent) {
+      const result = await sendContractEmail({ member, formData });
+      if (result.success) {
+        sentCount++;
+        activityEntries.push({ memberId: member.id, memberName: member.name, email: member.email, timestamp: now, status: 'sent' });
+        setFormData(prev => ({
+          ...prev,
+          employeeFolders: {
+            ...prev.employeeFolders,
+            [member.id]: {
+              ...prev.employeeFolders[member.id],
+              signatureStatus: 'sent',
+              signatureSentAt: now,
+            },
+          },
+        }));
+      } else {
+        failedCount++;
+        activityEntries.push({ memberId: member.id, memberName: member.name, email: member.email, timestamp: now, status: 'failed', error: result.error });
       }
-      return { ...prev, employeeFolders: updated };
-    });
-    toast({
-      title: sentCount > 0 ? 'Contracts Sent' : 'No Contracts to Send',
-      description: sentCount > 0
-        ? `Sent ${sentCount} contract${sentCount !== 1 ? 's' : ''} for signature.`
-        : 'All contracts have already been sent.',
-      variant: sentCount > 0 ? 'default' : 'destructive',
-    });
+    }
+
+    // Log all activity
+    setFormData(prev => ({
+      ...prev,
+      emailActivity: [...(prev.emailActivity || []), ...activityEntries],
+    }));
+
+    setIsBulkSending(false);
+
+    if (failedCount > 0) {
+      toast({
+        title: 'Sending Complete',
+        description: `Sent ${sentCount}, failed ${failedCount}. Check email activity log for details.`,
+        variant: failedCount === unsent.length ? 'destructive' : 'default',
+      });
+    } else {
+      toast({
+        title: 'All Contracts Sent',
+        description: `Successfully sent ${sentCount} contract${sentCount !== 1 ? 's' : ''} for signature.`,
+      });
+    }
   };
 
   const handleDownloadAllZip = async () => {
@@ -877,9 +915,9 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
 
         {/* Bulk Actions */}
         <div className="flex flex-wrap gap-3">
-          <Button onClick={handleSendAllUnsigned}>
-            <Send className="h-4 w-4 mr-2" />
-            Send All Contracts
+          <Button onClick={handleSendAllUnsigned} disabled={isBulkSending}>
+            {isBulkSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            {isBulkSending ? 'Sending...' : 'Send All Contracts'}
           </Button>
           <Button variant="outline" onClick={handleDownloadAllZip}>
             <Download className="h-4 w-4 mr-2" />
@@ -898,6 +936,38 @@ export const Step5_PreviewReview = ({ formData, setFormData }) => {
             Export Staff to Excel
           </Button>
         </div>
+
+        {/* Email Activity Log */}
+        {(formData.emailActivity || []).length > 0 && (
+          <Card className="p-4 space-y-3">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Mail className="h-4 w-4 text-primary" />
+              Email Activity Log
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {[...(formData.emailActivity || [])].reverse().map((entry, idx) => (
+                <div key={idx} className="flex items-center justify-between text-sm p-2 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${entry.status === 'sent' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <div>
+                      <span className="font-medium">{entry.memberName || 'Unknown'}</span>
+                      <span className="text-muted-foreground ml-1">({entry.email})</span>
+                      {entry.error && <p className="text-xs text-red-500 mt-0.5">{entry.error}</p>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`text-xs font-medium ${entry.status === 'sent' ? 'text-green-600' : 'text-red-600'}`}>
+                      {entry.status === 'sent' ? 'Sent' : 'Failed'}
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(entry.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </CardContent>
     </motion.div>
   );

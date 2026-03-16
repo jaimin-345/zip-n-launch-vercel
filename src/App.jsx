@@ -92,6 +92,8 @@ import ManualPatternEntryPage from '@/pages/ManualPatternEntryPage';
 import AdminTrackingUserPage from '@/pages/AdminTrackingUserPage';
 import AdminPatternLevelManagementPage from '@/pages/AdminPatternLevelManagementPage';
 import AccountSecurityPage from '@/pages/AccountSecurityPage';
+import PolicyPage from '@/pages/PolicyPage';
+import SupportPage from '@/pages/SupportPage';
 import ScoresheetUploadPage from '@/pages/ScoresheetUploadPage';
 import PricingPage from '@/pages/PricingPage';
 import BillingHistoryPage from '@/pages/BillingHistoryPage';
@@ -142,6 +144,10 @@ function App() {
                   <Route path="/sponsorship" element={<SponsorshipPage />} />
                   <Route path="/advertisement" element={<SponsorshipPage />} />
                   <Route path="/pricing" element={<PricingPage />} />
+                  <Route path="/terms-of-service" element={<PolicyPage />} />
+                  <Route path="/privacy-policy" element={<PolicyPage />} />
+                  <Route path="/refund-policy" element={<PolicyPage />} />
+                  <Route path="/support" element={<SupportPage />} />
                   <Route path="/membership" element={<PricingPage />} />
                   <Route path="/database-schema" element={<DatabaseSchemaPage />} />
                   <Route path="/not-authorized" element={<NotAuthorizedPage />} />

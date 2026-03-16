@@ -64,6 +64,7 @@ export function mapOfficialsFromProject(pd) {
     }
   }
 
+  // Map judges from old PBB format (associationJudges)
   const pbbJudges = pd.associationJudges || {};
   for (const assocId of associationIds) {
     const judgeData = pbbJudges[assocId];
@@ -80,11 +81,64 @@ export function mapOfficialsFromProject(pd) {
     }
   }
 
+  // Map judges from new PBB format (showDetails.judges via OfficialsStaffSection)
+  const newJudges = pd.showDetails?.judges || {};
+  for (const assocId of associationIds) {
+    const judgeList = newJudges[assocId];
+    if (!judgeList?.length) continue;
+
+    // Skip if we already mapped judges for this association from the old format
+    if (result[assocId]?.['JUDGE']?.length > 0) continue;
+
+    if (!result[assocId]) result[assocId] = {};
+    if (!result[assocId]['JUDGE']) result[assocId]['JUDGE'] = [];
+
+    for (const judge of judgeList) {
+      if (!judge.name?.trim()) continue;
+      result[assocId]['JUDGE'].push(
+        createContractStaffMember(assocId, 'JUDGE', judge)
+      );
+    }
+  }
+
+  // Map staff from new PBB format (showDetails.officials via OfficialsStaffSection)
+  const newOfficials = pd.showDetails?.officials || {};
+  for (const assocId of associationIds) {
+    const assocRoles = newOfficials[assocId];
+    if (!assocRoles) continue;
+
+    if (!result[assocId]) result[assocId] = {};
+
+    for (const [roleId, members] of Object.entries(assocRoles)) {
+      // Skip judges — already handled above
+      if (roleId === 'JUDGE') continue;
+      // Skip if we already mapped this role from the old format
+      if (result[assocId][roleId]?.length > 0) continue;
+
+      for (const member of members) {
+        if (!member.name?.trim()) continue;
+        if (!result[assocId][roleId]) result[assocId][roleId] = [];
+        result[assocId][roleId].push(
+          createContractStaffMember(assocId, roleId, member)
+        );
+      }
+    }
+  }
+
   return result;
 }
 
 export function applyLinkedProjectData(prev, project) {
   const pd = project.project_data || {};
+  const mappedOfficials = mapOfficialsFromProject(pd);
+  // Preserve existing contract officials if they already have data;
+  // only use mapped officials if the contract has none yet.
+  const existingOfficials = prev.showDetails?.officials || {};
+  const hasExistingOfficials = Object.keys(existingOfficials).some(
+    assocId => Object.keys(existingOfficials[assocId] || {}).some(
+      roleId => (existingOfficials[assocId][roleId] || []).length > 0
+    )
+  );
   return {
     ...prev,
     linkedProjectId: project.id,
@@ -101,7 +155,7 @@ export function applyLinkedProjectData(prev, project) {
     },
     showDetails: {
       ...prev.showDetails,
-      officials: mapOfficialsFromProject(pd),
+      officials: hasExistingOfficials ? existingOfficials : mappedOfficials,
     },
   };
 }

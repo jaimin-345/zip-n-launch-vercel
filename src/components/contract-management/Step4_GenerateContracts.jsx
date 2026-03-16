@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { jsPDF } from 'jspdf';
+import { sendContractEmail } from '@/lib/contractEmailService';
 import {
   DEFAULT_CONTRACT_TEMPLATE,
   PlaceholderToolbar,
@@ -79,6 +80,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
   const [fullScreenMemberId, setFullScreenMemberId] = useState(null);
   const [fullScreenEditing, setFullScreenEditing] = useState(false);
   const [savingMemberId, setSavingMemberId] = useState(null);
+  const [sendingMemberId, setSendingMemberId] = useState(null);
   const deliverySettings = formData.deliverySettings || {};
 
   const personnel = useMemo(() => flattenPersonnel(formData), [formData.showDetails?.officials]);
@@ -154,7 +156,7 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
     });
   };
 
-  const handleSendForSignature = (memberId) => {
+  const handleSendForSignature = async (memberId) => {
     const folder = employeeFolders[memberId];
     if (!folder) return;
 
@@ -168,43 +170,79 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
       return;
     }
 
-    const includeW9 = (formData.deliverySettings?.includeW9Request ?? true);
+    setSendingMemberId(memberId);
+    const now = new Date().toISOString();
 
-    setFormData(prev => {
-      const existingFolder = prev.employeeFolders[memberId];
-      const updatedFolder = {
-        ...existingFolder,
-        signatureStatus: 'sent',
-        signatureSentAt: new Date().toISOString(),
-      };
+    try {
+      const result = await sendContractEmail({ member, formData });
 
-      // Auto-mark W-9 as requested if included in contract email
-      if (includeW9 && updatedFolder.documents?.w9_form?.status !== 'complete') {
-        updatedFolder.documents = {
-          ...updatedFolder.documents,
-          w9_form: {
-            ...updatedFolder.documents?.w9_form,
-            requestedAt: new Date().toISOString(),
-            sentWithContract: true,
-            destinationEmail: member.email,
-          },
-        };
+      if (!result.success) {
+        // Log failed attempt
+        setFormData(prev => ({
+          ...prev,
+          emailActivity: [
+            ...(prev.emailActivity || []),
+            { memberId, memberName: member.name, email: member.email, timestamp: now, status: 'failed', error: result.error },
+          ],
+        }));
+        toast({
+          title: 'Email Failed',
+          description: result.error || `Failed to send contract to ${member.email}.`,
+          variant: 'destructive',
+        });
+        return;
       }
 
-      return {
-        ...prev,
-        employeeFolders: {
-          ...prev.employeeFolders,
-          [memberId]: updatedFolder,
-        },
-      };
-    });
+      const includeW9 = (formData.deliverySettings?.includeW9Request ?? true);
 
-    const w9Note = includeW9 ? ' W-9 request included.' : '';
-    toast({
-      title: 'Contract Sent',
-      description: `Contract sent to ${member.name || 'employee'} (${member.email}).${w9Note}`,
-    });
+      setFormData(prev => {
+        const existingFolder = prev.employeeFolders[memberId];
+        const updatedFolder = {
+          ...existingFolder,
+          signatureStatus: 'sent',
+          signatureSentAt: now,
+        };
+
+        // Auto-mark W-9 as requested if included in contract email
+        if (includeW9 && updatedFolder.documents?.w9_form?.status !== 'complete') {
+          updatedFolder.documents = {
+            ...updatedFolder.documents,
+            w9_form: {
+              ...updatedFolder.documents?.w9_form,
+              requestedAt: now,
+              sentWithContract: true,
+              destinationEmail: member.email,
+            },
+          };
+        }
+
+        return {
+          ...prev,
+          employeeFolders: {
+            ...prev.employeeFolders,
+            [memberId]: updatedFolder,
+          },
+          emailActivity: [
+            ...(prev.emailActivity || []),
+            { memberId, memberName: member.name, email: member.email, timestamp: now, status: 'sent' },
+          ],
+        };
+      });
+
+      const w9Note = includeW9 ? ' W-9 request included.' : '';
+      toast({
+        title: 'Contract Sent',
+        description: `Contract sent to ${member.name || 'employee'} (${member.email}).${w9Note}`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Send Error',
+        description: err.message || 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingMemberId(null);
+    }
   };
 
   const handleMarkSigned = (memberId) => {
@@ -660,18 +698,18 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
                           <div className="flex flex-wrap gap-2">
                             {/* Send */}
                             {folder.signatureStatus === 'not_sent' && (
-                              <Button size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email}>
-                                <Send className="h-3.5 w-3.5 mr-1.5" />
-                                Send for Signature
+                              <Button size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email || sendingMemberId === member.id}>
+                                {sendingMemberId === member.id ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+                                {sendingMemberId === member.id ? 'Sending...' : 'Send for Signature'}
                               </Button>
                             )}
 
                             {/* Resend + Mark Signed */}
                             {(folder.signatureStatus === 'sent' || folder.signatureStatus === 'viewed') && (
                               <>
-                                <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email}>
-                                  <Send className="h-3.5 w-3.5 mr-1.5" />
-                                  Resend
+                                <Button variant="outline" size="sm" onClick={() => handleSendForSignature(member.id)} disabled={!member.email || sendingMemberId === member.id}>
+                                  {sendingMemberId === member.id ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+                                  {sendingMemberId === member.id ? 'Sending...' : 'Resend'}
                                 </Button>
                                 <Button size="sm" onClick={() => handleMarkSigned(member.id)}>
                                   <CheckCircle className="h-3.5 w-3.5 mr-1.5" />

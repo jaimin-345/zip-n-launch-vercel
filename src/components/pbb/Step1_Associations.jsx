@@ -25,8 +25,7 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
       const pd = project.project_data;
       setFormData((prev) => ({
         ...prev,
-        // Set the project id so save updates this project instead of creating new
-        id: projectId,
+        // Store reference to linked project (read-only — never use as save target)
         linkedProjectId: projectId,
         // Step 1: Associations & show info
         showName: pd.showName || prev.showName,
@@ -47,6 +46,7 @@ export const Step1_Associations = ({ isHub, selectedPurposeName, isReadOnly = fa
         venueAddress: pd.venueAddress || prev.venueAddress,
         officials: pd.officials || prev.officials,
         associationJudges: pd.associationJudges || prev.associationJudges,
+        showDetails: pd.showDetails || prev.showDetails,
         staff: pd.staff || prev.staff,
         schedule: pd.schedule || prev.schedule,
         // Step 5: Pattern selections

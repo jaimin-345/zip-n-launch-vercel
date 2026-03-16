@@ -166,13 +166,21 @@ const PatternBookBuilderPage = () => {
         });
     }, [currentStep, projectId]);
 
-    const handleNext = () => {
+    const handleNext = async () => {
         setCompletedSteps(prev => new Set([...prev, currentStep]));
+        // Auto-save on step navigation to prevent data loss
+        await createOrUpdateProject();
         if (currentStep < steps.length) {
             nextStep();
         }
     };
-    const handleBack = () => currentStep > 1 && prevStep();
+    const handleBack = async () => {
+        if (currentStep > 1) {
+            // Auto-save on step navigation to prevent data loss
+            await createOrUpdateProject();
+            prevStep();
+        }
+    };
 
     const handleSaveProject = async () => {
         setIsSaving(true);

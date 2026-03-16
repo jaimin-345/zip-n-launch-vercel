@@ -284,7 +284,7 @@ const ShowWorkspacePage = () => {
         { key: 'scheduleBuilder', icon: CalendarDays, title: 'Schedule Builder', description: 'Build and organize the show schedule with drag-and-drop.', to: `/horse-show-manager/schedule-builder/${showId}`, color: 'blue' },
         { key: 'showStructure', icon: DollarSign, title: 'Show Structure & Expenses', description: 'Manage show expenses, fee structures, and sponsors.', to: `/horse-show-manager/show-structure-expenses/${showId}`, color: 'blue' },
         { key: 'feeStructure', icon: DollarSign, title: 'Fee Structure & Sponsors', description: 'Configure entry fees, stall fees, and sponsor levels.', to: `/horse-show-manager/fee-structure/${showId}`, color: 'blue' },
-        { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts/${showId}`, color: 'blue' },
+        { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts?showId=${showId}`, color: 'blue' },
       ],
     },
     {

@@ -25,6 +25,11 @@ const initialFormData = {
   venueAddress: '',
   officials: [],
   associationJudges: {},
+  showDetails: {
+    officials: {},
+    judges: {},
+    judgeCount: {},
+  },
   staff: [],
   schedule: [],
   groupDueDates: {},
@@ -309,7 +314,7 @@ export const usePatternBookBuilder = (projectId) => {
 
     // Auto-generate show number if empty
     let finalFormData = { ...formData };
-    if (!finalFormData.showNumber || finalFormData.showNumber.trim() === '') {
+    if (!finalFormData.showNumber || String(finalFormData.showNumber).trim() === '') {
       const generatedShowNumber = await getNextShowNumber();
       finalFormData.showNumber = generatedShowNumber;
       // Update formData state so it's reflected in the UI
@@ -354,7 +359,8 @@ export const usePatternBookBuilder = (projectId) => {
       user_id: user.id,
     };
 
-    let currentProjectId = sanitizedProjectId || formData.id || formData.linkedProjectId;
+    // Never use linkedProjectId as save target — it's a read-only reference to another project
+    let currentProjectId = sanitizedProjectId || formData.id;
 
     // If no project ID yet, check if a project with this name already exists for this user
     // and reuse it instead of creating a duplicate
@@ -485,6 +491,7 @@ export const usePatternBookBuilder = (projectId) => {
             venueAddress: '',
             officials: [],
             associationJudges: {},
+            showDetails: { officials: {}, judges: {}, judgeCount: {} },
           };
         case 5:
           return {

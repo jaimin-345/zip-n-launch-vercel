@@ -35,9 +35,9 @@ const membershipTiers = [
   {
     key: 'membership_standard',
     name: 'Standard',
-    price: '$99',
+    price: '$99.99',
     period: '/year',
-    renewalNote: '$99/year',
+    renewalNote: '$99.99/year',
     badge: null,
     icon: Zap,
     highlighted: false,
@@ -56,7 +56,7 @@ const membershipTiers = [
 const aLaCarteProducts = [
   {
     key: 'pattern_book_basic',
-    name: 'Basic Pattern Book Builder',
+    name: 'Pattern Book — 4-H/Open',
     subtitle: 'Essential pattern book creation tools',
     price: '$39',
     period: '/per show',
@@ -64,7 +64,7 @@ const aLaCarteProducts = [
   },
   {
     key: 'pattern_book_full',
-    name: 'Full Pattern Book Builder',
+    name: 'Pattern Book — Association Based',
     subtitle: 'Complete pattern book with all features',
     price: '$79',
     period: '/per show',
@@ -72,16 +72,16 @@ const aLaCarteProducts = [
   },
   {
     key: 'horse_show_manager_basic',
-    name: 'Horse Show Manager',
-    subtitle: '4-H / Open / Single Judge',
+    name: 'Horse Show Manager — 4-H/Open',
+    subtitle: 'Single Judge',
     price: '$99',
     period: '/per show',
     icon: CalendarRange,
   },
   {
     key: 'horse_show_manager_full',
-    name: 'Horse Show Manager',
-    subtitle: 'Association Compliant Patterns and Score Sheets',
+    name: 'Horse Show Manager — Association Based',
+    subtitle: 'Association Based Patterns and Score Sheets',
     price: '$149',
     period: '/per show',
     icon: CalendarRange,
