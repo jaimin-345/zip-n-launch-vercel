@@ -157,6 +157,7 @@ const CreateShowPage = () => {
                                         key={currentStep}
                                         formData={formData}
                                         setFormData={setFormData}
+                                        stepNumber={currentStep}
                                         disciplineLibrary={disciplineLibrary}
                                         associationsData={associationsData}
                                         divisionsData={divisionsData}
