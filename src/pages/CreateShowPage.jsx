@@ -32,6 +32,10 @@ const CreateShowPage = () => {
         try {
             const project = await createOrUpdateShow();
             if (!project) return; // validation failed (name required, duplicate, etc.)
+            toast({
+                title: 'Progress Saved',
+                description: 'Your show has been saved successfully.',
+            });
             if (!showId || showId !== project.id) {
                 navigate(`/horse-show-manager/edit/${project.id}`, { replace: true });
             }

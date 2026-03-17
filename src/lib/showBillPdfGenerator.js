@@ -51,19 +51,50 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
   let y = margin;
 
   // --- Background helper ---
+  let bgImageData = null;
+
+  // Pre-load image background if needed
+  const bg = ls.background;
+  if (bg?.type === 'image' && bg.value) {
+    try {
+      const resp = await fetch(bg.value);
+      const blob = await resp.blob();
+      bgImageData = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn('Failed to load background image:', e);
+    }
+  }
+
+  const parseHex = (hex) => {
+    hex = hex.replace('#', '');
+    return [parseInt(hex.substring(0, 2), 16), parseInt(hex.substring(2, 4), 16), parseInt(hex.substring(4, 6), 16)];
+  };
+
   const drawBackground = () => {
-    const bg = ls.background;
     if (!bg || bg.type === 'none') return;
     if (bg.type === 'solid' && bg.value) {
-      // Parse hex color
-      const hex = bg.value.replace('#', '');
-      const r = parseInt(hex.substring(0, 2), 16);
-      const g = parseInt(hex.substring(2, 4), 16);
-      const b = parseInt(hex.substring(4, 6), 16);
+      const [r, g, b] = parseHex(bg.value);
       doc.setFillColor(r, g, b);
       doc.rect(0, 0, pageWidth, pageHeight, 'F');
+    } else if (bg.type === 'gradient' && bg.value) {
+      // Approximate gradient with the first color as solid fill
+      const match = bg.value.match(/#[0-9A-Fa-f]{6}/g);
+      if (match && match[0]) {
+        const [r, g, b] = parseHex(match[0]);
+        doc.setFillColor(r, g, b);
+        doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      }
+    } else if (bg.type === 'image' && bgImageData) {
+      try {
+        doc.addImage(bgImageData, 'JPEG', 0, 0, pageWidth, pageHeight);
+      } catch (e) {
+        console.warn('Failed to render background image in PDF:', e);
+      }
     }
-    // Gradient and image backgrounds are complex in jsPDF — solid color is the primary supported option
   };
 
   // Draw background on first page
@@ -185,26 +216,30 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
 
       // --- Arena Header ---
       if (ls.showArenaHeaders) {
-        checkPageBreak(40);
-
-        if (ls.arenaSeparatorStyle === 'bold-line') {
-          drawHorizontalRule(1.5);
-          y += 4;
-        } else if (ls.arenaSeparatorStyle === 'line') {
-          drawHorizontalRule(0.75);
-          y += 4;
-        }
+        checkPageBreak(30);
+        y += 4;
 
         doc.setFontSize(fonts.arena);
         doc.setFont(undefined, 'bold');
-        const judgeInfo = header.judges?.length > 0 ? ` \u2013 ${header.judges.length} Judges` : '';
-        doc.text(`${arena.name}${judgeInfo}`, pageWidth / 2, y, { align: 'center' });
-        y += 4;
+        const timeInfo = arena.startTime ? ` \u2013 ${arena.startTime}` : '';
+        const arenaLabel = `${arena.name}${timeInfo}`;
 
-        if (ls.arenaSeparatorStyle !== 'none') {
-          drawHorizontalRule(ls.arenaSeparatorStyle === 'bold-line' ? 1.5 : 0.75);
+        if (ls.arenaSeparatorStyle === 'bold-line') {
+          drawHorizontalRule(1.2);
+          y += 2;
+          doc.text(arenaLabel, pageWidth / 2, y, { align: 'center' });
+          y += fonts.arena + 2;
+          drawHorizontalRule(1.2);
+          y += lineH;
+        } else if (ls.arenaSeparatorStyle === 'line') {
+          doc.text(arenaLabel, pageWidth / 2, y, { align: 'center' });
+          y += 2;
+          drawHorizontalRule(0.5);
+          y += lineH;
+        } else {
+          doc.text(arenaLabel, pageWidth / 2, y, { align: 'center' });
+          y += fonts.arena + lineH;
         }
-        y += 8;
       }
 
       for (const item of arena.items || []) {
@@ -299,10 +334,10 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
         }
       }
 
-      y += 10;
+      y += 4;
     }
 
-    y += 6;
+    y += 4;
   }
 
   // ============================================================

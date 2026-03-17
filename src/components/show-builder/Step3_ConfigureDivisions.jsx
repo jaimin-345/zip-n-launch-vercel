@@ -10,7 +10,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus, AlertTriangle } from 'lucide-react';
+import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus, AlertTriangle, ChevronDown, ChevronRight, Lock, Unlock, Clock, Plus, Coffee, FileText, Megaphone, Grip } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import ClassPalette from '@/components/show-builder/show-bill/ClassPalette';
@@ -21,15 +22,17 @@ import {
     createShowBillItem,
     renumberShowBill,
     findItemLocation,
+    toLocalDateStr,
 } from '@/lib/showBillUtils';
 
 const MAX_UNDO = 50;
 
 // ─── Compact sortable class card inside an arena ────────────────
-const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, onUpdateTitle, onAddSecondGo, isSelected, onToggleSelection }) => {
+const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, onUpdateTitle, onAddSecondGo, isSelected, onToggleSelection, isLocked, onToggleLock }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: item.id,
         data: { origin: 'arena', item },
+        disabled: isLocked,
     });
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(item.title || '');
@@ -69,7 +72,8 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
             ref={setNodeRef}
             style={style}
             className={cn(
-                'group flex items-center gap-1.5 p-1.5 border-2 rounded bg-blue-50/80 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700 touch-none text-sm',
+                'group flex items-center gap-1.5 p-1.5 border-2 rounded touch-none text-sm',
+                isLocked ? 'bg-amber-50/80 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700' : 'bg-blue-50/80 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700',
                 isDragging && 'opacity-40',
                 isSelected && 'ring-2 ring-primary',
             )}
@@ -81,10 +85,15 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
                 onPointerDown={(e) => e.stopPropagation()}
                 className="h-3.5 w-3.5 shrink-0"
             />
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0">
-                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-            <span className="font-bold text-primary shrink-0 w-6 text-right">{item.number || '?'}.</span>
+            {isLocked ? (
+                <div className="shrink-0">
+                    <Lock className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+            ) : (
+                <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+            )}
             {isEditing ? (
                 <input
                     type="text"
@@ -123,6 +132,115 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
             )}
             <button
                 type="button"
+                className={cn(
+                    'h-5 w-5 shrink-0 transition-opacity rounded flex items-center justify-center',
+                    isLocked ? 'opacity-100 hover:bg-amber-100 dark:hover:bg-amber-900/30' : 'opacity-0 group-hover:opacity-100 hover:bg-muted',
+                )}
+                onClick={() => onToggleLock?.(item.id)}
+                title={isLocked ? 'Unlock class' : 'Lock class'}
+            >
+                {isLocked
+                    ? <Lock className="h-3 w-3 text-amber-500" />
+                    : <Unlock className="h-3 w-3 text-muted-foreground" />
+                }
+            </button>
+            <button
+                type="button"
+                className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-destructive/10 flex items-center justify-center"
+                onClick={() => onRemove(item.id)}
+            >
+                <X className="h-3 w-3 text-destructive" />
+            </button>
+        </div>
+    );
+};
+
+// ─── Non-class item (break, note, announcement, drag) inside an arena ───
+const NON_CLASS_ICONS = {
+    break: Coffee,
+    drag: Grip,
+    sectionHeader: FileText,
+    custom: Megaphone,
+};
+const NON_CLASS_LABELS = {
+    break: 'Break',
+    drag: 'Arena Drag',
+    sectionHeader: 'Note / Header',
+    custom: 'Announcement',
+};
+const NON_CLASS_COLORS = {
+    break: 'bg-orange-50 border-orange-300 dark:bg-orange-950/20 dark:border-orange-700',
+    drag: 'bg-gray-50 border-gray-300 dark:bg-gray-900/30 dark:border-gray-600',
+    sectionHeader: 'bg-violet-50 border-violet-300 dark:bg-violet-950/20 dark:border-violet-700',
+    custom: 'bg-emerald-50 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-700',
+};
+
+const SortableNonClassItem = ({ item, onRemove, onUpdateTitle }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: item.id,
+        data: { origin: 'arena', item },
+    });
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(item.title || '');
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    const Icon = NON_CLASS_ICONS[item.type] || FileText;
+    const colorClass = NON_CLASS_COLORS[item.type] || NON_CLASS_COLORS.custom;
+
+    const handleFinishEdit = () => {
+        setIsEditing(false);
+        const trimmed = editValue.trim();
+        if (trimmed && trimmed !== item.title) {
+            onUpdateTitle?.(item.id, trimmed);
+        }
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={cn(
+                'group flex items-center gap-1.5 p-1.5 border-2 border-dashed rounded touch-none text-sm',
+                colorClass,
+                isDragging && 'opacity-40',
+            )}
+        >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            {isEditing ? (
+                <input
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleFinishEdit}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleFinishEdit(); if (e.key === 'Escape') setIsEditing(false); }}
+                    autoFocus
+                    className="flex-grow font-medium bg-white dark:bg-background border border-primary/40 rounded px-1 py-0 text-sm outline-none focus:ring-1 focus:ring-primary"
+                    onPointerDown={(e) => e.stopPropagation()}
+                />
+            ) : (
+                <span
+                    className="flex-grow font-medium italic cursor-text hover:underline hover:decoration-dotted leading-snug break-words min-w-0"
+                    onDoubleClick={() => { setEditValue(item.title || ''); setIsEditing(true); }}
+                    title="Double-click to edit"
+                >
+                    {item.title || NON_CLASS_LABELS[item.type] || 'Item'}
+                    {item.type === 'break' && item.duration && (
+                        <span className="text-muted-foreground"> — {item.duration}</span>
+                    )}
+                </span>
+            )}
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                {NON_CLASS_LABELS[item.type] || item.type}
+            </Badge>
+            <button
+                type="button"
                 className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded hover:bg-destructive/10 flex items-center justify-center"
                 onClick={() => onRemove(item.id)}
             >
@@ -133,7 +251,7 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
 };
 
 // ─── Arena drop zone with close toggle ──────────────────────────
-const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemoveItem, onUpdateTitle, onAddSecondGo, isClosed, onToggleClosed, selectedArenaItemIds, onToggleArenaItemSelection }) => {
+const ArenaContainer = ({ arena, dayId, dayDate, allClassItems, associationsData, onRemoveItem, onUpdateTitle, onAddSecondGo, onUpdateArenaStartTime, onAddNonClassItem, isClosed, onToggleClosed, selectedArenaItemIds, onToggleArenaItemSelection, isCollapsed, onToggleCollapsed, lockedItemIds, onToggleLock }) => {
     const { setNodeRef, isOver } = useDroppable({
         id: `droppable-${dayId}-${arena.id}`,
         data: { dayId, arenaId: arena.id, origin: 'arena-zone' },
@@ -144,9 +262,69 @@ const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemov
             'border rounded-lg shadow-sm',
             isClosed ? 'bg-muted/50 opacity-60' : 'bg-white dark:bg-card'
         )}>
-            <div className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2">
+            <div
+                className="px-4 py-2 border-b bg-muted/30 flex items-center gap-2 cursor-pointer select-none"
+                onClick={() => !isClosed && onToggleCollapsed?.()}
+            >
+                {!isClosed && (
+                    isCollapsed
+                        ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                )}
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
                 <h4 className="font-bold text-base">{arena.name}</h4>
+                {dayDate && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 shrink-0">
+                        {new Date(dayDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </Badge>
+                )}
+                <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <select
+                        value={arena.startTime ? arena.startTime.split(':')[0] : ''}
+                        onChange={(e) => {
+                            const hr = e.target.value;
+                            const min = arena.startTime ? arena.startTime.split(':')[1]?.split(' ')[0] : '00';
+                            const ampm = arena.startTime?.includes('PM') ? 'PM' : 'AM';
+                            onUpdateArenaStartTime?.(arena.id, hr ? `${hr}:${min} ${ampm}` : '');
+                        }}
+                        className="text-xs font-medium border rounded px-1 py-0.5 bg-background focus:ring-1 focus:ring-primary outline-none appearance-none cursor-pointer"
+                        title="Hour"
+                    >
+                        <option value="">--</option>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
+                            <option key={h} value={String(h)}>{String(h)}</option>
+                        ))}
+                    </select>
+                    <span className="text-xs font-bold text-muted-foreground">:</span>
+                    <select
+                        value={arena.startTime ? arena.startTime.split(':')[1]?.split(' ')[0] : ''}
+                        onChange={(e) => {
+                            const hr = arena.startTime ? arena.startTime.split(':')[0] : '8';
+                            const ampm = arena.startTime?.includes('PM') ? 'PM' : 'AM';
+                            onUpdateArenaStartTime?.(arena.id, `${hr}:${e.target.value} ${ampm}`);
+                        }}
+                        className="text-xs font-medium border rounded px-1 py-0.5 bg-background focus:ring-1 focus:ring-primary outline-none appearance-none cursor-pointer"
+                        title="Minute"
+                    >
+                        {['00', '15', '30', '45'].map(m => (
+                            <option key={m} value={m}>{m}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={arena.startTime?.includes('PM') ? 'PM' : 'AM'}
+                        onChange={(e) => {
+                            const hr = arena.startTime ? arena.startTime.split(':')[0] : '8';
+                            const min = arena.startTime ? arena.startTime.split(':')[1]?.split(' ')[0] : '00';
+                            onUpdateArenaStartTime?.(arena.id, `${hr}:${min} ${e.target.value}`);
+                        }}
+                        className="text-xs font-medium border rounded px-1 py-0.5 bg-background focus:ring-1 focus:ring-primary outline-none appearance-none cursor-pointer"
+                        title="AM/PM"
+                    >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                    </select>
+                </div>
                 <Badge variant="outline" className="ml-auto text-xs">
                     {arena.items.length} class{arena.items.length !== 1 ? 'es' : ''}
                 </Badge>
@@ -156,45 +334,86 @@ const ArenaContainer = ({ arena, dayId, allClassItems, associationsData, onRemov
                 <Switch
                     checked={!isClosed}
                     onCheckedChange={onToggleClosed}
+                    onClick={(e) => e.stopPropagation()}
                     className="scale-75"
                 />
             </div>
 
             {!isClosed ? (
-                <div className="p-3">
-                    <SortableContext
-                        id={`${dayId}::${arena.id}`}
-                        items={arena.items.map(i => i.id)}
-                        strategy={verticalListSortingStrategy}
-                    >
-                        <div
-                            ref={setNodeRef}
-                            className={cn(
-                                'space-y-1 min-h-[60px] rounded-md transition-colors',
-                                isOver && 'bg-primary/5 ring-2 ring-primary/20',
-                                arena.items.length === 0 && 'border-2 border-dashed border-muted-foreground/20 flex items-center justify-center',
-                            )}
+                isCollapsed ? (
+                    <div ref={setNodeRef} className="px-4 py-2 text-xs text-muted-foreground italic">
+                        {arena.items.length} class{arena.items.length !== 1 ? 'es' : ''} — click header to expand
+                    </div>
+                ) : (
+                    <div className="p-3">
+                        <SortableContext
+                            id={`${dayId}::${arena.id}`}
+                            items={arena.items.map(i => i.id)}
+                            strategy={verticalListSortingStrategy}
                         >
-                            {arena.items.length === 0 ? (
-                                <p className="text-sm text-muted-foreground py-6">Drag classes here</p>
-                            ) : (
-                                arena.items.map(item => (
-                                    <SortableClassCard
-                                        key={item.id}
-                                        item={item}
-                                        allClassItems={allClassItems}
-                                        associationsData={associationsData}
-                                        onRemove={onRemoveItem}
-                                        onUpdateTitle={onUpdateTitle}
-                                        onAddSecondGo={onAddSecondGo}
-                                        isSelected={selectedArenaItemIds?.has(item.id)}
-                                        onToggleSelection={onToggleArenaItemSelection}
-                                    />
-                                ))
-                            )}
+                            <div
+                                ref={setNodeRef}
+                                className={cn(
+                                    'space-y-1 min-h-[60px] rounded-md transition-colors',
+                                    isOver && 'bg-primary/5 ring-2 ring-primary/20',
+                                    arena.items.length === 0 && 'border-2 border-dashed border-muted-foreground/20 flex items-center justify-center',
+                                )}
+                            >
+                                {arena.items.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground py-6">Drag classes here</p>
+                                ) : (
+                                    arena.items.map(item => (
+                                        item.type === 'classBox' ? (
+                                            <SortableClassCard
+                                                key={item.id}
+                                                item={item}
+                                                allClassItems={allClassItems}
+                                                associationsData={associationsData}
+                                                onRemove={onRemoveItem}
+                                                onUpdateTitle={onUpdateTitle}
+                                                onAddSecondGo={onAddSecondGo}
+                                                isSelected={selectedArenaItemIds?.has(item.id)}
+                                                onToggleSelection={onToggleArenaItemSelection}
+                                                isLocked={lockedItemIds?.has(item.id)}
+                                                onToggleLock={onToggleLock}
+                                            />
+                                        ) : (
+                                            <SortableNonClassItem
+                                                key={item.id}
+                                                item={item}
+                                                onRemove={onRemoveItem}
+                                                onUpdateTitle={onUpdateTitle}
+                                            />
+                                        )
+                                    ))
+                                )}
+                            </div>
+                        </SortableContext>
+                        <div className="mt-2 flex justify-center">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground gap-1">
+                                        <Plus className="h-3.5 w-3.5" /> Add Item
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="center">
+                                    <DropdownMenuItem onClick={() => onAddNonClassItem?.(arena.id, 'break')}>
+                                        <Coffee className="h-4 w-4 mr-2 text-orange-500" /> Break
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAddNonClassItem?.(arena.id, 'drag')}>
+                                        <Grip className="h-4 w-4 mr-2 text-gray-500" /> Arena Drag
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAddNonClassItem?.(arena.id, 'sectionHeader')}>
+                                        <FileText className="h-4 w-4 mr-2 text-violet-500" /> Note / Header
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => onAddNonClassItem?.(arena.id, 'custom')}>
+                                        <Megaphone className="h-4 w-4 mr-2 text-emerald-500" /> Announcement
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
-                    </SortableContext>
-                </div>
+                    </div>
+                )
             ) : (
                 <div className="p-3 text-center text-sm text-muted-foreground italic">
                     Arena closed for this day
@@ -235,6 +454,12 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
     const [selectedPaletteIds, setSelectedPaletteIds] = useState(new Set());
     const [selectedArenaItemIds, setSelectedArenaItemIds] = useState(new Set());
 
+    // Collapsed arenas (UI-only, keyed by "dayId::arenaId")
+    const [collapsedArenas, setCollapsedArenas] = useState({});
+
+    // Locked class items — cannot be dragged or reordered
+    const [lockedItemIds, setLockedItemIds] = useState(new Set());
+
     // Pending drop that requires date-mismatch confirmation
     const [pendingDrop, setPendingDrop] = useState(null);
 
@@ -242,7 +467,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
 
     const showBill = formData.showBill;
 
-    // Initialize showBill on first mount, or sync arenas from formData.arenas
+    // Initialize showBill on first mount, or sync days + arenas from formData
     useEffect(() => {
         setFormData(prev => {
             // No showBill yet — create one from scratch
@@ -250,42 +475,84 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                 return { ...prev, showBill: initializeShowBill(prev) };
             }
 
-            // ShowBill exists — sync arenas from formData.arenas into it
             const sourceArenas = (prev.arenas || []).filter(a => a.name.trim() !== '');
-            if (sourceArenas.length === 0) return prev;
-
             const sourceIds = new Set(sourceArenas.map(a => a.id));
             let changed = false;
 
-            const updatedDays = prev.showBill.days.map(day => {
-                const existingIds = new Set(day.arenas.map(a => a.id));
-
-                // Add missing arenas that are active on this day's date
-                const newArenas = sourceArenas
-                    .filter(a => !existingIds.has(a.id))
-                    .filter(a => !a.dates || a.dates.length === 0 || a.dates.includes(day.date))
-                    .map(a => ({ id: a.id, name: a.name, items: [] }));
-
-                // Remove arenas that were deleted from formData.arenas
-                const keptArenas = day.arenas.filter(a => sourceIds.has(a.id));
-
-                // Update arena names
-                const renamedArenas = keptArenas.map(a => {
-                    const source = sourceArenas.find(s => s.id === a.id);
-                    return source && source.name !== a.name ? { ...a, name: source.name } : a;
-                });
-
-                if (newArenas.length > 0 || keptArenas.length !== day.arenas.length || renamedArenas.some((a, i) => a !== keptArenas[i])) {
-                    changed = true;
-                    return { ...day, arenas: [...renamedArenas, ...newArenas] };
+            // ── Sync days from date range ──
+            const expectedDates = [];
+            if (prev.startDate) {
+                let current = new Date(prev.startDate + 'T00:00:00');
+                const end = prev.endDate ? new Date(prev.endDate + 'T00:00:00') : current;
+                while (current <= end) {
+                    expectedDates.push(toLocalDateStr(current));
+                    current.setDate(current.getDate() + 1);
                 }
-                return day;
-            });
+            }
+
+            const existingDateMap = {};
+            for (const day of prev.showBill.days) {
+                existingDateMap[day.date] = day;
+            }
+
+            let syncedDays;
+            const existingDates = new Set(prev.showBill.days.map(d => d.date));
+            const expectedSet = new Set(expectedDates);
+
+            const hasNewDates = expectedDates.some(d => !existingDates.has(d));
+            const hasRemovedDates = prev.showBill.days.some(d => !expectedSet.has(d.date));
+
+            if (hasNewDates || hasRemovedDates) {
+                changed = true;
+                syncedDays = expectedDates.map(dateStr => {
+                    if (existingDateMap[dateStr]) {
+                        return existingDateMap[dateStr];
+                    }
+                    // New day — create with arenas
+                    const d = new Date(dateStr + 'T00:00:00');
+                    return {
+                        id: `day-${crypto.randomUUID ? crypto.randomUUID() : dateStr}`,
+                        date: dateStr,
+                        label: d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+                        arenas: sourceArenas
+                            .filter(a => !a.dates || a.dates.length === 0 || a.dates.includes(dateStr))
+                            .map(a => ({ id: a.id, name: a.name, items: [] })),
+                    };
+                });
+            } else {
+                syncedDays = prev.showBill.days;
+            }
+
+            // ── Sync arenas within each day ──
+            if (sourceArenas.length > 0) {
+                const updatedDays = syncedDays.map(day => {
+                    const existingArenaIds = new Set(day.arenas.map(a => a.id));
+
+                    const newArenas = sourceArenas
+                        .filter(a => !existingArenaIds.has(a.id))
+                        .filter(a => !a.dates || a.dates.length === 0 || a.dates.includes(day.date))
+                        .map(a => ({ id: a.id, name: a.name, items: [] }));
+
+                    const keptArenas = day.arenas.filter(a => sourceIds.has(a.id));
+
+                    const renamedArenas = keptArenas.map(a => {
+                        const source = sourceArenas.find(s => s.id === a.id);
+                        return source && source.name !== a.name ? { ...a, name: source.name } : a;
+                    });
+
+                    if (newArenas.length > 0 || keptArenas.length !== day.arenas.length || renamedArenas.some((a, i) => a !== keptArenas[i])) {
+                        changed = true;
+                        return { ...day, arenas: [...renamedArenas, ...newArenas] };
+                    }
+                    return day;
+                });
+                syncedDays = updatedDays;
+            }
 
             if (!changed) return prev;
-            return { ...prev, showBill: { ...prev.showBill, days: updatedDays } };
+            return { ...prev, showBill: { ...prev.showBill, days: syncedDays } };
         });
-    }, [formData.showBill, formData.arenas, setFormData]);
+    }, [formData.showBill, formData.arenas, formData.startDate, formData.endDate, setFormData]);
 
     // Set default active day
     useEffect(() => {
@@ -338,6 +605,15 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                 return next;
             });
         }
+    }, []);
+
+    const toggleItemLock = useCallback((itemId) => {
+        setLockedItemIds(prev => {
+            const next = new Set(prev);
+            if (next.has(itemId)) next.delete(itemId);
+            else next.add(itemId);
+            return next;
+        });
     }, []);
 
     const toggleArenaItemSelection = useCallback((itemId) => {
@@ -405,6 +681,16 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         setShowBill(renumberShowBill(sb));
     }, [showBill, setShowBill]);
 
+    // Update an arena's start time
+    const handleUpdateArenaStartTime = useCallback((arenaId, time) => {
+        if (!activeDayId) return;
+        const sb = JSON.parse(JSON.stringify(showBill));
+        const day = sb.days.find(d => d.id === activeDayId);
+        const arena = day?.arenas.find(a => a.id === arenaId);
+        if (arena) arena.startTime = time;
+        setShowBill(sb);
+    }, [showBill, activeDayId, setShowBill]);
+
     // Update an item's title
     const handleUpdateItemTitle = useCallback((itemId, newTitle) => {
         const loc = findItemLocation(showBill, itemId);
@@ -442,6 +728,18 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         arena.items.splice(loc.index + 1, 0, secondGoItem);
         setShowBill(renumberShowBill(sb));
     }, [showBill, setShowBill]);
+
+    // Add a non-class item (break, note, etc.) to an arena
+    const handleAddNonClassItem = useCallback((arenaId, itemType) => {
+        if (!activeDayId) return;
+        const sb = JSON.parse(JSON.stringify(showBill));
+        const day = sb.days.find(d => d.id === activeDayId);
+        const arena = day?.arenas.find(a => a.id === arenaId);
+        if (!arena) return;
+        const newItem = createShowBillItem(itemType);
+        arena.items.push(newItem);
+        setShowBill(renumberShowBill(sb));
+    }, [showBill, activeDayId, setShowBill]);
 
     // ─── Execute a validated drop action ─────────────────────────
     const executeDrop = useCallback((action) => {
@@ -748,6 +1046,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                     onToggleSelection={togglePaletteSelection}
                                     onBulkToggle={bulkTogglePaletteSelection}
                                     formData={formData}
+                                    activeDayDate={activeDay?.date}
                                 />
                             </div>
                         </div>
@@ -759,21 +1058,29 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                     <div className="space-y-4">
                                         {activeDay.arenas.length > 0 ? (
                                             activeDay.arenas.map(arena => {
-                                                const isClosed = !!(showBill.closedArenas || {})[`${activeDay.id}::${arena.id}`];
+                                                const arenaKey = `${activeDay.id}::${arena.id}`;
+                                                const isClosed = !!(showBill.closedArenas || {})[arenaKey];
                                                 return (
                                                     <ArenaContainer
                                                         key={arena.id}
                                                         arena={arena}
                                                         dayId={activeDay.id}
+                                                        dayDate={activeDay.date}
                                                         allClassItems={allClassItems}
                                                         associationsData={associationsData}
                                                         onRemoveItem={handleRemoveItem}
                                                         onUpdateTitle={handleUpdateItemTitle}
                                                         onAddSecondGo={handleAddSecondGo}
+                                                        onUpdateArenaStartTime={handleUpdateArenaStartTime}
+                                                        onAddNonClassItem={handleAddNonClassItem}
                                                         isClosed={isClosed}
                                                         onToggleClosed={() => handleToggleArenaClosed(activeDay.id, arena.id)}
                                                         selectedArenaItemIds={selectedArenaItemIds}
                                                         onToggleArenaItemSelection={toggleArenaItemSelection}
+                                                        isCollapsed={!!collapsedArenas[arenaKey]}
+                                                        onToggleCollapsed={() => setCollapsedArenas(prev => ({ ...prev, [arenaKey]: !prev[arenaKey] }))}
+                                                        lockedItemIds={lockedItemIds}
+                                                        onToggleLock={toggleItemLock}
                                                     />
                                                 );
                                             })

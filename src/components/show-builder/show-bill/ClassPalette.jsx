@@ -119,13 +119,22 @@ function groupByDiscipline(classes) {
   return Object.entries(groups);
 }
 
-const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection, onBulkToggle, formData }) => {
+const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection, onBulkToggle, formData, activeDayDate }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Filter by active day: only show classes assigned to this day, or unassigned classes
+  const dayFilteredClasses = useMemo(() => {
+    if (!activeDayDate) return unplacedClasses;
+    return unplacedClasses.filter(cls => {
+      const date = getClassDate(cls, formData);
+      return !date || date === activeDayDate;
+    });
+  }, [unplacedClasses, activeDayDate, formData]);
+
   const filteredClasses = useMemo(() => {
-    if (!searchTerm) return unplacedClasses;
-    return unplacedClasses.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [unplacedClasses, searchTerm]);
+    if (!searchTerm) return dayFilteredClasses;
+    return dayFilteredClasses.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  }, [dayFilteredClasses, searchTerm]);
 
   // Group by assigned date
   const groupedByDate = useMemo(() => {
@@ -203,13 +212,15 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, select
       </div>
 
       <Label className="text-sm font-medium text-muted-foreground mb-2">
-        Unplaced Classes ({unplacedClasses.length})
+        Unplaced Classes ({dayFilteredClasses.length})
       </Label>
 
       <ScrollArea className="flex-grow border rounded-lg p-2 bg-muted/30">
         {isEmpty && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            {unplacedClasses.length === 0 ? 'All classes placed!' : 'No matches found'}
+            {dayFilteredClasses.length === 0
+              ? (unplacedClasses.length === 0 ? 'All classes placed!' : 'No classes for this day')
+              : 'No matches found'}
           </p>
         )}
 

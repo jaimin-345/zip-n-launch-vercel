@@ -19,15 +19,19 @@ import { useToast } from '@/components/ui/use-toast';
 
 /* ── Status helpers ── */
 
-const getModuleStatus = (key, pd) => {
+const getModuleStatus = (key, pd, extra = {}) => {
   switch (key) {
     case 'editWizard': {
+      // Check if all wizard steps were completed (steps 1-8)
+      const wizardSteps = pd.completedSteps || [];
+      const allWizardDone = [1, 2, 3, 4, 5, 6, 7, 8].every(s => wizardSteps.includes(s));
+      if (allWizardDone) return 'completed';
       const hasAssoc = (pd.associations || []).length > 0 || (pd.customAssociations || []).length > 0;
       const hasDisc = (pd.disciplines || []).length > 0;
       const hasDetails = !!(pd.showName && pd.startDate);
       const hasArenas = (pd.arenas || []).length > 0;
       if (hasAssoc && hasDisc && hasDetails && hasArenas) return 'completed';
-      if (hasAssoc || hasDisc || hasDetails) return 'in-progress';
+      if (hasAssoc || hasDisc || hasDetails || wizardSteps.length > 0) return 'in-progress';
       return 'not-started';
     }
     case 'scheduleBuilder': {
@@ -53,11 +57,15 @@ const getModuleStatus = (key, pd) => {
       return 'not-started';
     }
     case 'contracts': {
-      const hasOfficials = (pd.officials || []).length > 0;
-      const hasStaff = (pd.staff || []).length > 0;
-      if (hasOfficials && hasStaff) return 'completed';
-      if (hasOfficials || hasStaff) return 'in-progress';
-      return 'not-started';
+      const contracts = extra.linkedContracts || [];
+      if (contracts.length === 0) return 'not-started';
+      // Check if any contract has all 6 steps completed
+      const allDone = contracts.some(c => {
+        const completed = c.project_data?.completedSteps || [];
+        return completed.length >= 6;
+      });
+      if (allDone) return 'completed';
+      return 'in-progress';
     }
     case 'budgeting': {
       const hasFees = (pd.fees || []).length > 0;
@@ -226,20 +234,31 @@ const ShowWorkspacePage = () => {
   const { user } = useAuth();
   const [show, setShow] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [linkedContracts, setLinkedContracts] = useState([]);
 
   useEffect(() => {
     const fetchShow = async () => {
       if (!user || !showId) { setIsLoading(false); return; }
-      const { data, error } = await supabase
-        .from('projects')
-        .select('id, project_name, project_data, status, created_at')
-        .eq('id', showId)
-        .eq('user_id', user.id)
-        .single();
 
-      if (!error && data) {
-        setShow(data);
+      const [showRes, contractsRes] = await Promise.all([
+        supabase
+          .from('projects')
+          .select('id, project_name, project_data, status, created_at')
+          .eq('id', showId)
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('projects')
+          .select('id, project_data, status')
+          .eq('user_id', user.id)
+          .eq('project_type', 'contract')
+          .filter('project_data->>linkedProjectId', 'eq', showId),
+      ]);
+
+      if (!showRes.error && showRes.data) {
+        setShow(showRes.data);
       }
+      setLinkedContracts(contractsRes.data || []);
       setIsLoading(false);
     };
     fetchShow();
@@ -306,11 +325,12 @@ const ShowWorkspacePage = () => {
   ];
 
   // Compute status for each module
+  const extra = { linkedContracts };
   const modulesWithStatus = modules.map(section => ({
     ...section,
     items: section.items.map(item => ({
       ...item,
-      status: getModuleStatus(item.key, pd),
+      status: getModuleStatus(item.key, pd, extra),
     })),
   }));
 

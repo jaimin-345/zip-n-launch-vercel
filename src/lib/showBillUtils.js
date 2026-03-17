@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 // Format a Date as yyyy-MM-dd in local time (avoids UTC timezone shifts from toISOString)
-function toLocalDateStr(date) {
+export function toLocalDateStr(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');

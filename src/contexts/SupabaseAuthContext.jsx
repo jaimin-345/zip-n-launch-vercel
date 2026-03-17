@@ -127,6 +127,19 @@ export const AuthProvider = ({ children }) => {
         description: error.message || "Something went wrong",
       });
     } else if (data.user) {
+        // Create profile row with default 'Customer' role
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: `${firstName} ${lastName}`.trim(),
+            role: 'Customer',
+          }, { onConflict: 'id' });
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+
         if (!data.session) {
             toast({
                 title: "Registration successful!",

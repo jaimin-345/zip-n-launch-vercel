@@ -301,10 +301,19 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
   const columnCount = settings.columns || 1;
   const isLandscape = settings.pageOrientation === 'landscape';
 
+  const bgStyle = useMemo(() => {
+    const bg = settings.background;
+    if (!bg || bg.type === 'none') return {};
+    if (bg.type === 'solid') return { backgroundColor: bg.value };
+    if (bg.type === 'gradient') return { background: bg.value };
+    if (bg.type === 'image') return { backgroundImage: `url(${bg.value})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    return {};
+  }, [settings.background]);
+
   return (
     <div
-      className={`bg-white text-black rounded-lg mx-auto px-10 py-8 min-h-[600px] print:shadow-none ${isLandscape ? 'max-w-[900px]' : 'max-w-[680px]'}`}
-      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)' }}
+      className={`text-black rounded-lg mx-auto px-10 py-8 min-h-[600px] print:shadow-none ${isLandscape ? 'max-w-[900px]' : 'max-w-[680px]'}`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)', backgroundColor: '#ffffff', ...bgStyle }}
     >
       {/* Header */}
       {settings.showHeader && (
@@ -356,25 +365,29 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
               if ((numberedBill.closedArenas || {})[`${day.id}::${arena.id}`]) return null;
               return (
                 <div key={arena.id} className={arenaIndex > 0 ? 'mt-3' : ''}>
-                  {settings.showArenaHeaders && (
-                    <>
-                      {settings.arenaSeparatorStyle === 'bold-line' && (
-                        <div className="mb-2">
-                          <hr className="border-gray-800 border-t-2" />
-                          <p className={`font-bold ${fontSize} text-center mt-0.5`}>{arena.name}</p>
-                        </div>
-                      )}
-                      {settings.arenaSeparatorStyle === 'line' && (
-                        <div className="mb-2">
-                          <hr className="border-gray-400" />
-                          <p className={`font-bold ${fontSize} text-center mt-0.5`}>{arena.name}</p>
-                        </div>
-                      )}
-                      {settings.arenaSeparatorStyle === 'none' && (
-                        <p className={`font-bold ${fontSize} text-center mb-1`}>{arena.name}</p>
-                      )}
-                    </>
-                  )}
+                  {settings.showArenaHeaders && (() => {
+                    const arenaLabel = `${arena.name}${arena.startTime ? ` \u2013 ${arena.startTime}` : ''}`;
+                    return (
+                      <>
+                        {settings.arenaSeparatorStyle === 'bold-line' && (
+                          <div className="mb-1.5 mt-1">
+                            <hr className="border-gray-800 border-t-2" />
+                            <p className={`font-bold ${fontSize} text-center mt-0.5`}>{arenaLabel}</p>
+                            <hr className="border-gray-800 border-t-2 mt-0.5" />
+                          </div>
+                        )}
+                        {settings.arenaSeparatorStyle === 'line' && (
+                          <div className="mb-1.5 mt-1">
+                            <p className={`font-bold ${fontSize} text-center`}>{arenaLabel}</p>
+                            <hr className="border-gray-400 mt-0.5" />
+                          </div>
+                        )}
+                        {settings.arenaSeparatorStyle === 'none' && (
+                          <p className={`font-bold ${fontSize} text-center mb-1 mt-1`}>{arenaLabel}</p>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   <div className={SPACING_MAP[settings.lineSpacing] || SPACING_MAP.normal}>
                     {arena.items?.map(item => {

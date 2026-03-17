@@ -229,6 +229,8 @@ const ScheduleBuilderPage = () => {
                                         showNumber: pd.showNumber || prev.showNumber,
                                         associations: pd.associations || prev.associations,
                                         customAssociations: pd.customAssociations || prev.customAssociations,
+                                        primaryAffiliates: pd.primaryAffiliates || prev.primaryAffiliates,
+                                        subAssociationSelections: pd.subAssociationSelections || prev.subAssociationSelections,
                                         disciplines: pd.disciplines || prev.disciplines,
                                         startDate: pd.startDate || prev.startDate,
                                         endDate: pd.endDate || prev.endDate,
@@ -244,7 +246,7 @@ const ScheduleBuilderPage = () => {
                             onDuplicated={(newProject) => {
                                 navigate(`/horse-show-manager/schedule-builder/${newProject.id}`, { replace: true });
                             }}
-                            description="Link to an existing show to auto-fill details, or duplicate a previous show."
+                            description="Link to an existing show or pattern book to auto-fill details, or duplicate a previous show."
                         />
                     )}
 
