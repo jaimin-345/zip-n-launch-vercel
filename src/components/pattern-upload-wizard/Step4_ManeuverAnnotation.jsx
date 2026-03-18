@@ -8,9 +8,14 @@ import { Loader2, Wand2, Maximize, Info, Check, ChevronDown, ChevronUp, Pencil, 
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
+import { pdfjs } from 'react-pdf';
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import ManeuverList from './ManeuverList';
 import FreehandAnnotationCanvas from './FreehandAnnotationCanvas';
 import FocusMode from './FocusMode';
+
+// Ensure pdfjs worker is configured (needed for PDF rendering + text extraction)
+pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 // Reconstruct a File from a data URL (for saved projects where .file is stripped)
 const dataUrlToFile = (dataUrl, fileName = 'pattern.pdf') => {
@@ -84,16 +89,13 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots })
         if (!pattern?.dataUrl) continue;
 
         try {
-          const pdfjs = await import('react-pdf');
-          const pdfjsLib = pdfjs.pdfjs;
-
           const binaryStr = atob(pattern.dataUrl.split(',')[1]);
           const bytes = new Uint8Array(binaryStr.length);
           for (let i = 0; i < binaryStr.length; i++) {
             bytes[i] = binaryStr.charCodeAt(i);
           }
 
-          const loadingTask = pdfjsLib.getDocument({ data: bytes });
+          const loadingTask = pdfjs.getDocument({ data: bytes });
           const pdf = await loadingTask.promise;
           const page = await pdf.getPage(1);
           const viewport = page.getViewport({ scale: 2 });

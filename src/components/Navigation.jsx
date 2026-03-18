@@ -26,9 +26,11 @@ const Navigation = () => {
     const { branding } = useSiteBranding();
     const logoSrc = branding?.logo_url || logoImage;
 
+    const isStaffPortal = location.pathname === '/staff-portal';
+
     const navItems = [
         { name: 'Home', path: '/', show: 'always' },
-        { name: 'Choose A Pattern', path: '/pattern-hub', show: 'always' },
+        { name: 'Choose A Pattern', path: '/pattern-hub', show: 'always', hideOnStaffPortal: true },
         { name: 'Pattern Book Builder', path: '/pattern-book-builder', show: 'always' },
         { name: 'Horse Show Manager', path: '/horse-show-manager', show: 'always' },
         { name: 'Events', path: '/events', show: 'always' },
@@ -39,6 +41,7 @@ const Navigation = () => {
 
     const getVisibleNavItems = () => {
         return navItems.filter(item => {
+            if (isStaffPortal && item.hideOnStaffPortal) return false;
             if (item.show === 'always') return true;
             if (item.show === 'loggedIn' && user) return true;
             if (item.show === 'admin' && isAdmin) return true;

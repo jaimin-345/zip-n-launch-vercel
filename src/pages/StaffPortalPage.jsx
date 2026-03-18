@@ -37,81 +37,119 @@ const StaffPortalPage = () => {
     const [selectedProject, setSelectedProject] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
-    // Fetch Pattern Book Projects - Show ALL user's projects (like Customer Portal)
+    // Check if user email appears in a project's staff/officials/judges
+    const isUserAssignedToProject = (project, userEmail) => {
+        if (!userEmail) return false;
+        const email = userEmail.toLowerCase();
+        const pd = project.project_data || {};
+
+        // Check top-level officials array (flat format)
+        const officials = pd.officials || [];
+        if (officials.some(o => o.email?.toLowerCase() === email)) return true;
+
+        // Check showDetails.officials (nested: assocId → roleId → [{email}])
+        const sdOfficials = pd.showDetails?.officials || {};
+        for (const rolesMap of Object.values(sdOfficials)) {
+            if (typeof rolesMap !== 'object' || rolesMap === null) continue;
+            for (const members of Object.values(rolesMap)) {
+                if (Array.isArray(members) && members.some(m => m.email?.toLowerCase() === email)) return true;
+            }
+        }
+
+        // Check showDetails.judges (nested: assocId → [{email}])
+        const sdJudges = pd.showDetails?.judges || {};
+        for (const judges of Object.values(sdJudges)) {
+            if (Array.isArray(judges) && judges.some(j => j.email?.toLowerCase() === email)) return true;
+        }
+
+        // Check top-level associationJudges
+        const assocJudges = pd.associationJudges || {};
+        for (const assocData of Object.values(assocJudges)) {
+            const judges = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
+            if (Array.isArray(judges) && judges.some(j =>
+                (typeof j === 'string' ? j : j?.email || '')?.toLowerCase() === email
+            )) return true;
+        }
+
+        // Check staff array
+        const staffArr = pd.staff || [];
+        if (staffArr.some(s => s.email?.toLowerCase() === email)) return true;
+
+        // Check delegatedTasks recipients
+        const delegatedTasks = pd.delegatedTasks || [];
+        if (delegatedTasks.some(t => t.email?.toLowerCase() === email)) return true;
+
+        return false;
+    };
+
+    // Fetch assigned projects via judge_notifications (same approach as Judges Portal)
     useEffect(() => {
-        const fetchPatternBooks = async () => {
-            if (!user?.id) return;
-            
+        const fetchAssignedProjects = async () => {
+            if (!user?.email) return;
+
             setIsLoadingPatternBooks(true);
+            setIsLoadingHorseShows(true);
             try {
-                // Fetch all pattern book projects owned by the user (same as Customer Portal)
-                const { data, error } = await supabase
+                // Step 1: Get all notifications for this user's email (judges + staff assignments)
+                const { data: notifications, error: notifError } = await supabase
+                    .from('judge_notifications')
+                    .select('project_id, project_name')
+                    .eq('judge_email', user.email.toLowerCase());
+
+                if (notifError) {
+                    // Table might not exist yet
+                    if (notifError.code === 'PGRST205' || notifError.code === '42P01') {
+                        setPatternBookProjects([]);
+                        setHorseShowProjects([]);
+                        return;
+                    }
+                    throw notifError;
+                }
+
+                const projectIds = [...new Set(notifications?.map(n => n.project_id) || [])];
+
+                if (projectIds.length === 0) {
+                    setPatternBookProjects([]);
+                    setHorseShowProjects([]);
+                    return;
+                }
+
+                // Step 2: Fetch full project data for assigned projects
+                const { data: projects, error: projError } = await supabase
                     .from('projects')
                     .select('*')
-                    .eq('project_type', 'pattern_book')
-                    .eq('user_id', user.id)
+                    .in('id', projectIds)
                     .order('updated_at', { ascending: false });
-                
-                if (error) throw error;
-                
-                setPatternBookProjects(data || []);
+
+                if (projError) throw projError;
+
+                const allProjects = projects || [];
+
+                // Split by type
+                const patternBooks = allProjects.filter(p => p.project_type === 'pattern_book');
+                const horseShows = allProjects.filter(p =>
+                    p.project_type !== 'pattern_book' &&
+                    p.project_type !== 'pattern_folder' &&
+                    p.status?.toLowerCase() !== 'in progress'
+                );
+
+                setPatternBookProjects(patternBooks);
+                setHorseShowProjects(horseShows);
             } catch (error) {
-                console.error('Error fetching pattern books:', error);
+                console.error('Error fetching assigned projects:', error);
                 toast({
                     title: 'Error',
-                    description: 'Failed to load pattern books.',
+                    description: 'Failed to load assigned projects.',
                     variant: 'destructive',
                 });
             } finally {
                 setIsLoadingPatternBooks(false);
-            }
-        };
-        
-        if (activeTab === 'pattern-books') {
-            fetchPatternBooks();
-        }
-    }, [activeTab, user?.id, toast]);
-    
-    // Fetch Horse Show Projects - Show user's projects that aren't pattern books (like Customer Portal)
-    useEffect(() => {
-        const fetchHorseShows = async () => {
-            if (!user?.id) return;
-            
-            setIsLoadingHorseShows(true);
-            try {
-                // Fetch all projects owned by the user
-                const { data, error } = await supabase
-                    .from('projects')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('updated_at', { ascending: false });
-                
-                if (error) throw error;
-                
-                // Filter: exclude pattern_book, pattern_folder, and "In progress" status projects
-                const horseShows = (data || []).filter(p => 
-                    p.project_type !== 'pattern_book' && 
-                    p.project_type !== 'pattern_folder' &&
-                    p.status?.toLowerCase() !== 'in progress'
-                );
-                
-                setHorseShowProjects(horseShows);
-            } catch (error) {
-                console.error('Error fetching horse shows:', error);
-                toast({
-                    title: 'Error',
-                    description: 'Failed to load horse shows.',
-                    variant: 'destructive',
-                });
-            } finally {
                 setIsLoadingHorseShows(false);
             }
         };
-        
-        if (activeTab === 'horse-shows') {
-            fetchHorseShows();
-        }
-    }, [activeTab, user?.id, toast]);
+
+        fetchAssignedProjects();
+    }, [user?.email, toast]);
     
     // Handle View Project
     const handleViewProject = (project) => {
@@ -649,6 +687,7 @@ const StaffPortalPage = () => {
                         setSelectedProject(null);
                     }}
                     project={selectedProject}
+                    isFromJudgesPortal={true}
                 />
             )}
         </>

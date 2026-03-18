@@ -34,7 +34,7 @@ const DEFAULT_LAYOUT = {
 };
 
 // --- Layout Controls Panel ---
-const LayoutControls = ({ settings, onChange, onExportPdf, onReset }) => {
+const LayoutControls = ({ settings, onChange, onExportPdf, onReset, exportDisabled = false }) => {
   const update = (key, value) => onChange({ ...settings, [key]: value });
 
   return (
@@ -220,9 +220,14 @@ const LayoutControls = ({ settings, onChange, onExportPdf, onReset }) => {
       </ScrollArea>
 
       <div className="mt-4 space-y-2 pt-3 border-t">
-        <Button onClick={onExportPdf} size="lg" className="w-full text-sm font-semibold">
+        <Button onClick={onExportPdf} size="lg" className="w-full text-sm font-semibold" disabled={exportDisabled}>
           <Download className="mr-2 h-5 w-5" /> Export Print-Ready PDF
         </Button>
+        {exportDisabled && (
+          <p className="text-xs text-muted-foreground text-center">
+            Approve & Lock your show in Save & Manage to enable export.
+          </p>
+        )}
         <Button variant="outline" onClick={onReset} className="w-full">
           <RotateCcw className="mr-2 h-4 w-4" /> Reset to Defaults
         </Button>
@@ -555,6 +560,7 @@ export const Step5_Schedule = ({ formData, setFormData, associationsData, stepNu
               onChange={handleChange}
               onExportPdf={handleExportPdf}
               onReset={handleReset}
+              exportDisabled={formData.showStatus !== 'locked' && formData.showStatus !== 'published'}
             />
           </div>
 

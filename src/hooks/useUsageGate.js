@@ -25,11 +25,14 @@ export function useUsageGate(projectType = 'show') {
     }
 
     try {
+      // Only count projects that have been Approved & Locked or Finalized
+      // Draft and In-progress projects do NOT consume credits
       const { count: total, error } = await supabase
         .from('projects')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id)
-        .eq('project_type', projectType);
+        .eq('project_type', projectType)
+        .in('status', ['Locked', 'Final', 'Lock & Approve Mode', 'Publication']);
 
       if (error) throw error;
       setCount(total || 0);

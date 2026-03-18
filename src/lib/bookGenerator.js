@@ -615,7 +615,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             
             // Add to TOC with sequential numbering
             sequentialClassNumber++;
-            const className = `${discipline.name} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
+            const tocLabel = group.customLabel ? ` (${group.customLabel})` : '';
+            const className = `${discipline.name}${tocLabel} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
             toc.push({
                 title: className,
                 page: doc.internal.getNumberOfPages() - 1,
@@ -648,6 +649,15 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.text(disciplineLines, margin, yPos);
             
             yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
+
+            // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
+            const customLabel = group.customLabel;
+            if (customLabel) {
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'italic');
+                doc.text(customLabel, margin, yPos);
+                yPos += 14;
+            }
 
             // Pattern name line (e.g., "Pattern 6 - L1")
             const patternDisplayName = getPatternDisplayName(patternSelection);
@@ -824,6 +834,15 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 doc.text(disciplineLines, margin, yPos);
                 
                 yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
+
+                // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
+                const customLabelB = group.customLabel;
+                if (customLabelB) {
+                    doc.setFontSize(11);
+                    doc.setFont('times', 'italic');
+                    doc.text(customLabelB, margin, yPos);
+                    yPos += 14;
+                }
 
                 // Pattern name line (e.g., "Pattern 6 - L1")
                 const patternDisplayNameB = getPatternDisplayName(patternSelection);

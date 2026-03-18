@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Undo, Redo, Save, FileText, X } from 'lucide-react';
 
-const ShowBillToolbar = ({ showName, startDate, endDate, undoStack, redoStack, onUndo, onRedo, onSave, onGeneratePdf, selectedCount, onClearSelection }) => {
+const ShowBillToolbar = ({ showName, startDate, endDate, undoStack, redoStack, onUndo, onRedo, onSave, onGeneratePdf, selectedCount, onClearSelection, exportDisabled = false }) => {
   return (
     <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-sm -mx-6 px-6 py-3 border-b mb-4">
       <div className="flex justify-between items-center">
@@ -31,7 +31,7 @@ const ShowBillToolbar = ({ showName, startDate, endDate, undoStack, redoStack, o
           <Button variant="outline" size="sm" onClick={onRedo} disabled={redoStack.length === 0}>
             <Redo className="h-4 w-4 mr-2" />Redo
           </Button>
-          <Button variant="outline" size="sm" onClick={onGeneratePdf}>
+          <Button variant="outline" size="sm" onClick={onGeneratePdf} disabled={exportDisabled} title={exportDisabled ? 'Approve & Lock your show to enable export' : ''}>
             <FileText className="h-4 w-4 mr-2" />Generate PDF
           </Button>
           <Button size="sm" onClick={onSave}>

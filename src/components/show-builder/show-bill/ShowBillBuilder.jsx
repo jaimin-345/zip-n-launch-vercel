@@ -436,6 +436,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
         onGeneratePdf={handleGeneratePdf}
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
+        exportDisabled={formData.showStatus !== 'locked' && formData.showStatus !== 'published'}
       />
 
       <ShowBillHeader header={showBill.header} onUpdateHeader={handleUpdateHeader} />

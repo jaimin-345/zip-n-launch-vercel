@@ -306,6 +306,148 @@ export const usePatternBookBuilder = (projectId) => {
     }
   }, []);
 
+  // Create staff notifications for all staff added via OfficialsStaffSection
+  const createStaffNotifications = async (projectId, projectName, projectData) => {
+    try {
+      // Collect all emails to notify
+      const toNotify = []; // [{email, name, type}]
+
+      // From showDetails.officials: assocId → roleId → [{name, email, ...}]
+      const sdOfficials = projectData.showDetails?.officials || {};
+      for (const rolesMap of Object.values(sdOfficials)) {
+        if (typeof rolesMap !== 'object' || rolesMap === null) continue;
+        for (const members of Object.values(rolesMap)) {
+          if (!Array.isArray(members)) continue;
+          for (const member of members) {
+            if (!member?.email || !member.email.includes('@')) continue;
+            const email = member.email.trim().toLowerCase();
+            if (!toNotify.some(n => n.email === email)) {
+              toNotify.push({ email, name: member.name || null, type: 'staff_assignment' });
+            }
+          }
+        }
+      }
+
+      // From showDetails.judges: assocId → [{name, email}]
+      const sdJudges = projectData.showDetails?.judges || {};
+      for (const judges of Object.values(sdJudges)) {
+        if (!Array.isArray(judges)) continue;
+        for (const judge of judges) {
+          if (!judge?.email || !judge.email.includes('@')) continue;
+          const email = judge.email.trim().toLowerCase();
+          if (!toNotify.some(n => n.email === email)) {
+            toNotify.push({ email, name: judge.name || null, type: 'assignment' });
+          }
+        }
+      }
+
+      if (toNotify.length === 0) return;
+
+      // Check which notifications already exist for this project
+      const { data: existing } = await supabase
+        .from('judge_notifications')
+        .select('judge_email')
+        .eq('project_id', projectId)
+        .in('judge_email', toNotify.map(n => n.email));
+
+      const existingEmails = new Set((existing || []).map(e => e.judge_email));
+
+      // Only insert for new staff/judges
+      for (const person of toNotify) {
+        if (existingEmails.has(person.email)) continue;
+
+        const { error: insertError } = await supabase
+          .from('judge_notifications')
+          .insert({
+            judge_email: person.email,
+            judge_name: person.name,
+            project_id: projectId,
+            project_name: projectName,
+            notification_type: person.type,
+            message: person.type === 'staff_assignment'
+              ? `You have been assigned as staff to ${projectName}.`
+              : `You have been assigned to ${projectName}.`,
+            is_read: false,
+            created_by: user?.id || null,
+          });
+
+        if (insertError) {
+          console.log('Staff notification insert result:', person.email, insertError?.message || 'OK');
+        } else {
+          console.log('Staff notification created for:', person.email);
+        }
+      }
+
+      console.log('Staff notifications processed:', toNotify.map(n => n.email));
+    } catch (error) {
+      console.error('Error creating staff notifications:', error);
+    }
+  };
+
+  // Create judge notifications for all judges added to the project (Step 4 onwards)
+  const createJudgeNotifications = async (projectId, projectName, projectData) => {
+    try {
+      const associationJudges = projectData.associationJudges || {};
+      const judgesFound = [];
+
+      // Collect all judge emails
+      for (const [assocId, assocData] of Object.entries(associationJudges)) {
+        const judges = assocData?.judges || [];
+        for (const judge of judges) {
+          if (!judge?.email || !judge.email.includes('@')) continue;
+          const judgeEmail = judge.email.trim().toLowerCase();
+          if (!judgesFound.includes(judgeEmail)) {
+            judgesFound.push(judgeEmail);
+          }
+        }
+      }
+
+      if (judgesFound.length === 0) return;
+
+      // Check which notifications already exist for this project
+      const { data: existing } = await supabase
+        .from('judge_notifications')
+        .select('judge_email')
+        .eq('project_id', projectId)
+        .in('judge_email', judgesFound);
+
+      const existingEmails = new Set((existing || []).map(e => e.judge_email));
+
+      // Only insert for new judges
+      for (const [assocId, assocData] of Object.entries(associationJudges)) {
+        const judges = assocData?.judges || [];
+        for (const judge of judges) {
+          if (!judge?.email || !judge.email.includes('@')) continue;
+          const judgeEmail = judge.email.trim().toLowerCase();
+          if (existingEmails.has(judgeEmail)) continue;
+          existingEmails.add(judgeEmail); // prevent duplicates within same batch
+
+          const { error: insertError } = await supabase
+            .from('judge_notifications')
+            .insert({
+              judge_email: judgeEmail,
+              judge_name: judge.name || null,
+              project_id: projectId,
+              project_name: projectName,
+              notification_type: 'assignment',
+              message: `You have been assigned to ${projectName}.`,
+              is_read: false,
+              created_by: user?.id || null,
+            });
+
+          if (insertError) {
+            console.log('Judge notification insert result:', judgeEmail, insertError?.message || 'OK');
+          } else {
+            console.log('Judge notification created for:', judgeEmail);
+          }
+        }
+      }
+      console.log('Judge notifications processed. Judges found:', judgesFound);
+    } catch (error) {
+      console.error('Error creating judge notifications:', error);
+    }
+  };
+
   const createOrUpdateProject = useCallback(async (explicitStatus) => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save a project.', variant: 'destructive' });
@@ -400,6 +542,9 @@ export const usePatternBookBuilder = (projectId) => {
       if (!sanitizedProjectId) {
         navigate(`/pattern-book-builder/${currentProjectId}`, { replace: true });
       }
+      // Create notifications for judges and staff
+      await createJudgeNotifications(currentProjectId, trimmedName, finalFormData);
+      await createStaffNotifications(currentProjectId, trimmedName, finalFormData);
       return currentProjectId;
     } else {
       const newId = uuidv4();

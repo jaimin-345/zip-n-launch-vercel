@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Info, GitMerge, ListPlus, Layers, LayoutTemplate, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, CheckCircle, CheckSquare, Square, FolderOpen } from 'lucide-react';
+import { Loader2, Info, GitMerge, ListPlus, Settings2, LayoutTemplate, Eye, ArrowLeft, ArrowRight, Save, Download, FileText, CheckCircle, CheckSquare, Square, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 
 import { StepContainer } from './StepContainer';
-import { Step3_DivisionAndLevel } from './Step3_DivisionAndLevel';
 import { usePatternHub } from '@/hooks/usePatternHub';
 import { Step1_Associations } from '@/components/pbb/Step1_Associations';
 import { Step2_ClassesAndDivisions } from '@/components/pbb/Step2_ClassesAndDivisions';
+import { ClassConfiguration } from '@/components/pbb/ClassConfiguration';
 import { Step6_PatternAndLayout } from '@/components/pbb/Step6_PatternAndLayout';
 import { Step6_Preview } from '@/components/pbb/Step6_Preview';
 
@@ -21,13 +21,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 
-// All possible steps — step 3 is conditionally shown for horse_show only
+// All possible steps — matches Pattern Book Builder flow
 // Step 5 (Uploads & Media) removed per client request
 const ALL_STEPS = [
   { id: 0, name: 'Usage Purpose', icon: Info },
   { id: 1, name: 'Event Setup', icon: GitMerge },
   { id: 2, name: 'Select Disciplines', icon: ListPlus },
-  { id: 3, name: 'Division & Level', icon: Layers, horseShowOnly: true },
+  { id: 3, name: 'Configure Classes', icon: Settings2 },
   { id: 4, name: 'Pattern Selection', icon: LayoutTemplate },
   { id: 5, name: 'Preview Pattern', icon: Eye },
   { id: 6, name: 'Generate', icon: Download },
@@ -66,7 +66,7 @@ const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurp
     );
 };
 
-const GenerateStep = ({ isGenerated, formData, setFormData, onGenerate, isGenerating, onGoToProjects, onDownloadAgain }) => {
+const GenerateStep = ({ isGenerated, isSaved, formData, setFormData, onSave, isSaving, onGenerate, isGenerating, onGoToProjects, onDownloadAgain }) => {
     // Extract pattern summary from formData
     const patternSummary = useMemo(() => {
         const summaries = [];
@@ -80,6 +80,7 @@ const GenerateStep = ({ isGenerated, formData, setFormData, onGenerate, isGenera
                     const categories = [...new Set((group.divisions || []).map(d => d.category).filter(Boolean))];
                     summaries.push({
                         patternName: selection.patternName || selection.patternId,
+                        customLabel: group.customLabel || '',
                         discipline: disc.name || disc.label || 'Unknown',
                         divisions,
                         categories,
@@ -145,6 +146,9 @@ const GenerateStep = ({ isGenerated, formData, setFormData, onGenerate, isGenera
                                     <div key={idx} className="space-y-1.5">
                                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                                             <span className="text-sm font-medium">{item.patternName}</span>
+                                            {item.customLabel && (
+                                                <Badge variant="outline" className="text-xs">{item.customLabel}</Badge>
+                                            )}
                                         </div>
                                         <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                                             <Badge variant="secondary" className="text-xs">{item.discipline}</Badge>
@@ -183,25 +187,51 @@ const GenerateStep = ({ isGenerated, formData, setFormData, onGenerate, isGenera
                             </div>
                         </div>
 
-                        {/* Single Generate & Download Button */}
-                        <Button
-                            onClick={onGenerate}
-                            disabled={isGenerating}
-                            className="w-full gap-2"
-                            size="lg"
-                        >
-                            {isGenerating ? (
-                                <>
-                                    <Loader2 className="h-5 w-5 animate-spin" />
-                                    Generating...
-                                </>
-                            ) : (
-                                <>
-                                    <Download className="h-5 w-5" />
-                                    Generate & Download
-                                </>
-                            )}
-                        </Button>
+                        {/* Save first, then Generate & Download */}
+                        {!isSaved ? (
+                            <div className="space-y-2">
+                                <Button
+                                    onClick={onSave}
+                                    disabled={isSaving}
+                                    className="w-full gap-2"
+                                    size="lg"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="h-5 w-5" />
+                                            Save Project
+                                        </>
+                                    )}
+                                </Button>
+                                <p className="text-xs text-muted-foreground text-center">
+                                    Complete all steps and save your project to enable download.
+                                </p>
+                            </div>
+                        ) : (
+                            <Button
+                                onClick={onGenerate}
+                                disabled={isGenerating}
+                                className="w-full gap-2"
+                                size="lg"
+                            >
+                                {isGenerating ? (
+                                    <>
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="h-5 w-5" />
+                                        Generate & Download
+                                    </>
+                                )}
+                            </Button>
+                        )}
                     </div>
                 )}
             </CardContent>
@@ -226,19 +256,18 @@ export const PatternHub = ({ projectId }) => {
 
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(!!projectId); // existing projects are already saved
     const [isGenerating, setIsGenerating] = useState(false);
     const [isGenerated, setIsGenerated] = useState(false);
     const [lastPdfBlob, setLastPdfBlob] = useState(null);
 
-    const isHorseShow = formData.usageType === 'horse_show';
     const isClinic = formData.usageType === 'clinic';
+    const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
-    // Filter steps based on usage type
+    // All steps shown for all usage types (Configure Classes replaces Division & Level)
     const hubSteps = useMemo(() => {
-        return ALL_STEPS
-            .filter(s => !s.horseShowOnly || isHorseShow)
-            .map((s, i) => ({ ...s, displayNumber: i }));
-    }, [isHorseShow]);
+        return ALL_STEPS.map((s, i) => ({ ...s, displayNumber: i }));
+    }, []);
 
     // Map step ID to 1-indexed display number for content titles
     const getDisplayStepNumber = (stepId) => {
@@ -250,61 +279,7 @@ export const PatternHub = ({ projectId }) => {
     const maxStepId = hubSteps[hubSteps.length - 1]?.id ?? 5;
 
     const handleNext = () => {
-        let nextStep = currentStep + 1;
-        // Skip Division & Level step for non-horse-show
-        if (nextStep === 3 && !isHorseShow) nextStep = 4;
-
-        // When leaving Division & Level (step 3), carry selected levels into discipline patternGroups
-        if (currentStep === 3 && isHorseShow) {
-            setFormData(prev => {
-                const updatedDisciplines = (prev.disciplines || []).map(discipline => {
-                    // Find which associations this discipline belongs to
-                    const discAssocIds = Object.keys(discipline.selectedAssociations || {})
-                        .filter(id => discipline.selectedAssociations[id]);
-                    // Fallback to association_id if selectedAssociations is empty
-                    if (discAssocIds.length === 0 && discipline.association_id) {
-                        discAssocIds.push(discipline.association_id);
-                    }
-
-                    // Collect all selected levels for this discipline's associations
-                    const divisionEntries = [];
-                    discAssocIds.forEach(assocId => {
-                        const assocLevels = prev.selectedLevels?.[assocId] || {};
-                        Object.entries(assocLevels).forEach(([groupName, levels]) => {
-                            (levels || []).forEach(levelName => {
-                                divisionEntries.push({
-                                    id: `${assocId}-${groupName}-${levelName}`,
-                                    assocId,
-                                    division: levelName,
-                                    category: groupName,
-                                });
-                            });
-                        });
-                    });
-
-                    if (divisionEntries.length === 0) return discipline;
-
-                    // Inject into the first patternGroup's divisions (or create one)
-                    const groups = [...(discipline.patternGroups || [])];
-                    if (groups.length > 0) {
-                        groups[0] = { ...groups[0], divisions: divisionEntries };
-                    } else if (discipline.pattern) {
-                        groups.push({
-                            id: `pattern-group-${Date.now()}-${discipline.id}`,
-                            name: 'Group 1',
-                            divisions: divisionEntries,
-                            rulebookPatternId: '',
-                            competitionDate: null,
-                        });
-                    }
-
-                    return { ...discipline, patternGroups: groups };
-                });
-
-                return { ...prev, disciplines: updatedDisciplines };
-            });
-        }
-
+        const nextStep = currentStep + 1;
         if (nextStep <= maxStepId) {
             setCurrentStep(nextStep);
             if (nextStep > highestStepReached) {
@@ -314,9 +289,7 @@ export const PatternHub = ({ projectId }) => {
     };
 
     const handleBack = () => {
-        let prevStep = currentStep - 1;
-        // Skip Division & Level step for non-horse-show
-        if (prevStep === 3 && !isHorseShow) prevStep = 2;
+        const prevStep = currentStep - 1;
         if (prevStep >= 0) setCurrentStep(prevStep);
     };
 
@@ -337,9 +310,8 @@ export const PatternHub = ({ projectId }) => {
             const isStep0Complete = !!formData.usageType;
             const isStep1Complete = Object.values(formData.associations || {}).some(val => val);
             const isStep2Complete = formData.disciplines.length > 0;
-            const isStep3Complete = !isHorseShow || Object.keys(formData.selectedLevels || {}).some(assocId =>
-                Object.values(formData.selectedLevels[assocId] || {}).some(levels => levels.length > 0)
-            );
+            const isStep3Complete = (formData.disciplines || []).length > 0 &&
+                (formData.disciplines || []).every(d => (d.divisionOrder || []).length > 0);
             const isStep4Complete = (() => {
                 const patternDisciplines = formData.disciplines.filter(d => d.pattern);
                 if (patternDisciplines.length === 0) return true;
@@ -402,9 +374,16 @@ export const PatternHub = ({ projectId }) => {
 
             if (error) throw error;
 
+            // Only mark as "saved" (enabling download) when all steps are complete (Draft status)
+            // In-progress saves are temporary and should not enable download or consume credits
+            if (status === 'Draft') {
+                setIsSaved(true);
+            }
             toast({
                 title: "Project Saved",
-                description: `Your project has been saved with status: ${status === 'Draft' ? 'Draft' : 'In Progress'}.`,
+                description: status === 'Draft'
+                    ? 'Your project has been saved. You can now generate and download.'
+                    : 'Your progress has been saved. Complete all steps to enable download.',
             });
         } catch (error) {
             toast({
@@ -452,9 +431,6 @@ export const PatternHub = ({ projectId }) => {
 
             // Keep blob for "Download Again"
             setLastPdfBlob(blob);
-
-            // Auto-save to My Projects
-            await handleSaveProject();
 
             setIsGenerated(true);
             toast({ title: 'Success!', description: 'Your pattern has been downloaded and saved to My Projects.' });
@@ -515,12 +491,12 @@ export const PatternHub = ({ projectId }) => {
                 );
             case 3:
                 return (
-                    <Step3_DivisionAndLevel
+                    <ClassConfiguration
                       formData={formData}
                       setFormData={setFormData}
-                      divisionsData={divisionsData}
+                      isOpenShowMode={isOpenShowMode}
                       associationsData={associationsData}
-                      stepNumber={getDisplayStepNumber(3)}
+                      divisionsData={divisionsData}
                     />
                 );
             case 4:
@@ -532,7 +508,7 @@ export const PatternHub = ({ projectId }) => {
                     <Step6_Preview formData={formData} setFormData={setFormData} isEducationMode={false} stepNumber={getDisplayStepNumber(5)} purposeName={isClinic ? 'Clinic Materials' : null} isHubMode={true} />
                 );
             case 6:
-                return <GenerateStep isGenerated={isGenerated} formData={formData} setFormData={setFormData} onGenerate={handleGenerate} isGenerating={isGenerating} onGoToProjects={handleGoToProjects} onDownloadAgain={handleDownloadAgain} />;
+                return <GenerateStep isGenerated={isGenerated} isSaved={isSaved} formData={formData} setFormData={setFormData} onSave={handleSaveProject} isSaving={isSaving} onGenerate={handleGenerate} isGenerating={isGenerating} onGoToProjects={handleGoToProjects} onDownloadAgain={handleDownloadAgain} />;
             default:
                 return null;
         }
@@ -552,11 +528,20 @@ export const PatternHub = ({ projectId }) => {
             case 2:
                 return formData.disciplines.length > 0;
             case 3: {
-                // Division & Level (horse show only)
-                if (!isHorseShow) return true;
-                return Object.keys(formData.selectedLevels || {}).some(assocId =>
-                    Object.values(formData.selectedLevels[assocId] || {}).some(levels => levels.length > 0)
-                );
+                // Configure Classes — each discipline must have divisions selected
+                // and pattern disciplines must have all divisions in pattern groups
+                const discs = formData.disciplines || [];
+                if (discs.length === 0) return false;
+                return discs.every(d => {
+                    const hasDivisions = (d.divisionOrder || []).length > 0;
+                    if (!hasDivisions) return false;
+                    if (!d.pattern) return true;
+                    // Pattern disciplines: every division must be in a patternGroup
+                    const groupedDivIds = new Set(
+                        (d.patternGroups || []).flatMap(g => (g.divisions || []).map(div => div.id))
+                    );
+                    return (d.divisionOrder || []).every(divId => groupedDivIds.has(divId));
+                });
             }
             case 4: {
                 const patternDisciplines = formData.disciplines.filter(d => d.pattern);
@@ -576,18 +561,16 @@ export const PatternHub = ({ projectId }) => {
             default:
                 return false;
         }
-    }, [currentStep, formData, isHorseShow]);
+    }, [currentStep, formData]);
 
     // Steps are completed only if they've been passed through
     const completedSteps = useMemo(() => {
         const completed = new Set();
         for (let i = 0; i < highestStepReached; i++) {
-            // Skip step 3 in completed set for non-horse-show
-            if (i === 3 && !isHorseShow) continue;
             completed.add(i);
         }
         return completed;
-    }, [highestStepReached, isHorseShow]);
+    }, [highestStepReached]);
 
     const getNextStepId = () => {
         for (let i = 0; i < hubSteps.length; i++) {
@@ -637,7 +620,7 @@ export const PatternHub = ({ projectId }) => {
                         )}
                         {isFinalStep ? (
                             isGenerated ? (
-                                <Button size="sm" className="sm:size-default" onClick={() => { setIsGenerated(false); setLastPdfBlob(null); setCurrentStep(0); }}>
+                                <Button size="sm" className="sm:size-default" onClick={() => { setIsGenerated(false); setIsSaved(false); setLastPdfBlob(null); setCurrentStep(0); }}>
                                     <ArrowRight className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">New Pattern</span><span className="sm:hidden">New</span>
                                 </Button>
                             ) : null

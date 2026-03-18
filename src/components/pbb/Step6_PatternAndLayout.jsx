@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, X, ZoomIn, ZoomOut, RotateCcw, Loader2, ChevronRight, UploadCloud, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, MapPin, Building, CheckCircle2, AlertCircle, Trophy, Eye, X, ZoomIn, ZoomOut, RotateCcw, Loader2, ChevronRight, UploadCloud, FileText, Image as ImageIcon, Trash2, ListPlus } from 'lucide-react';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -1423,7 +1423,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
 
                         {/* Display pattern badges for selected patterns */}
                         {(() => {
-                          const groupSelections = (isHubMode ? groups.slice(0, 1) : groups).map((group) => {
+                          const groupSelections = (isHubMode ? groups.filter(g => !g._hubExtra) : groups).map((group) => {
                             const selection = getPatternSelection(discipline.id, group.id);
                             if (!selection?.patternId && !selection?.patternName) return null;
 
@@ -1661,9 +1661,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         {/* Group Level Details */}
                         <div className="space-y-3">
                           {groups.length > 0 ? (
-                            (isHubMode ? groups.slice(0, 1) : groups).map((group, groupIndex) => {
+                            (isHubMode ? groups.filter(g => !g._hubExtra || getPatternSelection(discipline.id, g.id)?.patternId || groups.indexOf(g) < 2) : groups).map((group, groupIndex) => {
                               const currentSelection = getPatternSelection(discipline.id, group.id);
                               const filteredPatterns = getFilteredPatterns(discipline.id);
+                              const hubGroupIndex = isHubMode ? groups.filter(g => !g._hubExtra || groups.indexOf(g) <= groups.indexOf(group)).indexOf(group) : groupIndex;
 
                               return (
                                 <div
@@ -1674,6 +1675,60 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {!isHubMode && <Label className="font-semibold text-base">{group.name}</Label>}
+                                      {/* Hub mode: show entry label with custom name input */}
+                                      {isHubMode && groups.filter(g => !g._hubExtra || g === group).length > 0 && (
+                                        <div className="flex items-center gap-2">
+                                          <Label className="font-semibold text-base">Pattern {hubGroupIndex + 1}</Label>
+                                          <Input
+                                            className="h-7 text-sm w-40 sm:w-52"
+                                            placeholder={`e.g. ${hubGroupIndex === 0 ? 'Monday Practice' : 'Tuesday Practice'}`}
+                                            value={group.customLabel || ''}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => {
+                                              const newLabel = e.target.value;
+                                              setFormData(prev => {
+                                                const newDisciplines = prev.disciplines.map(d => {
+                                                  if (d.id !== discipline.id) return d;
+                                                  return {
+                                                    ...d,
+                                                    patternGroups: (d.patternGroups || []).map(g =>
+                                                      g.id === group.id ? { ...g, customLabel: newLabel } : g
+                                                    ),
+                                                  };
+                                                });
+                                                return { ...prev, disciplines: newDisciplines };
+                                              });
+                                            }}
+                                          />
+                                          {group._hubExtra && !isReadOnly && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setFormData(prev => {
+                                                  const newDisciplines = prev.disciplines.map(d => {
+                                                    if (d.id !== discipline.id) return d;
+                                                    return {
+                                                      ...d,
+                                                      patternGroups: (d.patternGroups || []).filter(g => g.id !== group.id),
+                                                    };
+                                                  });
+                                                  // Also remove pattern selection for this group
+                                                  const newSelections = { ...(prev.patternSelections || {}) };
+                                                  if (newSelections[discipline.id]) {
+                                                    delete newSelections[discipline.id][group.id];
+                                                  }
+                                                  return { ...prev, disciplines: newDisciplines, patternSelections: newSelections };
+                                                });
+                                              }}
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      )}
                                       {/* Show pattern badge, judge-assigned badge, or custom-request badge */}
                                       {!isScoresheetOnly && currentSelection?.type === 'judgeAssigned' && (
                                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs">
@@ -2098,6 +2153,39 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             <div className="p-4 border rounded-lg bg-muted/30 text-center text-sm text-muted-foreground">
                               No groups configured. Please go back to Step 3 to configure divisions.
                             </div>
+                          )}
+
+                          {/* Hub mode: Add Another Pattern button (max 2 per discipline) */}
+                          {isHubMode && !isReadOnly && !isScoresheetOnly && groups.length > 0 && groups.length < 2 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-2 border-dashed"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormData(prev => {
+                                  const newDisciplines = prev.disciplines.map(d => {
+                                    if (d.id !== discipline.id) return d;
+                                    const baseGroup = d.patternGroups[0];
+                                    const newGroup = {
+                                      ...baseGroup,
+                                      id: `hub-extra-${Date.now()}`,
+                                      name: `${baseGroup.name} (2)`,
+                                      customLabel: '',
+                                      _hubExtra: true,
+                                    };
+                                    return {
+                                      ...d,
+                                      patternGroups: [...(d.patternGroups || []), newGroup],
+                                    };
+                                  });
+                                  return { ...prev, disciplines: newDisciplines };
+                                });
+                              }}
+                            >
+                              <ListPlus className="h-4 w-4" />
+                              Add Another Pattern
+                            </Button>
                           )}
                         </div>
                       </div>

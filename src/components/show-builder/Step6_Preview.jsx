@@ -169,15 +169,22 @@ const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, onF
       {/* Divider */}
       <hr className="my-2 border-border" />
 
-      {/* Export PDF */}
-      <Button
-        size="lg"
-        className="w-full text-sm font-semibold h-12"
-        onClick={onExportPdf}
-        disabled={isSaving}
-      >
-        <Download className="mr-2 h-5 w-5" /> Export Final PDF
-      </Button>
+      {/* Export PDF — only enabled after Approve & Lock or Finalize */}
+      <div>
+        <Button
+          size="lg"
+          className="w-full text-sm font-semibold h-12"
+          onClick={onExportPdf}
+          disabled={isSaving || !isLocked}
+        >
+          <Download className="mr-2 h-5 w-5" /> Export Final PDF
+        </Button>
+        {!isLocked && (
+          <p className="text-xs text-muted-foreground mt-1 text-center">
+            Approve & Lock or Finalize your show to enable export.
+          </p>
+        )}
+      </div>
     </div>
   );
 };

@@ -782,14 +782,21 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly }) =>
 
       <hr className="my-2 border-border" />
 
-      {/* Export PDF */}
-      <Button
-        size="lg"
-        className="w-full text-sm font-semibold h-12"
-        disabled={isSaving || isReadOnly}
-      >
-        <Download className="mr-2 h-5 w-5" /> Export Pattern Book PDF
-      </Button>
+      {/* Export PDF — only enabled after Approve & Lock or Finalize */}
+      <div className="relative group">
+        <Button
+          size="lg"
+          className="w-full text-sm font-semibold h-12"
+          disabled={isSaving || !isLocked}
+        >
+          <Download className="mr-2 h-5 w-5" /> Export Pattern Book PDF
+        </Button>
+        {!isLocked && (
+          <p className="text-xs text-muted-foreground mt-1 text-center">
+            Approve & Lock or Finalize your pattern book to enable export.
+          </p>
+        )}
+      </div>
     </div>
   );
 };

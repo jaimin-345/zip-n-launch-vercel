@@ -1145,7 +1145,9 @@ const JudgesPortalPage = () => {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {notificationsTableData.map((notification, rowIdx) => (
+                                                {notificationsTableData.map((notification, rowIdx) => {
+                                                    const isProjectLocked = ['Locked', 'Final', 'Lock & Approve Mode', 'Publication'].includes(notification.status || '');
+                                                    return (
                                                     <TableRow 
                                                         key={notification.id}
                                                         className="border-b hover:bg-muted/30 transition-colors"
@@ -1155,7 +1157,39 @@ const JudgesPortalPage = () => {
                                                                 {!notification.is_read && (
                                                                     <div className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0 animate-pulse" />
                                                                 )}
-                                                                <span className="text-base">{notification.project_name}</span>
+                                                                <button
+                                                                    className={cn(
+                                                                        "text-base text-left transition-colors",
+                                                                        isProjectLocked
+                                                                            ? "text-muted-foreground cursor-default"
+                                                                            : "hover:text-primary hover:underline"
+                                                                    )}
+                                                                    onClick={() => {
+                                                                        if (isProjectLocked) {
+                                                                            toast({ title: 'Project Locked', description: 'This project is locked. Pattern selection is not available.', variant: 'destructive' });
+                                                                            return;
+                                                                        }
+                                                                        supabase
+                                                                            .from('projects')
+                                                                            .select('*')
+                                                                            .eq('id', notification.project_id)
+                                                                            .single()
+                                                                            .then(({ data, error }) => {
+                                                                                if (error) {
+                                                                                    toast({
+                                                                                        title: 'Error',
+                                                                                        description: 'Failed to load project.',
+                                                                                        variant: 'destructive',
+                                                                                    });
+                                                                                    return;
+                                                                                }
+                                                                                setSelectedProjectForEdit(data);
+                                                                                setIsPatternEditorOpen(true);
+                                                                            });
+                                                                    }}
+                                                                >
+                                                                    {notification.project_name}
+                                                                </button>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="py-4">
@@ -1283,11 +1317,11 @@ const JudgesPortalPage = () => {
                                                                 <Button
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    disabled={(notification.status || 'Draft') === 'Lock & Approve Mode'}
+                                                                    disabled={isProjectLocked}
                                                                     className={cn(
                                                                         "font-medium transition-all duration-200",
-                                                                        (notification.status || 'Draft') === 'Lock & Approve Mode' 
-                                                                            ? "opacity-50 cursor-not-allowed" 
+                                                                        isProjectLocked
+                                                                            ? "opacity-50 cursor-not-allowed"
                                                                             : "hover:bg-primary hover:text-primary-foreground hover:border-primary hover:shadow-md"
                                                                     )}
                                                                     onClick={() => {
@@ -1312,7 +1346,7 @@ const JudgesPortalPage = () => {
                                                                     }}
                                                                 >
                                                                     <Edit className="mr-2 h-4 w-4" />
-                                                                    Edit Patterns
+                                                                    Select Pattern
                                                                 </Button>
                                                                 <Button
                                                                     variant="outline"
@@ -1326,7 +1360,8 @@ const JudgesPortalPage = () => {
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                    );
+                                                })}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -1355,14 +1390,10 @@ const JudgesPortalPage = () => {
                         )}
 
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
+                            <TabsList className="grid w-full grid-cols-2">
                                 <TabsTrigger value="scoresheets">
                                     <FileText className="mr-2 h-4 w-4" />
                                     {isAdminUser ? 'Quick Score Sheet Finder' : 'Assigned Score Sheets'}
-                                </TabsTrigger>
-                                <TabsTrigger value="patterns">
-                                    <BookOpen className="mr-2 h-4 w-4" />
-                                    {isAdminUser ? 'Pattern Finder' : 'Assigned Patterns'}
                                 </TabsTrigger>
                                 <TabsTrigger value="favorites">
                                     <Star className="mr-2 h-4 w-4" />
@@ -1533,153 +1564,7 @@ const JudgesPortalPage = () => {
                                 </Card>
                             </TabsContent>
 
-                            {/* Tab B: Association Rulebook Pattern Finder */}
-                            <TabsContent value="patterns" className="space-y-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>{isAdminUser ? 'Association Rulebook Pattern Finder' : 'Assigned Patterns'}</CardTitle>
-                                        <CardDescription>
-                                            {isAdminUser 
-                                                ? 'Quickly locate official rulebook patterns by association'
-                                                : 'Patterns from your assigned shows'
-                                            }
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        {/* Loading state for assignments */}
-                                        {!isAdminUser && isLoadingAssignments ? (
-                                            <div className="flex items-center justify-center py-12">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                                <span className="ml-2 text-muted-foreground">Loading assignments...</span>
-                                            </div>
-                                        ) : (
-                                            <>
-                                        {/* Filters */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div className="space-y-2">
-                                                <Label>Association</Label>
-                                                <Select 
-                                                    value={patternFilters.association}
-                                                    onValueChange={(value) => setPatternFilters(prev => ({ ...prev, association: value }))}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="All Associations" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Associations</SelectItem>
-                                                        {patternAssociations.map(assoc => (
-                                                            <SelectItem key={assoc} value={assoc}>{assoc}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            
-                                            <div className="space-y-2">
-                                                <Label>Discipline</Label>
-                                                <Select 
-                                                    value={patternFilters.discipline}
-                                                    onValueChange={(value) => setPatternFilters(prev => ({ ...prev, discipline: value }))}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="All Disciplines" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="all">All Disciplines</SelectItem>
-                                                        {patternDisciplines.map(disc => (
-                                                            <SelectItem key={disc} value={disc}>{disc}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            
-                                            <div className="space-y-2">
-                                                <Label>Pattern Number / Name / Keywords</Label>
-                                                <Input
-                                                    placeholder="Search patterns..."
-                                                    value={patternFilters.searchTerm}
-                                                    onChange={(e) => setPatternFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Results */}
-                                        {isLoadingPatterns ? (
-                                            <div className="flex items-center justify-center py-12">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            </div>
-                                        ) : filteredPatterns.length === 0 ? (
-                                            <div className="text-center py-12 text-muted-foreground">
-                                                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                                                <p>No patterns found matching your filters.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                {filteredPatterns.map(pattern => {
-                                                    const patternNumber = pattern.pdf_file_name?.match(/(\d+)/)?.[1] || pattern.id;
-                                                    return (
-                                                        <Card key={pattern.id} className="hover:shadow-md transition-shadow">
-                                                            <CardContent className="p-4 space-y-3">
-                                                                <div className="flex items-start justify-between">
-                                                                    <div className="flex-1">
-                                                                        <h4 className="font-semibold text-sm">
-                                                                            Pattern {patternNumber}
-                                                                        </h4>
-                                                                        <p className="text-xs text-muted-foreground">
-                                                                            {pattern.discipline || 'Unknown'}
-                                                                        </p>
-                                                                        {pattern.pattern_version && (
-                                                                            <Badge variant="outline" className="mt-1 text-xs">
-                                                                                {pattern.pattern_version}
-                                                                            </Badge>
-                                                                        )}
-                                                                    </div>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="icon"
-                                                                        className="h-8 w-8"
-                                                                        onClick={() => handleTogglePatternFavorite(pattern.id)}
-                                                                    >
-                                                                        <Heart 
-                                                                            className={`h-4 w-4 ${
-                                                                                patternFavorites.includes(pattern.id) 
-                                                                                    ? 'fill-red-500 text-red-500' 
-                                                                                    : ''
-                                                                            }`} 
-                                                                        />
-                                                                    </Button>
-                                                                </div>
-                                                                
-                                                                <div className="flex gap-2">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="flex-1"
-                                                                        onClick={() => handleViewPattern(pattern)}
-                                                                    >
-                                                                        <Eye className="mr-2 h-4 w-4" />
-                                                                        Open Full Pattern
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        onClick={() => handleTogglePatternFavorite(pattern.id)}
-                                                                    >
-                                                                        <Star className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </CardContent>
-                                                        </Card>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                            </>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-
-                            {/* Tab C: Judge Favorite Patterns */}
+                            {/* Tab B: Judge Favorite Patterns */}
                             <TabsContent value="favorites" className="space-y-4">
                                 <Card>
                                     <CardHeader>
@@ -1981,9 +1866,9 @@ const JudgesPortalPage = () => {
             <Dialog open={isPatternEditorOpen} onOpenChange={setIsPatternEditorOpen}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                        <DialogTitle>Edit Patterns - {selectedProjectForEdit?.project_name || 'Project'}</DialogTitle>
+                        <DialogTitle>Select Pattern - {selectedProjectForEdit?.project_name || 'Project'}</DialogTitle>
                         <DialogDescription>
-                            Edit pattern selections for disciplines assigned to you. Changes will be saved to the project.
+                            Select patterns for disciplines assigned to you. Your selections will be saved to the project.
                         </DialogDescription>
                     </DialogHeader>
                     {selectedProjectForEdit && (

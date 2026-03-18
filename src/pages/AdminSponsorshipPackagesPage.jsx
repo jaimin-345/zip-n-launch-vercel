@@ -52,8 +52,6 @@ const PackageForm = ({ packageData, onSave, onCancel, isSaving }) => {
         }
     }, [packageData]);
 
-    //test
-
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));

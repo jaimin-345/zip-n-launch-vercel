@@ -55,6 +55,7 @@ import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { jsPDF } from 'jspdf';
 import ResultsTab from '@/components/customer-portal/ResultsTab';
+import PatternPortalDetailDialog from '@/components/customer-portal/PatternPortalDetailDialog';
 import { SendPatternEmailDialog } from '@/components/pattern-hub/SendPatternEmailDialog';
 
 const accessPhaseLabels = {
@@ -250,8 +251,8 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
     const [selectedStatus, setSelectedStatus] = useState(() => {
         const currentStatus = project.status || 'Draft';
         // Map database status to display status
-        if (currentStatus === 'Lock & Approve Mode') return 'Approval and Locked';
-        if (currentStatus === 'Publication') return 'Publication';
+        if (currentStatus === 'Locked' || currentStatus === 'Lock & Approve Mode') return 'Approval and Locked';
+        if (currentStatus === 'Final' || currentStatus === 'Publication') return 'Publication';
         return 'Draft';
     });
     const [isSavingStatus, setIsSavingStatus] = useState(false);
@@ -359,12 +360,12 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
     const handleSaveStatus = async () => {
         setIsSavingStatus(true);
         try {
-            // Map selected status to database status values
+            // Map selected status to database status values (unified with PBB)
             let dbStatus = selectedStatus;
             if (selectedStatus === 'Approval and Locked') {
-                dbStatus = 'Lock & Approve Mode';
+                dbStatus = 'Locked';
             } else if (selectedStatus === 'Publication') {
-                dbStatus = 'Publication';
+                dbStatus = 'Final';
             } else {
                 dbStatus = 'Draft';
             }
@@ -1674,27 +1675,30 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         navigate(editPath);
     };
     
-    // Format status for display - map to dropdown options
+    // Format status for display - map to dropdown options (supports both old and new values)
     const getDisplayStatus = () => {
         const status = (project.status || '').toString().trim();
-        // Map status values to dropdown options
-        if (status === 'Lock & Approve Mode') {
+        if (status === 'Locked' || status === 'Lock & Approve Mode') {
             return 'Lock & Approve Mode';
         }
-        if (status === 'Publication') {
+        if (status === 'Final' || status === 'Publication') {
             return 'Publication';
         }
-        // Default to Draft (includes 'In progress' and 'Draft')
+        if (status.toLowerCase() === 'in progress') {
+            return 'In progress';
+        }
         return 'Draft';
     };
-    
+
     const displayStatus = getDisplayStatus();
-    
+
     const handleStatusChange = async (newStatus) => {
         try {
+            // Map display values to unified DB values
+            const dbStatus = newStatus === 'Lock & Approve Mode' ? 'Locked' : newStatus === 'Publication' ? 'Final' : newStatus;
             await supabase
                 .from('projects')
-                .update({ status: newStatus })
+                .update({ status: dbStatus })
                 .eq('id', project.id);
             toast({
                 title: "Status updated",
@@ -7111,15 +7115,15 @@ const InProgressCard = ({ project, onRefresh }) => {
         navigate(editPath);
     };
     
-    // Format status for display - show "In progress" properly
+    // Format status for display - supports both old and new status values
     const getDisplayStatus = () => {
         const status = (project.status || '').toString().trim();
-        if (status.toLowerCase() === 'in progress') {
-            return 'In progress';
-        }
+        if (status.toLowerCase() === 'in progress') return 'In progress';
+        if (status === 'Locked' || status === 'Lock & Approve Mode') return 'Locked';
+        if (status === 'Final' || status === 'Publication') return 'Final';
         return status || 'Draft';
     };
-    
+
     const displayStatus = getDisplayStatus();
     const isInProgress = displayStatus.toLowerCase() === 'in progress';
     
@@ -7177,7 +7181,8 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
     const [isHovered, setIsHovered] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
-    
+    const [patternDetailDialogOpen, setPatternDetailDialogOpen] = useState(false);
+
     const isPatternBook = project.project_type === 'pattern_book';
     const isPatternFolder = project.project_type === 'pattern_folder';
     const isPatternHub = project.project_type === 'pattern_hub';
@@ -7189,16 +7194,16 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
         ? `/pattern-hub/${project.id}`
         : `/horse-show-manager/edit/${project.id}`;
     
-    // Check if project is locked (status is "Lock & Approve Mode")
-    const isLocked = project.status === 'Lock & Approve Mode';
-    
+    // Check if project is locked (supports both old and new status values)
+    const isLocked = project.status === 'Locked' || project.status === 'Lock & Approve Mode' || project.status === 'Final' || project.status === 'Publication';
+
     // Handle continue editing button click
     const handleContinueEditing = () => {
         if (isLocked) {
             toast({
                 variant: "destructive",
                 title: "Pattern Book Locked",
-                description: "Your pattern is Lock & Approve Mode. You cannot edit it.",
+                description: "This project is locked. You cannot edit it.",
             });
             return;
         }
@@ -7658,7 +7663,10 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     </DropdownMenu>
                 )}
 
-                <div className="p-4">
+                <div
+                    className={`p-4 ${isCompletedPatternHub ? 'cursor-pointer' : ''}`}
+                    onClick={isCompletedPatternHub ? () => setPatternDetailDialogOpen(true) : undefined}
+                >
                     {/* Project Name */}
                     <div className="flex items-center gap-2 mb-3">
                         {isPatternBook ? (
@@ -7707,13 +7715,13 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     {/* Action Buttons */}
                     {!isPastPatternPortal && (
                         isCompletedPatternHub ? (
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
                                 <Button
-                                    onClick={() => handlePatternExport('pdf')}
+                                    onClick={() => setPatternDetailDialogOpen(true)}
                                     className="w-full"
                                     size="sm"
                                 >
-                                    <Download className="mr-2 h-4 w-4" /> Download PDF
+                                    <Download className="mr-2 h-4 w-4" /> View & Download
                                 </Button>
                                 <div className="grid grid-cols-2 gap-1.5">
                                     <Button
@@ -7794,6 +7802,14 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     patternName={project.project_name || project.project_data?.showName}
                 />
             )}
+
+            {isCompletedPatternHub && (
+                <PatternPortalDetailDialog
+                    open={patternDetailDialogOpen}
+                    onOpenChange={setPatternDetailDialogOpen}
+                    project={project}
+                />
+            )}
         </motion.div>
     );
 };
@@ -7826,45 +7842,61 @@ const CustomerPortalPage = () => {
     }, [user]);
 
     const patternBookProjects = projects.filter(p => p.project_type === 'pattern_book');
-    const showManagerProjects = projects.filter(p => {
+    const allShowProjects = projects.filter(p => {
         const mode = (p.mode || '').toString().trim();
         return p.project_type !== 'pattern_book' && p.project_type !== 'pattern_folder' && p.project_type !== 'pattern_hub' && p.project_type !== 'contract' && mode.toLowerCase() !== 'archived';
     });
+
+    // Active Horse Shows: Only Locked/Final (credit-consuming, exportable)
+    const activeShowProjects = allShowProjects.filter(p => {
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
+        return status === 'locked' || status === 'final' || status === 'lock & approve mode' || status === 'publication' || status === 'published';
+    });
+
+    // In Progress Horse Shows: Draft and In progress (still editable, no credit used)
+    const inProgressShowProjects = allShowProjects.filter(p => {
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
+        return status === 'in progress' || status === 'draft';
+    });
+
+    // Keep combined list for backward compatibility
+    const showManagerProjects = allShowProjects;
     
-    // Filter pattern books by status (case-insensitive comparison)
-    // Active Pattern Books Portal: Show all projects EXCEPT status === 'In progress' AND mode !== 'archived'
+    // Filter pattern books by status
+    // Active Pattern Books Portal: Only Locked/Final projects (credit-consuming, exportable)
+    // Supports both new values (Locked/Final) and legacy values (Lock & Approve Mode/Publication)
     const activePatternBooks = patternBookProjects.filter(p => {
-        const status = (p.status || 'Draft').toString().trim();
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
         const mode = (p.mode || '').toString().trim();
-        return status.toLowerCase() !== 'in progress' && mode.toLowerCase() !== 'archived';
+        const isActive = status === 'locked' || status === 'final' || status === 'lock & approve mode' || status === 'publication';
+        return isActive && mode.toLowerCase() !== 'archived';
     });
-    
-    // In Progress Pattern Books Portal: Show only projects with Status === 'In progress' AND mode !== 'archived'
+
+    // In Progress Pattern Books Portal: Draft and In progress projects (still editable, no credit used)
     const inProgressPatternBooks = patternBookProjects.filter(p => {
-        const status = (p.status || 'Draft').toString().trim();
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
         const mode = (p.mode || '').toString().trim();
-        return status.toLowerCase() === 'in progress' && mode.toLowerCase() !== 'archived';
+        return (status === 'in progress' || status === 'draft') && mode.toLowerCase() !== 'archived';
     });
     
-    // Pattern Portal: Show pattern_hub projects that are completed (Draft = all steps done) or other non-in-progress statuses
+    // Pattern Portal: Only Locked and Final pattern_hub projects (official, credit-consuming)
     const patternPortalBooks = projects.filter(p => {
         const projectType = (p.project_type || '').toString().trim();
-        const status = (p.status || 'Draft').toString().trim();
-        const statusLower = status.toLowerCase();
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
         const mode = (p.mode || '').toString().trim();
         return projectType.toLowerCase() === 'pattern_hub' &&
-               statusLower !== 'in progress' &&
+               (status === 'locked' || status === 'final') &&
                mode.toLowerCase() !== 'archived';
     });
     
     // Choose a Pattern Portal: Show only projects with project_type = 'pattern_hub' AND status = 'In progress' AND mode !== 'archived'
+    // Choose a Pattern In Progress: Draft and In progress pattern_hub projects (still editable)
     const choosePatternBooks = projects.filter(p => {
         const projectType = (p.project_type || '').toString().trim();
-        const status = (p.status || 'Draft').toString().trim();
-        const statusLower = status.toLowerCase();
+        const status = (p.status || 'Draft').toString().trim().toLowerCase();
         const mode = (p.mode || '').toString().trim();
         return projectType.toLowerCase() === 'pattern_hub' &&
-               statusLower === 'in progress' &&
+               (status === 'in progress' || status === 'draft') &&
                mode.toLowerCase() !== 'archived';
     });
     
@@ -8035,12 +8067,21 @@ const CustomerPortalPage = () => {
                                 true
                             )}
                             {renderProjectList(
-                                showManagerProjects,
-                                "Horse Shows",
-                                "Manage your horse show schedules and events.",
+                                activeShowProjects,
+                                "Active Horse Shows",
+                                "Your approved and finalized horse shows.",
                                 "/horse-show-manager/create",
                                 "New Horse Show",
-                                "horseShows",
+                                "activeHorseShows",
+                                "default"
+                            )}
+                            {renderProjectList(
+                                inProgressShowProjects,
+                                "In Progress Horse Shows",
+                                "Draft and in-progress shows still being built.",
+                                "/horse-show-manager/create",
+                                "New Horse Show",
+                                "inProgressHorseShows",
                                 "default"
                             )}
                         </div>
