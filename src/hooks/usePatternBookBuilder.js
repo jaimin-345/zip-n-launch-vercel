@@ -383,6 +383,7 @@ export const usePatternBookBuilder = (projectId) => {
       console.error('Error creating staff notifications:', error);
     }
   };
+  //test
 
   // Create judge notifications for all judges added to the project (Step 4 onwards)
   const createJudgeNotifications = async (projectId, projectName, projectData) => {
