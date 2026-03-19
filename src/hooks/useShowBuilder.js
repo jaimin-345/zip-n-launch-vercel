@@ -54,7 +54,7 @@ export const useShowBuilder = (showId) => {
     setIsLoading(true);
     try {
       const projectsQuery = user
-        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")').in('status', ['Draft', 'Locked', 'Final', 'published', 'Lock & Approve Mode', 'Publication']).order('created_at', { ascending: false })
+        ? supabase.from('projects').select('id, project_name, project_type, project_data, status').eq('user_id', user.id).not('project_type', 'in', '("pattern_folder","pattern_hub","pattern_upload","contract")').in('status', ['Draft', 'draft', 'In progress', 'in progress', 'Locked', 'locked', 'Final', 'final', 'published', 'Lock & Approve Mode', 'Publication']).order('created_at', { ascending: false })
         : Promise.resolve({ data: [], error: null });
 
       const [disciplinesRes, associationsRes, divisionsRes, projectsRes] = await Promise.all([
@@ -147,7 +147,7 @@ export const useShowBuilder = (showId) => {
     }
   }, [toast]);
 
-  const createOrUpdateShow = useCallback(async (statusOverride) => {
+  const createOrUpdateShow = useCallback(async (statusOverride, moduleKey, moduleStatus) => {
     if (!user) {
       toast({ title: 'Authentication Error', description: 'You must be logged in to save a project.', variant: 'destructive' });
       return null;
@@ -160,26 +160,34 @@ export const useShowBuilder = (showId) => {
       return null;
     }
 
-    // Validate: check for duplicate show names (only for new shows or name changes)
     // Never use linkedProjectId as save target — it's a read-only reference to another project
     let currentShowId = showId || formData.id;
-    const dupQuery = supabase
-      .from('projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('project_type', 'show')
-      .eq('user_id', user.id)
-      .ilike('project_name', trimmedName);
-    if (currentShowId) dupQuery.neq('id', currentShowId);
-    const { count: dupCount } = await dupQuery;
-    if (dupCount > 0) {
-      toast({ title: 'Duplicate Show Name', description: `A show named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
-      return null;
+
+    // If no project ID yet, check if a show with this name already exists for this user
+    // and reuse it instead of creating a duplicate
+    if (!currentShowId && trimmedName) {
+      const { data: existingShow } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('project_type', 'show')
+        .eq('user_id', user.id)
+        .ilike('project_name', trimmedName)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingShow) {
+        currentShowId = existingShow.id;
+        setFormData(prev => ({ ...prev, id: currentShowId }));
+      }
     }
 
-    const effectiveStatus = statusOverride || formData.showStatus || 'draft';
+    // If moduleKey is provided, only update that module's status — don't touch project-level status
+    const effectiveStatus = moduleKey
+      ? (formData.showStatus || 'draft')
+      : (statusOverride || formData.showStatus || 'draft');
 
-    // Update formData with the status if overridden
-    if (statusOverride && statusOverride !== formData.showStatus) {
+    // Update formData with the status if overridden (only when no moduleKey)
+    if (!moduleKey && statusOverride && statusOverride !== formData.showStatus) {
       setFormData(prev => ({ ...prev, showStatus: statusOverride }));
     }
 
@@ -188,10 +196,16 @@ export const useShowBuilder = (showId) => {
     updatedCompletedSteps.add(step);
     setCompletedSteps(updatedCompletedSteps);
 
+    // If a moduleKey is provided, update moduleStatuses for that specific module
+    const updatedModuleStatuses = moduleKey
+      ? { ...(formData.moduleStatuses || {}), [moduleKey]: moduleStatus || statusOverride || 'draft' }
+      : formData.moduleStatuses;
+
     const showDataToSave = {
       ...formData,
       showName: trimmedName,
       showStatus: effectiveStatus,
+      moduleStatuses: updatedModuleStatuses,
       currentStep: step,
       completedSteps: Array.from(updatedCompletedSteps),
     };

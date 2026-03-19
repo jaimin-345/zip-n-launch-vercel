@@ -6,9 +6,8 @@ import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Archive, Calendar, RotateCcw, Trash2 } from 'lucide-react';
-import { format, differenceInDays, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { useToast } from '@/components/ui/use-toast';
 
 const ArchivePatternsPage = () => {
@@ -20,43 +19,18 @@ const ArchivePatternsPage = () => {
 
     useEffect(() => {
         if (user) {
-            checkAndAutoDeleteExpired();
             fetchArchivedProjects();
         }
     }, [user]);
 
-    // Automatically delete projects that have been archived for more than 30 days
-    const checkAndAutoDeleteExpired = async () => {
-        if (!user) return;
-
-        const thirtyDaysAgo = addDays(new Date(), -30);
-
-        const { data: expiredProjects, error } = await supabase
-            .from('projects')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('mode', 'archived')
-            .lt('updated_at', thirtyDaysAgo.toISOString());
-
-        if (!error && expiredProjects && expiredProjects.length > 0) {
-            const projectIds = expiredProjects.map(p => p.id);
-            await supabase
-                .from('projects')
-                .delete()
-                .in('id', projectIds);
-        }
-    };
-
     const fetchArchivedProjects = async () => {
         setLoading(true);
-        const thirtyDaysAgo = addDays(new Date(), -30);
-        
+
         const { data, error } = await supabase
             .from('projects')
             .select('*')
             .eq('user_id', user.id)
             .eq('mode', 'archived')
-            .gte('updated_at', thirtyDaysAgo.toISOString())
             .order('updated_at', { ascending: false });
 
         if (!error && data) {
@@ -95,12 +69,6 @@ const ArchivePatternsPage = () => {
         }
     };
 
-    const getDaysRemaining = (updatedAt) => {
-        const archiveDate = new Date(updatedAt);
-        const expiryDate = addDays(archiveDate, 30);
-        return Math.max(0, differenceInDays(expiryDate, new Date()));
-    };
-
     return (
         <div className="min-h-screen bg-background">
             <Navigation />
@@ -111,7 +79,7 @@ const ArchivePatternsPage = () => {
                         Archive Pattern
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Archived pattern books are stored for 30 days before being permanently deleted.
+                        View and manage your archived projects. Restore or permanently delete them.
                     </p>
                 </div>
 
@@ -126,9 +94,7 @@ const ArchivePatternsPage = () => {
                     </Card>
                 ) : (
                     <div className="grid gap-4">
-                        {archivedProjects.map((project) => {
-                            const daysRemaining = getDaysRemaining(project.updated_at);
-                            return (
+                        {archivedProjects.map((project) => (
                                 <Card key={project.id} className="hover:shadow-md transition-shadow">
                                     <CardContent className="p-4">
                                         <div className="flex items-center justify-between">
@@ -141,9 +107,6 @@ const ArchivePatternsPage = () => {
                                                         <Calendar className="h-4 w-4" />
                                                         Archived: {format(new Date(project.updated_at), 'MMM d, yyyy')}
                                                     </span>
-                                                    <Badge variant={daysRemaining <= 7 ? "destructive" : "secondary"}>
-                                                        {daysRemaining} days remaining
-                                                    </Badge>
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
@@ -167,8 +130,7 @@ const ArchivePatternsPage = () => {
                                         </div>
                                     </CardContent>
                                 </Card>
-                            );
-                        })}
+                        ))}
                     </div>
                 )}
             </main>

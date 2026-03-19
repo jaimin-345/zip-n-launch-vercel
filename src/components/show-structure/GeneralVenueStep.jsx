@@ -201,24 +201,6 @@ export const GeneralVenueStep = ({ formData, setFormData }) => {
                          }
                         
                         <div>
-                            <Label>Show Manager</Label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
-                                <Input value={formData.showDetails?.general?.managerName || ''} onChange={(e) => handleDetailChange('general', 'managerName', e.target.value)} placeholder="Name" />
-                                <Input type="tel" value={formData.showDetails?.general?.managerContactPhone || ''} onChange={(e) => handleDetailChange('general', 'managerContactPhone', e.target.value)} placeholder="Phone" />
-                                <Input type="email" value={formData.showDetails?.general?.managerContactEmail || ''} onChange={(e) => handleDetailChange('general', 'managerContactEmail', e.target.value)} placeholder="Email" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label>Show Secretary</Label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2">
-                                <Input value={formData.showDetails?.general?.secretaryName || ''} onChange={(e) => handleDetailChange('general', 'secretaryName', e.target.value)} placeholder="Name" />
-                                <Input type="tel" value={formData.showDetails?.general?.secretaryContactPhone || ''} onChange={(e) => handleDetailChange('general', 'secretaryContactPhone', e.target.value)} placeholder="Phone" />
-                                <Input type="email" value={formData.showDetails?.general?.secretaryContactEmail || ''} onChange={(e) => handleDetailChange('general', 'secretaryContactEmail', e.target.value)} placeholder="Email" />
-                            </div>
-                        </div>
-
-                        <div>
                             <Label>Event Host / Sponsoring Association</Label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-2 items-center">
                                 <Input className="md:col-span-1" value={formData.showDetails?.general?.eventHost || ''} onChange={(e) => handleDetailChange('general', 'eventHost', e.target.value)} placeholder="e.g., State QHA" />

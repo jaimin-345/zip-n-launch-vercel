@@ -311,15 +311,24 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
     if (!bg || bg.type === 'none') return {};
     if (bg.type === 'solid') return { backgroundColor: bg.value };
     if (bg.type === 'gradient') return { background: bg.value };
-    if (bg.type === 'image') return { backgroundImage: `url(${bg.value})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    // Images handled separately with overlay
     return {};
   }, [settings.background]);
 
+  const bgImageUrl = settings.background?.type === 'image' ? settings.background.value : null;
+
   return (
     <div
-      className={`text-black rounded-lg mx-auto px-10 py-8 min-h-[600px] print:shadow-none ${isLandscape ? 'max-w-[900px]' : 'max-w-[680px]'}`}
+      className={`relative text-black rounded-lg mx-auto px-10 py-8 min-h-[600px] print:shadow-none ${isLandscape ? 'max-w-[900px]' : 'max-w-[680px]'}`}
       style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.06)', backgroundColor: '#ffffff', ...bgStyle }}
     >
+      {bgImageUrl && (
+        <div
+          className="absolute inset-0 rounded-lg bg-cover bg-center pointer-events-none"
+          style={{ backgroundImage: `url(${bgImageUrl})`, opacity: 0.15 }}
+        />
+      )}
+      <div className="relative">
       {/* Header */}
       {settings.showHeader && (
         <div className="text-center mb-4">
@@ -434,15 +443,13 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
 
                         if (classDetails.length <= 1) {
                           const titleText = item.title || classDetails[0]?.name || 'Untitled';
+                          const assocSuffix = assocTags.length > 0 ? ` - ${assocTags.join(', ')}` : '';
                           return (
                             <div key={item.id} className={`flex items-center gap-2 ${itemPadding}`}>
                               {settings.showNumbers && item.number && (
                                 <span className={`${fontSize} font-bold text-gray-800 w-8 text-right shrink-0`}>{item.number}.</span>
                               )}
-                              <span className={fontSize}>{titleText}</span>
-                              {assocTags.map(tag => (
-                                <span key={tag} className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{tag}</span>
-                              ))}
+                              <span className={fontSize}>{titleText}{assocSuffix}</span>
                             </div>
                           );
                         }
@@ -458,12 +465,10 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
                             <div className="pl-10 space-y-0.5">
                               {classDetails.map(cls => {
                                 const assoc = associationsData?.find(a => a.id === cls.assocId);
+                                const assocText = settings.showAssociations && assoc ? ` - ${assoc.abbreviation}` : '';
                                 return (
-                                  <div key={cls.id} className={`flex items-center gap-1.5 ${fontSize} text-gray-700`}>
-                                    <span>{cls.name}</span>
-                                    {settings.showAssociations && assoc && (
-                                      <span className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{assoc.abbreviation}</span>
-                                    )}
+                                  <div key={cls.id} className={`${fontSize} text-gray-700`}>
+                                    {cls.name}{assocText}
                                   </div>
                                 );
                               })}
@@ -490,6 +495,7 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
           )}
         </div>
       )}
+      </div>
     </div>
   );
 };

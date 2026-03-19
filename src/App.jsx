@@ -64,6 +64,7 @@ import JudgesPortalPage from '@/pages/JudgesPortalPage';
 import StaffPortalPage from '@/pages/StaffPortalPage';
 import AdminRoute from '@/components/AdminRoute';
 import RoleBasedRoute from '@/components/RoleBasedRoute';
+import MembershipRoute from '@/components/MembershipRoute';
 import NotAuthorizedPage from '@/pages/NotAuthorizedPage';
 import AdminUserManagementPage from '@/pages/AdminUserManagementPage';
 import AdminDisciplineManagementPage from '@/pages/AdminDisciplineManagementPage';
@@ -134,7 +135,7 @@ function App() {
                   <Route path="/billing-history" element={<BillingHistoryPage />} />
                   <Route path="/customize/:id" element={<CustomizePage />} />
                   <Route path="/contributors" element={<ContributorsPage />} />
-                  <Route path="/contributor-portal" element={<RoleBasedRoute><ContributorPortalPage /></RoleBasedRoute>} />
+                  <Route path="/contributor-portal" element={<MembershipRoute><ContributorPortalPage /></MembershipRoute>} />
                   <Route path="/events" element={<EventsPage />} />
                   <Route path="/events/past" element={<PastEventsPage />} />
                   <Route path="/event-detail/:id" element={<EventDetailPage />} />
@@ -200,65 +201,65 @@ function App() {
                   <Route path="/admin/show-management" element={<AdminRoute><AdminShowManagementPage /></AdminRoute>} />
                   <Route path="/admin/events" element={<AdminRoute><AdminEventsManagementPage /></AdminRoute>} />
                   <Route path="/admin/billing-report" element={<AdminRoute><AdminBillingReportPage /></AdminRoute>} />
-                  <Route path="/horse-show-manager/equipment" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/discipline-planner" element={<RoleBasedRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/arena-sessions" element={<RoleBasedRoute requiredPermission="equipment:manage"><ArenaSessionsPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/equipment-requirements" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentRequirementsPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/distribution-plan" element={<RoleBasedRoute requiredPermission="equipment:manage"><DistributionPlanPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/equipment-check-in-out" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentCheckInOutPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/equipment-planning" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/equipment-planning/:showId" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/locations" element={<RoleBasedRoute requiredPermission="equipment:manage"><LocationsPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/reconciliation" element={<RoleBasedRoute requiredPermission="equipment:manage"><ReconciliationPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/equipment-reports" element={<RoleBasedRoute requiredPermission="equipment:manage"><EquipmentReportsPage /></RoleBasedRoute>} />
+                  <Route path="/horse-show-manager/equipment" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/discipline-planner" element={<MembershipRoute requiredPermission="equipment:manage"><DisciplinePlannerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/arena-sessions" element={<MembershipRoute requiredPermission="equipment:manage"><ArenaSessionsPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/equipment-requirements" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentRequirementsPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/distribution-plan" element={<MembershipRoute requiredPermission="equipment:manage"><DistributionPlanPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/equipment-check-in-out" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentCheckInOutPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/equipment-planning" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/equipment-planning/:showId" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentPlanningHubPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/locations" element={<MembershipRoute requiredPermission="equipment:manage"><LocationsPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/reconciliation" element={<MembershipRoute requiredPermission="equipment:manage"><ReconciliationPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/equipment-reports" element={<MembershipRoute requiredPermission="equipment:manage"><EquipmentReportsPage /></MembershipRoute>} />
 
-                  <Route path="/customer-portal" element={<CustomerPortalPage />} />
-                  <Route path="/archive-patterns" element={<ArchivePatternsPage />} />
+                  <Route path="/customer-portal" element={<MembershipRoute><CustomerPortalPage /></MembershipRoute>} />
+                  <Route path="/archive-patterns" element={<MembershipRoute><ArchivePatternsPage /></MembershipRoute>} />
                   <Route path="/judges-portal" element={<JudgesPortalPage />} />
                   <Route path="/staff-portal" element={<StaffPortalPage />} />
-                  <Route path="/pattern-hub" element={<RoleBasedRoute><PatternHubPage /></RoleBasedRoute>} />
-                  <Route path="/pattern-hub/:projectId" element={<RoleBasedRoute><PatternHubPage /></RoleBasedRoute>} />
+                  <Route path="/pattern-hub" element={<MembershipRoute><PatternHubPage /></MembershipRoute>} />
+                  <Route path="/pattern-hub/:projectId" element={<MembershipRoute><PatternHubPage /></MembershipRoute>} />
                   <Route path="/store" element={<StorePage />} />
                   <Route path="/product/:id" element={<ProductDetailPage />} />
                   <Route path="/success" element={<SuccessPage />} />
-                  <Route path="/pattern-book-builder" element={<RoleBasedRoute><PatternBookBuilderPage /></RoleBasedRoute>} />
-                  <Route path="/pattern-book-builder/:projectId" element={<RoleBasedRoute><PatternBookBuilderPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager" element={<RoleBasedRoute><HorseShowManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show/:showId" element={<RoleBasedRoute><ShowWorkspacePage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/create" element={<RoleBasedRoute><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/edit/:showId" element={<RoleBasedRoute><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/schedule-builder" element={<RoleBasedRoute><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/schedule-builder/:showId" element={<RoleBasedRoute><CreateShowPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-structure-expenses" element={<RoleBasedRoute><ShowStructurePage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-structure-expenses/:showId" element={<RoleBasedRoute><ShowStructurePage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/fee-structure" element={<RoleBasedRoute><CreateHorseShowWizardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/fee-structure/:showId" element={<RoleBasedRoute><CreateHorseShowWizardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/show-dashboard/:showId" element={<RoleBasedRoute><ShowDashboardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/financials" element={<RoleBasedRoute><ShowFinancialDashboardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/financials/:showId" element={<RoleBasedRoute><ShowFinancialDashboardPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/stalling-service-manager" element={<RoleBasedRoute><StallingServiceManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/stalling-service-manager/:showId" element={<RoleBasedRoute><StallingServiceManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-scheduling" element={<RoleBasedRoute><EmployeeArenaSchedulingManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-scheduling/:showId" element={<RoleBasedRoute><EmployeeArenaSchedulingManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-budgeting" element={<RoleBasedRoute><EmployeeBudgetingToolPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-budgeting/:showId" element={<RoleBasedRoute><EmployeeBudgetingToolPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/venue-arena-setup" element={<RoleBasedRoute><VenueArenaSetupPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/venue-arena-setup/:showId" element={<RoleBasedRoute><VenueArenaSetupPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-scheduling/assign" element={<RoleBasedRoute><EmployeeSchedulingPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-scheduling/assign/:showId" element={<RoleBasedRoute><EmployeeSchedulingPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-management" element={<RoleBasedRoute><EmployeeManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-management/contracts" element={<RoleBasedRoute><ContractManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/employee-management/contracts/:projectId" element={<RoleBasedRoute><ContractManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/travel-management" element={<RoleBasedRoute><TravelManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/awards-presenters" element={<RoleBasedRoute><AwardsPresenterManagerPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/awards-management" element={<RoleBasedRoute><AwardsManagementPage /></RoleBasedRoute>} />
-                  <Route path="/horse-show-manager/awards-management/:showId" element={<RoleBasedRoute><AwardsManagementPage /></RoleBasedRoute>} />
+                  <Route path="/pattern-book-builder" element={<MembershipRoute><PatternBookBuilderPage /></MembershipRoute>} />
+                  <Route path="/pattern-book-builder/:projectId" element={<MembershipRoute><PatternBookBuilderPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager" element={<MembershipRoute><HorseShowManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/show/:showId" element={<MembershipRoute><ShowWorkspacePage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/create" element={<MembershipRoute><CreateShowPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/edit/:showId" element={<MembershipRoute><CreateShowPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/schedule-builder" element={<MembershipRoute><CreateShowPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/schedule-builder/:showId" element={<MembershipRoute><CreateShowPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/show-structure-expenses" element={<MembershipRoute><ShowStructurePage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/show-structure-expenses/:showId" element={<MembershipRoute><ShowStructurePage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/fee-structure" element={<MembershipRoute><CreateHorseShowWizardPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/fee-structure/:showId" element={<MembershipRoute><CreateHorseShowWizardPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/show-dashboard/:showId" element={<MembershipRoute><ShowDashboardPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/financials" element={<MembershipRoute><ShowFinancialDashboardPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/financials/:showId" element={<MembershipRoute><ShowFinancialDashboardPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/stalling-service-manager" element={<MembershipRoute><StallingServiceManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/stalling-service-manager/:showId" element={<MembershipRoute><StallingServiceManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-scheduling" element={<MembershipRoute><EmployeeArenaSchedulingManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-scheduling/:showId" element={<MembershipRoute><EmployeeArenaSchedulingManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-budgeting" element={<MembershipRoute><EmployeeBudgetingToolPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-budgeting/:showId" element={<MembershipRoute><EmployeeBudgetingToolPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/venue-arena-setup" element={<MembershipRoute><VenueArenaSetupPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/venue-arena-setup/:showId" element={<MembershipRoute><VenueArenaSetupPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-scheduling/assign" element={<MembershipRoute><EmployeeSchedulingPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-scheduling/assign/:showId" element={<MembershipRoute><EmployeeSchedulingPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-management" element={<MembershipRoute><EmployeeManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-management/contracts" element={<MembershipRoute><ContractManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/employee-management/contracts/:projectId" element={<MembershipRoute><ContractManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/travel-management" element={<MembershipRoute><TravelManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/awards-presenters" element={<MembershipRoute><AwardsPresenterManagerPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/awards-management" element={<MembershipRoute><AwardsManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/awards-management/:showId" element={<MembershipRoute><AwardsManagementPage /></MembershipRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
-                  <Route path="/upload-patterns/my-uploads" element={<RoleBasedRoute><MyPatternUploadsPage /></RoleBasedRoute>} />
-                  <Route path="/upload-patterns/new" element={<RoleBasedRoute><PatternUploadWizardPage /></RoleBasedRoute>} />
-                  <Route path="/upload-patterns/edit/:projectId" element={<RoleBasedRoute><PatternUploadWizardPage /></RoleBasedRoute>} />
-                  <Route path="/upload-patterns/legacy" element={<RoleBasedRoute><PatternUploadPage /></RoleBasedRoute>} />
+                  <Route path="/upload-patterns/my-uploads" element={<MembershipRoute><MyPatternUploadsPage /></MembershipRoute>} />
+                  <Route path="/upload-patterns/new" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
+                  <Route path="/upload-patterns/edit/:projectId" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
+                  <Route path="/upload-patterns/legacy" element={<MembershipRoute><PatternUploadPage /></MembershipRoute>} />
                   <Route path="/score-sheet-generator" element={<ScoreSheetGeneratorPage />} />
                 </Routes>
                 <Toaster />

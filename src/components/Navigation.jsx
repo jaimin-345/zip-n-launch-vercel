@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -19,12 +19,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+const MEMBERSHIP_REQUIRED_PATHS = [
+    '/pattern-hub',
+    '/pattern-book-builder',
+    '/horse-show-manager',
+    '/upload-patterns',
+];
+
 const Navigation = () => {
-    const { user, signOut, isAdmin, openAuthModal } = useAuth();
+    const { user, signOut, isAdmin, isSubscribed, openAuthModal } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { branding } = useSiteBranding();
     const logoSrc = branding?.logo_url || logoImage;
+
+    const hasMembership = isAdmin || isSubscribed;
 
     const isStaffPortal = location.pathname === '/staff-portal';
 
@@ -84,20 +94,15 @@ const Navigation = () => {
                                     </Link>
                                 </DropdownMenuItem>
                             )}
-                             <DropdownMenuItem asChild>
-                                <Link to="/dashboard" className="w-full">
-                                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                                    <span>Dashboard</span>
-                                </Link>
-                            </DropdownMenuItem>
+                            {/* Dashboard temporarily removed */}
                             <DropdownMenuItem asChild>
-                                <Link to="/customer-portal" className="w-full">
+                                <Link to={hasMembership ? "/customer-portal" : "/membership"} className="w-full">
                                     <Library className="mr-2 h-4 w-4" />
                                     <span>My Projects</span>
                                 </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
-                                <Link to="/contributor-portal" className="w-full">
+                                <Link to={hasMembership ? "/contributor-portal" : "/membership"} className="w-full">
                                     <UploadCloud className="mr-2 h-4 w-4" />
                                     <span>Contributor Portal</span>
                                 </Link>
@@ -111,7 +116,7 @@ const Navigation = () => {
                                 </DropdownMenuItem>
                             )}
                             <DropdownMenuItem asChild>
-                                <Link to="/archive-patterns" className="w-full">
+                                <Link to={hasMembership ? "/archive-patterns" : "/membership"} className="w-full">
                                     <Archive className="mr-2 h-4 w-4" />
                                     <span>Archive Pattern</span>
                                 </Link>
@@ -183,16 +188,22 @@ const Navigation = () => {
 
                     <div className="hidden md:flex items-center flex-1 ml-6">
                         <div className="flex items-center space-x-1">
-                            {getVisibleNavItems().map((item) => (
-                                 <Link key={item.name} to={item.path}>
-                                      <Button
-                                          variant={item.highlight ? 'default' : (location.pathname === item.path ? 'secondary' : 'ghost')}
-                                          className="font-medium"
-                                      >
-                                          {item.name}
-                                      </Button>
-                                  </Link>
-                            ))}
+                            {getVisibleNavItems().map((item) => {
+                                const needsMembership = user && !hasMembership && MEMBERSHIP_REQUIRED_PATHS.some(p => item.path.startsWith(p));
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        to={needsMembership ? '/membership' : item.path}
+                                    >
+                                        <Button
+                                            variant={item.highlight ? 'default' : (location.pathname === item.path ? 'secondary' : 'ghost')}
+                                            className="font-medium"
+                                        >
+                                            {item.name}
+                                        </Button>
+                                    </Link>
+                                );
+                            })}
                         </div>
 
                         <div className="flex items-center gap-2 ml-4">
@@ -253,24 +264,27 @@ const Navigation = () => {
                             )}
                         </div>
                         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                            {getVisibleNavItems().map((item) => (
-                                  <Link
-                                      key={item.name}
-                                      to={item.path}
-                                      className={`block px-3 py-2 rounded-md text-base font-medium ${item.highlight ? 'bg-primary text-primary-foreground' : (location.pathname === item.path ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/50')}`}
-                                      onClick={() => setIsMenuOpen(false)}
-                                  >
-                                      {item.name}
-                                  </Link>
-                            ))}
+                            {getVisibleNavItems().map((item) => {
+                                const needsMembership = user && !hasMembership && MEMBERSHIP_REQUIRED_PATHS.some(p => item.path.startsWith(p));
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        to={needsMembership ? '/membership' : item.path}
+                                        className={`block px-3 py-2 rounded-md text-base font-medium ${item.highlight ? 'bg-primary text-primary-foreground' : (location.pathname === item.path ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent/50')}`}
+                                        onClick={() => setIsMenuOpen(false)}
+                                    >
+                                        {item.name}
+                                    </Link>
+                                );
+                            })}
                         </div>
                          {user && (
                             <div className="pt-4 pb-3 border-t border-border px-5 space-y-1">
                                 {isAdmin && <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><LayoutDashboard className="inline-block mr-2 h-4 w-4"/>Admin</Link>}
                                 {isAdmin && <Link to="/admin/tracking-user" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Activity className="inline-block mr-2 h-4 w-4"/>Tracking User</Link>}
-                                <Link to="/customer-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Library className="inline-block mr-2 h-4 w-4"/>My Projects</Link>
-                                <Link to="/contributor-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><UploadCloud className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>
-                                <Link to="/archive-patterns" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
+                                <Link to={hasMembership ? "/customer-portal" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Library className="inline-block mr-2 h-4 w-4"/>My Projects</Link>
+                                <Link to={hasMembership ? "/contributor-portal" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><UploadCloud className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>
+                                <Link to={hasMembership ? "/archive-patterns" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
                                 <Link to="/judges-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Gavel className="inline-block mr-2 h-4 w-4"/>Judges Portal</Link>
                                 <Link to="/staff-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Briefcase className="inline-block mr-2 h-4 w-4"/>Staff Portal</Link>
                                 <Link to="/profile" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Edit className="inline-block mr-2 h-4 w-4"/>Edit Profile</Link>

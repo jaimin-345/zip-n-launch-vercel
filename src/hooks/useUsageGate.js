@@ -32,7 +32,7 @@ export function useUsageGate(projectType = 'show') {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('project_type', projectType)
-        .in('status', ['Locked', 'Final', 'Lock & Approve Mode', 'Publication']);
+        .in('status', ['Locked', 'locked', 'Final', 'final', 'Lock & Approve Mode', 'Publication']);
 
       if (error) throw error;
       setCount(total || 0);

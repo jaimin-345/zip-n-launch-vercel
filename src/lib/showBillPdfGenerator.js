@@ -90,7 +90,11 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
       }
     } else if (bg.type === 'image' && bgImageData) {
       try {
+        const gState = new doc.GState({ opacity: 0.15 });
+        doc.saveGraphicsState();
+        doc.setGState(gState);
         doc.addImage(bgImageData, 'JPEG', 0, 0, pageWidth, pageHeight);
+        doc.restoreGraphicsState();
       } catch (e) {
         console.warn('Failed to render background image in PDF:', e);
       }
@@ -126,7 +130,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
         uniqueAssocs.add(assoc?.abbreviation || cls.assocId);
       }
     });
-    return Array.from(uniqueAssocs).map(a => `[${a}]`).join(' ');
+    return '- ' + Array.from(uniqueAssocs).join(', ');
   };
 
   // ============================================================
@@ -326,7 +330,7 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
             classDetails.forEach(cls => {
               checkPageBreak(lineH - 1);
               const assoc = associationsData?.find(a => a.id === cls.assocId);
-              const assocTag = ls.showAssociations && assoc ? `  [${assoc.abbreviation}]` : '';
+              const assocTag = ls.showAssociations && assoc ? ` - ${assoc.abbreviation}` : '';
               doc.text(`     ${cls.name}${assocTag}`, margin + 36, y);
               y += lineH - 1;
             });

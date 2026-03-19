@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    Pencil, Save, Loader2, ShieldCheck, Lock, Rocket, Download,
+    Pencil, Save, Loader2, Lock, Download,
     CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone,
     LayoutDashboard, Trophy, DollarSign, Users, ClipboardList, FileSpreadsheet
 } from 'lucide-react';
@@ -19,13 +19,13 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { exportShowBudgetToExcel } from '@/lib/showBudgetExport';
 
 const STATUS_CONFIG = {
-    draft:     { label: 'Draft',     color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
-    locked:    { label: 'Locked',    color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
-    published: { label: 'Published', color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
+    draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-800 border-gray-300',          dotColor: 'bg-gray-500' },
+    locked:    { label: 'Locked',    color: 'bg-amber-100 text-amber-800 border-amber-300',       dotColor: 'bg-amber-600' },
+    published: { label: 'Published', color: 'bg-emerald-100 text-emerald-800 border-emerald-300', dotColor: 'bg-emerald-600' },
 };
 
 // --- Admin & Owner Assignment ---
-const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
+const AdminOwnerSection = ({ formData, setFormData, user, profile, isLocked: isLockedProp }) => {
     const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || '';
     const loggedInUserEmail = user?.email || '';
     const loggedInUserPhone = user?.user_metadata?.phone || user?.user_metadata?.mobile || profile?.phone || profile?.mobile || '';
@@ -40,7 +40,7 @@ const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
         setFormData(prev => ({ ...prev, adminOwner: { ...(prev.adminOwner || {}), [field]: value } }));
     };
 
-    const isLocked = formData.showStatus === 'locked' || formData.showStatus === 'published';
+    const isLocked = isLockedProp;
 
     return (
         <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
@@ -112,8 +112,8 @@ const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
 };
 
 // --- Left Panel: Project Info ---
-const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull }) => {
-    const status = formData.showStatus || 'draft';
+const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull, moduleStatus }) => {
+    const status = moduleStatus || 'draft';
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
     const details = formData.showDetails || {};
     const isLocked = status === 'locked' || status === 'published';
@@ -202,8 +202,8 @@ const ProjectInfoCard = ({ formData, user, setFormData, totalAllExpenses, isFull
 
 // --- Center Panel: Action Buttons (grouped) ---
 const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportBudget, isSaving, isFull }) => {
-    const isFinalized = currentStatus === 'published';
-    const isLocked = currentStatus === 'locked' || isFinalized;
+    const isPublished = currentStatus === 'published';
+    const isLocked = currentStatus === 'locked';
 
     return (
         <div className="space-y-5">
@@ -219,32 +219,27 @@ const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportBudget, 
                         : 'Save, lock, and publish your fee structure & sponsors.'}
                 </p>
 
-                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12" onClick={() => onStatusChange('draft')} disabled={isSaving || isLocked}>
+                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12" onClick={() => onStatusChange('draft')} disabled={isSaving || isLocked || isPublished}>
                     {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
                     <div className="text-left">
-                        <span className="font-semibold">Save as Draft</span>
+                        <span className="font-semibold">Draft</span>
                         <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
                     </div>
                 </Button>
 
-                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300" onClick={() => onStatusChange('locked')} disabled={isSaving || isLocked}>
-                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
-                        <div className="mr-3 relative">
-                            <ShieldCheck className="h-5 w-5 text-blue-600" />
-                            <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
-                        </div>
-                    )}
+                <Button variant="outline" size="lg" className="w-full justify-start text-sm h-12 border-amber-200 hover:bg-amber-50 hover:border-amber-300" onClick={() => onStatusChange('locked')} disabled={isSaving || isPublished}>
+                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Lock className="mr-3 h-5 w-5 text-amber-600" />}
                     <div className="text-left">
-                        <span className="font-semibold text-blue-700">Lock Editing</span>
+                        <span className="font-semibold text-amber-700">Locked</span>
                         <span className="block text-xs text-muted-foreground">Lock all editing — export & view only</span>
                     </div>
                 </Button>
 
-                <Button size="lg" className="w-full justify-start text-sm h-12 bg-green-600 hover:bg-green-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isFinalized}>
-                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+                <Button size="lg" className="w-full justify-start text-sm h-12 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => onStatusChange('published')} disabled={isSaving || isPublished}>
+                    {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <CheckCircle2 className="mr-3 h-5 w-5" />}
                     <div className="text-left">
-                        <span className="font-semibold">Make Schedule Public</span>
-                        <span className="block text-xs text-green-200">Publish your schedule — visible to exhibitors</span>
+                        <span className="font-semibold">Published</span>
+                        <span className="block text-xs text-emerald-200">Publish your schedule — visible to exhibitors</span>
                     </div>
                 </Button>
             </div>
@@ -325,23 +320,28 @@ const ReviewField = ({ label, value }) => {
 };
 
 // --- Show Summary Panel ---
-const ShowSummaryPanel = ({ formData, totalExpenses, totalAwardExpenses, totalFeeIncome, totalSponsorship }) => {
+const ShowSummaryPanel = ({ formData, totalExpenses, totalAllAwards, totalStaffCosts, totalAllExpenses, totalFeeIncome, totalSponsorship }) => {
     const disciplines = formData.disciplines || [];
     const totalClasses = disciplines.reduce((sum, d) => sum + (d.divisionOrder?.length || 0), 0);
 
-    const judges = (formData.staff || []).filter(s =>
-        s.role?.toLowerCase().includes('judge') || s.position?.toLowerCase().includes('judge')
-    );
-    const judgeCount = judges.length;
+    // Count judges from all data sources
+    let judgeCount = 0;
+    const officials = formData.showDetails?.officials || {};
+    Object.values(officials).forEach(assocRoles => {
+        judgeCount += (assocRoles?.JUDGE || []).filter(j => j?.name).length;
+    });
+    const judgeEntries = formData.showDetails?.judges || {};
+    Object.values(judgeEntries).forEach(judges => {
+        judgeCount += (judges || []).filter(j => j?.name).length;
+    });
 
     const totalIncome = totalFeeIncome + totalSponsorship;
-    const totalAllExpenses = totalExpenses + totalAwardExpenses;
     const projectedProfit = totalIncome - totalAllExpenses;
 
     const stats = [
         { label: 'Classes', value: totalClasses, icon: LayoutDashboard, color: 'text-blue-600' },
         { label: 'Judges', value: judgeCount, icon: Users, color: 'text-indigo-600' },
-        { label: 'Awards Budget', value: `$${totalAwardExpenses.toFixed(0)}`, icon: Trophy, color: 'text-amber-600' },
+        { label: 'Awards Budget', value: `$${totalAllAwards.toFixed(0)}`, icon: Trophy, color: 'text-amber-600' },
         { label: 'Expenses Total', value: `$${totalAllExpenses.toFixed(0)}`, icon: DollarSign, color: 'text-red-600' },
         { label: 'Projected Profit', value: `$${projectedProfit.toFixed(0)}`, icon: DollarSign, color: projectedProfit >= 0 ? 'text-green-600' : 'text-red-600' },
     ];
@@ -393,7 +393,7 @@ const SuccessDialog = ({ open, onClose, onGoToDashboard, statusLabel }) => (
 );
 
 // --- Main Component ---
-export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'full', onNavigateToDashboard }) => {
+export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'full', onNavigateToDashboard, onSave }) => {
     const { associations = {} } = formData;
     const { toast } = useToast();
     const { user, profile } = useAuth();
@@ -426,18 +426,60 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
     const arenaSponsorRevenue = useMemo(() => arenaSponsors.reduce((sum, as) => sum + (parseFloat(as.amount) || 0), 0), [arenaSponsors]);
     const customSponsorRevenue = useMemo(() => customSponsors.reduce((sum, cs) => sum + (parseFloat(cs.amount) || 0), 0), [customSponsors]);
     const totalSponsorshipRevenue = levelSponsorRevenue + classSponsorRevenue + arenaSponsorRevenue + customSponsorRevenue;
+
+    // Calculate total staff costs from officials
+    const totalStaffCosts = useMemo(() => {
+        const officials = formData.showDetails?.officials || {};
+        let total = 0;
+
+        const calcDays = (startDate, endDate) => {
+            if (!startDate || !endDate) return 0;
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            if (isNaN(start) || isNaN(end) || start > end) return 0;
+            return Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        };
+
+        Object.values(officials).forEach(assocRoles => {
+            Object.values(assocRoles || {}).forEach(members => {
+                (members || []).forEach(member => {
+                    // Days: use explicit days_worked if set, otherwise auto-calc from employment dates
+                    const autoDays = calcDays(member.employment_start_date, member.employment_end_date);
+                    const days = member.days_worked != null && member.days_worked !== '' ? (parseFloat(member.days_worked) || 0) : autoDays;
+                    const dayFee = (parseFloat(member.day_fee) || 0) * days;
+                    const hourlyFee = (parseFloat(member.hours_worked) || 0) * (parseFloat(member.hourly_rate) || 0);
+                    const overtimeFee = (parseFloat(member.overtime_hours) || 0) * (parseFloat(member.overtime_rate_per_hour) || 0);
+                    let expensesTotal = 0;
+                    if (member.reimbursable_expenses) {
+                        Object.values(member.reimbursable_expenses).forEach(exp => {
+                            if (exp.reimbursed) expensesTotal += parseFloat(exp.total) || parseFloat(exp.max_value) || 0;
+                        });
+                    }
+                    total += dayFee + hourlyFee + overtimeFee + expensesTotal;
+                });
+            });
+        });
+        return total;
+    }, [formData.showDetails?.officials]);
     const totalSponsorCount = sponsors.filter(s => s.name).length + classSponsors.filter(cs => cs.sponsorName).length + arenaSponsors.filter(as => as.sponsorName).length + customSponsors.filter(cs => cs.name).length;
     const expenses = formData.showExpenses || [];
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + ((parseFloat(e.amount) || 0) * (parseInt(e.quantity) || 1)), 0), [expenses]);
     const awardExpenses = formData.awardExpenses || [];
     const totalAwardExpenses = useMemo(() => awardExpenses.reduce((sum, a) => sum + ((parseFloat(a.amount) || 0) * (parseInt(a.qty) || 1)), 0), [awardExpenses]);
-    const totalAllExpenses = totalExpenses + totalAwardExpenses;
+    const classAwards = formData.classAwards || {};
+    const totalClassAwards = useMemo(() => Object.values(classAwards).reduce((sum, ca) => {
+        const items = ca.items || [];
+        if (items.length === 0 && ca.budget) return sum + (parseFloat(ca.budget) || 0);
+        return sum + items.reduce((s, i) => s + ((parseFloat(i.cost) || 0) * (parseInt(i.qty) || 1)), 0);
+    }, 0), [classAwards]);
+    const totalAllAwards = totalAwardExpenses + totalClassAwards;
+    const totalAllExpenses = totalExpenses + totalAllAwards + totalStaffCosts;
 
     const selectedAssociations = Object.keys(associations || {}).filter(id => associations[id]);
     const details = formData.showDetails || {};
-    const currentStatus = formData.showStatus || 'draft';
-
     const isFull = variant === 'full';
+    const moduleKey = isFull ? 'showStructure' : 'feeStructure';
+    const currentStatus = (formData.moduleStatuses || {})[moduleKey] || 'draft';
 
     const handleGoToDashboard = useCallback(() => {
         setSuccessDialog({ open: false, statusLabel: '' });
@@ -451,13 +493,27 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
     const handleStatusChange = useCallback(async (newStatus) => {
         setIsSaving(true);
         try {
-            setFormData(prev => ({ ...prev, showStatus: newStatus }));
+            // Determine which module key to update based on variant
+            const moduleKey = isFull ? 'showStructure' : 'feeStructure';
+            setFormData(prev => ({
+                ...prev,
+                moduleStatuses: {
+                    ...(prev.moduleStatuses || {}),
+                    [moduleKey]: newStatus,
+                },
+            }));
+            if (onSave) {
+                // Pass null as statusOverride so project-level status is not changed
+                await onSave(null, moduleKey, newStatus);
+            }
             const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
             setSuccessDialog({ open: true, statusLabel });
+        } catch {
+            // Error handled in hook
         } finally {
             setIsSaving(false);
         }
-    }, [setFormData]);
+    }, [setFormData, onSave, isFull]);
 
     const handleExportBudget = useCallback(() => {
         try {
@@ -502,8 +558,6 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                         <ReviewField label="Arenas" value={details.venue?.numberOfArenas} />
                         <ReviewField label="RV Spots" value={details.venue?.numberOfRVSpots} />
                         <ReviewField label="Host Hotel" value={details.venue?.hostHotel} />
-                        <ReviewField label="Show Manager" value={details.general?.managerName} />
-                        <ReviewField label="Show Secretary" value={details.general?.secretaryName} />
                     </>
                 );
             case 'Officials & Staff':
@@ -537,11 +591,11 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                         <ReviewField label="High Point / All-Around" value={details.awards?.highPoint} />
                         <ReviewField label="Circuit Awards" value={details.awards?.circuitAwards} />
                         <ReviewField label="Special Awards" value={details.awards?.specialAwards} />
-                        {totalAwardExpenses > 0 && (
+                        {totalAllAwards > 0 && (
                             <div className="p-2 rounded-lg bg-red-500/5 mt-2">
                                 <div className="flex justify-between text-sm font-bold">
                                     <span>Total Award Expenses</span>
-                                    <span className="text-red-600">${totalAwardExpenses.toFixed(2)}</span>
+                                    <span className="text-red-600">${totalAllAwards.toFixed(2)}</span>
                                 </div>
                             </div>
                         )}
@@ -599,19 +653,21 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                     <ShowSummaryPanel
                         formData={formData}
                         totalExpenses={totalExpenses}
-                        totalAwardExpenses={totalAwardExpenses}
+                        totalAllAwards={totalAllAwards}
+                        totalStaffCosts={totalStaffCosts}
+                        totalAllExpenses={totalAllExpenses}
                         totalFeeIncome={totalFeeIncome}
                         totalSponsorship={totalSponsorshipRevenue}
                     />
                 )}
 
                 {/* Admin & Owner Assignment */}
-                <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} />
+                <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} isLocked={currentStatus === 'locked' || currentStatus === 'published'} />
 
                 {/* 3-Column Layout: Project Info | Manage Show | Licensing */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     <div className="lg:col-span-3">
-                        <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} totalAllExpenses={totalAllExpenses} isFull={isFull} />
+                        <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} totalAllExpenses={totalAllExpenses} isFull={isFull} moduleStatus={currentStatus} />
                     </div>
                     <div className="lg:col-span-5">
                         <ActionPanel
@@ -638,7 +694,7 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                 </Accordion>
 
                 {/* Expense Summary — full variant only */}
-                {isFull && (totalExpenses > 0 || totalAwardExpenses > 0) && (
+                {isFull && totalAllExpenses > 0 && (
                     <div className="border rounded-lg overflow-hidden">
                         <div className="px-4 py-3 bg-muted/50 border-b">
                             <h4 className="font-semibold text-base">Expense Summary</h4>
@@ -650,10 +706,16 @@ export const ReviewStep = ({ formData, setFormData, setCurrentStep, variant = 'f
                                     <span className="font-semibold text-red-600">${totalExpenses.toFixed(2)}</span>
                                 </div>
                             )}
-                            {totalAwardExpenses > 0 && (
+                            {totalStaffCosts > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span>Staff & Officials</span>
+                                    <span className="font-semibold text-red-600">${totalStaffCosts.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {totalAllAwards > 0 && (
                                 <div className="flex justify-between text-sm">
                                     <span>Award Expenses</span>
-                                    <span className="font-semibold text-red-600">${totalAwardExpenses.toFixed(2)}</span>
+                                    <span className="font-semibold text-red-600">${totalAllAwards.toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="border-t pt-2 flex justify-between text-sm font-bold">

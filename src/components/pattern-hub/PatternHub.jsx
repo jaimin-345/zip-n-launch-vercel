@@ -264,10 +264,12 @@ export const PatternHub = ({ projectId }) => {
     const isClinic = formData.usageType === 'clinic';
     const isOpenShowMode = formData.showType === 'open-unaffiliated' || !!formData.associations['open-show'];
 
-    // All steps shown for all usage types (Configure Classes replaces Division & Level)
+    // Skip "Configure Classes" step for non-Horse Show usage types
+    const isHorseShow = formData.usageType === 'horse_show';
     const hubSteps = useMemo(() => {
-        return ALL_STEPS.map((s, i) => ({ ...s, displayNumber: i }));
-    }, []);
+        const steps = isHorseShow ? ALL_STEPS : ALL_STEPS.filter(s => s.id !== 3);
+        return steps.map((s, i) => ({ ...s, displayNumber: i }));
+    }, [isHorseShow]);
 
     // Map step ID to 1-indexed display number for content titles
     const getDisplayStepNumber = (stepId) => {
@@ -279,18 +281,20 @@ export const PatternHub = ({ projectId }) => {
     const maxStepId = hubSteps[hubSteps.length - 1]?.id ?? 5;
 
     const handleNext = () => {
-        const nextStep = currentStep + 1;
-        if (nextStep <= maxStepId) {
-            setCurrentStep(nextStep);
-            if (nextStep > highestStepReached) {
-                setHighestStepReached(nextStep);
+        const currentIndex = hubSteps.findIndex(s => s.id === currentStep);
+        const nextStep = hubSteps[currentIndex + 1];
+        if (nextStep) {
+            setCurrentStep(nextStep.id);
+            if (nextStep.id > highestStepReached) {
+                setHighestStepReached(nextStep.id);
             }
         }
     };
 
     const handleBack = () => {
-        const prevStep = currentStep - 1;
-        if (prevStep >= 0) setCurrentStep(prevStep);
+        const currentIndex = hubSteps.findIndex(s => s.id === currentStep);
+        const prevStep = hubSteps[currentIndex - 1];
+        if (prevStep) setCurrentStep(prevStep.id);
     };
 
     const handleSaveProject = async () => {

@@ -217,6 +217,7 @@ const CreateHorseShowWizardPage = () => {
                                         showNumber: pd.showNumber || prev.showNumber,
                                         associations: pd.associations || prev.associations,
                                         customAssociations: pd.customAssociations || prev.customAssociations,
+                                        fees: pd.fees || prev.fees,
                                         sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
                                         sponsors: pd.sponsors || prev.sponsors,
                                     }));
@@ -249,58 +250,39 @@ const CreateHorseShowWizardPage = () => {
                     </Card>
 
                     {/* Navigation Footer */}
-                    <div className="mt-8 flex justify-between items-center">
-                        <Button
-                            variant="outline"
-                            onClick={prevStep}
-                            disabled={currentStep === 1}
-                        >
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Previous
-                        </Button>
-                        <div className="flex items-center gap-3">
-                            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
-                                {isSaving
-                                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    : <Save className="mr-2 h-4 w-4" />
-                                }
-                                {isSaving ? 'Saving...' : 'Save'}
+                    {currentStep < STEP_COMPONENTS.length && (
+                        <div className="mt-8 flex justify-between items-center">
+                            <Button
+                                variant="outline"
+                                onClick={prevStep}
+                                disabled={currentStep === 1}
+                            >
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Previous
                             </Button>
-                            {currentStep < STEP_COMPONENTS.length ? (
+                            <div className="flex items-center gap-3">
+                                <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving
+                                        ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        : <Save className="mr-2 h-4 w-4" />
+                                    }
+                                    {isSaving ? 'Saving...' : 'Save'}
+                                </Button>
                                 <Button onClick={nextStep}>
                                     Next
                                     <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
-                            ) : (
-                                <Button
-                                    onClick={async () => {
-                                        setIsSaving(true);
-                                        try {
-                                            const project = await createOrUpdateShow();
-                                            lastSavedData.current = JSON.stringify(formData);
-                                            const id = project?.id || showId || formData.id;
-                                            toast({ title: 'Fee Structure Saved!', description: 'Your fee structure and sponsors have been saved.' });
-                                            if (id) {
-                                                navigate(`/horse-show-manager/fee-structure/${id}`, { replace: true });
-                                            }
-                                        } catch {
-                                            // Error handled in hook
-                                        } finally {
-                                            setIsSaving(false);
-                                        }
-                                    }}
-                                    className="bg-green-600 hover:bg-green-700"
-                                    disabled={isSaving}
-                                >
-                                    {isSaving
-                                        ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        : <Check className="mr-2 h-4 w-4" />
-                                    }
-                                    Finish & Save
-                                </Button>
-                            )}
+                            </div>
                         </div>
-                    </div>
+                    )}
+                    {currentStep === STEP_COMPONENTS.length && (
+                        <div className="mt-8">
+                            <Button variant="outline" onClick={prevStep}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Previous
+                            </Button>
+                        </div>
+                    )}
                 </main>
             </div>
         </UsageLimitGate>

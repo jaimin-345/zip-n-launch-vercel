@@ -1714,6 +1714,8 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         }
     };
     
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
     const handleArchive = async () => {
         try {
             await supabase
@@ -1733,7 +1735,22 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
             });
         }
     };
-    
+
+    const handleDeleteProject = async () => {
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', project.id);
+
+        if (!error) {
+            toast({ title: "Project deleted", description: "Project has been permanently deleted" });
+            setDeleteDialogOpen(false);
+            if (onRefresh) onRefresh();
+        } else {
+            toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1960,18 +1977,49 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                             </Button>
                         )}
                         {/* Archive Button - Show for all projects */}
-                        <Button 
-                            onClick={handleArchive} 
+                        <Button
+                            onClick={handleArchive}
                             variant="outline"
-                            className={displayStatus === 'Draft' ? "flex-1" : "w-full"}
+                            size="sm"
                         >
                             <Archive className="mr-2 h-4 w-4" />
                             Archive
                         </Button>
+                        {/* Delete Button */}
+                        <Button
+                            onClick={() => setDeleteDialogOpen(true)}
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </Button>
                     </div>
                 </div>
             </div>
-            
+
+            {/* Delete Project Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Project</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete "{project.project_name || 'Untitled Project'}"? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteProject}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Pattern Book Dialog */}
             <Dialog open={patternBookDialogOpen} onOpenChange={setPatternBookDialogOpen}>
                 <DialogContent className="w-[95vw] h-screen max-w-none max-h-none p-0 m-0 rounded-none overflow-hidden">
@@ -7182,6 +7230,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
     const [isHovered, setIsHovered] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [patternDetailDialogOpen, setPatternDetailDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     const isPatternBook = project.project_type === 'pattern_book';
     const isPatternFolder = project.project_type === 'pattern_folder';
@@ -7376,7 +7425,25 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
             case 'export-share':
                 handlePatternExport('share');
                 break;
+            case 'delete':
+                setDeleteDialogOpen(true);
+                break;
             default:
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        const { error } = await supabase
+            .from('projects')
+            .delete()
+            .eq('id', project.id);
+
+        if (!error) {
+            toast({ title: "Project deleted", description: "Project has been permanently deleted" });
+            setDeleteDialogOpen(false);
+            if (onRefresh) onRefresh();
+        } else {
+            toast({ title: "Error", description: "Failed to delete project", variant: "destructive" });
         }
     };
 
@@ -7439,6 +7506,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
                         <Archive className="mr-2 h-4 w-4" /> Archive
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('delete')} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
                 </>
             );
         } else if (menuType === 'folder') {
@@ -7455,6 +7525,12 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('preview')}>
                         <Eye className="mr-2 h-4 w-4" /> Preview
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
+                        <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('delete')} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
                 </>
             );
@@ -7483,6 +7559,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleMenuAction('archive')}>
                         <Archive className="mr-2 h-4 w-4" /> Archive
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleMenuAction('delete')} className="text-destructive focus:text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>
                 </>
             );
@@ -7715,49 +7794,13 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     {/* Action Buttons */}
                     {!isPastPatternPortal && (
                         isCompletedPatternHub ? (
-                            <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                    onClick={() => setPatternDetailDialogOpen(true)}
-                                    className="w-full"
-                                    size="sm"
-                                >
-                                    <Download className="mr-2 h-4 w-4" /> View & Download
-                                </Button>
-                                <div className="grid grid-cols-2 gap-1.5">
-                                    <Button
-                                        onClick={() => handlePatternExport('png')}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs"
-                                    >
-                                        <LucideImage className="mr-1 h-3 w-3" /> PNG
-                                    </Button>
-                                    <Button
-                                        onClick={() => handlePatternExport('print')}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs"
-                                    >
-                                        <Printer className="mr-1 h-3 w-3" /> Print
-                                    </Button>
-                                    <Button
-                                        onClick={() => handlePatternExport('email')}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs"
-                                    >
-                                        <Mail className="mr-1 h-3 w-3" /> Email
-                                    </Button>
-                                    <Button
-                                        onClick={() => handlePatternExport('share')}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs"
-                                    >
-                                        <Link2 className="mr-1 h-3 w-3" /> Share
-                                    </Button>
-                                </div>
-                            </div>
+                            <Button
+                                onClick={() => setPatternDetailDialogOpen(true)}
+                                className="w-full"
+                                size="sm"
+                            >
+                                <Download className="mr-2 h-4 w-4" /> View & Download
+                            </Button>
                         ) : (
                             <Button
                                 onClick={handleContinueEditing}
@@ -7810,6 +7853,27 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     project={project}
                 />
             )}
+
+            {/* Delete Project Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Project</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete "{project.project_name || 'Untitled Project'}"? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDeleteProject}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </motion.div>
     );
 };

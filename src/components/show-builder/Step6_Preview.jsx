@@ -5,22 +5,21 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { parseLocalDate } from '@/lib/utils';
-import { Download, Save, ShieldCheck, Lock, Rocket, Loader2, CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone } from 'lucide-react';
+import { Download, Save, Lock, Loader2, CheckCircle2, Info, Globe, Facebook, Crown, UserCog, Mail, Phone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getAllClassItems } from '@/lib/showBillUtils';
 import { generateShowBillPdf } from '@/lib/showBillPdfGenerator';
 
 const STATUS_CONFIG = {
-  draft:     { label: 'Draft',     color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
-  approved:  { label: 'Approved',  color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-500' },
-  locked:    { label: 'Locked',    color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
-  published: { label: 'Published', color: 'bg-purple-100 text-purple-800 border-purple-300', dotColor: 'bg-purple-600' },
+  draft:     { label: 'Draft',     color: 'bg-gray-100 text-gray-800 border-gray-300',        dotColor: 'bg-gray-500' },
+  locked:    { label: 'Locked',    color: 'bg-amber-100 text-amber-800 border-amber-300',     dotColor: 'bg-amber-600' },
+  published: { label: 'Published', color: 'bg-emerald-100 text-emerald-800 border-emerald-300', dotColor: 'bg-emerald-600' },
 };
 
 // --- Left Panel: Project Info ---
-const ProjectInfoCard = ({ formData, user, setFormData }) => {
-  const status = formData.showStatus || 'draft';
+const ProjectInfoCard = ({ formData, user, setFormData, moduleStatus }) => {
+  const status = moduleStatus || 'draft';
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
 
   return (
@@ -106,82 +105,77 @@ const ProjectInfoCard = ({ formData, user, setFormData }) => {
 };
 
 // --- Center Panel: Action Buttons ---
-const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, onFinalizeShow, isSaving }) => {
-  const isFinalized = currentStatus === 'published';
-  const isLocked = currentStatus === 'locked' || isFinalized;
+const ActionPanel = ({ formData, currentStatus, onStatusChange, onExportPdf, isSaving }) => {
+  const isPublished = currentStatus === 'published';
+  const isLocked = currentStatus === 'locked';
 
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold mb-1">Manage Show</h3>
+      <h3 className="text-base font-semibold mb-1">Manage Status</h3>
       <p className="text-xs text-muted-foreground mb-4">
-        Save, approve & lock, and finalize your show when ready.
+        Save, lock, and publish your show when ready.
       </p>
 
-      {/* Save Draft */}
+      {/* Save as Draft */}
       <Button
         variant="outline"
         size="lg"
         className="w-full justify-start text-sm h-12"
         onClick={() => onStatusChange('draft')}
-        disabled={isSaving || isLocked}
+        disabled={isSaving || isLocked || isPublished}
       >
         {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
         <div className="text-left">
-          <span className="font-semibold">Save Draft</span>
+          <span className="font-semibold">Draft</span>
           <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
         </div>
       </Button>
 
-      {/* Approve & Lock (combined) */}
+      {/* Lock */}
       <Button
         variant="outline"
         size="lg"
-        className="w-full justify-start text-sm h-12 border-blue-200 hover:bg-blue-50 hover:border-blue-300"
+        className="w-full justify-start text-sm h-12 border-amber-200 hover:bg-amber-50 hover:border-amber-300"
         onClick={() => onStatusChange('locked')}
-        disabled={isSaving || isLocked}
+        disabled={isSaving || isPublished}
       >
-        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
-          <div className="mr-3 relative">
-            <ShieldCheck className="h-5 w-5 text-blue-600" />
-            <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
-          </div>
-        )}
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Lock className="mr-3 h-5 w-5 text-amber-600" />}
         <div className="text-left">
-          <span className="font-semibold text-blue-700">Approve & Lock</span>
-          <span className="block text-xs text-muted-foreground">Approve and lock editing — export & view only</span>
+          <span className="font-semibold text-amber-700">Locked</span>
+          <span className="block text-xs text-muted-foreground">Lock all editing — export & view only</span>
         </div>
       </Button>
 
-      {/* Finalize Show */}
+      {/* Publish */}
       <Button
         size="lg"
-        className="w-full justify-start text-sm h-12 bg-purple-600 hover:bg-purple-700 text-white"
-        onClick={onFinalizeShow}
-        disabled={isSaving || isFinalized}
+        className="w-full justify-start text-sm h-12 bg-emerald-600 hover:bg-emerald-700 text-white"
+        onClick={() => onStatusChange('published')}
+        disabled={isSaving || isPublished}
       >
-        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <CheckCircle2 className="mr-3 h-5 w-5" />}
         <div className="text-left">
-          <span className="font-semibold">Finalize Show</span>
-          <span className="block text-xs text-purple-200">Publish official show bill — final state</span>
+          <span className="font-semibold">Published</span>
+          <span className="block text-xs text-emerald-200">Publish official show bill — visible to exhibitors</span>
         </div>
       </Button>
 
       {/* Divider */}
       <hr className="my-2 border-border" />
 
-      {/* Export PDF — only enabled after Approve & Lock or Finalize */}
+      {/* Export PDF — only enabled after Lock or Publish */}
       <div>
         <Button
           size="lg"
           className="w-full text-sm font-semibold h-12"
           onClick={onExportPdf}
-          disabled={isSaving || !isLocked}
+          disabled={isSaving || !(isLocked || isPublished)}
         >
           <Download className="mr-2 h-5 w-5" /> Export Final PDF
         </Button>
         {!isLocked && (
           <p className="text-xs text-muted-foreground mt-1 text-center">
-            Approve & Lock or Finalize your show to enable export.
+            Lock or Publish your show to enable export.
           </p>
         )}
       </div>
@@ -228,7 +222,7 @@ const LicensingCard = () => (
 );
 
 // --- Admin & Owner Assignment Section ---
-const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
+const AdminOwnerSection = ({ formData, setFormData, user, profile, isLocked: isLockedProp }) => {
   const loggedInUserName = profile?.full_name || user?.user_metadata?.full_name || '';
   const loggedInUserEmail = user?.email || '';
   const loggedInUserPhone = user?.user_metadata?.phone || user?.user_metadata?.mobile || profile?.phone || profile?.mobile || '';
@@ -253,7 +247,7 @@ const AdminOwnerSection = ({ formData, setFormData, user, profile }) => {
     }));
   };
 
-  const isLocked = formData.showStatus === 'locked' || formData.showStatus === 'published';
+  const isLocked = isLockedProp;
 
   return (
     <div className="space-y-4 p-4 border rounded-lg bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
@@ -389,16 +383,23 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
   const handleStatusChange = useCallback(async (newStatus) => {
     setIsSaving(true);
     try {
-      const project = await createOrUpdateShow(newStatus);
+      setFormData(prev => ({
+        ...prev,
+        moduleStatuses: {
+          ...(prev.moduleStatuses || {}),
+          editWizard: newStatus,
+        },
+      }));
+      const project = await createOrUpdateShow(null, 'editWizard', newStatus);
       if (project) {
         const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
         toast({
           title: `Show ${statusLabel}!`,
           description: newStatus === 'published'
-            ? 'Your show has been published as the official show bill.'
+            ? 'Your show has been published — visible to exhibitors.'
             : newStatus === 'locked'
             ? 'Show is now locked. Editing is disabled — export and view only.'
-            : `Your show has been saved with status: ${statusLabel}.`,
+            : `Your show has been saved as ${statusLabel}.`,
         });
       }
     } catch (error) {
@@ -410,37 +411,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
     } finally {
       setIsSaving(false);
     }
-  }, [createOrUpdateShow, toast]);
-
-  const handleFinalizeShow = useCallback(async () => {
-    if (!formData.showBill) {
-      toast({
-        title: 'Missing Schedule',
-        description: 'Please build your schedule before finalizing the show.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const project = await createOrUpdateShow('published');
-      if (project) {
-        await generateShowBillPdf(formData.showBill, allClassItems, associationsData, formData.layoutSettings);
-        toast({
-          title: 'Show Finalized!',
-          description: 'Your show has been published and the final PDF has been generated.',
-        });
-      }
-    } catch (error) {
-      toast({
-        title: 'Finalize Failed',
-        description: 'Could not finalize show. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [createOrUpdateShow, formData.showBill, formData.layoutSettings, allClassItems, associationsData, toast]);
+  }, [createOrUpdateShow, setFormData, toast]);
 
   const handleExportPdf = useCallback(async () => {
     if (!formData.showBill) {
@@ -459,7 +430,7 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
     }
   }, [formData.showBill, formData.layoutSettings, allClassItems, associationsData, toast]);
 
-  const currentStatus = formData.showStatus || 'draft';
+  const currentStatus = (formData.moduleStatuses || {}).editWizard || 'draft';
 
   return (
     <motion.div key="step7" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
@@ -474,12 +445,12 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Admin & Owner Assignment */}
-        <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} />
+        <AdminOwnerSection formData={formData} setFormData={setFormData} user={user} profile={profile} isLocked={currentStatus === 'locked' || currentStatus === 'published'} />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Panel: Project Info */}
           <div className="lg:col-span-3">
-            <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} />
+            <ProjectInfoCard formData={formData} user={user} setFormData={setFormData} moduleStatus={currentStatus} />
           </div>
 
           {/* Center Panel: Action Buttons */}
@@ -489,7 +460,6 @@ export const Step6_Preview = ({ formData, setFormData, associationsData, createO
               currentStatus={currentStatus}
               onStatusChange={handleStatusChange}
               onExportPdf={handleExportPdf}
-              onFinalizeShow={handleFinalizeShow}
               isSaving={isSaving}
             />
           </div>

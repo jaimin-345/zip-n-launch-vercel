@@ -219,12 +219,19 @@ const ShowStructurePage = () => {
                                         staff: pd.staff || prev.staff,
                                         sponsorLevels: pd.sponsorLevels || prev.sponsorLevels,
                                         sponsors: pd.sponsors || prev.sponsors,
+                                        classSponsors: pd.classSponsors || prev.classSponsors,
+                                        arenaSponsors: pd.arenaSponsors || prev.arenaSponsors,
+                                        customSponsors: pd.customSponsors || prev.customSponsors,
+                                        showExpenses: pd.showExpenses || prev.showExpenses,
+                                        awardExpenses: pd.awardExpenses || prev.awardExpenses,
+                                        classAwards: pd.classAwards || prev.classAwards,
+                                        fees: pd.fees || prev.fees,
                                         showDetails: {
-                                            ...prev.showDetails,
+                                            ...(pd.showDetails || prev.showDetails || {}),
                                             venue: {
-                                                ...(prev.showDetails?.venue || {}),
-                                                facilityName: pd.venueName || prev.showDetails?.venue?.facilityName || '',
-                                                address: pd.venueAddress || prev.showDetails?.venue?.address || '',
+                                                ...(pd.showDetails?.venue || prev.showDetails?.venue || {}),
+                                                facilityName: pd.venueName || pd.showDetails?.venue?.facilityName || prev.showDetails?.venue?.facilityName || '',
+                                                address: pd.venueAddress || pd.showDetails?.venue?.address || prev.showDetails?.venue?.address || '',
                                                 numberOfArenas: String(arenasList.length || prev.showDetails?.venue?.numberOfArenas || 0),
                                                 arenas: arenasList.map((a, i) => ({
                                                     id: a.id || `arena-${i}`,
@@ -252,26 +259,36 @@ const ShowStructurePage = () => {
                                 associationsData={associationsData}
                                 divisionsData={divisionsData}
                                 existingProjects={existingProjects}
+                                onSave={createOrUpdateShow}
                             />}
                         </AnimatePresence>
                     </Card>
 
-                    <div className="mt-8 flex justify-between items-center">
-                        <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back
-                        </Button>
-                        <div className="flex items-center gap-3">
-                            <Button variant="outline" onClick={handleSave} disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                {isSaving ? 'Saving...' : 'Save'}
+                    {currentStep < steps.length && (
+                        <div className="mt-8 flex justify-between items-center">
+                            <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back
                             </Button>
-                            <Button onClick={nextStep} disabled={currentStep === steps.length || isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Next
+                            <div className="flex items-center gap-3">
+                                <Button variant="outline" onClick={handleSave} disabled={isSaving}>
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                    {isSaving ? 'Saving...' : 'Save'}
+                                </Button>
+                                <Button onClick={nextStep} disabled={isSaving}>
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                    {currentStep === steps.length && (
+                        <div className="mt-8">
+                            <Button variant="outline" onClick={prevStep}>
+                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                Back
                             </Button>
                         </div>
-                    </div>
+                    )}
                 </main>
             </div>
         </UsageLimitGate>

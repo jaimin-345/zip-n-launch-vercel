@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
@@ -9,135 +9,78 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  ArrowLeft, Loader2, Calendar, MapPin, Hash,
+  ArrowLeft, Loader2, Calendar, MapPin,
   CalendarDays, FileText, DollarSign, LayoutGrid, Building2,
   Radio, Award, Edit, ChevronRight, Users, ClipboardList,
-  BarChart3, Warehouse, Check, AlertCircle, Circle,
+  BarChart3, Warehouse, Check, Lock, Circle, ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 /* ── Status helpers ── */
 
-const getModuleStatus = (key, pd, extra = {}) => {
-  switch (key) {
-    case 'editWizard': {
-      // Check if all wizard steps were completed (steps 1-8)
-      const wizardSteps = pd.completedSteps || [];
-      const allWizardDone = [1, 2, 3, 4, 5, 6, 7, 8].every(s => wizardSteps.includes(s));
-      if (allWizardDone) return 'completed';
-      const hasAssoc = (pd.associations || []).length > 0 || (pd.customAssociations || []).length > 0;
-      const hasDisc = (pd.disciplines || []).length > 0;
-      const hasDetails = !!(pd.showName && pd.startDate);
-      const hasArenas = (pd.arenas || []).length > 0;
-      if (hasAssoc && hasDisc && hasDetails && hasArenas) return 'completed';
-      if (hasAssoc || hasDisc || hasDetails || wizardSteps.length > 0) return 'in-progress';
-      return 'not-started';
-    }
-    case 'scheduleBuilder': {
-      const hasShowBill = pd.showBill && (pd.showBill.days || []).some(d => (d.arenas || []).some(a => (a.items || []).length > 0));
-      if (hasShowBill) return 'completed';
-      const hasArenas = (pd.arenas || []).length > 0;
-      if (hasArenas) return 'in-progress';
-      return 'not-started';
-    }
-    case 'showStructure': {
-      const hasExpenses = (pd.showExpenses || []).length > 0;
-      const hasFees = (pd.fees || []).length > 0;
-      const hasSponsors = (pd.sponsors || []).length > 0 || (pd.sponsorLevels || []).length > 0;
-      if (hasExpenses && (hasFees || hasSponsors)) return 'completed';
-      if (hasExpenses || hasFees || hasSponsors) return 'in-progress';
-      return 'not-started';
-    }
-    case 'feeStructure': {
-      const hasFees = (pd.fees || []).length > 0;
-      const hasSponsors = (pd.sponsors || []).length > 0 || (pd.sponsorLevels || []).length > 0;
-      if (hasFees && hasSponsors) return 'completed';
-      if (hasFees || hasSponsors) return 'in-progress';
-      return 'not-started';
-    }
-    case 'contracts': {
-      const contracts = extra.linkedContracts || [];
-      if (contracts.length === 0) return 'not-started';
-      // Check if any contract has all 6 steps completed
-      const allDone = contracts.some(c => {
-        const completed = c.project_data?.completedSteps || [];
-        return completed.length >= 6;
-      });
-      if (allDone) return 'completed';
-      return 'in-progress';
-    }
-    case 'budgeting': {
-      const hasFees = (pd.fees || []).length > 0;
-      const hasExpenses = (pd.showExpenses || []).length > 0;
-      if (hasFees && hasExpenses) return 'completed';
-      if (hasFees || hasExpenses) return 'in-progress';
-      return 'not-started';
-    }
-    case 'employeeScheduling': {
-      const hasSchedule = pd.staffSchedule && Object.keys(pd.staffSchedule.assignments || {}).length > 0;
-      if (hasSchedule) return 'completed';
-      const hasArenas = (pd.arenas || []).length > 0;
-      if (hasArenas) return 'in-progress';
-      return 'not-started';
-    }
-    case 'equipment': {
-      const hasEquipment = (pd.equipmentPlans || []).length > 0;
-      if (hasEquipment) return 'completed';
-      return 'not-started';
-    }
-    case 'awards': {
-      const am = pd.awardsManagement || {};
-      const hasAwards = (am.classAwards || []).length > 0 || (am.specialAwards || []).length > 0 || (am.highPointAwards || []).length > 0;
-      const hasAwardExpenses = (pd.awardExpenses || []).length > 0;
-      if (hasAwards || hasAwardExpenses) return 'completed';
-      return 'not-started';
-    }
-    case 'financials': {
-      const hasFees = (pd.fees || []).length > 0;
-      const hasExpenses = (pd.showExpenses || []).length > 0;
-      if (hasFees && hasExpenses) return 'completed';
-      if (hasFees || hasExpenses) return 'in-progress';
-      return 'not-started';
-    }
-    case 'stalling': {
-      const hasStalling = (pd.stallingConfig || pd.stallAssignments || []).length > 0;
-      if (hasStalling) return 'completed';
-      return 'not-started';
-    }
-    default:
-      return 'not-started';
-  }
+const STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft', icon: Circle, color: 'text-blue-600', iconSize: 'h-3.5 w-3.5', rank: 0 },
+  { value: 'locked', label: 'Locked', icon: Lock, color: 'text-amber-600', iconSize: 'h-3.5 w-3.5', rank: 1 },
+  { value: 'published', label: 'Published', icon: Check, color: 'text-emerald-600', iconSize: 'h-3.5 w-3.5', rank: 2 },
+];
+
+const getModuleStatus = (key, pd) => {
+  return (pd.moduleStatuses || {})[key] || 'draft';
 };
 
-const StatusBadge = ({ status }) => {
-  if (status === 'completed') {
-    return (
-      <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-        <Check className="h-3.5 w-3.5" />
-        Done
-      </span>
-    );
-  }
-  if (status === 'in-progress') {
-    return (
-      <span className="flex items-center gap-1 text-[11px] font-medium text-amber-600">
-        <AlertCircle className="h-3.5 w-3.5" />
-        In Progress
-      </span>
-    );
-  }
+const StatusBadge = ({ status, moduleKey, onStatusChange }) => {
+  const opt = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
+  const IconComp = opt.icon;
+
   return (
-    <span className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground/60">
-      <Circle className="h-3 w-3" />
-      Not Started
-    </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn('flex items-center gap-1 text-[11px] font-medium rounded-md px-1.5 py-0.5 hover:bg-muted transition-colors', opt.color)}
+          onClick={(e) => e.preventDefault()}
+        >
+          <IconComp className={opt.iconSize} />
+          {opt.label}
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-36">
+        {STATUS_OPTIONS.map((option) => {
+          const OptIcon = option.icon;
+          const currentRank = STATUS_OPTIONS.find(o => o.value === status)?.rank || 0;
+          const isDisabled = option.rank < currentRank;
+          return (
+            <DropdownMenuItem
+              key={option.value}
+              disabled={isDisabled}
+              className={cn('flex items-center gap-2 text-xs', option.color, status === option.value && 'bg-muted', isDisabled && 'opacity-40 cursor-not-allowed')}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isDisabled) onStatusChange(moduleKey, option.value);
+              }}
+            >
+              <OptIcon className={option.iconSize} />
+              {option.label}
+              {status === option.value && <Check className="h-3 w-3 ml-auto" />}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
 /* ── Module card ── */
 
-const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status, comingSoon }) => {
+const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status, moduleKey, onStatusChange, comingSoon }) => {
   const { toast } = useToast();
   const colorMap = {
     blue: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600',
@@ -148,9 +91,9 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
     sky: 'bg-sky-100 dark:bg-sky-950/40 text-sky-600',
   };
 
-  const borderClass = status === 'completed'
+  const borderClass = status === 'published'
     ? 'border-emerald-200 dark:border-emerald-800'
-    : status === 'in-progress'
+    : status === 'locked'
       ? 'border-amber-200 dark:border-amber-800'
       : '';
 
@@ -176,7 +119,9 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="font-semibold text-sm text-foreground">{title}</h3>
-                  {!comingSoon && <StatusBadge status={status} />}
+                  {!comingSoon && (
+                    <StatusBadge status={status} moduleKey={moduleKey} onStatusChange={onStatusChange} />
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
               </div>
@@ -194,30 +139,30 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
 const OverallProgress = ({ modules }) => {
   const allItems = modules.flatMap(s => s.items);
   const total = allItems.length;
-  const completed = allItems.filter(m => m.status === 'completed').length;
-  const inProgress = allItems.filter(m => m.status === 'in-progress').length;
-  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const published = allItems.filter(m => m.status === 'published').length;
+  const locked = allItems.filter(m => m.status === 'locked').length;
+  const pct = total > 0 ? Math.round(((published + locked) / total) * 100) : 0;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-foreground">Show Progress</span>
         <span className="text-muted-foreground">
-          {completed}/{total} modules complete
-          {inProgress > 0 && ` · ${inProgress} in progress`}
+          {published}/{total} modules published
+          {locked > 0 && ` · ${locked} locked`}
         </span>
       </div>
       <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
-        {completed > 0 && (
+        {published > 0 && (
           <div
             className="h-full bg-emerald-500 transition-all duration-500"
-            style={{ width: `${(completed / total) * 100}%` }}
+            style={{ width: `${(published / total) * 100}%` }}
           />
         )}
-        {inProgress > 0 && (
+        {locked > 0 && (
           <div
             className="h-full bg-amber-400 transition-all duration-500"
-            style={{ width: `${(inProgress / total) * 100}%` }}
+            style={{ width: `${(locked / total) * 100}%` }}
           />
         )}
       </div>
@@ -232,6 +177,7 @@ const ShowWorkspacePage = () => {
   const { showId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [show, setShow] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [linkedContracts, setLinkedContracts] = useState([]);
@@ -263,6 +209,42 @@ const ShowWorkspacePage = () => {
     };
     fetchShow();
   }, [user, showId]);
+
+  // Save per-module status directly to Supabase
+  const handleModuleStatusChange = useCallback(async (moduleKey, newStatus) => {
+    if (!show) return;
+
+    const updatedModuleStatuses = {
+      ...(show.project_data?.moduleStatuses || {}),
+      [moduleKey]: newStatus,
+    };
+
+    const updatedProjectData = {
+      ...show.project_data,
+      moduleStatuses: updatedModuleStatuses,
+    };
+
+    // Update local state immediately
+    setShow(prev => ({
+      ...prev,
+      project_data: updatedProjectData,
+    }));
+
+    // Persist to Supabase
+    const { error } = await supabase
+      .from('projects')
+      .update({ project_data: updatedProjectData })
+      .eq('id', showId);
+
+    if (error) {
+      toast({ title: 'Error saving status', description: error.message, variant: 'destructive' });
+      // Revert on error
+      setShow(prev => ({
+        ...prev,
+        project_data: show.project_data,
+      }));
+    }
+  }, [show, showId, toast]);
 
   if (isLoading) {
     return (
@@ -325,12 +307,11 @@ const ShowWorkspacePage = () => {
   ];
 
   // Compute status for each module
-  const extra = { linkedContracts };
   const modulesWithStatus = modules.map(section => ({
     ...section,
     items: section.items.map(item => ({
       ...item,
-      status: getModuleStatus(item.key, pd, extra),
+      status: getModuleStatus(item.key, pd),
     })),
   }));
 
@@ -380,7 +361,8 @@ const ShowWorkspacePage = () => {
                     variant="outline"
                     className={cn('text-xs',
                       show.status === 'published' && 'bg-emerald-50 text-emerald-700 border-emerald-300',
-                      show.status === 'draft' && 'bg-amber-50 text-amber-700 border-amber-300'
+                      show.status === 'locked' && 'bg-amber-50 text-amber-700 border-amber-300',
+                      (!show.status || show.status === 'draft') && 'bg-blue-50 text-blue-700 border-blue-300'
                     )}
                   >
                     {show.status || 'draft'}
@@ -453,7 +435,7 @@ const ShowWorkspacePage = () => {
               <h2 className="text-lg font-bold text-foreground mb-4">{section.section}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {section.items.map((mod) => (
-                  <ModuleCard key={mod.title} {...mod} />
+                  <ModuleCard key={mod.title} {...mod} moduleKey={mod.key} onStatusChange={handleModuleStatusChange} />
                 ))}
               </div>
             </motion.div>

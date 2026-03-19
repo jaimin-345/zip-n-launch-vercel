@@ -175,17 +175,15 @@ const CreateShowPage = () => {
                                 <Button variant="outline" onClick={prevStep} disabled={currentStep === 1}>
                                     <ArrowLeft className="mr-2 h-4 w-4" /> Back
                                 </Button>
-                                <div className="flex items-center gap-2">
-                                    <Button variant="secondary" onClick={handleSave} disabled={isLoading}>
-                                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                        Save Progress
-                                    </Button>
-                                    {currentStep === steps.length ? (
-                                         <Button onClick={() => alert("Finalize!")} >Finalize Show</Button>
-                                    ) : (
+                                {currentStep < steps.length && (
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="secondary" onClick={handleSave} disabled={isLoading}>
+                                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                            Save Progress
+                                        </Button>
                                         <Button onClick={handleNext}>Next <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </CardFooter>
                         </Card>
                     </div>

@@ -393,15 +393,13 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
 
                     if (classDetails.length <= 1) {
                       const titleText = item.title || classDetails[0]?.name || 'Untitled';
+                      const assocSuffix = assocTags.length > 0 ? ` - ${assocTags.join(', ')}` : '';
                       return (
                         <div key={item.id} className={`flex items-center gap-2 ${itemPadding}`}>
                           {settings.showNumbers && item.number && (
                             <span className={`${fontSize} font-bold text-gray-800 w-8 text-right shrink-0`}>{item.number}.</span>
                           )}
-                          <span className={`${fontSize}`}>{titleText}</span>
-                          {assocTags.map(tag => (
-                            <span key={tag} className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{tag}</span>
-                          ))}
+                          <span className={fontSize}>{titleText}{assocSuffix}</span>
                         </div>
                       );
                     }
@@ -417,12 +415,10 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
                         <div className="pl-10 space-y-0.5">
                           {classDetails.map(cls => {
                             const assoc = associationsData?.find(a => a.id === cls.assocId);
+                            const assocText = settings.showAssociations && assoc ? ` - ${assoc.abbreviation}` : '';
                             return (
-                              <div key={cls.id} className={`flex items-center gap-1.5 ${fontSize} text-gray-700`}>
-                                <span>{cls.name}</span>
-                                {settings.showAssociations && assoc && (
-                                  <span className="inline-block px-1.5 py-0 text-[10px] font-semibold bg-gray-200 text-gray-700 rounded">{assoc.abbreviation}</span>
-                                )}
+                              <div key={cls.id} className={`${fontSize} text-gray-700`}>
+                                {cls.name}{assocText}
                               </div>
                             );
                           })}

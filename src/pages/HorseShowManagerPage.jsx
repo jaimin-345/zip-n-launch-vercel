@@ -395,7 +395,8 @@ const HorseShowManagerPage = () => {
                                     variant="outline"
                                     className={cn('text-xs flex-shrink-0',
                                       show.status === 'published' && 'bg-emerald-50 text-emerald-700 border-emerald-300',
-                                      show.status === 'draft' && 'bg-amber-50 text-amber-700 border-amber-300'
+                                      show.status === 'locked' && 'bg-amber-50 text-amber-700 border-amber-300',
+                                      (!show.status || show.status === 'draft') && 'bg-blue-50 text-blue-700 border-blue-300'
                                     )}
                                   >
                                     {show.status || 'draft'}

@@ -23,6 +23,84 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
+// Judge Assignment Field — select from existing judges or type custom
+const JudgeAssignmentField = ({ disciplineName, currentValue, onValueChange, formData, isReadOnly }) => {
+  const [isCustom, setIsCustom] = useState(false);
+
+  const judges = new Map();
+  Object.values(formData.associationJudges || {})
+    .flatMap(assocData => (assocData.judges || []))
+    .filter(j => j?.name)
+    .forEach(j => judges.set(j.name, j.name));
+  Object.values(formData.showDetails?.officials || {})
+    .flatMap(assocRoles => assocRoles?.JUDGE || [])
+    .filter(j => j?.name)
+    .forEach(j => judges.set(j.name, j.name));
+  Object.values(formData.showDetails?.judges || {})
+    .flat()
+    .filter(j => j?.name)
+    .forEach(j => judges.set(j.name, j.name));
+  const judgeNames = [...judges.values()];
+
+  // If current value is custom (not in the list), show input
+  const isCustomValue = currentValue && !judgeNames.includes(currentValue);
+
+  return (
+    <div className="p-3 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
+      <Label className="text-xs text-muted-foreground mb-1 block">Assigned Judge for {disciplineName}</Label>
+      {judgeNames.length > 0 && !isCustom && !isCustomValue ? (
+        <div className="space-y-2">
+          <Select
+            value={currentValue}
+            onValueChange={onValueChange}
+            disabled={isReadOnly}
+          >
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Select a judge..." />
+            </SelectTrigger>
+            <SelectContent>
+              {judgeNames.map((name, idx) => (
+                <SelectItem key={idx} value={name}>{name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <button
+            type="button"
+            className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
+            onClick={() => setIsCustom(true)}
+            disabled={isReadOnly}
+          >
+            + Enter custom judge name
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Input
+            placeholder="Type judge name..."
+            value={currentValue}
+            onChange={(e) => onValueChange(e.target.value)}
+            disabled={isReadOnly}
+            className="bg-background"
+          />
+          {judgeNames.length > 0 && (
+            <button
+              type="button"
+              className="text-xs text-amber-700 dark:text-amber-400 hover:underline"
+              onClick={() => { setIsCustom(false); onValueChange(''); }}
+              disabled={isReadOnly}
+            >
+              Select from existing judges
+            </button>
+          )}
+        </div>
+      )}
+      <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+        Pattern will be selected by the assigned judge for all classes in this discipline.
+      </p>
+    </div>
+  );
+};
+
 // Pattern Badge with Hover Functionality Component
 const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
     const [patternImage, setPatternImage] = useState(null);
@@ -1471,27 +1549,25 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             {disciplineAssignType === 'judgeAssigned' ? `Judge: ${firstGroupSelection?.judgeName || 'TBD'}` : 'Assign Judge'}
                           </Button>
 
-                          {(discipline.isCustom || discipline.pattern_type === 'custom') && (
-                            <Button
-                              variant={disciplineAssignType === 'customRequest' ? 'default' : 'outline'}
-                              size="sm"
-                              className={cn("h-7 text-xs", disciplineAssignType === 'customRequest' && "bg-purple-600 hover:bg-purple-700")}
-                              onClick={() => {
-                                const isToggling = disciplineAssignType !== 'customRequest';
-                                setDisciplineAssignType(isToggling ? 'customRequest' : null);
-                                if (isToggling) {
-                                  // Auto-open the discipline and scroll to reveal the custom pattern section
-                                  setOpenDisciplineId(discipline.id);
-                                  setTimeout(() => {
-                                    const ref = disciplineRefs.current[discipline.id];
-                                    if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                  }, 100);
-                                }
-                              }}
-                            >
-                              {disciplineAssignType === 'customRequest' ? 'Custom Pattern Requested' : 'Request Custom Pattern'}
-                            </Button>
-                          )}
+                          <Button
+                            variant={disciplineAssignType === 'customRequest' ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn("h-7 text-xs", disciplineAssignType === 'customRequest' && "bg-purple-600 hover:bg-purple-700")}
+                            onClick={() => {
+                              const isToggling = disciplineAssignType !== 'customRequest';
+                              setDisciplineAssignType(isToggling ? 'customRequest' : null);
+                              if (isToggling) {
+                                // Auto-open the discipline and scroll to reveal the custom pattern section
+                                setOpenDisciplineId(discipline.id);
+                                setTimeout(() => {
+                                  const ref = disciplineRefs.current[discipline.id];
+                                  if (ref) ref.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }, 100);
+                              }
+                            }}
+                          >
+                            {disciplineAssignType === 'customRequest' ? 'Custom Pattern Requested' : '+ Custom Pattern'}
+                          </Button>
                         </div>
                       )}
 
@@ -1519,39 +1595,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                           <div className="space-y-3">
                             {/* Judge Assignment Details — discipline level */}
                             {disciplineAssignType === 'judgeAssigned' && (
-                              <div className="p-3 border-2 border-dashed border-amber-300 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
-                                <Label className="text-xs text-muted-foreground mb-1 block">Assigned Judge for {discipline.name.replace(' at Halter', '')}</Label>
-                                <Select
-                                  value={firstGroupSelection?.judgeName || ''}
-                                  onValueChange={(judgeName) => updateDisciplineAssignField('judgeName', judgeName)}
-                                  disabled={isReadOnly}
-                                >
-                                  <SelectTrigger className="bg-background">
-                                    <SelectValue placeholder="Select a judge..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {(() => {
-                                      const judges = new Map();
-                                      // From associationJudges (legacy/JudgesAndStaff)
-                                      Object.values(formData.associationJudges || {})
-                                        .flatMap(assocData => (assocData.judges || []))
-                                        .filter(j => j?.name)
-                                        .forEach(j => judges.set(j.name, j.name));
-                                      // From showDetails.officials (OfficialsStaffSection)
-                                      Object.values(formData.showDetails?.officials || {})
-                                        .flatMap(assocRoles => assocRoles?.JUDGE || [])
-                                        .filter(j => j?.name)
-                                        .forEach(j => judges.set(j.name, j.name));
-                                      return [...judges.values()].map((name, idx) => (
-                                        <SelectItem key={idx} value={name}>{name}</SelectItem>
-                                      ));
-                                    })()}
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-                                  Pattern will be selected by the assigned judge for all classes in this discipline.
-                                </p>
-                              </div>
+                              <JudgeAssignmentField
+                                disciplineName={discipline.name.replace(' at Halter', '')}
+                                currentValue={firstGroupSelection?.judgeName || ''}
+                                onValueChange={(judgeName) => updateDisciplineAssignField('judgeName', judgeName)}
+                                formData={formData}
+                                isReadOnly={isReadOnly}
+                              />
                             )}
 
                             {/* Custom Pattern Request Details — discipline level */}

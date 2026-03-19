@@ -254,16 +254,23 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
     };
 
     // Build PDF from selected items
+    // Resolve image URL — use image_url, fall back to storage_path public URL
+    const resolveImageUrl = (item, type) => {
+        const url = type === 'pattern' ? item.imageUrl : item.image_url;
+        if (url) return url;
+        // Fall back to generating public URL from storage_path
+        if (item.storage_path) {
+            const { data } = supabase.storage.from('scoresheets').getPublicUrl(item.storage_path);
+            return data?.publicUrl || null;
+        }
+        return null;
+    };
+
     const buildSelectedPdf = async () => {
         const selectedPatternsList = getSelectedPatterns();
         const selectedScoreSheetsList = getSelectedScoreSheets();
 
-        // If all items are selected, use full PDF generator directly
-        if (selectedPatternsList.length === patterns.length && selectedScoreSheetsList.length === scoreSheets.length) {
-            return await generatePatternBookPdf(project.project_data, { skipCoverAndToc: true });
-        }
-
-        // Build a custom PDF containing only the selected patterns and/or scoresheets
+        // Always build custom PDF to ensure both patterns AND scoresheets are included
         const doc = new jsPDF('p', 'pt', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -288,7 +295,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 doc.setTextColor(80, 80, 80);
                 doc.text(label, pageWidth / 2, margin, { align: 'center' });
 
-                // Detect image type from data URI (same as generatePatternBookPdf)
+                // Detect image type from data URI
                 const imageType = base64.substring(base64.indexOf('/') + 1, base64.indexOf(';'));
 
                 // Load image to get dimensions
@@ -315,17 +322,18 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
 
         // Add selected patterns
         for (const p of selectedPatternsList) {
-            await addImagePage(p.imageUrl, `${p.disciplineName} - ${p.groupName || 'Pattern'}`);
+            const url = resolveImageUrl(p, 'pattern');
+            await addImagePage(url, `${p.disciplineName} - ${p.groupName || 'Pattern'}`);
         }
 
         // Add selected scoresheets
         for (const s of selectedScoreSheetsList) {
-            await addImagePage(s.image_url, `${s.disciplineName} - ${s.groupName || 'Score Sheet'}`);
+            const url = resolveImageUrl(s, 'scoresheet');
+            await addImagePage(url, `${s.disciplineName} - ${s.groupName || 'Score Sheet'}`);
         }
 
         if (isFirstPage) return null;
 
-        // Remove blank first page if it exists (jsPDF creates page 1 on init, we used it)
         return doc.output('datauristring');
     };
 
@@ -365,8 +373,8 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
             const selectedPatternsList = getSelectedPatterns();
             const selectedScoreSheetsList = getSelectedScoreSheets();
             const allSelectedImages = [
-                ...selectedPatternsList.map(p => ({ url: p.imageUrl, name: `${p.disciplineName}_${p.groupName || 'Pattern'}`.replace(/ /g, '_') })),
-                ...selectedScoreSheetsList.map(s => ({ url: s.image_url, name: `${s.disciplineName}_${s.groupName || 'ScoreSheet'}`.replace(/ /g, '_') }))
+                ...selectedPatternsList.map(p => ({ url: resolveImageUrl(p, 'pattern'), name: `${p.disciplineName}_${p.groupName || 'Group'}_Pattern`.replace(/ /g, '_'), type: 'pattern' })),
+                ...selectedScoreSheetsList.map(s => ({ url: resolveImageUrl(s, 'scoresheet'), name: `${s.disciplineName}_${s.groupName || 'Group'}_ScoreSheet`.replace(/ /g, '_'), type: 'scoresheet' }))
             ].filter(i => i.url);
 
             if (allSelectedImages.length === 0) {
@@ -507,12 +515,62 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
     const handleDownloadAll = async () => {
         setIsExporting(true);
         try {
-            toast({ title: 'Generating PDF...', description: 'Preparing full download.' });
-            const pdfDataUri = await generatePatternBookPdf(project.project_data, { skipCoverAndToc: true });
+            toast({ title: 'Generating PDF...', description: 'Preparing full download with all patterns and score sheets.' });
+            // Select all items and use buildSelectedPdf to ensure both patterns + scoresheets are included
+            const allKeys = new Set();
+            patterns.forEach(p => allKeys.add(getItemKey(p, 'pattern')));
+            scoreSheets.forEach(s => allKeys.add(getItemKey(s, 'scoresheet')));
+            setSelectedItems(allKeys);
+
+            // Build PDF with all items
+            const doc = new jsPDF('p', 'pt', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 40;
+            let isFirstPage = true;
+
+            const addImagePage = async (imageUrl, label) => {
+                if (!imageUrl) return;
+                try {
+                    const rawBase64 = await fetchImageAsBase64(imageUrl);
+                    if (!rawBase64) return;
+                    const base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
+                    if (!isFirstPage) doc.addPage();
+                    isFirstPage = false;
+                    doc.setFontSize(11);
+                    doc.setTextColor(80, 80, 80);
+                    doc.text(label, pageWidth / 2, margin, { align: 'center' });
+                    const imageType = base64.substring(base64.indexOf('/') + 1, base64.indexOf(';'));
+                    const img = new Image();
+                    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = base64; });
+                    const maxW = pageWidth - margin * 2;
+                    const maxH = pageHeight - margin * 2 - 30;
+                    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+                    const w = img.width * ratio;
+                    const h = img.height * ratio;
+                    doc.addImage(base64, imageType.toUpperCase(), (pageWidth - w) / 2, margin + 25, w, h);
+                } catch (err) {
+                    console.warn('Failed to add image to PDF:', label, err);
+                }
+            };
+
+            for (const p of patterns) {
+                await addImagePage(resolveImageUrl(p, 'pattern'), `${p.disciplineName} - ${p.groupName || 'Pattern'}`);
+            }
+            for (const s of scoreSheets) {
+                await addImagePage(resolveImageUrl(s, 'scoresheet'), `${s.disciplineName} - ${s.groupName || 'Score Sheet'}`);
+            }
+
+            if (isFirstPage) {
+                toast({ title: 'No content', description: 'No images available.', variant: 'destructive' });
+                return;
+            }
+
+            const pdfDataUri = doc.output('datauristring');
             const blob = dataUriToBlob(pdfDataUri);
             const fileName = (project.project_name || 'Pattern').replace(/ /g, '_');
             triggerBlobDownload(blob, `${fileName}.pdf`);
-            toast({ title: 'Downloaded!', description: 'Full pattern PDF downloaded.' });
+            toast({ title: 'Downloaded!', description: 'Full PDF with all patterns and score sheets downloaded.' });
         } catch (error) {
             console.error('Download all error:', error);
             toast({ title: 'Download Failed', description: error.message || 'There was a problem.', variant: 'destructive' });
