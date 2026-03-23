@@ -7594,21 +7594,31 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     />
                 </div>
                 
-                {/* Edit Menu Button */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className={`absolute top-6 right-2 z-10 h-7 w-7 bg-background/80 hover:bg-background shadow-sm border transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                        {renderMenuItems()}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Delete & Edit Buttons */}
+                <div className={`absolute top-6 right-2 z-10 flex items-center gap-1 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-sm border border-destructive/20"
+                        onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }}
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 bg-background/80 hover:bg-background shadow-sm border"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                            {renderMenuItems()}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
 
                 {/* Folder Body */}
                 <Card className="flex flex-col flex-grow rounded-tl-none border-t-0" style={{ borderColor: coverColor || undefined }}>
