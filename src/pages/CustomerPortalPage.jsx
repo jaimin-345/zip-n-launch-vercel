@@ -7644,7 +7644,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <CardTitle className="leading-tight truncate">{project.project_name || 'Untitled Project'}</CardTitle>
+                                            <CardTitle className="leading-tight truncate cursor-pointer max-w-[150px]">{project.project_name || 'Untitled Project'}</CardTitle>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>{project.project_name || 'Untitled Project'}</p>
