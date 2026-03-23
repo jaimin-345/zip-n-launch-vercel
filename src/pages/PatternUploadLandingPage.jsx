@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { UploadCloud, Award, DollarSign, Sparkles, FolderOpen, Plus } from 'lucide-react';
+import { UploadCloud, Award, Sparkles, FolderOpen, Plus } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,11 +21,6 @@ const PatternUploadLandingPage = () => {
       icon: <Sparkles className="h-8 w-8 text-primary" />,
       title: 'Intelligent Tagging',
       description: 'Our system helps you tag patterns with the correct associations, divisions, and classes.',
-    },
-    {
-      icon: <DollarSign className="h-8 w-8 text-primary" />,
-      title: 'Monetize Your Work',
-      description: 'License your high-quality patterns and earn revenue from every use.',
     },
     {
       icon: <Award className="h-8 w-8 text-primary" />,
@@ -56,7 +51,7 @@ const PatternUploadLandingPage = () => {
                 <span className="text-primary">Power the Next Champion.</span>
               </h1>
               <p className="max-w-3xl mx-auto text-lg md:text-xl text-muted-foreground mb-10">
-                Join our community of elite pattern designers. Upload your custom patterns, tag them with our intelligent system, and get them in front of thousands of show managers and competitors.
+                Join our community of elite pattern designers. Upload your custom patterns, tag them with our intelligent system, and get them in front of thousands of equestrians and show managers.
               </p>
               <div className="flex items-center justify-center gap-4">
                 <Button size="lg" asChild>
