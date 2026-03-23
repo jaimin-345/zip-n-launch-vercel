@@ -7632,7 +7632,16 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                 <FolderOpen className="h-6 w-6 text-primary" />
                             </div>
                             <div>
-                                <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <CardTitle className="leading-tight truncate">{project.project_name || 'Untitled Project'}</CardTitle>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{project.project_name || 'Untitled Project'}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <CardDescription>Pattern Folder</CardDescription>
                             </div>
                         </div>
