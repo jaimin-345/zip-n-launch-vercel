@@ -7194,7 +7194,7 @@ const InProgressCard = ({ project, onRefresh }) => {
                                         {project.project_name || 'Untitled Project'}
                                     </CardTitle>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent side="bottom">
                                     <p>{project.project_name || 'Untitled Project'}</p>
                                 </TooltipContent>
                             </Tooltip>
