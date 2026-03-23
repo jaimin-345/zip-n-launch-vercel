@@ -7724,15 +7724,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                 className="flex-grow rounded-lg rounded-tl-none shadow-xl overflow-hidden relative bg-card/90 backdrop-blur-sm border-2 z-20"
                 style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
             >
-                {/* Delete Button - Only visible on hover */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => { e.stopPropagation(); setDeleteDialogOpen(true); }}
-                    className={`absolute top-2 right-12 z-10 h-7 w-7 bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-sm border border-destructive/30 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-                >
-                    <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {/* Edit Menu Button - Only visible on hover - Hide for In Progress Portal */}
                 {!isInProgressPortal && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
