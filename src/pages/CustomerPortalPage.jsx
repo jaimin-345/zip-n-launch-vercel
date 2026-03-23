@@ -7799,7 +7799,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                         {project.project_name || 'Untitled Project'}
                                     </h3>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent side="bottom">
                                     <p>{project.project_name || 'Untitled Project'}</p>
                                 </TooltipContent>
                             </Tooltip>
