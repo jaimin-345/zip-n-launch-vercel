@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { UploadCloud, Award, DollarSign, Sparkles, FolderOpen, Plus } from 'lucide-react';
+import { UploadCloud, Award, Sparkles, FolderOpen, Plus } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
