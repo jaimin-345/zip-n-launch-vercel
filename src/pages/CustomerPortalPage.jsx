@@ -7190,7 +7190,7 @@ const InProgressCard = ({ project, onRefresh }) => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <CardTitle className="text-lg font-bold text-foreground truncate">
+                                    <CardTitle className="text-lg font-bold text-foreground truncate cursor-pointer max-w-[150px]">
                                         {project.project_name || 'Untitled Project'}
                                     </CardTitle>
                                 </TooltipTrigger>
