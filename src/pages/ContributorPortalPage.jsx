@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, UploadCloud, BarChart2, PlusCircle, AlertCircle, LogIn, DollarSign, Share2 } from 'lucide-react';
+import { Loader2, UploadCloud, BarChart2, PlusCircle, AlertCircle, LogIn, DollarSign, Share2, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabaseClient';
+import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
 
 const ContributorPortalPage = () => {
     const { user, loading: authLoading, openAuthModal } = useAuth();
@@ -19,6 +20,7 @@ const ContributorPortalPage = () => {
     const [patterns, setPatterns] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [error, setError] = useState(null);
+    const [previewPattern, setPreviewPattern] = useState(null);
 
     const fetchPatterns = useCallback(async () => {
         if (!user) {
@@ -66,6 +68,20 @@ const ContributorPortalPage = () => {
             case 'rejected': return 'destructive';
             default: return 'outline';
         }
+    };
+
+    const getPatternDisplayName = (pattern) => {
+        const parts = [pattern.name];
+        if (pattern.division) parts.push(pattern.division);
+        if (pattern.level) parts.push(pattern.level);
+        return parts.filter(Boolean).join(' · ');
+    };
+
+    const handleViewPattern = (pattern) => {
+        setPreviewPattern({
+            name: getPatternDisplayName(pattern),
+            file_url: pattern.file_url || pattern.pdf_url || pattern.image_url,
+        });
     };
     
     const LoggedOutView = () => (
@@ -169,7 +185,8 @@ const ContributorPortalPage = () => {
                                     <TableHead>Name / Set</TableHead>
                                     <TableHead>Class</TableHead>
                                     <TableHead>Date Submitted</TableHead>
-                                    <TableHead className="text-right">Status</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -180,13 +197,27 @@ const ContributorPortalPage = () => {
                                             {pattern.pattern_set_name && (
                                                 <div className="text-xs text-muted-foreground">{pattern.pattern_set_name}</div>
                                             )}
+                                            {(pattern.division || pattern.level) && (
+                                                <div className="text-xs text-primary/70 mt-0.5">
+                                                    {[pattern.division, pattern.level].filter(Boolean).join(' · ')}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell>{pattern.class_name}</TableCell>
                                         <TableCell>{format(new Date(pattern.created_at), 'MMM d, yyyy')}</TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell>
                                             <Badge variant={getStatusVariant(pattern.review_status)}>
                                                 {pattern.review_status}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleViewPattern(pattern)}
+                                            >
+                                                <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -228,6 +259,12 @@ const ContributorPortalPage = () => {
                     ) : user ? <LoggedInView /> : <LoggedOutView />}
                 </main>
             </div>
+
+            <PatternPreviewModal
+                isOpen={!!previewPattern}
+                onClose={() => setPreviewPattern(null)}
+                pattern={previewPattern}
+            />
         </>
     );
 };

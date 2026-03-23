@@ -506,7 +506,6 @@ const ArenaSessionsPage = () => {
           </motion.div>
         </main>
       </div>
-      //
 
       {/* Arena Dialog */}
       <Dialog open={isArenaDialogOpen} onOpenChange={setIsArenaDialogOpen}>
