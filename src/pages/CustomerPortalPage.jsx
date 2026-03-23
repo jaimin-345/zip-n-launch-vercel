@@ -7187,9 +7187,18 @@ const InProgressCard = ({ project, onRefresh }) => {
                 <CardHeader className="pb-3">
                     <div className="flex items-center gap-2 mb-2">
                         <BookCopy className="h-5 w-5 text-primary shrink-0" />
-                        <CardTitle className="text-lg font-bold text-foreground">
-                            {project.project_name || 'Untitled Project'}
-                        </CardTitle>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <CardTitle className="text-lg font-bold text-foreground truncate">
+                                        {project.project_name || 'Untitled Project'}
+                                    </CardTitle>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{project.project_name || 'Untitled Project'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div className="mb-3">
                         <Badge className="bg-primary text-white text-xs font-medium px-2.5 py-0.5 rounded-full">
