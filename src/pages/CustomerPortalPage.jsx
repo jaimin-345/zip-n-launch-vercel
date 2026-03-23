@@ -8,6 +8,7 @@ import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2, Printer, Mail, Link2, Image as LucideImage } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn, parseLocalDate } from '@/lib/utils';
@@ -7186,9 +7187,18 @@ const InProgressCard = ({ project, onRefresh }) => {
                 <CardHeader className="pb-3">
                     <div className="flex items-center gap-2 mb-2">
                         <BookCopy className="h-5 w-5 text-primary shrink-0" />
-                        <CardTitle className="text-lg font-bold text-foreground">
-                            {project.project_name || 'Untitled Project'}
-                        </CardTitle>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <CardTitle className="text-lg font-bold text-foreground truncate">
+                                        {project.project_name || 'Untitled Project'}
+                                    </CardTitle>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{project.project_name || 'Untitled Project'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     <div className="mb-3">
                         <Badge className="bg-primary text-white text-xs font-medium px-2.5 py-0.5 rounded-full">
@@ -7631,7 +7641,16 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                 <FolderOpen className="h-6 w-6 text-primary" />
                             </div>
                             <div>
-                                <CardTitle className="leading-tight">{project.project_name || 'Untitled Project'}</CardTitle>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <CardTitle className="leading-tight truncate">{project.project_name || 'Untitled Project'}</CardTitle>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{project.project_name || 'Untitled Project'}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                                 <CardDescription>Pattern Folder</CardDescription>
                             </div>
                         </div>
@@ -7773,9 +7792,18 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                         ) : (
                             <CalendarDays className="h-5 w-5 text-primary shrink-0" />
                         )}
-                        <h3 className="font-semibold text-foreground truncate">
-                            {project.project_name || 'Untitled Project'}
-                        </h3>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <h3 className="font-semibold text-foreground truncate">
+                                        {project.project_name || 'Untitled Project'}
+                                    </h3>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{project.project_name || 'Untitled Project'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     
                     {/* Project Type Badge */}
