@@ -7190,7 +7190,7 @@ const InProgressCard = ({ project, onRefresh }) => {
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <CardTitle className="text-lg font-bold text-foreground truncate">
+                                    <CardTitle className="text-lg font-bold text-foreground truncate cursor-pointer max-w-[150px]">
                                         {project.project_name || 'Untitled Project'}
                                     </CardTitle>
                                 </TooltipTrigger>
@@ -7644,7 +7644,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <CardTitle className="leading-tight truncate">{project.project_name || 'Untitled Project'}</CardTitle>
+                                            <CardTitle className="leading-tight truncate cursor-pointer max-w-[150px]">{project.project_name || 'Untitled Project'}</CardTitle>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>{project.project_name || 'Untitled Project'}</p>
@@ -7786,7 +7786,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     onClick={isCompletedPatternHub ? () => setPatternDetailDialogOpen(true) : undefined}
                 >
                     {/* Project Name */}
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-3 min-w-0">
                         {isPatternBook ? (
                             <BookCopy className="h-5 w-5 text-primary shrink-0" />
                         ) : (
@@ -7795,7 +7795,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <h3 className="font-semibold text-foreground truncate">
+                                    <h3 className="font-semibold text-foreground truncate cursor-pointer max-w-[150px]">
                                         {project.project_name || 'Untitled Project'}
                                     </h3>
                                 </TooltipTrigger>
