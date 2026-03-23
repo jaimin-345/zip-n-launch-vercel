@@ -51,7 +51,7 @@ const PatternUploadLandingPage = () => {
                 <span className="text-primary">Power the Next Champion.</span>
               </h1>
               <p className="max-w-3xl mx-auto text-lg md:text-xl text-muted-foreground mb-10">
-                Join our community of elite pattern designers. Upload your custom patterns, tag them with our intelligent system, and get them in front of thousands of show managers and competitors.
+                Join our community of elite pattern designers. Upload your custom patterns, tag them with our intelligent system, and get them in front of thousands of equestrians and show managers.
               </p>
               <div className="flex items-center justify-center gap-4">
                 <Button size="lg" asChild>
