@@ -7594,7 +7594,15 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                     />
                 </div>
                 
-                {/* Edit Menu Button */}
+                {/* Delete & Edit Menu Buttons */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className={`absolute top-6 right-11 z-10 h-7 w-7 bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-sm border border-destructive/30 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
@@ -7609,6 +7617,27 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                         {renderMenuItems()}
                     </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* Delete Confirmation Dialog for Pattern Folder */}
+                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete Project</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete "{project.project_name || 'Untitled Project'}"? This action cannot be undone.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex justify-end gap-2 mt-4">
+                            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="destructive" onClick={handleDeleteProject}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Folder Body */}
                 <Card className="flex flex-col flex-grow rounded-tl-none border-t-0" style={{ borderColor: coverColor || undefined }}>
@@ -7724,7 +7753,15 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                 className="flex-grow rounded-lg rounded-tl-none shadow-xl overflow-hidden relative bg-card/90 backdrop-blur-sm border-2 z-20"
                 style={{ borderColor: coverColor || 'hsl(var(--primary))' }}
             >
-                {/* Edit Menu Button - Only visible on hover - Hide for In Progress Portal */}
+                {/* Delete & Edit Menu Buttons - Only visible on hover */}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteDialogOpen(true)}
+                    className={`absolute top-2 right-11 z-10 h-7 w-7 bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-sm border border-destructive/30 transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
                 {!isInProgressPortal && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
