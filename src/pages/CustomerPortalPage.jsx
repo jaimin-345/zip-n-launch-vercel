@@ -7194,7 +7194,7 @@ const InProgressCard = ({ project, onRefresh }) => {
                                         {project.project_name || 'Untitled Project'}
                                     </CardTitle>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent side="bottom">
                                     <p>{project.project_name || 'Untitled Project'}</p>
                                 </TooltipContent>
                             </Tooltip>
@@ -7646,7 +7646,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                         <TooltipTrigger asChild>
                                             <CardTitle className="leading-tight truncate cursor-pointer max-w-[150px]">{project.project_name || 'Untitled Project'}</CardTitle>
                                         </TooltipTrigger>
-                                        <TooltipContent>
+                                        <TooltipContent side="bottom">
                                             <p>{project.project_name || 'Untitled Project'}</p>
                                         </TooltipContent>
                                     </Tooltip>
@@ -7799,7 +7799,7 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                         {project.project_name || 'Untitled Project'}
                                     </h3>
                                 </TooltipTrigger>
-                                <TooltipContent>
+                                <TooltipContent side="bottom">
                                     <p>{project.project_name || 'Untitled Project'}</p>
                                 </TooltipContent>
                             </Tooltip>
