@@ -7774,9 +7774,18 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                         ) : (
                             <CalendarDays className="h-5 w-5 text-primary shrink-0" />
                         )}
-                        <h3 className="font-semibold text-foreground truncate">
-                            {project.project_name || 'Untitled Project'}
-                        </h3>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <h3 className="font-semibold text-foreground truncate">
+                                        {project.project_name || 'Untitled Project'}
+                                    </h3>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{project.project_name || 'Untitled Project'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     </div>
                     
                     {/* Project Type Badge */}
