@@ -23,11 +23,6 @@ const PatternUploadLandingPage = () => {
       description: 'Our system helps you tag patterns with the correct associations, divisions, and classes.',
     },
     {
-      icon: <DollarSign className="h-8 w-8 text-primary" />,
-      title: 'Monetize Your Work',
-      description: 'License your high-quality patterns and earn revenue from every use.',
-    },
-    {
       icon: <Award className="h-8 w-8 text-primary" />,
       title: 'Reach a Global Audience',
       description: 'Your patterns will be available to show managers and equestrians worldwide.',
