@@ -2168,6 +2168,45 @@ export type Database = {
           },
         ]
       }
+      judge_favorites: {
+        Row: {
+          association_id: string
+          class_id: string | null
+          created_at: string | null
+          creator_note: string | null
+          discipline_id: string
+          id: string
+          judge_id: string
+          pattern_id: number
+          rank: number
+          updated_at: string | null
+        }
+        Insert: {
+          association_id: string
+          class_id?: string | null
+          created_at?: string | null
+          creator_note?: string | null
+          discipline_id: string
+          id?: string
+          judge_id: string
+          pattern_id: number
+          rank: number
+          updated_at?: string | null
+        }
+        Update: {
+          association_id?: string
+          class_id?: string | null
+          created_at?: string | null
+          creator_note?: string | null
+          discipline_id?: string
+          id?: string
+          judge_id?: string
+          pattern_id?: number
+          rank?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       judge_notifications: {
         Row: {
           created_at: string
@@ -2237,6 +2276,48 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      marketing_content: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          link_url: string | null
+          slot: string
+          title: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          slot: string
+          title?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          link_url?: string | null
+          slot?: string
+          title?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -3059,6 +3140,30 @@ export type Database = {
             referencedColumns: ["role_code"]
           },
         ]
+      }
+      site_branding: {
+        Row: {
+          background_url: string | null
+          id: string
+          logo_url: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          background_url?: string | null
+          id: string
+          logo_url?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          background_url?: string | null
+          id?: string
+          logo_url?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       sponsors: {
         Row: {
