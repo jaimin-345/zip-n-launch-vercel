@@ -19,6 +19,7 @@ const initialFormData = {
   phbaHorseType: 'stock',
   pthaHorseType: 'stock',
   disciplines: [],
+  customDisciplines: [],
   startDate: null,
   endDate: null,
   venueName: '',

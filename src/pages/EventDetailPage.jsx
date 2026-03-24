@@ -631,6 +631,58 @@ const EventDetailPage = () => {
               </Card>
             </motion.div>
             
+            {/* Results - Show finalized results from the Results module */}
+            {event.isFromProjects && projectData?.results?.classResults && (() => {
+              const finalResults = Object.values(projectData.results.classResults).filter(r => r.status === 'final');
+              if (finalResults.length === 0) return null;
+              return (
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.3 }}>
+                  <Card className="bg-secondary border-border">
+                    <CardHeader>
+                      <CardTitle>Results</CardTitle>
+                      <CardDescription>Official results for {finalResults.length} class{finalResults.length !== 1 ? 'es' : ''}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {finalResults
+                        .sort((a, b) => (a.classNumber || 0) - (b.classNumber || 0))
+                        .map((result, idx) => (
+                        <div key={idx} className="rounded-lg border bg-background/50 overflow-hidden">
+                          <div className="px-4 py-2 bg-muted/50 font-medium text-sm flex items-center gap-2">
+                            <span className="font-mono text-muted-foreground">#{result.classNumber}</span>
+                            <span>{result.className}</span>
+                            {result.scoringType === 'timed' && <Badge variant="outline" className="text-[10px]">Timed</Badge>}
+                            {result.scoringType === 'scored' && <Badge variant="outline" className="text-[10px]">Scored</Badge>}
+                          </div>
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-xs text-muted-foreground border-b">
+                                <th className="px-4 py-1 text-left w-14">Place</th>
+                                <th className="px-4 py-1 text-left">Rider</th>
+                                <th className="px-4 py-1 text-left">Horse</th>
+                                {result.scoringType === 'scored' && <th className="px-4 py-1 text-left w-20">Score</th>}
+                                {result.scoringType === 'timed' && <th className="px-4 py-1 text-left w-20">Time</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(result.entries || []).filter(e => e.riderName?.trim()).map((entry, eIdx) => (
+                                <tr key={eIdx} className="border-b last:border-0">
+                                  <td className="px-4 py-1.5 font-bold text-muted-foreground">{entry.placing}</td>
+                                  <td className="px-4 py-1.5">{entry.riderName}</td>
+                                  <td className="px-4 py-1.5 text-muted-foreground">{entry.horseName || '—'}</td>
+                                  {result.scoringType === 'scored' && <td className="px-4 py-1.5 font-mono">{entry.score ?? '—'}</td>}
+                                  {result.scoringType === 'timed' && <td className="px-4 py-1.5 font-mono">{entry.time ?? '—'}</td>}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })()}
+
             {/* Class Schedule - Show for regular events */}
             {event.classes && event.classes.length > 0 && (
               <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.4 }}>

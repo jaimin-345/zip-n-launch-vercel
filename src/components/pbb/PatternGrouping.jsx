@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { PlusCircle, Move, Info, Undo2, Sparkles, Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -41,7 +42,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         // From divisionOrder (all divisions including ungrouped)
         if (pbbDiscipline.divisionOrder) {
             pbbDiscipline.divisionOrder.forEach(divId => {
-                const [assocId] = divId.split('-');
+                const { assocId } = parseDivisionId(divId);
                 if (assocId) allAssocIds.add(assocId);
             });
         }
@@ -548,15 +549,13 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
             // Create a map of division names to division IDs for both disciplines
             const sourceDivisionsMap = new Map();
             sourceDivisionOrder.forEach(divId => {
-                const [assocId, ...divisionParts] = divId.split('-');
-                const divisionName = divisionParts.join('-');
+                const { assocId, divisionName } = parseDivisionId(divId);
                 sourceDivisionsMap.set(divisionName, divId);
             });
             
             const currentDivisionsMap = new Map();
             currentDivisionOrder.forEach(divId => {
-                const [assocId, ...divisionParts] = divId.split('-');
-                const divisionName = divisionParts.join('-');
+                const { assocId, divisionName } = parseDivisionId(divId);
                 currentDivisionsMap.set(divisionName, divId);
             });
             
@@ -586,8 +585,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
                     
                     if (currentDivId) {
                         // Parse current division ID to get assocId and division name
-                        const [assocId, ...divisionParts] = currentDivId.split('-');
-                        const divisionName = divisionParts.join('-');
+                        const { assocId, divisionName } = parseDivisionId(currentDivId);
                         return {
                             id: currentDivId,
                             assocId: assocId,
@@ -803,8 +801,7 @@ export const PatternGrouping = ({ pbbDiscipline, setFormData, isCustomOpenShow, 
         const result = [];
         (pbbDiscipline.divisionOrder || []).forEach(divId => {
             const goInfo = pbbDiscipline.divisionGos?.[divId] || {};
-            const [assocId, ...divisionParts] = divId.split('-');
-            const divisionName = divisionParts.join('-');
+            const { assocId, divisionName } = parseDivisionId(divId);
             const customTitle = (pbbDiscipline.divisionPrintTitles && pbbDiscipline.divisionPrintTitles[divId]) || null;
 
             if (goInfo.hasGo2) {

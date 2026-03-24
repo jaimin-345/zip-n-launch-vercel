@@ -12,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Search, Calendar as CalendarIcon, PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -187,8 +188,7 @@ const ScheduleContent = ({ formData, setFormData }) => {
     const allClassItems = useMemo(() => {
         return (formData.disciplines || []).flatMap(discipline => {
             return (discipline.divisionOrder || []).map(divisionId => {
-                const [assocId, ...divisionParts] = divisionId.split('-');
-                const divisionName = divisionParts.join('-');
+                const { assocId, divisionName } = parseDivisionId(divisionId);
                 const customTitle = discipline.divisionPrintTitles?.[divisionId];
                 const name = customTitle || (divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName);
                 

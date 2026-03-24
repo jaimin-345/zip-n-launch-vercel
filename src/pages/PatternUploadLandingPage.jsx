@@ -33,7 +33,7 @@ const PatternUploadLandingPage = () => {
     <>
       <Helmet>
         <title>Upload Patterns - EquiPatterns</title>
-        <meta name="description" content="Become a contributor. Upload your custom horse show patterns, license them for use, and earn revenue on our global platform." />
+        <meta name="description" content="Become a contributor. Upload your custom horse show patterns, tag them with our intelligent system, and reach thousands of equestrians and show managers worldwide." />
       </Helmet>
       <div className="min-h-screen bg-background flex flex-col">
         <Navigation />
@@ -75,7 +75,7 @@ const PatternUploadLandingPage = () => {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="mt-20"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {features.map((feature, index) => (
                   <Card key={index} className="text-center bg-secondary/50 border-border/50">
                     <CardHeader>

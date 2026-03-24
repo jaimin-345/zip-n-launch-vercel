@@ -119,6 +119,7 @@ import EmployeeBudgetingToolPage from '@/pages/EmployeeBudgetingToolPage';
 import VenueArenaSetupPage from '@/pages/VenueArenaSetupPage';
 import EmployeeSchedulingPage from '@/pages/EmployeeSchedulingPage';
 import AwardsManagementPage from '@/pages/AwardsManagementPage';
+import ResultsManagementPage from '@/pages/ResultsManagementPage';
 import { AnalyticsProvider } from '@/components/AnalyticsProvider';
 
 function App() {
@@ -254,6 +255,8 @@ function App() {
                   <Route path="/horse-show-manager/awards-presenters" element={<MembershipRoute><AwardsPresenterManagerPage /></MembershipRoute>} />
                   <Route path="/horse-show-manager/awards-management" element={<MembershipRoute><AwardsManagementPage /></MembershipRoute>} />
                   <Route path="/horse-show-manager/awards-management/:showId" element={<MembershipRoute><AwardsManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/results-management" element={<MembershipRoute><ResultsManagementPage /></MembershipRoute>} />
+                  <Route path="/horse-show-manager/results-management/:showId" element={<MembershipRoute><ResultsManagementPage /></MembershipRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
                   <Route path="/upload-patterns/my-uploads" element={<MembershipRoute><MyPatternUploadsPage /></MembershipRoute>} />

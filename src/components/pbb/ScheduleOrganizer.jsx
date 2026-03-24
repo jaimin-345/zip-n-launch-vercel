@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-
+    import { parseDivisionId } from '@/lib/showBillUtils';
     import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
     import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
     import { CSS } from '@dnd-kit/utilities';
@@ -34,8 +34,7 @@ import React, { useState, useMemo } from 'react';
         const [isEditing, setIsEditing] = useState(false);
         const [editValue, setEditValue] = useState('');
 
-    const [assocId, ...divisionParts] = divisionIdentifier.split('-');
-    const originalDivisionName = divisionParts.join('-');
+    const { assocId, divisionName: originalDivisionName } = parseDivisionId(divisionIdentifier);
 
     // Parse division name to extract tag and name
     const parseDivisionDisplay = (divName) => {

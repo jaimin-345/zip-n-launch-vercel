@@ -12,7 +12,7 @@ import {
   ArrowLeft, Loader2, Calendar, MapPin,
   CalendarDays, FileText, DollarSign, LayoutGrid, Building2,
   Radio, Award, Edit, ChevronRight, Users, ClipboardList,
-  BarChart3, Warehouse, Check, Lock, Circle, ChevronDown,
+  BarChart3, Warehouse, Check, Lock, Circle, ChevronDown, BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
@@ -286,6 +286,7 @@ const ShowWorkspacePage = () => {
         { key: 'showStructure', icon: DollarSign, title: 'Show Structure & Expenses', description: 'Manage show expenses, fee structures, and sponsors.', to: `/horse-show-manager/show-structure-expenses/${showId}`, color: 'blue' },
         { key: 'feeStructure', icon: DollarSign, title: 'Fee Structure & Sponsors', description: 'Configure entry fees, stall fees, and sponsor levels.', to: `/horse-show-manager/fee-structure/${showId}`, color: 'blue' },
         { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts?showId=${showId}`, color: 'blue' },
+        { key: 'patternBook', icon: BookOpen, title: 'Pattern Book', description: 'Access pattern PDFs and score sheets for this show.', to: pd.linkedProjectId ? `/pattern-book-builder/${pd.linkedProjectId}` : '/pattern-book-builder', color: 'indigo' },
       ],
     },
     {
@@ -299,6 +300,7 @@ const ShowWorkspacePage = () => {
       section: 'Show Management',
       items: [
         { key: 'equipment', icon: Radio, title: 'Equipment Management', description: 'Plan and track equipment needs across arenas.', to: `/horse-show-manager/equipment-planning/${showId}`, color: 'amber' },
+        { key: 'results', icon: ClipboardList, title: 'Results Entry', description: 'Enter class results, placings, and scores from the schedule.', to: `/horse-show-manager/results-management/${showId}`, color: 'amber' },
         { key: 'awards', icon: Award, title: 'Awards Management', description: 'Configure awards, ribbons, and trophies.', to: `/horse-show-manager/awards-management/${showId}`, color: 'violet' },
         { key: 'financials', icon: BarChart3, title: 'Financials & Analytics', description: 'View financial projections, revenue, and analytics.', to: `/horse-show-manager/financials/${showId}`, color: 'rose' },
         { key: 'stalling', icon: Warehouse, title: 'Stalling Service', description: 'Manage stall assignments and barn configurations.', to: `/horse-show-manager/stalling-service-manager/${showId}`, color: 'sky', comingSoon: true },

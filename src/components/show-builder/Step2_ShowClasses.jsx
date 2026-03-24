@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Info, ChevronRight, ChevronDown, ListPlus, Plus } from 'lucide-react';
+import { Info, ChevronRight, ChevronDown, ListPlus, Plus, Timer, Trophy, FileText, BookOpen, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // ─── helpers ───────────────────────────────────────────────────────
@@ -24,6 +24,68 @@ function makeDivisionKey(groupName, level) {
 function makeDivisionId(assocId, groupName, level) {
     return `${assocId}-${groupName} - ${level}`;
 }
+
+// ─── Discipline group definitions ────────────────────────────────
+
+const DISCIPLINE_GROUP_ORDER = ['custom_patterns', 'rulebook_patterns', 'scoresheet_only', 'timed', 'additional'];
+
+const DISCIPLINE_GROUP_META = {
+    custom_patterns: {
+        label: 'Custom Patterns',
+        description: 'Pattern-based disciplines with custom pattern design',
+        icon: Pencil,
+        color: 'text-blue-600 dark:text-blue-400',
+        bgColor: 'bg-blue-50 dark:bg-blue-950/30',
+        borderColor: 'border-blue-200 dark:border-blue-800',
+        canAdd: true,
+        addLabel: '+ Add Custom Pattern',
+    },
+    rulebook_patterns: {
+        label: 'Rulebook Patterns',
+        description: 'Disciplines using official rulebook patterns',
+        icon: BookOpen,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bgColor: 'bg-emerald-50 dark:bg-emerald-950/30',
+        borderColor: 'border-emerald-200 dark:border-emerald-800',
+        canAdd: false,
+    },
+    scoresheet_only: {
+        label: 'Score Sheets Only',
+        description: 'Judged disciplines with score sheets, no pattern',
+        icon: FileText,
+        color: 'text-purple-600 dark:text-purple-400',
+        bgColor: 'bg-purple-50 dark:bg-purple-950/30',
+        borderColor: 'border-purple-200 dark:border-purple-800',
+        canAdd: false,
+    },
+    timed: {
+        label: 'Timed Classes',
+        description: 'Speed events scored by time',
+        icon: Timer,
+        color: 'text-orange-600 dark:text-orange-400',
+        bgColor: 'bg-orange-50 dark:bg-orange-950/30',
+        borderColor: 'border-orange-200 dark:border-orange-800',
+        canAdd: true,
+        addLabel: '+ Add Timed Class',
+    },
+    additional: {
+        label: 'Additional Performance Classes',
+        description: 'Classes tracked for results and awards only',
+        icon: Trophy,
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-amber-50 dark:bg-amber-950/30',
+        borderColor: 'border-amber-200 dark:border-amber-800',
+        canAdd: true,
+        addLabel: '+ Add Additional Class',
+    },
+};
+
+// Defaults for adding a discipline by group type
+const GROUP_DEFAULTS = {
+    custom_patterns: { category: 'pattern_and_scoresheet', pattern_type: 'custom', discipline_group: 'custom_patterns' },
+    timed: { category: 'none', pattern_type: 'none', discipline_group: 'timed' },
+    additional: { category: 'none', pattern_type: 'none', discipline_group: 'additional' },
+};
 
 // ─── Collapsible wrapper (no Radix, just state) ─────────────────
 
@@ -98,6 +160,7 @@ const LevelCheckbox = ({ assocId, disc, groupName, level, formData, setFormData,
                         patternGroups: [],
                         sub_association_type: disc.sub_association_type,
                         pattern_type: disc.pattern_type || 'none',
+                        discipline_group: disc.discipline_group || null,
                     };
                     if (newDisc.pattern) {
                         newDisc.patternGroups.push({ id: `pattern-group-${Date.now()}`, name: 'Group 1', divisions: [], rulebookPatternId: '', competitionDate: null });
@@ -162,6 +225,80 @@ const LevelCheckbox = ({ assocId, disc, groupName, level, formData, setFormData,
         <div className="flex items-center gap-2 py-1" style={{ paddingLeft: `${3 * 20 + 4}px` }}>
             <Checkbox id={checkboxId} checked={isChecked} onCheckedChange={handleToggle} />
             <label htmlFor={checkboxId} className="text-sm cursor-pointer">{level}</label>
+        </div>
+    );
+};
+
+// ─── Grouped discipline section ─────────────────────────────────
+
+const DisciplineGroupSection = ({ groupKey, disciplines, assocId, divisionsData, selectionCounts, formData, setFormData, disciplineLibrary, onAddDiscipline }) => {
+    const meta = DISCIPLINE_GROUP_META[groupKey];
+    if (!meta) return null;
+
+    const Icon = meta.icon;
+    const groupCount = disciplines.reduce((sum, disc) => sum + (selectionCounts[getDisciplineKey(disc)] || 0), 0);
+    const divisions = divisionsData?.[assocId] || [];
+
+    return (
+        <div className={cn('rounded-lg border p-3 space-y-1', meta.borderColor)}>
+            <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                    <Icon className={cn('h-4 w-4', meta.color)} />
+                    <span className="font-semibold text-sm">{meta.label}</span>
+                    {groupCount > 0 && (
+                        <Badge variant="default" className="text-xs h-5 px-1.5">{groupCount}</Badge>
+                    )}
+                </div>
+                {meta.canAdd && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onAddDiscipline(groupKey)}
+                        className={cn('h-7 text-xs', meta.color)}
+                    >
+                        <Plus className="h-3 w-3 mr-1" /> {meta.addLabel}
+                    </Button>
+                )}
+            </div>
+            <p className="text-xs text-muted-foreground mb-2">{meta.description}</p>
+
+            {disciplines.map(disc => {
+                const discKey = getDisciplineKey(disc);
+                const count = selectionCounts[discKey] || 0;
+                const relevantDivisions = divisions.filter(dg =>
+                    !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
+                );
+
+                return (
+                    <TreeNode
+                        key={disc.id}
+                        label={disc.name}
+                        indentLevel={0}
+                        badge={count > 0 ? <Badge variant="default" className="text-xs h-5 px-1.5">{count}</Badge> : null}
+                    >
+                        {relevantDivisions.map(group => (
+                            <TreeNode
+                                key={`${assocId}-${group.group}`}
+                                label={group.group}
+                                indentLevel={1}
+                            >
+                                {group.levels.map(level => (
+                                    <LevelCheckbox
+                                        key={`${assocId}-${disc.id}-${group.group}-${level}`}
+                                        assocId={assocId}
+                                        disc={disc}
+                                        groupName={group.group}
+                                        level={level}
+                                        formData={formData}
+                                        setFormData={setFormData}
+                                        disciplineLibrary={disciplineLibrary}
+                                    />
+                                ))}
+                            </TreeNode>
+                        ))}
+                    </TreeNode>
+                );
+            })}
         </div>
     );
 };
@@ -298,18 +435,77 @@ const AddCustomClassDialog = ({ open, onOpenChange, onAdd }) => {
     );
 };
 
+// ─── Add Discipline by Group Dialog ─────────────────────────────
+
+const AddDisciplineDialog = ({ open, onOpenChange, groupKey, onAdd, assocId }) => {
+    const [name, setName] = useState('');
+
+    const meta = DISCIPLINE_GROUP_META[groupKey] || {};
+    const defaults = GROUP_DEFAULTS[groupKey] || {};
+
+    React.useEffect(() => {
+        if (open) setName('');
+    }, [open]);
+
+    const handleAdd = () => {
+        if (!name.trim()) return;
+        onAdd(name.trim(), { ...defaults, association_id: assocId });
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-sm">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Plus className="h-5 w-5" />
+                        Add to {meta.label}
+                    </DialogTitle>
+                    <DialogDescription>
+                        {groupKey === 'custom_patterns' && 'Add a new pattern-based discipline. It will appear in the Custom Patterns section.'}
+                        {groupKey === 'timed' && 'Add a new timed/speed event class. No pattern or score sheet required.'}
+                        {groupKey === 'additional' && 'Add a results-only class for tracking placements and awards.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                    <div>
+                        <Label htmlFor="add-disc-name" className="text-sm font-medium">Discipline Name</Label>
+                        <Input
+                            id="add-disc-name"
+                            placeholder={
+                                groupKey === 'custom_patterns' ? 'E.g., Saddle Seat Equitation' :
+                                groupKey === 'timed' ? 'E.g., Barrel Racing' :
+                                'E.g., Ranch Rail Pleasure'
+                            }
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="mt-1.5"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleAdd} disabled={!name.trim()}>Add Discipline</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 // ─── Main component ─────────────────────────────────────────────
 
 export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, associationsData, divisionsData, stepNumber = 4, stepTitle = 'Build Your Class List' }) => {
     const [bulkAddOpen, setBulkAddOpen] = useState(false);
     const [customClassOpen, setCustomClassOpen] = useState(false);
+    const [addDiscGroupKey, setAddDiscGroupKey] = useState(null);
 
     const selectedAssocIds = useMemo(() =>
         Object.keys(formData.associations || {}).filter(id => formData.associations[id]),
         [formData.associations]
     );
 
-    // Build association → discipline list
+    // Build association → discipline list (with group info)
     const assocDisciplines = useMemo(() => {
         if (!disciplineLibrary || !associationsData) return [];
         return selectedAssocIds.map(assocId => {
@@ -323,10 +519,36 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
                 discs = []; // Don't show 4-H disciplines until state is selected
             }
 
+            // Include user-added custom disciplines for this association
+            const customDiscs = (formData.customDisciplines || []).filter(d => d.association_id === assocId);
+            discs = [...discs, ...customDiscs];
+
             discs.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-            return { assocId, assocName: assoc ? `${assoc.abbreviation || assoc.id} - ${assoc.name}` : assocId, disciplines: discs };
+
+            // Check if any discipline has a discipline_group
+            const hasGroups = discs.some(d => d.discipline_group);
+
+            // Group disciplines by discipline_group
+            let grouped = null;
+            if (hasGroups) {
+                grouped = {};
+                for (const gk of DISCIPLINE_GROUP_ORDER) {
+                    const groupDiscs = discs.filter(d => d.discipline_group === gk);
+                    if (groupDiscs.length > 0) grouped[gk] = groupDiscs;
+                }
+                // Ungrouped disciplines go into a fallback
+                const ungrouped = discs.filter(d => !d.discipline_group);
+                if (ungrouped.length > 0) grouped['_ungrouped'] = ungrouped;
+            }
+
+            return {
+                assocId,
+                assocName: assoc ? `${assoc.abbreviation || assoc.id} - ${assoc.name}` : assocId,
+                disciplines: discs,
+                grouped,
+            };
         }).filter(a => a.disciplines.length > 0);
-    }, [selectedAssocIds, disciplineLibrary, associationsData, formData.selected4HCity]);
+    }, [selectedAssocIds, disciplineLibrary, associationsData, formData.selected4HCity, formData.customDisciplines]);
 
     // Count selected classes per discipline key
     const selectionCounts = useMemo(() => {
@@ -350,7 +572,6 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
     const handleBulkAdd = useCallback((classNames, options = {}) => {
         setFormData(prev => {
             const newDisciplines = [...(prev.disciplines || [])];
-            // Find or create a "Custom Classes" discipline
             const customDiscKey = 'custom-bulk-classes';
             let discIdx = newDisciplines.findIndex(d => d.id === customDiscKey);
 
@@ -399,8 +620,33 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
         });
     }, [setFormData, selectedAssocIds]);
 
+    // Add a new discipline to a specific group (persisted in formData.customDisciplines)
+    const handleAddDiscipline = useCallback((name, options = {}) => {
+        setFormData(prev => {
+            const assocId = options.association_id || selectedAssocIds[0] || 'custom';
+            const newCustomDisc = {
+                id: `custom-${name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}`,
+                name,
+                association_id: assocId,
+                category: options.category || 'none',
+                pattern_type: options.pattern_type || 'none',
+                discipline_group: options.discipline_group || null,
+                city: prev.selected4HCity || null,
+                sort_order: 999,
+                isCustom: true,
+                open_divisions: false,
+            };
+
+            const customDisciplines = [...(prev.customDisciplines || []), newCustomDisc];
+            return { ...prev, customDisciplines };
+        });
+    }, [setFormData, selectedAssocIds]);
+
     // Check if 4-H is selected but no state chosen
     const is4HSelectedNoState = selectedAssocIds.includes('4-H') && !formData.selected4HCity;
+
+    // Find the first 4-H assoc id for the add dialog
+    const activeAssocId = selectedAssocIds[0] || 'custom';
 
     // Empty state
     if (selectedAssocIds.length === 0) {
@@ -476,56 +722,153 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
                 </div>
 
                 {/* Association trees */}
-                <div className="space-y-2 rounded-lg border p-4">
-                    {assocDisciplines.map(({ assocId, assocName, disciplines: discs }) => {
+                <div className="space-y-3">
+                    {assocDisciplines.map(({ assocId, assocName, disciplines: discs, grouped }) => {
                         const divisions = divisionsData?.[assocId] || [];
 
-                        return (
-                            <TreeNode
-                                key={assocId}
-                                label={assocName}
-                                indentLevel={0}
-                                defaultOpen={assocDisciplines.length === 1}
-                            >
-                                {discs.map(disc => {
-                                    const discKey = getDisciplineKey(disc);
-                                    const count = selectionCounts[discKey] || 0;
-                                    // Filter divisions by matching sub_association_type
-                                    const relevantDivisions = divisions.filter(dg =>
-                                        !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
-                                    );
+                        // If disciplines have group info, render grouped sections
+                        if (grouped) {
+                            return (
+                                <div key={assocId} className="space-y-3">
+                                    {assocDisciplines.length > 1 && (
+                                        <h3 className="font-semibold text-base px-1">{assocName}</h3>
+                                    )}
 
-                                    return (
-                                        <TreeNode
-                                            key={disc.id}
-                                            label={disc.name}
-                                            indentLevel={1}
-                                            badge={count > 0 ? <Badge variant="default" className="text-xs h-5 px-1.5">{count}</Badge> : null}
-                                        >
-                                            {relevantDivisions.map(group => (
-                                                <TreeNode
-                                                    key={`${assocId}-${group.group}`}
-                                                    label={group.group}
-                                                    indentLevel={2}
+                                    {DISCIPLINE_GROUP_ORDER.map(gk => {
+                                        if (!grouped[gk]) return null;
+                                        return (
+                                            <DisciplineGroupSection
+                                                key={`${assocId}-${gk}`}
+                                                groupKey={gk}
+                                                disciplines={grouped[gk]}
+                                                assocId={assocId}
+                                                divisionsData={divisionsData}
+                                                selectionCounts={selectionCounts}
+                                                formData={formData}
+                                                setFormData={setFormData}
+                                                disciplineLibrary={disciplineLibrary}
+                                                onAddDiscipline={(groupKey) => setAddDiscGroupKey(groupKey)}
+                                            />
+                                        );
+                                    })}
+
+                                    {/* Ungrouped fallback */}
+                                    {grouped['_ungrouped'] && (
+                                        <div className="rounded-lg border p-3 space-y-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-semibold text-sm">Other Disciplines</span>
+                                            </div>
+                                            {grouped['_ungrouped'].map(disc => {
+                                                const discKey = getDisciplineKey(disc);
+                                                const count = selectionCounts[discKey] || 0;
+                                                const relevantDivisions = divisions.filter(dg =>
+                                                    !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
+                                                );
+                                                return (
+                                                    <TreeNode
+                                                        key={disc.id}
+                                                        label={disc.name}
+                                                        indentLevel={0}
+                                                        badge={count > 0 ? <Badge variant="default" className="text-xs h-5 px-1.5">{count}</Badge> : null}
+                                                    >
+                                                        {relevantDivisions.map(group => (
+                                                            <TreeNode
+                                                                key={`${assocId}-${group.group}`}
+                                                                label={group.group}
+                                                                indentLevel={1}
+                                                            >
+                                                                {group.levels.map(level => (
+                                                                    <LevelCheckbox
+                                                                        key={`${assocId}-${disc.id}-${group.group}-${level}`}
+                                                                        assocId={assocId}
+                                                                        disc={disc}
+                                                                        groupName={group.group}
+                                                                        level={level}
+                                                                        formData={formData}
+                                                                        setFormData={setFormData}
+                                                                        disciplineLibrary={disciplineLibrary}
+                                                                    />
+                                                                ))}
+                                                            </TreeNode>
+                                                        ))}
+                                                    </TreeNode>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Show Add buttons for groups that aren't populated yet but could be */}
+                                    {DISCIPLINE_GROUP_ORDER.filter(gk => !grouped[gk] && DISCIPLINE_GROUP_META[gk]?.canAdd).map(gk => {
+                                        const meta = DISCIPLINE_GROUP_META[gk];
+                                        const Icon = meta.icon;
+                                        return (
+                                            <div key={`${assocId}-${gk}-empty`} className={cn('rounded-lg border border-dashed p-3 flex items-center justify-between', meta.borderColor)}>
+                                                <div className="flex items-center gap-2">
+                                                    <Icon className={cn('h-4 w-4', meta.color)} />
+                                                    <span className="text-sm text-muted-foreground">{meta.label}</span>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setAddDiscGroupKey(gk)}
+                                                    className={cn('h-7 text-xs', meta.color)}
                                                 >
-                                                    {group.levels.map(level => (
-                                                        <LevelCheckbox
-                                                            key={`${assocId}-${disc.id}-${group.group}-${level}`}
-                                                            assocId={assocId}
-                                                            disc={disc}
-                                                            groupName={group.group}
-                                                            level={level}
-                                                            formData={formData}
-                                                            setFormData={setFormData}
-                                                            disciplineLibrary={disciplineLibrary}
-                                                        />
-                                                    ))}
-                                                </TreeNode>
-                                            ))}
-                                        </TreeNode>
-                                    );
-                                })}
-                            </TreeNode>
+                                                    <Plus className="h-3 w-3 mr-1" /> {meta.addLabel}
+                                                </Button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        }
+
+                        // Fallback: no grouping (non-4-H or associations without discipline_group)
+                        return (
+                            <div key={assocId} className="rounded-lg border p-4 space-y-2">
+                                <TreeNode
+                                    label={assocName}
+                                    indentLevel={0}
+                                    defaultOpen={assocDisciplines.length === 1}
+                                >
+                                    {discs.map(disc => {
+                                        const discKey = getDisciplineKey(disc);
+                                        const count = selectionCounts[discKey] || 0;
+                                        const relevantDivisions = divisions.filter(dg =>
+                                            !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
+                                        );
+
+                                        return (
+                                            <TreeNode
+                                                key={disc.id}
+                                                label={disc.name}
+                                                indentLevel={1}
+                                                badge={count > 0 ? <Badge variant="default" className="text-xs h-5 px-1.5">{count}</Badge> : null}
+                                            >
+                                                {relevantDivisions.map(group => (
+                                                    <TreeNode
+                                                        key={`${assocId}-${group.group}`}
+                                                        label={group.group}
+                                                        indentLevel={2}
+                                                    >
+                                                        {group.levels.map(level => (
+                                                            <LevelCheckbox
+                                                                key={`${assocId}-${disc.id}-${group.group}-${level}`}
+                                                                assocId={assocId}
+                                                                disc={disc}
+                                                                groupName={group.group}
+                                                                level={level}
+                                                                formData={formData}
+                                                                setFormData={setFormData}
+                                                                disciplineLibrary={disciplineLibrary}
+                                                            />
+                                                        ))}
+                                                    </TreeNode>
+                                                ))}
+                                            </TreeNode>
+                                        );
+                                    })}
+                                </TreeNode>
+                            </div>
                         );
                     })}
                 </div>
@@ -542,6 +885,15 @@ export const Step2_ShowClasses = ({ formData, setFormData, disciplineLibrary, as
                     open={bulkAddOpen}
                     onOpenChange={setBulkAddOpen}
                     onBulkAdd={handleBulkAdd}
+                />
+
+                {/* Add Discipline by Group Dialog */}
+                <AddDisciplineDialog
+                    open={!!addDiscGroupKey}
+                    onOpenChange={(open) => { if (!open) setAddDiscGroupKey(null); }}
+                    groupKey={addDiscGroupKey || 'custom_patterns'}
+                    onAdd={handleAddDiscipline}
+                    assocId={activeAssocId}
                 />
             </CardContent>
         </motion.div>

@@ -1,5 +1,27 @@
 import { v4 as uuidv4 } from 'uuid';
 
+// Known association IDs that contain hyphens
+const HYPHENATED_ASSOC_IDS = ['4-H'];
+
+/**
+ * Parse a divisionId into { assocId, divisionName }.
+ * Handles association IDs that contain hyphens (e.g., "4-H").
+ * Format: "${assocId}-${divisionName}"
+ */
+export function parseDivisionId(divisionId) {
+  if (!divisionId) return { assocId: '', divisionName: '' };
+  // Check hyphenated association IDs first
+  for (const id of HYPHENATED_ASSOC_IDS) {
+    if (divisionId.startsWith(id + '-')) {
+      return { assocId: id, divisionName: divisionId.slice(id.length + 1) };
+    }
+  }
+  // Default: split on first hyphen
+  const idx = divisionId.indexOf('-');
+  if (idx === -1) return { assocId: divisionId, divisionName: '' };
+  return { assocId: divisionId.slice(0, idx), divisionName: divisionId.slice(idx + 1) };
+}
+
 // Format a Date as yyyy-MM-dd in local time (avoids UTC timezone shifts from toISOString)
 export function toLocalDateStr(date) {
   const y = date.getFullYear();
@@ -29,8 +51,7 @@ function extractJudgeNames(formData) {
 export function getAllClassItems(formData) {
   return (formData.disciplines || []).flatMap(discipline =>
     (discipline.divisionOrder || []).map(divisionId => {
-      const [assocId, ...divisionParts] = divisionId.split('-');
-      const divisionName = divisionParts.join('-');
+      const { assocId, divisionName } = parseDivisionId(divisionId);
       const customTitle = discipline.divisionPrintTitles?.[divisionId];
       const rawDivision = divisionName.startsWith('custom-') ? divisionName.substring(7) : divisionName;
       const name = customTitle || (discipline.name ? `${discipline.name} ${rawDivision}` : rawDivision);

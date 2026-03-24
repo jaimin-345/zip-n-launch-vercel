@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+    import { parseDivisionId } from '@/lib/showBillUtils';
     import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
     import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
     import { CSS } from '@dnd-kit/utilities';
@@ -39,8 +40,7 @@ import React, { useState, useMemo, useEffect } from 'react';
             transition,
         };
 
-        const [assocId, ...divisionParts] = divisionIdentifier.split('-');
-        const divisionName = divisionParts.join('-');
+        const { assocId, divisionName } = parseDivisionId(divisionIdentifier);
 
         const colorClass = getAssociationColorClass(assocId, associationsData);
         

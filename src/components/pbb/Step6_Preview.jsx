@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -262,8 +263,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         if (hasScoresheet && !hasPattern && groups.length === 0 && d.divisionOrder && d.divisionOrder.length > 0) {
           const divisionsFromOrder = d.divisionOrder.map(divId => {
             // Parse division ID format: "assocId-divisionName"
-            const [assocId, ...divisionParts] = divId.split('-');
-            const divisionName = divisionParts.join('-');
+            const { assocId, divisionName } = parseDivisionId(divId);
             return {
               id: divId,
               assocId: assocId,

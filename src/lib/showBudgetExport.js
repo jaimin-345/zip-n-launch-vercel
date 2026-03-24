@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { parseDivisionId } from '@/lib/showBillUtils';
 
 const TIMING_LABELS = {
   before_show: 'Before Show',
@@ -188,7 +189,7 @@ export const exportShowBudgetToExcel = (formData) => {
   const disciplines = formData.disciplines || [];
   for (const disc of disciplines) {
     for (const divId of (disc.divisionOrder || [])) {
-      const divName = disc.divisionPrintTitles?.[divId] || divId.split('-').slice(1).join('-');
+      const divName = disc.divisionPrintTitles?.[divId] || parseDivisionId(divId).divisionName;
       const ca = classAwards[divId] || {};
       const items = ca.items || [];
       if (items.length === 0) continue;

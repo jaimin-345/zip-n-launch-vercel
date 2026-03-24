@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
@@ -392,8 +393,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     // If no groups have divisions, create a default group from divisionOrder if available
     if (validGroups.length === 0 && discipline.divisionOrder && discipline.divisionOrder.length > 0) {
       const divisionsFromOrder = discipline.divisionOrder.map(divId => {
-        const [assocId, ...divisionParts] = divId.split('-');
-        const divisionName = divisionParts.join('-');
+        const { assocId, divisionName } = parseDivisionId(divId);
         return {
           id: divId,
           assocId: assocId,

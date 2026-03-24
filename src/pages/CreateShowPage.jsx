@@ -164,6 +164,7 @@ const CreateShowPage = () => {
                                         resetDisciplines={resetDisciplines}
                                         createOrUpdateShow={createOrUpdateShow}
                                         onRefreshDisciplines={refreshDisciplineLibrary}
+                                        showTimedAdditional={true}
                                     />
                                 ) : (
                                     <CardContent className="flex items-center justify-center p-16">

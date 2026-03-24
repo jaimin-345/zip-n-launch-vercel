@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -383,7 +384,7 @@ export const SponsorsStep = ({ formData, setFormData }) => {
         const items = [];
         for (const disc of disciplines) {
             for (const divId of (disc.divisionOrder || [])) {
-                const name = disc.divisionPrintTitles?.[divId] || divId.split('-').slice(1).join('-');
+                const name = disc.divisionPrintTitles?.[divId] || parseDivisionId(divId).divisionName;
                 items.push({ id: divId, name, disciplineName: disc.name });
             }
         }

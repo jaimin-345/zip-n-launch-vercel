@@ -281,6 +281,7 @@ const ScheduleBuilderPage = () => {
                                     resetDisciplines={resetDisciplines}
                                     createOrUpdateShow={createOrUpdateShow}
                                     onRefreshDisciplines={refreshDisciplineLibrary}
+                                    showTimedAdditional={true}
                                     {...currentStepProps}
                                 />
                             ) : null}

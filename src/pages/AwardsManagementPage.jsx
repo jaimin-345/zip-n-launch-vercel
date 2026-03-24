@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { parseDivisionId } from '@/lib/showBillUtils';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import Navigation from '@/components/Navigation';
@@ -53,7 +54,7 @@ function getClassesFromShow(pd) {
     // 1. From disciplines (show structure)
     for (const disc of (pd.disciplines || [])) {
         for (const divId of (disc.divisionOrder || [])) {
-            const name = disc.divisionPrintTitles?.[divId] || divId.split('-').slice(1).join('-');
+            const name = disc.divisionPrintTitles?.[divId] || parseDivisionId(divId).divisionName;
             classes.push({
                 id: divId,
                 name,
@@ -408,6 +409,48 @@ const AwardsDashboard = ({ show, onSave, isSaving }) => {
         onSave({ classAwards: classAwardsMap, specialAwards, highPointAwards });
     };
 
+    // Populate winner fields from finalized results
+    const populateFromResults = useCallback(() => {
+        const results = pd.results?.classResults;
+        if (!results) {
+            toast({ title: 'No Results', description: 'No results data found. Enter results in the Results Entry module first.', variant: 'destructive' });
+            return;
+        }
+
+        let populated = 0;
+        const newMap = { ...classAwardsMap };
+
+        // Results are keyed by showBill classBox item.id
+        // Awards are keyed by divisionId — we need to match via class name/number
+        for (const [resultId, result] of Object.entries(results)) {
+            if (result.status !== 'final') continue;
+
+            // Try to find matching award entries by class name or number
+            for (const cls of classes) {
+                const matchByName = cls.name === result.className;
+                const matchById = cls.id === resultId;
+                if (!matchByName && !matchById) continue;
+
+                const awards = newMap[cls.id];
+                if (!awards || awards.length === 0) continue;
+
+                for (const award of awards) {
+                    if (award.winner) continue; // don't overwrite existing winners
+                    const placementNum = parseInt(award.placement);
+                    if (isNaN(placementNum)) continue;
+                    const entry = result.entries?.find(e => e.placing === placementNum && e.riderName?.trim());
+                    if (entry) {
+                        award.winner = entry.horseName ? `${entry.riderName} / ${entry.horseName}` : entry.riderName;
+                        populated++;
+                    }
+                }
+            }
+        }
+
+        setClassAwardsMap(newMap);
+        toast({ title: 'Winners Populated', description: `Filled in ${populated} winner${populated !== 1 ? 's' : ''} from finalized results.` });
+    }, [pd.results, classAwardsMap, classes, toast]);
+
     // Stats
     const totalClassAwards = Object.values(classAwardsMap).reduce((sum, arr) => sum + (arr?.length || 0), 0);
     const totalCost = useMemo(() => {
@@ -463,6 +506,11 @@ const AwardsDashboard = ({ show, onSave, isSaving }) => {
                 <Button onClick={autoGenerate} variant="outline">
                     <Wand2 className="h-4 w-4 mr-2" /> Auto-Generate Awards
                 </Button>
+                {pd.results?.classResults && (
+                    <Button onClick={populateFromResults} variant="outline">
+                        <Users className="h-4 w-4 mr-2" /> Populate Winners from Results
+                    </Button>
+                )}
                 <div className="flex-1" />
                 <Button onClick={handleSave} disabled={isSaving}>
                     {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
