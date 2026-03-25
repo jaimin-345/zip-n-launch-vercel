@@ -299,11 +299,14 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
 
                     if (imageUrl) {
                         return (
-                            <img 
-                              src={imageUrl} 
-                              alt="Pattern Diagram" 
-                              className="max-w-full h-auto rounded-lg max-h-[500px]"
-                            />
+                            <div className="overflow-hidden" style={{ maxHeight: '500px' }}>
+                                <img
+                                  src={imageUrl}
+                                  alt="Pattern Diagram"
+                                  className="max-w-full h-auto rounded-lg"
+                                  style={{ clipPath: 'inset(0 0 12% 0)' }}
+                                />
+                            </div>
                         );
                     } else {
                         return (
@@ -316,24 +319,7 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
             )}
           </div>
 
-          {/* Pattern Steps as Text - Only show for non-scoresheet-only disciplines */}
-          {!isScoresheetOnly && (
-            <div className="mt-6 space-y-1 text-sm text-gray-800 dark:text-gray-200">
-              {loading ? (
-                   <p>Loading steps...</p>
-              ) : maneuvers.length > 0 ? (
-                  maneuvers.map((step) => (
-                      <p key={step.step_no} className="flex gap-2">
-                          <span className="font-semibold min-w-[20px]">{step.step_no}.</span>
-                          <span>{step.instruction}</span>
-                      </p>
-                  ))
-              ) : (
-                  <p className="text-muted-foreground italic">No maneuver instructions found.</p>
-              )}
-              {maneuvers.length > 0 && <p className="font-semibold mt-4">Pattern Complete</p>}
-            </div>
-          )}
+          {/* Pattern steps omitted — maneuvers are already part of the pattern image */}
 
           {/* Footer */}
           <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700 text-center text-xs text-gray-600 dark:text-gray-400">

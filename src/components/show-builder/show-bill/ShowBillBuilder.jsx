@@ -323,7 +323,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
       if (arena) {
         const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
           title: cls.name,
-          classes: [cls.divisionId],
+          classes: [cls.id],
         }));
         arena.items.splice(targetIndex, 0, ...newItems);
       }

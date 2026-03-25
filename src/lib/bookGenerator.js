@@ -52,6 +52,11 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         doc.setTextColor(100, 100, 100);
         const footerText = `${pbbData.showName || 'Pattern Book'} – Page ${pageNumber}`;
         doc.text(footerText, pageWidth / 2, pageHeight - 20, { align: 'center' });
+        // Branding
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(140, 140, 140);
+        doc.text('equipatterns.com', pageWidth - margin, pageHeight - 10, { align: 'right' });
     };
     
     const addNewPage = () => {
@@ -102,6 +107,44 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.addImage(base64, imageType.toUpperCase(), x, y, width, height);
         } catch (e) {
             console.error("Failed to add image", e);
+        }
+    };
+
+    // Crop the bottom portion of a pattern image (removes summary box)
+    // cropPercent: fraction of height to keep (e.g., 0.88 keeps top 88%)
+    const cropPatternImageBottom = async (base64, cropPercent = 0.88) => {
+        try {
+            return await new Promise((resolve, reject) => {
+                const img = new Image();
+                const timeout = setTimeout(() => {
+                    console.warn('cropPatternImageBottom: timeout, using original');
+                    resolve(base64);
+                }, 5000);
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const cropHeight = Math.floor(img.height * cropPercent);
+                        canvas.width = img.width;
+                        canvas.height = cropHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, img.width, cropHeight, 0, 0, img.width, cropHeight);
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (e) {
+                        console.warn('cropPatternImageBottom: canvas error, using original', e);
+                        resolve(base64);
+                    }
+                };
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    console.warn('cropPatternImageBottom: image load error, using original');
+                    resolve(base64);
+                };
+                img.src = base64;
+            });
+        } catch (e) {
+            console.warn('cropPatternImageBottom: unexpected error, using original', e);
+            return base64;
         }
     };
 
@@ -546,7 +589,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     for (const [discIndex, discipline] of (pbbData.disciplines || []).entries()) {
         if (!isPatternDiscipline(discipline)) continue;
         for (const [groupIndex, group] of (discipline.patternGroups || []).entries()) {
-            if (!group.divisions || group.divisions.length === 0) continue;
+            // In hub mode (skipCoverAndToc), allow groups without divisions if they have a pattern selected
+            const hasDivisions = group.divisions && group.divisions.length > 0;
+            if (!hasDivisions && !skipCoverAndToc) continue;
+            // Even in hub mode, skip if no pattern is selected for this group
+            if (!hasDivisions) {
+                const disciplineId = discipline.id;
+                const groupId = group.id;
+                const sel = pbbData.patternSelections?.[disciplineId]?.[groupId] || pbbData.patternSelections?.[discIndex]?.[groupIndex];
+                if (!sel) continue;
+            }
 
             // Extract pattern ID - try ID-based keys first, then fallback to index-based
             const disciplineId = discipline.id;
@@ -773,7 +825,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
             if (patternImageBase64) {
                 try {
-                    const imgProps = doc.getImageProperties(patternImageBase64);
+                    // Crop bottom portion of pattern image (removes summary box)
+                    const croppedBase64 = await cropPatternImageBottom(patternImageBase64);
+                    const imgProps = doc.getImageProperties(croppedBase64);
                     const aspect = imgProps.height / imgProps.width;
                     // Calculate image size - use most of the page
                     const availableHeight = pageHeight - yPos - 40; // Space for footer
@@ -791,7 +845,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     // Center the image
                     const xOffset = (pageWidth - finalWidth) / 2;
 
-                    await addImageToPage(patternImageBase64, xOffset, yPos, finalWidth, finalHeight);
+                    await addImageToPage(croppedBase64, xOffset, yPos, finalWidth, finalHeight);
                     yPos += finalHeight + 20;
                 } catch (e) {
                     console.error('Failed to add pattern image:', e);
@@ -955,7 +1009,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
                 if (patternImageBase64) {
                     try {
-                        const imgProps = doc.getImageProperties(patternImageBase64);
+                        // Crop bottom portion of pattern image (removes summary box)
+                        const croppedBase64 = await cropPatternImageBottom(patternImageBase64);
+                        const imgProps = doc.getImageProperties(croppedBase64);
                         const aspect = imgProps.height / imgProps.width;
                         // Calculate image size - use most of the page
                         const availableHeight = pageHeight - yPos - 40; // Space for footer
@@ -973,7 +1029,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         // Center the image
                         const xOffset = (pageWidth - finalWidth) / 2;
 
-                        await addImageToPage(patternImageBase64, xOffset, yPos, finalWidth, finalHeight);
+                        await addImageToPage(croppedBase64, xOffset, yPos, finalWidth, finalHeight);
                         yPos += finalHeight + 20;
                     } catch (e) {
                         console.error('Failed to add pattern image:', e);

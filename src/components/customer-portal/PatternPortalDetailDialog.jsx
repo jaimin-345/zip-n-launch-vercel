@@ -114,6 +114,8 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
 
             for (const entry of patternGroupMap) {
                 const { discipline, group, groupIndex, patternId, patternSelection, extractedDivisions } = entry;
+                const assoc = associationsMap[discipline.association_id];
+                const assocDisplayName = assoc?.abbreviation || assoc?.name || '';
 
                 if (patternId) {
                     const patternKey = `${patternId}-${discipline.id}-${group.id || groupIndex}`;
@@ -124,50 +126,64 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                             patternName: detail?.pdf_file_name || `Pattern ${patternId}`,
                             version: detail?.pattern_version || 'ALL',
                             disciplineName: discipline.name, groupName: group.name,
+                            associationName: assocDisplayName,
                             divisions: extractedDivisions
                         });
                         processedPatterns.add(patternKey);
                     }
                 }
 
+                // Handle pre-saved scoresheetData (array or single object)
                 if (typeof patternSelection === 'object' && patternSelection.scoresheetData) {
-                    const scoresheetId = `${patternSelection.scoresheetData.id || patternSelection.scoresheetData.pattern_id}`;
-                    if (!processedScoresheets.has(scoresheetId)) {
-                        scoreSheetsList.push({
-                            ...patternSelection.scoresheetData,
-                            disciplineName: discipline.name, groupName: group.name, divisions: extractedDivisions
-                        });
-                        processedScoresheets.add(scoresheetId);
+                    const ssData = patternSelection.scoresheetData;
+                    const sheets = Array.isArray(ssData) ? ssData : (ssData.image_url ? [ssData] : []);
+                    let foundAny = false;
+                    for (const sheet of sheets) {
+                        const scoresheetId = `${sheet.id || sheet.pattern_id}`;
+                        if (!processedScoresheets.has(scoresheetId)) {
+                            scoreSheetsList.push({
+                                ...sheet,
+                                disciplineName: discipline.name, groupName: group.name,
+                                associationName: assocDisplayName,
+                                divisions: extractedDivisions
+                            });
+                            processedScoresheets.add(scoresheetId);
+                            foundAny = true;
+                        }
                     }
-                    continue;
+                    if (foundAny) continue;
                 }
 
                 if (patternId) {
-                    const { data: scoresheet } = await supabase
+                    // Fetch all scoresheets linked to this pattern (may be multiple for Working Cow Horse)
+                    const { data: linkedSheets } = await supabase
                         .from('tbl_scoresheet')
                         .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
-                        .eq('pattern_id', patternId).maybeSingle();
-                    if (scoresheet?.image_url) {
-                        const sid = `${scoresheet.id}`;
-                        if (!processedScoresheets.has(sid)) {
-                            scoreSheetsList.push({ ...scoresheet, disciplineName: discipline.name, groupName: group.name, divisions: extractedDivisions });
-                            processedScoresheets.add(sid);
+                        .eq('pattern_id', patternId);
+                    const validSheets = (linkedSheets || []).filter(s => s.image_url);
+                    if (validSheets.length > 0) {
+                        for (const scoresheet of validSheets) {
+                            const sid = `${scoresheet.id}`;
+                            if (!processedScoresheets.has(sid)) {
+                                scoreSheetsList.push({ ...scoresheet, disciplineName: discipline.name, groupName: group.name, associationName: assocDisplayName, divisions: extractedDivisions });
+                                processedScoresheets.add(sid);
+                            }
                         }
                         continue;
                     }
                 }
 
-                const association = associationsMap[discipline.association_id];
-                if (association?.abbreviation && discipline.name) {
-                    const { data: scoresheet } = await supabase
+                if (assoc?.abbreviation && discipline.name) {
+                    const { data: fallbackSheets } = await supabase
                         .from('tbl_scoresheet')
                         .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
-                        .eq('association_abbrev', association.abbreviation)
-                        .ilike('discipline', `%${discipline.name}%`).maybeSingle();
-                    if (scoresheet?.image_url) {
+                        .eq('association_abbrev', assoc.abbreviation)
+                        .ilike('discipline', `%${discipline.name}%`);
+                    const validSheets = (fallbackSheets || []).filter(s => s.image_url);
+                    for (const scoresheet of validSheets) {
                         const sid = `${scoresheet.id}`;
                         if (!processedScoresheets.has(sid)) {
-                            scoreSheetsList.push({ ...scoresheet, disciplineName: discipline.name, groupName: group.name, divisions: extractedDivisions });
+                            scoreSheetsList.push({ ...scoresheet, disciplineName: discipline.name, groupName: group.name, associationName: assocDisplayName, divisions: extractedDivisions });
                             processedScoresheets.add(sid);
                         }
                     }
@@ -277,7 +293,45 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
         const margin = 40;
         let isFirstPage = true;
 
-        const addImagePage = async (imageUrl, label) => {
+        // Crop bottom portion of an image (removes summary box from pattern images)
+        const cropImageBottom = (base64Src, cropPercent = 0.88) => {
+            return new Promise((resolve) => {
+                const tempImg = new Image();
+                tempImg.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const cropH = Math.floor(tempImg.height * cropPercent);
+                    canvas.width = tempImg.width;
+                    canvas.height = cropH;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(tempImg, 0, 0, tempImg.width, cropH, 0, 0, tempImg.width, cropH);
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                tempImg.onerror = () => resolve(base64Src);
+                tempImg.src = base64Src;
+            });
+        };
+
+        // Helper: extract pattern number from pdf_file_name (e.g., "WesternRiding0001.L1" -> 1)
+        const extractPatternNumber = (fileName) => {
+            if (!fileName) return null;
+            const nameWithoutExt = fileName.replace(/\.(pdf|PDF)$/, '');
+            const match = nameWithoutExt.match(/(\d+)(?:\.|$)/);
+            if (match) return parseInt(match[1], 10) || null;
+            const fallback = nameWithoutExt.match(/(\d+)$/);
+            return fallback ? (parseInt(fallback[1], 10) || null) : null;
+        };
+
+        // Helper: format pattern display name
+        const getPatternDisplayName = (item) => {
+            const num = extractPatternNumber(item.patternName);
+            let display = num !== null ? `Pattern ${num}` : (item.patternName || null);
+            if (display && item.version && item.version !== 'ALL') {
+                display = `${display} - ${item.version}`;
+            }
+            return display;
+        };
+
+        const addImagePage = async (imageUrl, item, shouldCrop = false) => {
             if (!imageUrl) return;
             try {
                 const rawBase64 = await fetchImageAsBase64(imageUrl);
@@ -285,15 +339,73 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
 
                 // Compress to JPEG at A4-appropriate resolution (max 1240x1754 at 150dpi)
                 // This keeps PDF under Postmark's 10MB attachment limit
-                const base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
+                let base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
+
+                // Crop bottom portion for pattern images (removes summary box)
+                if (shouldCrop) {
+                    base64 = await cropImageBottom(base64);
+                }
 
                 if (!isFirstPage) doc.addPage();
                 isFirstPage = false;
 
-                // Add label at top
+                // Render detailed header matching pattern book layout
+                let yPos = margin;
+                const showName = project.project_name || project.project_data?.showName || '';
+
+                // Show name (light gray, small)
+                if (showName) {
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(120, 120, 120);
+                    doc.text(showName, margin, yPos);
+                    yPos += 14;
+                }
+
+                // Association name (bold)
+                if (item.associationName) {
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(item.associationName.toUpperCase(), margin, yPos);
+                    yPos += 18;
+                }
+
+                // Discipline name + date
                 doc.setFontSize(11);
-                doc.setTextColor(80, 80, 80);
-                doc.text(label, pageWidth / 2, margin, { align: 'center' });
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(0, 0, 0);
+                const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+                const disciplineText = `${(item.disciplineName || '').toUpperCase()} - ${dateStr}`;
+                const disciplineLines = doc.splitTextToSize(disciplineText, pageWidth - margin * 2);
+                doc.text(disciplineLines, margin, yPos);
+                yPos += (disciplineLines.length * 14) + 4;
+
+                // Pattern name (e.g., "Pattern 1 - L1")
+                const patternDisplayName = getPatternDisplayName(item);
+                if (patternDisplayName) {
+                    doc.setFontSize(11);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(patternDisplayName, margin, yPos);
+                    yPos += 16;
+                }
+
+                // Division names
+                const divisions = item.divisions?.map(d => {
+                    const name = d.name || '';
+                    return d.association ? `${d.association} - ${name}` : name;
+                }).filter(Boolean).join(' / ') || '';
+                if (divisions) {
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    const divisionLines = doc.splitTextToSize(divisions, pageWidth - margin * 2);
+                    const linesToDisplay = divisionLines.slice(0, 2);
+                    doc.text(linesToDisplay, margin, yPos);
+                    yPos += (linesToDisplay.length * 12) + 15;
+                } else {
+                    yPos += 15;
+                }
 
                 // Detect image type from data URI
                 const imageType = base64.substring(base64.indexOf('/') + 1, base64.indexOf(';'));
@@ -307,29 +419,34 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 });
 
                 const maxW = pageWidth - margin * 2;
-                const maxH = pageHeight - margin * 2 - 30;
+                const maxH = pageHeight - yPos - 30;
                 const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
                 const w = img.width * ratio;
                 const h = img.height * ratio;
                 const x = (pageWidth - w) / 2;
-                const y = margin + 25;
 
-                doc.addImage(base64, imageType.toUpperCase(), x, y, w, h);
+                doc.addImage(base64, imageType.toUpperCase(), x, yPos, w, h);
+
+                // Branding footer
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(140, 140, 140);
+                doc.text('equipatterns.com', pageWidth - margin, pageHeight - 10, { align: 'right' });
             } catch (err) {
-                console.warn('Failed to add image to PDF:', label, err);
+                console.warn('Failed to add image to PDF:', item.disciplineName, err);
             }
         };
 
-        // Add selected patterns
+        // Add selected patterns (crop bottom to remove summary box)
         for (const p of selectedPatternsList) {
             const url = resolveImageUrl(p, 'pattern');
-            await addImagePage(url, `${p.disciplineName} - ${p.groupName || 'Pattern'}`);
+            await addImagePage(url, p, true);
         }
 
-        // Add selected scoresheets
+        // Add selected scoresheets (no crop)
         for (const s of selectedScoreSheetsList) {
             const url = resolveImageUrl(s, 'scoresheet');
-            await addImagePage(url, `${s.disciplineName} - ${s.groupName || 'Score Sheet'}`);
+            await addImagePage(url, s, false);
         }
 
         if (isFirstPage) return null;
@@ -373,8 +490,8 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
             const selectedPatternsList = getSelectedPatterns();
             const selectedScoreSheetsList = getSelectedScoreSheets();
             const allSelectedImages = [
-                ...selectedPatternsList.map(p => ({ url: resolveImageUrl(p, 'pattern'), name: `${p.disciplineName}_${p.groupName || 'Group'}_Pattern`.replace(/ /g, '_'), type: 'pattern' })),
-                ...selectedScoreSheetsList.map(s => ({ url: resolveImageUrl(s, 'scoresheet'), name: `${s.disciplineName}_${s.groupName || 'Group'}_ScoreSheet`.replace(/ /g, '_'), type: 'scoresheet' }))
+                ...selectedPatternsList.map(p => ({ url: resolveImageUrl(p, 'pattern'), name: `${p.disciplineName}_${p.groupName || 'Group'}_Pattern`.replace(/ /g, '_'), type: 'pattern', item: p })),
+                ...selectedScoreSheetsList.map(s => ({ url: resolveImageUrl(s, 'scoresheet'), name: `${s.disciplineName}_${s.groupName || 'Group'}_ScoreSheet`.replace(/ /g, '_'), type: 'scoresheet', item: s }))
             ].filter(i => i.url);
 
             if (allSelectedImages.length === 0) {
@@ -382,10 +499,116 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 return;
             }
 
+            // Helper: draw header text on canvas and return the Y offset where image should start
+            const drawHeaderOnCanvas = (ctx, canvasWidth, item) => {
+                const showName = project.project_name || project.project_data?.showName || '';
+                const scale = canvasWidth / 600; // scale text relative to a 600px reference width
+                let yPos = 10 * scale;
+
+                // Show name
+                if (showName) {
+                    ctx.fillStyle = '#787878';
+                    ctx.font = `${Math.max(10, Math.floor(12 * scale))}px helvetica, sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(showName, 10 * scale, yPos + 12 * scale);
+                    yPos += 18 * scale;
+                }
+
+                // Association name
+                if (item.associationName) {
+                    ctx.fillStyle = '#000000';
+                    ctx.font = `bold ${Math.max(12, Math.floor(14 * scale))}px helvetica, sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(item.associationName.toUpperCase(), 10 * scale, yPos + 14 * scale);
+                    yPos += 20 * scale;
+                }
+
+                // Discipline + date
+                const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+                const disciplineText = `${(item.disciplineName || '').toUpperCase()} - ${dateStr}`;
+                ctx.fillStyle = '#000000';
+                ctx.font = `${Math.max(10, Math.floor(12 * scale))}px helvetica, sans-serif`;
+                ctx.fillText(disciplineText, 10 * scale, yPos + 12 * scale);
+                yPos += 18 * scale;
+
+                // Pattern name
+                const patternName = item.patternName || '';
+                const numMatch = patternName.replace(/\.(pdf|PDF)$/, '').match(/(\d+)(?:\.|$)/);
+                const patternNum = numMatch ? parseInt(numMatch[1], 10) : null;
+                let patternDisplay = patternNum !== null ? `Pattern ${patternNum}` : patternName;
+                if (patternDisplay && item.version && item.version !== 'ALL') {
+                    patternDisplay = `${patternDisplay} - ${item.version}`;
+                }
+                if (patternDisplay) {
+                    ctx.font = `bold ${Math.max(10, Math.floor(12 * scale))}px helvetica, sans-serif`;
+                    ctx.fillText(patternDisplay, 10 * scale, yPos + 12 * scale);
+                    yPos += 18 * scale;
+                }
+
+                // Divisions
+                const divisions = item.divisions?.map(d => {
+                    const name = d.name || '';
+                    return d.association ? `${d.association} - ${name}` : name;
+                }).filter(Boolean).join(' / ') || '';
+                if (divisions) {
+                    ctx.fillStyle = '#000000';
+                    ctx.font = `${Math.max(9, Math.floor(11 * scale))}px helvetica, sans-serif`;
+                    ctx.fillText(divisions, 10 * scale, yPos + 11 * scale);
+                    yPos += 16 * scale;
+                }
+
+                return Math.ceil(yPos + 10 * scale);
+            };
+
+            // Helper: add header, optional crop, and branding to a blob image
+            const processImageBlob = async (blob, item, shouldCrop = false, cropPercent = 0.88) => {
+                return new Promise((resolve) => {
+                    const url = URL.createObjectURL(blob);
+                    const tempImg = new Image();
+                    tempImg.onload = () => {
+                        // First, measure header height using an offscreen canvas
+                        const measureCanvas = document.createElement('canvas');
+                        measureCanvas.width = tempImg.width;
+                        measureCanvas.height = 1;
+                        const measureCtx = measureCanvas.getContext('2d');
+                        const headerH = drawHeaderOnCanvas(measureCtx, tempImg.width, item);
+
+                        const imgH = shouldCrop ? Math.floor(tempImg.height * cropPercent) : tempImg.height;
+                        const brandingH = 24;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = tempImg.width;
+                        canvas.height = headerH + imgH + brandingH;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Draw header
+                        drawHeaderOnCanvas(ctx, tempImg.width, item);
+
+                        // Draw image
+                        ctx.drawImage(tempImg, 0, 0, tempImg.width, imgH, 0, headerH, tempImg.width, imgH);
+
+                        // Branding footer
+                        ctx.fillStyle = '#8c8c8c';
+                        ctx.font = `${Math.max(10, Math.floor(tempImg.width / 100))}px helvetica, sans-serif`;
+                        ctx.textAlign = 'right';
+                        ctx.fillText('equipatterns.com', canvas.width - 10, headerH + imgH + brandingH - 6);
+
+                        canvas.toBlob((resultBlob) => {
+                            URL.revokeObjectURL(url);
+                            resolve(resultBlob || blob);
+                        }, 'image/png');
+                    };
+                    tempImg.onerror = () => { URL.revokeObjectURL(url); resolve(blob); };
+                    tempImg.src = url;
+                });
+            };
+
             if (allSelectedImages.length === 1) {
                 toast({ title: 'Downloading PNG...', description: 'Converting to image.' });
                 const response = await fetch(allSelectedImages[0].url);
-                const blob = await response.blob();
+                let blob = await response.blob();
+                blob = await processImageBlob(blob, allSelectedImages[0].item, allSelectedImages[0].type === 'pattern');
                 triggerBlobDownload(blob, `${allSelectedImages[0].name}.png`);
                 toast({ title: 'Downloaded!', description: 'PNG image downloaded.' });
             } else {
@@ -396,7 +619,8 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 for (const img of allSelectedImages) {
                     try {
                         const response = await fetch(img.url);
-                        const blob = await response.blob();
+                        let blob = await response.blob();
+                        blob = await processImageBlob(blob, img.item, img.type === 'pattern');
                         zip.file(`${img.name}.png`, blob);
                     } catch (err) {
                         console.warn('Failed to fetch image:', img.name, err);
@@ -522,51 +746,13 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
             scoreSheets.forEach(s => allKeys.add(getItemKey(s, 'scoresheet')));
             setSelectedItems(allKeys);
 
-            // Build PDF with all items
-            const doc = new jsPDF('p', 'pt', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 40;
-            let isFirstPage = true;
-
-            const addImagePage = async (imageUrl, label) => {
-                if (!imageUrl) return;
-                try {
-                    const rawBase64 = await fetchImageAsBase64(imageUrl);
-                    if (!rawBase64) return;
-                    const base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
-                    if (!isFirstPage) doc.addPage();
-                    isFirstPage = false;
-                    doc.setFontSize(11);
-                    doc.setTextColor(80, 80, 80);
-                    doc.text(label, pageWidth / 2, margin, { align: 'center' });
-                    const imageType = base64.substring(base64.indexOf('/') + 1, base64.indexOf(';'));
-                    const img = new Image();
-                    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = base64; });
-                    const maxW = pageWidth - margin * 2;
-                    const maxH = pageHeight - margin * 2 - 30;
-                    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
-                    const w = img.width * ratio;
-                    const h = img.height * ratio;
-                    doc.addImage(base64, imageType.toUpperCase(), (pageWidth - w) / 2, margin + 25, w, h);
-                } catch (err) {
-                    console.warn('Failed to add image to PDF:', label, err);
-                }
-            };
-
-            for (const p of patterns) {
-                await addImagePage(resolveImageUrl(p, 'pattern'), `${p.disciplineName} - ${p.groupName || 'Pattern'}`);
-            }
-            for (const s of scoreSheets) {
-                await addImagePage(resolveImageUrl(s, 'scoresheet'), `${s.disciplineName} - ${s.groupName || 'Score Sheet'}`);
-            }
-
-            if (isFirstPage) {
+            // Reuse buildSelectedPdf with all items selected
+            const pdfDataUri = await buildSelectedPdf();
+            if (!pdfDataUri) {
                 toast({ title: 'No content', description: 'No images available.', variant: 'destructive' });
                 return;
             }
 
-            const pdfDataUri = doc.output('datauristring');
             const blob = dataUriToBlob(pdfDataUri);
             const fileName = (project.project_name || 'Pattern').replace(/ /g, '_');
             triggerBlobDownload(blob, `${fileName}.pdf`);
@@ -616,6 +802,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 <div className="relative bg-white p-2 flex items-center justify-center" style={{ minHeight: '180px' }}>
                     {imageUrl ? (
                         <img src={imageUrl} alt={name} className="max-w-full max-h-[200px] object-contain"
+                            style={type === 'pattern' ? { clipPath: 'inset(0 0 12% 0)' } : undefined}
                             onClick={(e) => { e.stopPropagation(); window.open(imageUrl, '_blank'); }}
                         />
                     ) : (

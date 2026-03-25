@@ -103,7 +103,7 @@ const JudgeAssignmentField = ({ disciplineName, currentValue, onValueChange, for
 };
 
 // Pattern Badge with Hover Functionality Component
-const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
+const PatternBadgeWithHover = ({ patternId, displayText, formData, scoresheetData }) => {
     const [patternImage, setPatternImage] = useState(null);
     const [patternManeuvers, setPatternManeuvers] = useState([]);
     const [imageZoom, setImageZoom] = useState(1);
@@ -183,10 +183,11 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                                     <HoverCard openDelay={200} closeDelay={100}>
                                         <HoverCardTrigger asChild>
                                             <div className="rounded-md overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary transition-colors">
-                                                <img 
-                                                    src={patternImage} 
-                                                    alt="Pattern Diagram" 
+                                                <img
+                                                    src={patternImage}
+                                                    alt="Pattern Diagram"
                                                     className="w-full h-auto object-contain max-h-[300px]"
+                                                    style={{ clipPath: 'inset(0 0 12% 0)' }}
                                                     loading="lazy"
                                                 />
                                             </div>
@@ -196,22 +197,23 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                                                 <h4 className="font-medium text-sm mb-2">Pattern Image</h4>
                                                 <div className="rounded-md border bg-muted/20 relative">
                                                     <div className="overflow-auto max-h-[600px] min-h-[400px]">
-                                                        <div 
+                                                        <div
                                                             className="flex items-center justify-center p-4"
-                                                            style={{ 
+                                                            style={{
                                                                 minHeight: '400px'
                                                             }}
                                                         >
-                                                            <img 
-                                                                src={patternImage} 
-                                                                alt="Pattern Diagram - Zoomed" 
+                                                            <img
+                                                                src={patternImage}
+                                                                alt="Pattern Diagram - Zoomed"
                                                                 className="object-contain transition-transform duration-200"
                                                                 loading="lazy"
-                                                                style={{ 
+                                                                style={{
                                                                     transform: `scale(${imageZoom})`,
                                                                     transformOrigin: 'center',
                                                                     maxWidth: '100%',
-                                                                    height: 'auto'
+                                                                    height: 'auto',
+                                                                    clipPath: 'inset(0 0 12% 0)'
                                                                 }}
                                                             />
                                                         </div>
@@ -285,6 +287,31 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                                     !patternImage && <p className="text-sm text-muted-foreground">No maneuvers available for this pattern.</p>
                                 )}
                             </div>
+
+                            {/* Score Sheet Preview(s) inside pattern hover card */}
+                            {(() => {
+                                if (!scoresheetData) return null;
+                                const sheets = Array.isArray(scoresheetData) ? scoresheetData : (scoresheetData.image_url ? [scoresheetData] : []);
+                                if (sheets.length === 0) return null;
+                                return (
+                                    <div className="space-y-2 border-t pt-2">
+                                        <h4 className="font-medium text-sm text-emerald-700 dark:text-emerald-400">Score Sheets</h4>
+                                        {sheets.map((sheet, idx) => (
+                                            <div key={sheet.id || idx} className="space-y-1">
+                                                <p className="text-xs font-medium text-muted-foreground">{sheet.displayName || `Score Sheet ${idx + 1}`}</p>
+                                                <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                    <img
+                                                        src={sheet.image_url}
+                                                        alt={sheet.displayName || 'Score Sheet'}
+                                                        className="w-full h-auto object-contain max-h-[250px]"
+                                                        loading="lazy"
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
                         </>
                     )}
                 </div>
@@ -648,13 +675,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
   };
 
   // Handle pattern selection for a specific group
-  const handleGroupPatternSelect = (disciplineId, groupId, patternId, maneuversRangeValue) => {
+  const handleGroupPatternSelect = async (disciplineId, groupId, patternId, maneuversRangeValue) => {
     if (isReadOnly) return;
     const patterns = dbPatterns[disciplineId] || [];
     const selectedPattern = patterns.find(p => p.id.toString() === patternId);
     // Use provided maneuversRangeValue (string) or get from selected pattern's maneuvers_range
     const maneuversRange = maneuversRangeValue || selectedPattern?.maneuvers_range || '';
-    
+
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
@@ -666,6 +693,75 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       };
       return { ...prev, patternSelections: newSelections };
     });
+
+    // Auto-fetch linked scoresheet(s) for the selected pattern
+    // Working Cow Horse may have multiple (Reining + Cow Work)
+    try {
+      let scoresheets = [];
+
+      // Step 1: Try exact pattern_id match (may return multiple)
+      const { data: linkedSheets } = await supabase
+        .from('tbl_scoresheet')
+        .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+        .eq('pattern_id', parseInt(patternId));
+
+      if (linkedSheets?.length > 0) {
+        scoresheets = linkedSheets.filter(s => s.image_url);
+      }
+
+      // Step 2: Fallback — match by association + discipline (standalone scoresheets)
+      if (scoresheets.length === 0) {
+        const discipline = formData.disciplines?.find(d => d.id === disciplineId);
+        const assocId = discipline?.association_id;
+        const assoc = associationsData?.find(a => a.id === assocId);
+        const assocAbbrev = assoc?.abbreviation;
+        const discName = discipline?.name;
+
+        if (assocAbbrev && discName) {
+          const { data: fallbackSheets } = await supabase
+            .from('tbl_scoresheet')
+            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+            .eq('association_abbrev', assocAbbrev)
+            .ilike('discipline', discName)
+            .is('pattern_id', null);
+
+          if (fallbackSheets?.length > 0) {
+            scoresheets = fallbackSheets.filter(s => s.image_url);
+          }
+        }
+      }
+
+      if (scoresheets.length > 0) {
+        const scoresheetDataArray = scoresheets.map(ss => {
+          let displayName = ss.file_name || ss.discipline || 'Score Sheet';
+          const path = ss.storage_path || '';
+          if (path.includes('_LTD_')) displayName = 'Cow Work - Limited';
+          else if (path.includes('_BDBD_')) displayName = 'Cow Work - Rookie';
+          else if (path.toLowerCase().includes('cowwork') || path.toLowerCase().includes('cow_work')) displayName = 'Cow Work';
+          else if (path.toLowerCase().includes('reining') || (ss.discipline && ss.discipline.toLowerCase().includes('reining'))) displayName = 'Reining';
+          return {
+            id: ss.id,
+            image_url: ss.image_url,
+            displayName,
+            storage_path: ss.storage_path
+          };
+        });
+
+        setFormData(prev => {
+          const newSelections = { ...(prev.patternSelections || {}) };
+          if (newSelections[disciplineId]?.[groupId]) {
+            newSelections[disciplineId][groupId] = {
+              ...newSelections[disciplineId][groupId],
+              scoresheetId: scoresheets[0].id,
+              scoresheetData: scoresheetDataArray
+            };
+          }
+          return { ...prev, patternSelections: newSelections };
+        });
+      }
+    } catch (err) {
+      console.error('Error auto-fetching scoresheet for pattern:', err);
+    }
   };
 
   // Handle assign pattern dialog confirmation
@@ -1513,7 +1609,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             return {
                               groupName: group.name,
                               patternId: selection.patternId,
-                              displayText
+                              displayText,
+                              scoresheetData: selection.scoresheetData
                             };
                           }).filter(Boolean);
 
@@ -1528,6 +1625,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                   patternId={sel.patternId}
                                   displayText={sel.displayText}
                                   formData={formData}
+                                  scoresheetData={sel.scoresheetData}
                                 />
                               ))}
                             </div>
@@ -1802,6 +1900,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                             patternId={currentSelection.patternId}
                                             displayText={displayText}
                                             formData={formData}
+                                            scoresheetData={currentSelection.scoresheetData}
                                           />
                                         );
                                         })()}
@@ -2178,10 +2277,11 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                     <div className="space-y-2">
                                                         <h4 className="font-medium text-sm">Pattern Preview</h4>
                                                         <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                            <img 
-                                                                src={hoveredPatternImage} 
-                                                                alt="Pattern Diagram" 
+                                                            <img
+                                                                src={hoveredPatternImage}
+                                                                alt="Pattern Diagram"
                                                                 className="w-full h-auto object-contain max-h-[600px]"
+                                                                style={{ clipPath: 'inset(0 0 12% 0)' }}
                                                                 loading="lazy"
                                                             />
                                                         </div>

@@ -1448,42 +1448,58 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                             Select the status for this pattern book:
                         </p>
                         <div className="space-y-2">
-                            <button
-                                onClick={() => setSelectedStatus('Draft')}
-                                className={cn(
-                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
-                                    selectedStatus === 'Draft'
-                                        ? "border-primary bg-primary/10"
-                                        : "border-border hover:bg-muted/50"
-                                )}
-                            >
-                                <div className="font-medium text-foreground">Draft</div>
-                                <div className="text-sm text-muted-foreground mt-1">Pattern is in draft mode</div>
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('Approval and Locked')}
-                                className={cn(
-                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
-                                    selectedStatus === 'Approval and Locked'
-                                        ? "border-primary bg-primary/10"
-                                        : "border-border hover:bg-muted/50"
-                                )}
-                            >
-                                <div className="font-medium text-foreground">Approval and Locked</div>
-                                <div className="text-sm text-muted-foreground mt-1">Pattern is locked and ready for approval</div>
-                            </button>
-                            <button
-                                onClick={() => setSelectedStatus('Publication')}
-                                className={cn(
-                                    "w-full text-left p-3 rounded-lg border-2 transition-colors",
-                                    selectedStatus === 'Publication'
-                                        ? "border-primary bg-primary/10"
-                                        : "border-border hover:bg-muted/50"
-                                )}
-                            >
-                                <div className="font-medium text-foreground">Publication</div>
-                                <div className="text-sm text-muted-foreground mt-1">Pattern is published and available</div>
-                            </button>
+                            {(() => {
+                                // Determine persisted status to enforce one-directional flow: Draft → Locked → Publication
+                                const dbStatus = project.status || 'Draft';
+                                const isLocked = dbStatus === 'Locked' || dbStatus === 'Lock & Approve Mode';
+                                const isPublished = dbStatus === 'Final' || dbStatus === 'Publication';
+                                const draftDisabled = isLocked || isPublished;
+                                const lockedDisabled = isPublished;
+                                return (
+                                    <>
+                                        <button
+                                            onClick={() => !draftDisabled && setSelectedStatus('Draft')}
+                                            disabled={draftDisabled}
+                                            className={cn(
+                                                "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                                selectedStatus === 'Draft'
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border hover:bg-muted/50",
+                                                draftDisabled && "opacity-40 cursor-not-allowed hover:bg-transparent"
+                                            )}
+                                        >
+                                            <div className="font-medium text-foreground">Draft</div>
+                                            <div className="text-sm text-muted-foreground mt-1">Pattern is in draft mode</div>
+                                        </button>
+                                        <button
+                                            onClick={() => !lockedDisabled && setSelectedStatus('Approval and Locked')}
+                                            disabled={lockedDisabled}
+                                            className={cn(
+                                                "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                                selectedStatus === 'Approval and Locked'
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border hover:bg-muted/50",
+                                                lockedDisabled && "opacity-40 cursor-not-allowed hover:bg-transparent"
+                                            )}
+                                        >
+                                            <div className="font-medium text-foreground">Approval and Locked</div>
+                                            <div className="text-sm text-muted-foreground mt-1">Pattern is locked and ready for approval</div>
+                                        </button>
+                                        <button
+                                            onClick={() => setSelectedStatus('Publication')}
+                                            className={cn(
+                                                "w-full text-left p-3 rounded-lg border-2 transition-colors",
+                                                selectedStatus === 'Publication'
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <div className="font-medium text-foreground">Publication</div>
+                                            <div className="text-sm text-muted-foreground mt-1">Pattern is published and available</div>
+                                        </button>
+                                    </>
+                                );
+                            })()}
                         </div>
                         <div className="flex gap-2 pt-2">
                             <Button 
@@ -1943,19 +1959,21 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                                     </div>
                                 </SelectTrigger>
                                 <SelectContent className="bg-popover border border-border">
-                                    <SelectItem 
+                                    <SelectItem
                                         value="Draft"
+                                        disabled={displayStatus === 'Lock & Approve Mode' || displayStatus === 'Publication'}
                                         className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                     >
                                         Draft
                                     </SelectItem>
-                                    <SelectItem 
+                                    <SelectItem
                                         value="Lock & Approve Mode"
+                                        disabled={displayStatus === 'Publication'}
                                         className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                     >
                                         Apprvd & Locked
                                     </SelectItem>
-                                    <SelectItem 
+                                    <SelectItem
                                         value="Publication"
                                         className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                     >
@@ -1965,7 +1983,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                             </Select>
                         </div>
                     </div>
-                    
+
                     {/* Action Buttons */}
                     <div className="flex gap-2">
                         {/* Continue Editing Button - Only show when status is Draft */}
@@ -5081,24 +5099,35 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 </div>
                             </SelectTrigger>
                             <SelectContent className="bg-popover border border-border">
-                                <SelectItem 
-                                    value="Draft"
-                                    className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
-                                >
-                                    Draft
-                                </SelectItem>
-                                <SelectItem 
-                                    value="Lock & Approve Mode"
-                                    className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
-                                >
-                                    Apprvd & Locked
-                                </SelectItem>
-                                <SelectItem 
-                                    value="Publication"
-                                    className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
-                                >
-                                    Publication
-                                </SelectItem>
+                                {(() => {
+                                    const dbSt = project.status || 'Draft';
+                                    const isLockedOrAbove = dbSt === 'Locked' || dbSt === 'Lock & Approve Mode' || dbSt === 'Final' || dbSt === 'Publication';
+                                    const isPublished = dbSt === 'Final' || dbSt === 'Publication';
+                                    return (
+                                        <>
+                                            <SelectItem
+                                                value="Draft"
+                                                disabled={isLockedOrAbove}
+                                                className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
+                                            >
+                                                Draft
+                                            </SelectItem>
+                                            <SelectItem
+                                                value="Lock & Approve Mode"
+                                                disabled={isPublished}
+                                                className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
+                                            >
+                                                Apprvd & Locked
+                                            </SelectItem>
+                                            <SelectItem
+                                                value="Publication"
+                                                className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
+                                            >
+                                                Publication
+                                            </SelectItem>
+                                        </>
+                                    );
+                                })()}
                             </SelectContent>
                         </Select>
                     </div>

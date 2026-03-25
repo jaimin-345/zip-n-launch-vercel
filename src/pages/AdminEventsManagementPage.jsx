@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Navigation from '@/components/Navigation';
 import AdminBackButton from '@/components/admin/AdminBackButton';
@@ -35,7 +35,31 @@ import {
   Calendar,
   MapPin,
   Link as LinkIcon,
+  Upload,
+  ImageIcon,
+  X,
 } from 'lucide-react';
+import { isBefore, isAfter, startOfDay, endOfDay } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+
+const BUCKET = 'association_assets';
+
+// Compute event status dynamically from dates
+const getComputedStatus = (event) => {
+  if (!event.start_date || !event.end_date) return 'upcoming';
+  const now = new Date();
+  const start = startOfDay(new Date(event.start_date));
+  const end = endOfDay(new Date(event.end_date));
+  if (isBefore(now, start)) return 'upcoming';
+  if (isAfter(now, end)) return 'completed';
+  return 'ongoing';
+};
+
+const STATUS_BADGE_STYLES = {
+  upcoming: 'secondary',
+  ongoing: 'default',
+  completed: 'outline',
+};
 
 const EMPTY_EVENT = {
   id: null,
@@ -43,7 +67,6 @@ const EMPTY_EVENT = {
   start_date: '',
   end_date: '',
   location: '',
-  status: 'upcoming',
   thumbnail_url: '',
   showWebsite: '',
   showFacebook: '',
@@ -56,12 +79,6 @@ const EMPTY_EVENT = {
   judges: '',
 };
 
-const STATUS_OPTIONS = [
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'live', label: 'Live' },
-  { value: 'recent', label: 'Recent' },
-];
-
 const AdminEventsManagementPage = () => {
   const { toast } = useToast();
   const [events, setEvents] = useState([]);
@@ -71,6 +88,10 @@ const AdminEventsManagementPage = () => {
   const [formData, setFormData] = useState(EMPTY_EVENT);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -98,6 +119,8 @@ const AdminEventsManagementPage = () => {
   const openCreateDialog = () => {
     setEditingEvent(null);
     setFormData(EMPTY_EVENT);
+    setImageFile(null);
+    setImagePreview(null);
     setDialogOpen(true);
   };
 
@@ -109,7 +132,6 @@ const AdminEventsManagementPage = () => {
       start_date: event.start_date ? event.start_date.slice(0, 10) : '',
       end_date: event.end_date ? event.end_date.slice(0, 10) : '',
       location: event.location || '',
-      status: event.status || 'upcoming',
       thumbnail_url: event.thumbnail_url || '',
       showWebsite: event.show_website || event.showWebsite || '',
       showFacebook: event.show_facebook || event.showFacebook || '',
@@ -121,11 +143,49 @@ const AdminEventsManagementPage = () => {
       officials: event.officials ? JSON.stringify(event.officials, null, 2) : '',
       judges: event.judges ? (Array.isArray(event.judges) ? event.judges.join(', ') : JSON.stringify(event.judges)) : '',
     });
+    setImageFile(null);
+    setImagePreview(event.thumbnail_url || null);
     setDialogOpen(true);
   };
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Maximum file size is 5MB.', variant: 'destructive' });
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid file', description: 'Please select an image file.', variant: 'destructive' });
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    handleChange('thumbnail_url', '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadImage = async (file) => {
+    const fileExt = file.name.split('.').pop();
+    const filePath = `event_thumbnails/${uuidv4()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+    return publicUrlData.publicUrl;
   };
 
   const handleSave = async () => {
@@ -137,7 +197,6 @@ const AdminEventsManagementPage = () => {
       try {
         return JSON.parse(value);
       } catch {
-        // If not valid JSON, treat as comma-separated list
         const items = value.split(',').map(item => item.trim()).filter(item => item);
         return items.length > 0 ? items : null;
       }
@@ -152,13 +211,28 @@ const AdminEventsManagementPage = () => {
       }
     };
 
+    // Upload image if a new file was selected
+    let thumbnailUrl = formData.thumbnail_url || null;
+    if (imageFile) {
+      try {
+        thumbnailUrl = await uploadImage(imageFile);
+      } catch (err) {
+        toast({
+          title: 'Image upload failed',
+          description: err.message || 'Could not upload image.',
+          variant: 'destructive',
+        });
+        setSaving(false);
+        return;
+      }
+    }
+
     const payload = {
       name: formData.name,
       start_date: formData.start_date || null,
       end_date: formData.end_date || null,
       location: formData.location || null,
-      status: formData.status,
-      thumbnail_url: formData.thumbnail_url || null,
+      thumbnail_url: thumbnailUrl,
       show_website: formData.showWebsite || null,
       show_facebook: formData.showFacebook || null,
       venue_name: formData.venue_name || null,
@@ -289,17 +363,14 @@ const AdminEventsManagementPage = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={
-                              event.status === 'live'
-                                ? 'default'
-                                : event.status === 'upcoming'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                          >
-                            {event.status || 'upcoming'}
-                          </Badge>
+                          {(() => {
+                            const computed = getComputedStatus(event);
+                            return (
+                              <Badge variant={STATUS_BADGE_STYLES[computed] || 'outline'}>
+                                {computed}
+                              </Badge>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {(event.show_website || event.showWebsite) && (
@@ -397,36 +468,19 @@ const AdminEventsManagementPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="location">Location</Label>
-                      <Input
-                        id="location"
-                        value={formData.location}
-                        onChange={(e) => handleChange('location', e.target.value)}
-                        placeholder="City, State / Venue"
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="status">Status</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) => handleChange('status', value)}
-                      >
-                        <SelectTrigger id="status" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => handleChange('location', e.target.value)}
+                      placeholder="City, State / Venue"
+                      className="w-full"
+                    />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Status is automatically computed from dates: <strong>Upcoming</strong> (before start), <strong>Ongoing</strong> (between start &amp; end), <strong>Completed</strong> (after end).
+                  </p>
                 </div>
 
                 {/* Media & Links */}
@@ -435,15 +489,52 @@ const AdminEventsManagementPage = () => {
                     <h4 className="text-sm font-medium text-foreground mb-4">Media & Links</h4>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="thumbnail_url">Thumbnail URL</Label>
-                    <Input
-                      id="thumbnail_url"
-                      value={formData.thumbnail_url}
-                      onChange={(e) => handleChange('thumbnail_url', e.target.value)}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full"
+                    <Label>Event Image</Label>
+                    {imagePreview ? (
+                      <div className="relative w-full max-w-xs">
+                        <img
+                          src={imagePreview}
+                          alt="Event thumbnail preview"
+                          className="w-full h-40 object-cover rounded-md border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={handleRemoveImage}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div
+                        className="w-full max-w-xs h-40 border-2 border-dashed rounded-md flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Click to upload image</p>
+                        <p className="text-xs text-muted-foreground">Max 5MB</p>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageSelect}
                     />
-                    <p className="text-xs text-muted-foreground">URL to the event thumbnail image</p>
+                    {imagePreview && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Replace Image
+                      </Button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

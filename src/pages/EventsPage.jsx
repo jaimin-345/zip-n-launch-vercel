@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
-import { format, isFuture } from 'date-fns';
+import { format, isFuture, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import {
@@ -50,6 +50,17 @@ import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 
+// Compute event status dynamically from dates
+const getComputedStatus = (event) => {
+  if (!event.start_date || !event.end_date) return 'upcoming';
+  const now = new Date();
+  const start = startOfDay(new Date(event.start_date));
+  const end = endOfDay(new Date(event.end_date));
+  if (isBefore(now, start)) return 'upcoming';
+  if (isAfter(now, end)) return 'completed';
+  return 'ongoing';
+};
+
 const LiveEventCard = ({ event, onSelect }) => {
   return (
     <motion.div
@@ -72,39 +83,21 @@ const LiveEventCard = ({ event, onSelect }) => {
   );
 };
 
+const STATUS_BADGE_CONFIG = {
+  upcoming: { label: 'Upcoming', variant: 'secondary', className: 'backdrop-blur-sm bg-black/30 text-white' },
+  ongoing: { label: 'Ongoing', variant: 'default', className: 'backdrop-blur-sm bg-green-600/80 text-white' },
+  completed: { label: 'Completed', variant: 'outline', className: 'backdrop-blur-sm bg-black/30 text-white' },
+};
+
 const EventCard = ({ event, onPatternBookClick }) => {
-    const { toast } = useToast();
-
-    const getPatternButton = () => {
-        if (!event.pattern_book_id) {
-            return <Button variant="secondary" size="sm" disabled><BookOpen className="h-4 w-4 mr-2" /> No Patterns</Button>;
-        }
-
-        const isPublished = ['published', 'Publication', 'approved', 'locked'].includes(event.project?.status);
-
-        return (
-            <Link to={`/public-show/${event.pattern_book_id}`}>
-                <Button
-                    variant="default"
-                    size="sm"
-                    className={isPublished ? "bg-green-500 hover:bg-green-600" : "bg-amber-500 hover:bg-amber-600"}
-                >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    View Patterns
-                </Button>
-            </Link>
-        );
-    };
+    const computedStatus = getComputedStatus(event);
+    const badgeConfig = STATUS_BADGE_CONFIG[computedStatus] || STATUS_BADGE_CONFIG.upcoming;
 
     const getLocationDisplay = () => {
         if (event.location) return event.location;
-        if (event.isFromProjects && event.project) {
-            // Try to get location from project_data
-            return 'Location TBD';
-        }
         return 'Location TBD';
     };
-    
+
     return (
         <motion.div
             layout
@@ -118,11 +111,14 @@ const EventCard = ({ event, onPatternBookClick }) => {
                 <CardHeader className="p-0">
                     <Link to={`/event-detail/${event.id}`}>
                         <div className="aspect-video relative overflow-hidden rounded-t-lg">
-                           <img  alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://images.unsplash.com/photo-1691257790470-b5e4e80ca59f" />
-                            {event.thumbnail_url && <img src={event.thumbnail_url} alt={event.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />}
+                            <img
+                              alt={event.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              src={event.thumbnail_url || "https://images.unsplash.com/photo-1691257790470-b5e4e80ca59f"}
+                            />
                             <div className="absolute top-2 right-2">
-                                <Badge variant={event.status === 'upcoming' ? 'secondary' : 'outline'} className="backdrop-blur-sm bg-black/30 text-white">
-                                    {event.status === 'upcoming' ? 'Upcoming' : 'Recent'}
+                                <Badge variant={badgeConfig.variant} className={badgeConfig.className}>
+                                    {badgeConfig.label}
                                 </Badge>
                             </div>
                         </div>
@@ -135,7 +131,7 @@ const EventCard = ({ event, onPatternBookClick }) => {
                     <div className="text-sm text-muted-foreground mt-2 space-y-2">
                         <div className="flex items-center"><Calendar className="h-4 w-4 mr-2" />{format(new Date(event.start_date), 'MMM d, yyyy')} - {format(new Date(event.end_date), 'MMM d, yyyy')}</div>
                         <div className="flex items-center"><MapPin className="h-4 w-4 mr-2" />{getLocationDisplay()}</div>
-                        {event.status === 'upcoming' && (
+                        {computedStatus === 'upcoming' && (
                             <div className="flex items-center">
                                 <BookOpen className="h-4 w-4 mr-2" />
                                 {['published', 'Publication'].includes(event.project?.status) ? (
@@ -176,7 +172,6 @@ const EventCard = ({ event, onPatternBookClick }) => {
                     <Link to={`/event-detail/${event.id}`} className="flex-1">
                         <Button variant="ghost" size="sm">View Details</Button>
                     </Link>
-                    {/* {getPatternButton()} */}
                 </CardFooter>
             </Card>
         </motion.div>
@@ -225,10 +220,11 @@ const EventsPage = () => {
     fetchEvents();
   }, [toast]);
 
-  // Always use events from events table only
+  // Compute status dynamically from dates — never rely on stored status
   const liveEvents = allEvents.filter(e => e.status === 'live');
-  const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
-  const recentEvents = allEvents.filter(e => e.status === 'recent');
+  const upcomingEvents = allEvents.filter(e => getComputedStatus(e) === 'upcoming');
+  const ongoingEvents = allEvents.filter(e => getComputedStatus(e) === 'ongoing');
+  const completedEvents = allEvents.filter(e => getComputedStatus(e) === 'completed');
 
   const handleSelectShow = (show) => {
     setSelectedShow(show);
@@ -281,7 +277,8 @@ const EventsPage = () => {
   };
 
   const filteredUpcoming = upcomingEvents.filter(event => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  const filteredRecent = recentEvents.filter(event => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredOngoing = ongoingEvents.filter(event => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredCompleted = completedEvents.filter(event => event.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (isLoading) {
     return (
@@ -342,13 +339,32 @@ const EventsPage = () => {
           </section>
         )}
 
-        <section className="mb-16">
+        {filteredOngoing.length > 0 && (
+          <section className="mb-16">
             <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-3xl font-bold">Upcoming Events</h2>
+                 <h2 className="text-3xl font-bold">Ongoing Events</h2>
                  <div className="relative w-full max-w-xs">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input placeholder="Search events..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                  </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredOngoing.map(event => (
+                    <EventCard key={event.id} event={event} onPatternBookClick={handlePatternBookClick} />
+                ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mb-16">
+            <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-3xl font-bold">Upcoming Events</h2>
+                 {filteredOngoing.length === 0 && (
+                   <div className="relative w-full max-w-xs">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input placeholder="Search events..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                   </div>
+                 )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {filteredUpcoming.map(event => (
@@ -359,13 +375,13 @@ const EventsPage = () => {
         </section>
 
         <section>
-            <h2 className="text-3xl font-bold mb-6">Recent Events</h2>
+            <h2 className="text-3xl font-bold mb-6">Completed Events</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredRecent.map(event => (
+                {filteredCompleted.map(event => (
                     <EventCard key={event.id} event={event} onPatternBookClick={handlePatternBookClick} />
                 ))}
             </div>
-            {filteredRecent.length === 0 && <p className="text-muted-foreground col-span-full text-center">No recent events match your search.</p>}
+            {filteredCompleted.length === 0 && <p className="text-muted-foreground col-span-full text-center">No completed events yet.</p>}
         </section>
 
       </main>

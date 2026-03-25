@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Trash2, Home, AlertCircle, MapPin, Building2, Award, Stethoscope, CircleDot, HeartHandshake, Plus, X } from 'lucide-react';
+import { PlusCircle, Trash2, Home, AlertCircle, MapPin, Building2, Award, Stethoscope, CircleDot, HeartHandshake, Plus, X, Clock } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { parseLocalDate } from '@/lib/utils';
 import { useState } from 'react';
@@ -41,6 +41,7 @@ function formatShortDate(dateStr) {
 const LocationsSection = ({ formData, setFormData }) => {
     const [customName, setCustomName] = useState('');
     const locations = formData.locations || [];
+    const competitionDates = getDateRange(formData.startDate, formData.endDate);
 
     const togglePreset = (preset) => {
         setFormData(prev => {
@@ -49,7 +50,12 @@ const LocationsSection = ({ formData, setFormData }) => {
             if (found) {
                 return { ...prev, locations: existing.filter(l => l.id !== preset.id) };
             }
-            return { ...prev, locations: [...existing, { id: preset.id, name: preset.name, type: 'preset' }] };
+            // Initialize with default hours for each competition day
+            const hours = {};
+            competitionDates.forEach(d => {
+                hours[d] = { open: '08:00', close: '18:00' };
+            });
+            return { ...prev, locations: [...existing, { id: preset.id, name: preset.name, type: 'preset', hours }] };
         });
     };
 
@@ -57,9 +63,13 @@ const LocationsSection = ({ formData, setFormData }) => {
         const trimmed = customName.trim();
         if (!trimmed) return;
         const id = `loc-${Date.now()}`;
+        const hours = {};
+        competitionDates.forEach(d => {
+            hours[d] = { open: '08:00', close: '18:00' };
+        });
         setFormData(prev => ({
             ...prev,
-            locations: [...(prev.locations || []), { id, name: trimmed, type: 'custom' }],
+            locations: [...(prev.locations || []), { id, name: trimmed, type: 'custom', hours }],
         }));
         setCustomName('');
     };
@@ -78,8 +88,21 @@ const LocationsSection = ({ formData, setFormData }) => {
         }));
     };
 
+    const updateLocationHours = (locId, dateStr, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            locations: (prev.locations || []).map(l => {
+                if (l.id !== locId) return l;
+                const hours = { ...(l.hours || {}) };
+                hours[dateStr] = { ...(hours[dateStr] || { open: '08:00', close: '18:00' }), [field]: value };
+                return { ...l, hours };
+            }),
+        }));
+    };
+
     const activePresetIds = new Set(locations.filter(l => l.type === 'preset').map(l => l.id));
     const customLocations = locations.filter(l => l.type === 'custom');
+    const activeLocations = locations.filter(l => activePresetIds.has(l.id) || l.type === 'custom');
 
     return (
         <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
@@ -112,22 +135,64 @@ const LocationsSection = ({ formData, setFormData }) => {
                 })}
             </div>
 
-            {/* Custom locations list */}
-            {customLocations.length > 0 && (
-                <div className="space-y-2">
-                    {customLocations.map(loc => (
-                        <div key={loc.id} className="flex items-center gap-2 rounded-md border bg-background p-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <Input
-                                className="h-8 text-sm"
-                                value={loc.name}
-                                onChange={(e) => renameLocation(loc.id, e.target.value)}
-                            />
-                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeLocation(loc.id)}>
-                                <X className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </div>
-                    ))}
+            {/* Active locations with hours */}
+            {activeLocations.length > 0 && competitionDates.length > 0 && (
+                <div className="space-y-3">
+                    {activeLocations.map(loc => {
+                        const preset = PRESET_LOCATIONS.find(p => p.id === loc.id);
+                        const Icon = preset ? preset.icon : MapPin;
+                        const locHours = loc.hours || {};
+                        return (
+                            <div key={loc.id} className="rounded-lg border bg-background p-3 space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Icon className="h-4 w-4 text-primary shrink-0" />
+                                    {loc.type === 'custom' ? (
+                                        <Input
+                                            className="h-8 text-sm font-medium flex-1"
+                                            value={loc.name}
+                                            onChange={(e) => renameLocation(loc.id, e.target.value)}
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-medium flex-1">{loc.name}</span>
+                                    )}
+                                    {loc.type === 'custom' && (
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeLocation(loc.id)}>
+                                            <X className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                                <div className="grid gap-2 pl-6">
+                                    {competitionDates.map(dateStr => {
+                                        const dayHours = locHours[dateStr] || { open: '08:00', close: '18:00' };
+                                        return (
+                                            <div key={dateStr} className="flex items-center gap-3 text-sm">
+                                                <span className="text-muted-foreground w-28 shrink-0">{formatShortDate(dateStr)}</span>
+                                                <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                <div className="flex items-center gap-1.5">
+                                                    <Label className="text-xs text-muted-foreground">Open</Label>
+                                                    <Input
+                                                        type="time"
+                                                        className="h-7 w-28 text-xs"
+                                                        value={dayHours.open}
+                                                        onChange={(e) => updateLocationHours(loc.id, dateStr, 'open', e.target.value)}
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Label className="text-xs text-muted-foreground">Close</Label>
+                                                    <Input
+                                                        type="time"
+                                                        className="h-7 w-28 text-xs"
+                                                        value={dayHours.close}
+                                                        onChange={(e) => updateLocationHours(loc.id, dateStr, 'close', e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 

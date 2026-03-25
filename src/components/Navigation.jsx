@@ -101,12 +101,6 @@ const Navigation = () => {
                                     <span>My Projects</span>
                                 </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link to={hasMembership ? "/contributor-portal" : "/membership"} className="w-full">
-                                    <UploadCloud className="mr-2 h-4 w-4" />
-                                    <span>Contributor Portal</span>
-                                </Link>
-                            </DropdownMenuItem>
                             {isAdmin && (
                                 <DropdownMenuItem asChild>
                                     <Link to="/admin/tracking-user" className="w-full">
@@ -283,7 +277,6 @@ const Navigation = () => {
                                 {isAdmin && <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><LayoutDashboard className="inline-block mr-2 h-4 w-4"/>Admin</Link>}
                                 {isAdmin && <Link to="/admin/tracking-user" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Activity className="inline-block mr-2 h-4 w-4"/>Tracking User</Link>}
                                 <Link to={hasMembership ? "/customer-portal" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Library className="inline-block mr-2 h-4 w-4"/>My Projects</Link>
-                                <Link to={hasMembership ? "/contributor-portal" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><UploadCloud className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>
                                 <Link to={hasMembership ? "/archive-patterns" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
                                 <Link to="/judges-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Gavel className="inline-block mr-2 h-4 w-4"/>Judges Portal</Link>
                                 <Link to="/staff-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Briefcase className="inline-block mr-2 h-4 w-4"/>Staff Portal</Link>

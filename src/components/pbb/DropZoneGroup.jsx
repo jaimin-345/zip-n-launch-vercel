@@ -1062,21 +1062,90 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         };
     });
 
-    const handlePatternSelect = (patternId) => {
+    const handlePatternSelect = async (patternId) => {
         if (!disciplineId || !setFormData) return;
         const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
+        const baseSelection = {
+            maneuversRange: selectedPattern?.maneuvers_range || '',
+            patternId: parseInt(patternId),
+            patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
+            version: selectedPattern?.pattern_version || 'ALL',
+            filterAssociation: filterAssociation !== 'all' ? filterAssociation : null
+        };
+
+        // Set pattern selection immediately (scoresheet will be added async)
         setFormData(prev => {
             const newSelections = { ...(prev.patternSelections || {}) };
             if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
-            newSelections[disciplineId][group.id] = {
-                maneuversRange: selectedPattern?.maneuvers_range || '', // Use range from the pattern itself
-                patternId: parseInt(patternId),
-                patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-                version: selectedPattern?.pattern_version || 'ALL',
-                filterAssociation: filterAssociation !== 'all' ? filterAssociation : null // Save the filter association value
-            };
+            newSelections[disciplineId][group.id] = { ...baseSelection };
             return { ...prev, patternSelections: newSelections };
         });
+
+        // Auto-fetch linked scoresheet(s) for the selected pattern
+        // Working Cow Horse may have multiple (Reining + Cow Work)
+        try {
+            let scoresheets = [];
+
+            // Step 1: Try exact pattern_id match (may return multiple)
+            const { data: linkedSheets } = await supabase
+                .from('tbl_scoresheet')
+                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+                .eq('pattern_id', parseInt(patternId));
+
+            if (linkedSheets?.length > 0) {
+                scoresheets = linkedSheets.filter(s => s.image_url);
+            }
+
+            // Step 2: Fallback — match by association + discipline (standalone scoresheets)
+            if (scoresheets.length === 0) {
+                const assocAbbrev = associationInfo?.abbreviation;
+                const discName = pbbDiscipline?.name;
+                if (assocAbbrev && discName) {
+                    const { data: fallbackSheets } = await supabase
+                        .from('tbl_scoresheet')
+                        .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev')
+                        .eq('association_abbrev', assocAbbrev)
+                        .ilike('discipline', discName)
+                        .is('pattern_id', null);
+
+                    if (fallbackSheets?.length > 0) {
+                        scoresheets = fallbackSheets.filter(s => s.image_url);
+                    }
+                }
+            }
+
+            if (scoresheets.length > 0) {
+                const scoresheetDataArray = scoresheets.map(ss => {
+                    let displayName = ss.file_name || ss.discipline || 'Score Sheet';
+                    const path = ss.storage_path || '';
+                    // Parse Working Cow Horse scoresheet types from storage path
+                    if (path.includes('_LTD_')) displayName = 'Cow Work - Limited';
+                    else if (path.includes('_BDBD_')) displayName = 'Cow Work - Rookie';
+                    else if (path.toLowerCase().includes('cowwork') || path.toLowerCase().includes('cow_work')) displayName = 'Cow Work';
+                    else if (path.toLowerCase().includes('reining') || (ss.discipline && ss.discipline.toLowerCase().includes('reining'))) displayName = 'Reining';
+                    return {
+                        id: ss.id,
+                        image_url: ss.image_url,
+                        displayName,
+                        storage_path: ss.storage_path
+                    };
+                });
+
+                setFormData(prev => {
+                    const newSelections = { ...(prev.patternSelections || {}) };
+                    if (newSelections[disciplineId]?.[group.id]) {
+                        newSelections[disciplineId][group.id] = {
+                            ...newSelections[disciplineId][group.id],
+                            scoresheetId: scoresheets[0].id,
+                            scoresheetData: scoresheetDataArray
+                        };
+                    }
+                    return { ...prev, patternSelections: newSelections };
+                });
+            }
+        } catch (err) {
+            console.error('Error auto-fetching scoresheet for pattern:', err);
+        }
     };
 
     const handleDeleteClick = () => {
@@ -1329,10 +1398,11 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                         <div className="space-y-2">
                                             <h4 className="font-medium text-sm">Pattern Preview</h4>
                                             <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                <img 
-                                                    src={hoveredPatternImage} 
-                                                    alt="Pattern Diagram" 
+                                                <img
+                                                    src={hoveredPatternImage}
+                                                    alt="Pattern Diagram"
                                                     className="w-full h-auto object-contain max-h-[600px]"
+                                                    style={{ clipPath: 'inset(0 0 12% 0)' }}
                                                     loading="lazy"
                                                 />
                                             </div>
@@ -1371,12 +1441,12 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                         </div>
                     </div>
                     
-                    {/* Working Cow Horse Scoresheet Dropdown (AQHA only) */}
+                    {/* Working Cow Horse Scoresheet Dropdown (AQHA only) — manual override for standalone Cow Work sheets */}
                     {isWorkingCowHorseAQHA && workingCowHorseScoresheets.length > 0 && (
                         <div className="mt-2">
-                            <Label className="text-xs text-muted-foreground mb-1 block">Select Score Sheet</Label>
-                            <Select 
-                                value={currentPatternSelection?.scoresheetId?.toString() || 'none'} 
+                            <Label className="text-xs text-muted-foreground mb-1 block">Select Cow Work Score Sheet</Label>
+                            <Select
+                                value={currentPatternSelection?.scoresheetId?.toString() || 'none'}
                                 onValueChange={(value) => {
                                     if (value === 'none') {
                                         setFormData(prev => {
@@ -1392,18 +1462,24 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     } else {
                                         const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === value);
                                         if (selectedScoresheet) {
+                                            // Merge with any existing auto-linked scoresheets (preserve array format)
                                             setFormData(prev => {
                                                 const newSelections = { ...(prev.patternSelections || {}) };
                                                 if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
+                                                const existing = newSelections[disciplineId][group.id] || {};
+                                                const existingSheets = Array.isArray(existing.scoresheetData)
+                                                    ? existing.scoresheetData.filter(s => !s.storage_path?.toLowerCase().includes('cowwork') && !s.storage_path?.includes('_LTD_') && !s.storage_path?.includes('_BDBD_'))
+                                                    : [];
+                                                const newSheet = {
+                                                    id: selectedScoresheet.id,
+                                                    image_url: selectedScoresheet.image_url,
+                                                    displayName: selectedScoresheet.displayName,
+                                                    storage_path: selectedScoresheet.storage_path
+                                                };
                                                 newSelections[disciplineId][group.id] = {
-                                                    ...(newSelections[disciplineId][group.id] || {}),
+                                                    ...existing,
                                                     scoresheetId: parseInt(value),
-                                                    scoresheetData: {
-                                                        id: selectedScoresheet.id,
-                                                        image_url: selectedScoresheet.image_url,
-                                                        displayName: selectedScoresheet.displayName,
-                                                        storage_path: selectedScoresheet.storage_path
-                                                    }
+                                                    scoresheetData: [...existingSheets, newSheet]
                                                 };
                                                 return { ...prev, patternSelections: newSelections };
                                             });
@@ -1412,12 +1488,21 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                 }}
                             >
                                 <SelectTrigger className="h-9">
-                                    <SelectValue placeholder={loadingScoresheets ? "Loading..." : "Select Score Sheet"}>
-                                        {currentPatternSelection?.scoresheetData?.displayName || 'Select Score Sheet'}
+                                    <SelectValue placeholder={loadingScoresheets ? "Loading..." : "Select Cow Work Score Sheet"}>
+                                        {(() => {
+                                            const ssData = currentPatternSelection?.scoresheetData;
+                                            if (!ssData) return 'Select Cow Work Score Sheet';
+                                            const sheets = Array.isArray(ssData) ? ssData : [ssData];
+                                            const cowWorkSheet = sheets.find(s => {
+                                                const p = s.storage_path || '';
+                                                return p.toLowerCase().includes('cowwork') || p.includes('_LTD_') || p.includes('_BDBD_');
+                                            });
+                                            return cowWorkSheet?.displayName || 'Select Cow Work Score Sheet';
+                                        })()}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="none">Select Score Sheet</SelectItem>
+                                    <SelectItem value="none">Select Cow Work Score Sheet</SelectItem>
                                     {workingCowHorseScoresheets.map(ss => (
                                         <SelectItem key={ss.id} value={String(ss.id)}>
                                             {ss.displayName}
@@ -1451,10 +1536,11 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                     <HoverCard openDelay={200} closeDelay={100}>
                                                         <HoverCardTrigger asChild>
                                                             <div className="rounded-md overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary transition-colors">
-                                                                <img 
-                                                                    src={patternImage} 
-                                                                    alt="Pattern Diagram" 
+                                                                <img
+                                                                    src={patternImage}
+                                                                    alt="Pattern Diagram"
                                                                     className="w-full h-auto object-contain max-h-[300px]"
+                                                                    style={{ clipPath: 'inset(0 0 12% 0)' }}
                                                                     loading="lazy"
                                                                 />
                                                             </div>
@@ -1470,16 +1556,17 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                                                 minHeight: '400px'
                                                                             }}
                                                                         >
-                                                                            <img 
-                                                                                src={patternImage} 
-                                                                                alt="Pattern Diagram - Zoomed" 
+                                                                            <img
+                                                                                src={patternImage}
+                                                                                alt="Pattern Diagram - Zoomed"
                                                                                 className="object-contain transition-transform duration-200"
                                                                                 loading="lazy"
-                                                                                style={{ 
+                                                                                style={{
                                                                                     transform: `scale(${imageZoom})`,
                                                                                     transformOrigin: 'center',
                                                                                     maxWidth: '100%',
-                                                                                    height: 'auto'
+                                                                                    height: 'auto',
+                                                                                    clipPath: 'inset(0 0 12% 0)'
                                                                                 }}
                                                                             />
                                                                         </div>
@@ -1551,10 +1638,73 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                     !patternImage && <p>No details available for this pattern.</p>
                                                 )}
                                             </div>
+
+                                            {/* Score Sheet Preview(s) inside pattern hover card */}
+                                            {(() => {
+                                                const ssData = currentPatternSelection?.scoresheetData;
+                                                if (!ssData) return null;
+                                                const sheets = Array.isArray(ssData) ? ssData : (ssData.image_url ? [ssData] : []);
+                                                if (sheets.length === 0) return null;
+                                                return (
+                                                    <div className="space-y-2 border-t pt-2">
+                                                        <h4 className="font-medium text-sm text-emerald-700 dark:text-emerald-400">Score Sheets</h4>
+                                                        {sheets.map((sheet, idx) => (
+                                                            <div key={sheet.id || idx} className="space-y-1">
+                                                                <p className="text-xs font-medium text-muted-foreground">{sheet.displayName || `Score Sheet ${idx + 1}`}</p>
+                                                                <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                                    <img
+                                                                        src={sheet.image_url}
+                                                                        alt={sheet.displayName || 'Score Sheet'}
+                                                                        className="w-full h-auto object-contain max-h-[250px]"
+                                                                        loading="lazy"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     </HoverCardContent>
                                 </HoverCard>
                             </Badge>
+                            {/* Auto-linked Scoresheet Badge(s) — supports array or single object */}
+                            {(() => {
+                                const ssData = currentPatternSelection?.scoresheetData;
+                                if (!ssData) return null;
+                                // Normalize: support both array and legacy single-object format
+                                const sheets = Array.isArray(ssData) ? ssData : (ssData.image_url ? [ssData] : []);
+                                if (sheets.length === 0) return null;
+                                return sheets.map((sheet, idx) => (
+                                    <Badge
+                                        key={sheet.id || idx}
+                                        variant="outline"
+                                        className="flex items-center gap-2 pr-1 h-7 border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700"
+                                    >
+                                        {sheet.displayName || `Score Sheet ${idx + 1}`}
+                                        <HoverCard openDelay={100} closeDelay={100}>
+                                            <HoverCardTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/40 ml-1">
+                                                    <Eye className="h-3 w-3" />
+                                                </Button>
+                                            </HoverCardTrigger>
+                                            <HoverCardContent className="w-96" align="start">
+                                                <div className="space-y-2">
+                                                    <h4 className="font-medium leading-none border-b pb-2">{sheet.displayName || 'Score Sheet Preview'}</h4>
+                                                    <div className="rounded-md overflow-hidden border bg-muted/20">
+                                                        <img
+                                                            src={sheet.image_url}
+                                                            alt={sheet.displayName || 'Score Sheet'}
+                                                            className="w-full h-auto object-contain max-h-[400px]"
+                                                            loading="lazy"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </HoverCardContent>
+                                        </HoverCard>
+                                    </Badge>
+                                ));
+                            })()}
                         </div>
                     )}
                 </div>

@@ -83,7 +83,7 @@ export function getUnplacedClasses(formData) {
       }
     }
   }
-  return allClasses.filter(c => !placedIds.has(c.divisionId));
+  return allClasses.filter(c => !placedIds.has(c.id) && !placedIds.has(c.divisionId));
 }
 
 // Create initial showBill from formData

@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus, AlertTriangle, ChevronDown, ChevronRight, Lock, Unlock, Clock, Plus, Coffee, FileText, Megaphone, Grip } from 'lucide-react';
+import { GripVertical, Undo2, Redo2, CalendarDays, X, CopyPlus, AlertTriangle, ChevronDown, ChevronRight, Lock, Unlock, Clock, Plus, Coffee, FileText, Megaphone, Grip, MapPin, Building2, Award, Stethoscope, CircleDot, HeartHandshake } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,7 @@ const SortableClassCard = ({ item, allClassItems, associationsData, onRemove, on
         transition,
     };
 
-    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.divisionId === cid)).filter(Boolean);
+    const classDetails = (item.classes || []).map(cid => allClassItems.find(c => c.id === cid || c.divisionId === cid)).filter(Boolean);
     const firstAssoc = classDetails[0] && associationsData?.find(a => a.id === classDetails[0].assocId);
 
     const handleStartEdit = () => {
@@ -443,6 +443,22 @@ function formatDateShort(dateStr) {
     }
 }
 
+const LOCATION_ICONS = {
+    'show-office': Building2,
+    'awards-room': Award,
+    'vet-area': Stethoscope,
+    'warmup-ring': CircleDot,
+    'volunteer-desk': HeartHandshake,
+};
+
+function formatTimeDisplay(time24) {
+    if (!time24) return '';
+    const [h, m] = time24.split(':').map(Number);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
 // ─── Main component ─────────────────────────────────────────────
 export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsData }) => {
     const [undoStack, setUndoStack] = useState([]);
@@ -751,7 +767,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
             if (arena) {
                 const newItems = classesToMove.map(cls => createShowBillItem('classBox', {
                     title: cls.name,
-                    classes: [cls.divisionId],
+                    classes: [cls.id],
                 }));
                 arena.items.splice(targetIndex, 0, ...newItems);
             }
@@ -1088,6 +1104,34 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                             <div className="text-center py-10 text-muted-foreground">
                                                 <p>No arenas for this day.</p>
                                                 <p className="text-sm mt-1">Go back to Arenas & Dates to assign arenas to dates.</p>
+                                            </div>
+                                        )}
+
+                                        {/* Show Locations for this day */}
+                                        {(formData.locations || []).length > 0 && (
+                                            <div className="mt-6 space-y-2">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Show Locations</span>
+                                                </div>
+                                                {(formData.locations || []).map(loc => {
+                                                    const Icon = LOCATION_ICONS[loc.id] || MapPin;
+                                                    const dayHours = loc.hours?.[activeDay.date] || {};
+                                                    return (
+                                                        <div key={loc.id} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+                                                            <Icon className="h-4 w-4 text-primary shrink-0" />
+                                                            <span className="text-sm font-medium flex-1">{loc.name}</span>
+                                                            {dayHours.open && dayHours.close ? (
+                                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                                    <Clock className="h-3.5 w-3.5" />
+                                                                    <span>{formatTimeDisplay(dayHours.open)} – {formatTimeDisplay(dayHours.close)}</span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs text-muted-foreground italic">No hours set</span>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
                                     </div>

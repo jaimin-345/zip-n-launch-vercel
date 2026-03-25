@@ -559,16 +559,18 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         }
       }
       
-      // Add scoresheets selected in Step 3 (from patternSelections - per group)
+      // Add scoresheets from patternSelections (auto-linked or manually selected)
       if (formData.patternSelections) {
         Object.entries(formData.patternSelections).forEach(([disciplineId, disciplineSels]) => {
           if (disciplineSels) {
             Object.entries(disciplineSels).forEach(([groupId, selection]) => {
-              // Check if this selection has scoresheetData (from Step 3 dropdown)
               if (selection && typeof selection === 'object' && selection.scoresheetData) {
-                const scoresheetData = selection.scoresheetData;
-                // Store with a key that includes both disciplineId and groupId for per-group lookup
-                scoresheetMap[`step3-selected-${disciplineId}-${groupId}`] = scoresheetData;
+                const ssData = selection.scoresheetData;
+                // Normalize: support both array and single-object format
+                const sheet = Array.isArray(ssData) ? ssData[0] : ssData;
+                if (sheet && sheet.image_url) {
+                  scoresheetMap[`step3-selected-${disciplineId}-${groupId}`] = sheet;
+                }
               }
             });
           }

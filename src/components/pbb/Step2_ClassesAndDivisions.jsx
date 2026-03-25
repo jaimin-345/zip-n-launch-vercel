@@ -1089,17 +1089,22 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
             const config = groupConfig[selectedDisciplineGroup] || groupConfig.custom_patterns;
 
             // Insert the new discipline
+            const insertData = {
+                name: customDisciplineName.trim(),
+                association_id: selectedAssociationForCustom,
+                category: config.category,
+                pattern_type: config.pattern_type,
+                open_divisions: false,
+                sort_order: newSortOrder,
+                discipline_group: selectedDisciplineGroup,
+            };
+            // For 4-H, include the selected city so the discipline appears in the filtered list
+            if (selectedAssociationForCustom === '4-H' && formData.selected4HCity) {
+                insertData.city = formData.selected4HCity;
+            }
             const { data: newDiscipline, error: insertError } = await supabase
                 .from('disciplines')
-                .insert({
-                    name: customDisciplineName.trim(),
-                    association_id: selectedAssociationForCustom,
-                    category: config.category,
-                    pattern_type: config.pattern_type,
-                    open_divisions: false,
-                    sort_order: newSortOrder,
-                    discipline_group: selectedDisciplineGroup
-                })
+                .insert(insertData)
                 .select()
                 .single();
 
@@ -1270,7 +1275,7 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                                     <strong>Association:</strong> {getAssociationName(selectedAssociationForCustom)}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    This discipline will be added to the Custom Pattern category.
+                                    This discipline will be added to the {selectedDisciplineGroup === 'timed' ? 'Timed Classes' : selectedDisciplineGroup === 'additional' ? 'Additional Performance Classes' : 'Custom Pattern'} category.
                                 </p>
                             </div>
                         </div>
