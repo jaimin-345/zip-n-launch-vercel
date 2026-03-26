@@ -83,7 +83,7 @@ export const Step8_Review = ({ pbbData, onBack, onSubmit }) => {
           </ReviewItem>
 
           <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel">
-            <p><strong>Judges:</strong> {Object.values(associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
+            <p><strong>Judges:</strong> {(() => { const names = new Set(); Object.values(associationJudges || {}).forEach(a => (a.judges || []).forEach(j => { if (j.name) names.add(j.name.trim()); })); Object.values(patternSelections || {}).forEach(d => { if (d && typeof d === 'object') Object.values(d).forEach(s => { if (s?.type === 'judgeAssigned' && s?.judgeName?.trim()) names.add(s.judgeName.trim()); }); }); return names.size; })()} added</p>
             <p><strong>Officials:</strong> {(officials || []).length} added</p>
           </ReviewItem>
 

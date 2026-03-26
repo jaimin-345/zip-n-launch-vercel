@@ -1325,15 +1325,19 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     const newSelections = { ...(prev.patternSelections || {}) };
                     if (!newSelections[discipline.id]) newSelections[discipline.id] = {};
                     groups.forEach(group => {
+                      const existing = newSelections[discipline.id][group.id] || {};
                       if (type) {
                         newSelections[discipline.id][group.id] = {
+                          ...existing,
                           type,
-                          ...(type === 'judgeAssigned' && { judgeName: firstGroupSelection?.judgeName || '', patternId: null, patternName: null, maneuversRange: null }),
-                          ...(type === 'customRequest' && { customPatternRequested: true, patternId: null, patternName: null, requestedFromName: '', requestedFromEmail: '', requestNotes: '', requestStatus: 'requested' }),
+                          ...(type === 'judgeAssigned' && { judgeName: existing.judgeName || firstGroupSelection?.judgeName || '' }),
+                          ...(type === 'customRequest' && { customPatternRequested: true, requestedFromName: existing.requestedFromName || '', requestedFromEmail: existing.requestedFromEmail || '', requestNotes: existing.requestNotes || '', requestStatus: existing.requestStatus || 'requested' }),
                           ...extraData
                         };
                       } else {
-                        newSelections[discipline.id][group.id] = { patternId: null, patternName: null, maneuversRange: null };
+                        // Remove the type but preserve existing pattern selection
+                        const { type: _removedType, judgeName: _j, customPatternRequested: _c, requestedFromName: _rn, requestedFromEmail: _re, requestNotes: _rno, requestStatus: _rs, ...preserved } = existing;
+                        newSelections[discipline.id][group.id] = preserved;
                       }
                     });
                     return { ...prev, patternSelections: newSelections };
@@ -1420,11 +1424,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                             <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs bg-background">
                               <SelectValue placeholder="Select Pattern for All Groups" />
                             </SelectTrigger>
-                            <SelectContent 
+                            <SelectContent
                               className="max-h-[300px]"
-                              onMouseLeave={() => {
-                                setHoveredPatternId(null);
-                              }}
                             >
                                             {(() => {
                                 let allPatterns = getFilteredPatterns(discipline.id);
@@ -1549,34 +1550,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                     : `Pattern ${pattern.id}`;
                                   
                                   return (
-                                    <SelectItem 
-                                      key={pattern.id} 
+                                    <SelectItem
+                                      key={pattern.id}
                                       value={pattern.id.toString()}
-                                      onMouseEnter={(e) => {
-                                        setHoveredPatternId(pattern.id);
-                                        // Center the preview in the middle of the screen
-                                        const screenWidth = window.innerWidth;
-                                        const screenHeight = window.innerHeight;
-                                        setHoverPosition({ 
-                                          x: screenWidth / 2, 
-                                          y: screenHeight / 2 
-                                                                });
-                                                            }}
-                                      onMouseLeave={(e) => {
-                                        // Don't hide immediately - let the preview handle its own mouse leave
-                                        // Only hide if we're not moving to the preview
-                                        const relatedTarget = e.relatedTarget;
-                                        if (relatedTarget && relatedTarget.closest('.fixed.z-\\[9999\\]')) {
-                                          return; // Moving to preview, don't hide
-                                        }
-                                        // Small delay to allow mouse to move to preview
-                                        setTimeout(() => {
-                                          setHoveredPatternId(prev => {
-                                            // Only clear if still the same pattern (to avoid race conditions)
-                                            return prev === pattern.id ? null : prev;
-                                          });
-                                        }, 100);
-                                      }}
                                     >
                                       <div className="flex items-center gap-2 w-full">
                                         <span className="whitespace-normal break-words">{displayLabel}</span>
@@ -2007,8 +1983,6 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                           <Select
                                             value={currentSelection?.patternId?.toString() || ''}
                                             onValueChange={(value) => {
-                                                // Hide preview when pattern is selected
-                                                setHoveredPatternId(null);
                                                 const selectedPattern = (dbPatterns[discipline.id] || []).find(p => p.id.toString() === value);
                                                 const patternManeuversRange = selectedPattern?.maneuvers_range || '';
                                                 handleGroupPatternSelect(discipline.id, group.id, value, patternManeuversRange);
@@ -2017,11 +1991,8 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                 <SelectTrigger className="bg-background [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words">
                                                 <SelectValue placeholder="Select Pattern" />
                                             </SelectTrigger>
-                                            <SelectContent 
+                                            <SelectContent
                                                 className="max-h-[300px]"
-                                                onMouseLeave={() => {
-                                                    setHoveredPatternId(null);
-                                                }}
                                             >
                                                 {(() => {
                                                     let filtered = getFilteredPatterns(discipline.id);
@@ -2171,34 +2142,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             : `Pattern ${p.id}`;
                                                         
                                                         return (
-                                                            <SelectItem 
-                                                                key={p.id} 
+                                                            <SelectItem
+                                                                key={p.id}
                                                                 value={p.id.toString()}
-                                                                onMouseEnter={(e) => {
-                                                                    setHoveredPatternId(p.id);
-                                                                    // Center the preview in the middle of the screen
-                                                                    const screenWidth = window.innerWidth;
-                                                                    const screenHeight = window.innerHeight;
-                                                                    setHoverPosition({ 
-                                                                        x: screenWidth / 2, 
-                                                                        y: screenHeight / 2 
-                                                                    });
-                                                                }}
-                                                                onMouseLeave={(e) => {
-                                                                    // Don't hide immediately - let the preview handle its own mouse leave
-                                                                    // Only hide if we're not moving to the preview
-                                                                    const relatedTarget = e.relatedTarget;
-                                                                    if (relatedTarget && relatedTarget.closest('.fixed.z-\\[9999\\]')) {
-                                                                        return; // Moving to preview, don't hide
-                                                                    }
-                                                                    // Small delay to allow mouse to move to preview
-                                                                    setTimeout(() => {
-                                                                        setHoveredPatternId(prev => {
-                                                                            // Only clear if still the same pattern (to avoid race conditions)
-                                                                            return prev === p.id ? null : prev;
-                                                                        });
-                                                                    }, 100);
-                                                                }}
                                                             >
                                                                 <div className="flex items-center gap-2 w-full">
                                                                     <span className="whitespace-normal break-words">{displayLabel}</span>
@@ -2259,41 +2205,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         </div>
                                     </div>
                                     
-                                        {/* Hover Preview - Rendered via portal at body level, centered */}
-                                        {hoveredPatternId && typeof document !== 'undefined' && createPortal(
-                                            <div
-                                                className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-2 sm:p-4 w-[90vw] sm:w-[600px] max-w-[95vw] pointer-events-none hidden sm:block"
-                                                style={{
-                                                    left: '50%',
-                                                    top: '50%',
-                                                    transform: 'translate(-50%, -50%)',
-                                                }}
-                                            >
-                                                {loadingHoveredImage ? (
-                                                    <div className="flex items-center justify-center py-8">
-                                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                                                    </div>
-                                                ) : hoveredPatternImage ? (
-                                                    <div className="space-y-2">
-                                                        <h4 className="font-medium text-sm">Pattern Preview</h4>
-                                                        <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                            <img
-                                                                src={hoveredPatternImage}
-                                                                alt="Pattern Diagram"
-                                                                className="w-full h-auto object-contain max-h-[600px]"
-                                                                style={{ clipPath: 'inset(0 0 12% 0)' }}
-                                                                loading="lazy"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-sm text-muted-foreground py-4">
-                                                        No image available for this pattern.
-                                                    </div>
-                                                )}
-                                            </div>,
-                                            document.body
-                                        )}
+                                        {/* Pattern preview is handled by PatternBadgeWithHover (eye icon hover) */}
                                   </div>
                                 )}
                               </div>

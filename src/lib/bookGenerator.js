@@ -334,7 +334,40 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     }
     
     console.log(`Total pattern images loaded: ${patternImagesMap.size} out of ${patternIds.size} requested`);
-    
+
+    // Fetch scoresheet images from tbl_scoresheet by pattern_id
+    const scoresheetImagesMap = new Map(); // pattern_id -> base64
+    const includeScoresheet = pbbData.downloadIncludes?.scoresheet !== false; // default true
+    const includePattern = pbbData.downloadIncludes?.pattern !== false; // default true
+
+    if (includeScoresheet && patternIds.size > 0) {
+        try {
+            const { data: scoresheetData, error: scoresheetError } = await supabase
+                .from('tbl_scoresheet')
+                .select('id, pattern_id, image_url, storage_path')
+                .in('pattern_id', Array.from(patternIds));
+
+            if (!scoresheetError && scoresheetData) {
+                console.log(`Found ${scoresheetData.length} scoresheet records`);
+                for (const ss of scoresheetData) {
+                    const imageUrl = ss.image_url;
+                    if (imageUrl && !scoresheetImagesMap.has(ss.pattern_id)) {
+                        const base64 = await fetchImageAsBase64(imageUrl);
+                        if (base64) {
+                            scoresheetImagesMap.set(ss.pattern_id, base64);
+                            console.log(`Successfully loaded scoresheet for pattern ${ss.pattern_id}`);
+                        }
+                    }
+                }
+            } else if (scoresheetError) {
+                console.error('Error fetching scoresheets:', scoresheetError);
+            }
+        } catch (err) {
+            console.error('Error fetching scoresheet images:', err);
+        }
+    }
+    console.log(`Total scoresheet images loaded: ${scoresheetImagesMap.size}`);
+
     const sponsorLogosBase64 = [];
     if (pbbData.marketing?.sponsorLogos?.length > 0) {
         for(const logo of pbbData.marketing.sponsorLogos) {
@@ -663,26 +696,29 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             console.log('DEBUG assocId:', assocId, 'discipline.association_id:', discipline.association_id, 'discipline:', JSON.stringify(discipline, null, 2));
             const assocName = formatAssociationName(assocId);
             
-            addNewPage();
-            
-            // Add to TOC with sequential numbering
-            sequentialClassNumber++;
-            const tocLabel = group.customLabel ? ` (${group.customLabel})` : '';
-            const className = `${discipline.name}${tocLabel} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
-            toc.push({
-                title: className,
-                page: doc.internal.getNumberOfPages() - 1,
-                date: competitionDate,
-                classNumber: showClassNumbers ? sequentialClassNumber.toString() : ''
-            });
-            
-            // Start from top margin
-            yPos = margin;
-            
+            if (includePattern) {
+                addNewPage();
+
+                // Add to TOC with sequential numbering
+                sequentialClassNumber++;
+                const tocLabel = group.customLabel ? ` (${group.customLabel})` : '';
+                const className = `${discipline.name}${tocLabel} - ${group.divisions.map(d => formatDivisionWithGo(d)).join('/')}`;
+                toc.push({
+                    title: className,
+                    page: doc.internal.getNumberOfPages() - 1,
+                    date: competitionDate,
+                    classNumber: showClassNumbers ? sequentialClassNumber.toString() : ''
+                });
+
+                // Start from top margin
+                yPos = margin;
+            }
+
             // Render pattern page based on selected layout
             if (selectedLayout === 'layout-a') {
+            if (includePattern) {
             // Format like the example: Header info, then large image
-            
+
             // Top left: Association name
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
@@ -866,10 +902,52 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 yPos = placeholderY + 40;
             }
             } // end else (real pattern)
+            } // end if (includePattern) for layout-a
+
+            // Add scoresheet page after pattern (layout-a) if scoresheet inclusion is enabled
+            if (includeScoresheet && !isCustomRequest) {
+                const numericPidForSs = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
+                const ssBase64 = numericPidForSs && !isNaN(numericPidForSs) && scoresheetImagesMap.has(numericPidForSs)
+                    ? scoresheetImagesMap.get(numericPidForSs) : null;
+                if (ssBase64) {
+                    addNewPage();
+                    yPos = margin;
+                    try {
+                        const ssProps = doc.getImageProperties(ssBase64);
+                        const ssAspect = ssProps.height / ssProps.width;
+                        const ssAvailH = pageHeight - yPos - 40;
+                        const ssImgW = pageWidth - margin * 2;
+                        let ssFinalW = ssImgW;
+                        let ssFinalH = ssImgW * ssAspect;
+                        if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
+                        const ssXOff = (pageWidth - ssFinalW) / 2;
+                        await addImageToPage(ssBase64, ssXOff, yPos, ssFinalW, ssFinalH);
+                    } catch (ssErr) {
+                        console.error('Failed to add scoresheet image:', ssErr);
+                    }
+                } else if (!hasNoPattern) {
+                    // Fallback: add generic scoresheet page
+                    addNewPage();
+                    const judges = Object.values(pbbData.associationJudges || {})
+                        .flatMap(a => (a.judges || []))
+                        .filter(j => j?.name)
+                        .map(j => j.name);
+                    const dateStrSs = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                    drawGenericScoreSheetPage(doc, {
+                        association: assocName,
+                        showName: pbbData.showName || '',
+                        discipline: discipline.name || '',
+                        division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                        date: dateStrSs,
+                        judge: judges[0] || '',
+                    });
+                }
+            }
 
             } else if (selectedLayout === 'layout-b') {
+                if (includePattern) {
                 // LAYOUT B: Same format as Layout A
-                
+
                 // Top left: Association name
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('times', 'bold');
@@ -1050,10 +1128,51 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     yPos = placeholderY + 40;
                 }
                 } // end else (real pattern)
+                } // end if (includePattern) for layout-b
+
+                // Add scoresheet page after pattern (layout-b) if scoresheet inclusion is enabled
+                if (includeScoresheet && !isCustomRequest) {
+                    const numericPidForSsB = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
+                    const ssBase64B = numericPidForSsB && !isNaN(numericPidForSsB) && scoresheetImagesMap.has(numericPidForSsB)
+                        ? scoresheetImagesMap.get(numericPidForSsB) : null;
+                    if (ssBase64B) {
+                        addNewPage();
+                        yPos = margin;
+                        try {
+                            const ssProps = doc.getImageProperties(ssBase64B);
+                            const ssAspect = ssProps.height / ssProps.width;
+                            const ssAvailH = pageHeight - yPos - 40;
+                            const ssImgW = pageWidth - margin * 2;
+                            let ssFinalW = ssImgW;
+                            let ssFinalH = ssImgW * ssAspect;
+                            if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
+                            const ssXOff = (pageWidth - ssFinalW) / 2;
+                            await addImageToPage(ssBase64B, ssXOff, yPos, ssFinalW, ssFinalH);
+                        } catch (ssErr) {
+                            console.error('Failed to add scoresheet image (layout-b):', ssErr);
+                        }
+                    } else if (!hasNoPattern) {
+                        // Fallback: add generic scoresheet page
+                        addNewPage();
+                        const judgesSsB = Object.values(pbbData.associationJudges || {})
+                            .flatMap(a => (a.judges || []))
+                            .filter(j => j?.name)
+                            .map(j => j.name);
+                        const dateStrSsB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                        drawGenericScoreSheetPage(doc, {
+                            association: assocName,
+                            showName: pbbData.showName || '',
+                            discipline: discipline.name || '',
+                            division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                            date: dateStrSsB,
+                            judge: judgesSsB[0] || '',
+                        });
+                    }
+                }
             }
         }
     }
-    
+
     // --- Sponsor Page ---
     if(!skipCoverAndToc && sponsorLogosBase64.length > 0) {
         addNewPage();

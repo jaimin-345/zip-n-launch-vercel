@@ -182,14 +182,19 @@ export const useShowBuilder = (showId) => {
       }
     }
 
-    // If moduleKey is provided, only update that module's status — don't touch project-level status
+    // Use the module status as the project-level status when moduleKey is provided
+    // This ensures the portal card reflects the actual status (e.g., locked, published)
     const effectiveStatus = moduleKey
-      ? (formData.showStatus || 'draft')
+      ? (moduleStatus || formData.showStatus || 'draft')
       : (statusOverride || formData.showStatus || 'draft');
 
-    // Update formData with the status if overridden (only when no moduleKey)
+    // Update formData with the status if overridden
     if (!moduleKey && statusOverride && statusOverride !== formData.showStatus) {
       setFormData(prev => ({ ...prev, showStatus: statusOverride }));
+    }
+    // Also sync showStatus when module status changes (e.g., editWizard locked/published)
+    if (moduleKey && moduleStatus && moduleStatus !== formData.showStatus) {
+      setFormData(prev => ({ ...prev, showStatus: moduleStatus }));
     }
 
     // Mark current step as completed on save

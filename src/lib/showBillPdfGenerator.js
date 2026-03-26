@@ -18,6 +18,21 @@ const DEFAULT_LAYOUT = {
   showFooter: true,
   customFooterText: '',
   background: { id: 'none', type: 'none', value: '' },
+  coverPage: {
+    enabled: false,
+    logoUrl: '',
+    logoData: '',
+    title: '',
+    subtitle: '',
+    customText: '',
+    showDates: true,
+    showVenue: true,
+    bgColor: '#ffffff',
+    textColor: '#000000',
+    bgImageData: '',
+    fontFamily: 'helvetica',
+    sponsorLogos: [],
+  },
 };
 
 // Font size maps: [body, subhead, heading]
@@ -101,7 +116,149 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
     }
   };
 
-  // Draw background on first page
+  // ============================================================
+  // COVER PAGE (optional — inserted as page 1)
+  // ============================================================
+  const cover = ls.coverPage || {};
+  if (cover.enabled) {
+    const coverFont = cover.fontFamily || 'helvetica';
+
+    // Cover page background color
+    const [cr, cg, cb] = cover.bgColor ? parseHex(cover.bgColor) : [255, 255, 255];
+    doc.setFillColor(cr, cg, cb);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    // Cover background image (low opacity overlay)
+    if (cover.bgImageData) {
+      try {
+        const gState = new doc.GState({ opacity: 0.15 });
+        doc.saveGraphicsState();
+        doc.setGState(gState);
+        doc.addImage(cover.bgImageData, 'PNG', 0, 0, pageWidth, pageHeight);
+        doc.restoreGraphicsState();
+      } catch (e) {
+        console.warn('Failed to render cover background image:', e);
+      }
+    }
+
+    const txtColor = cover.textColor ? parseHex(cover.textColor) : [0, 0, 0];
+    let cy = margin + 60;
+
+    // Logo (supports both uploaded base64 and URL)
+    const logoSrc = cover.logoData || cover.logoUrl;
+    if (logoSrc) {
+      try {
+        let logoData = logoSrc;
+        // If it's a URL (not base64), fetch it
+        if (!logoSrc.startsWith('data:')) {
+          const logoResp = await fetch(logoSrc);
+          const logoBlob = await logoResp.blob();
+          logoData = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(logoBlob);
+          });
+        }
+        const logoMaxW = 200;
+        const logoMaxH = 150;
+        const logoX = (pageWidth - logoMaxW) / 2;
+        doc.addImage(logoData, 'PNG', logoX, cy, logoMaxW, logoMaxH);
+        cy += logoMaxH + 30;
+      } catch (e) {
+        console.warn('Failed to load cover logo:', e);
+        cy += 20;
+      }
+    }
+
+    // Title (defaults to show name)
+    const coverTitle = cover.title || numberedBill.header?.showName || 'Show Bill';
+    doc.setFontSize(32);
+    doc.setFont(coverFont, 'bold');
+    doc.setTextColor(...txtColor);
+    const titleLines = doc.splitTextToSize(coverTitle, contentWidth - 40);
+    titleLines.forEach((line) => {
+      doc.text(line, pageWidth / 2, cy, { align: 'center' });
+      cy += 38;
+    });
+    cy += 10;
+
+    // Subtitle
+    if (cover.subtitle) {
+      doc.setFontSize(18);
+      doc.setFont(coverFont, 'normal');
+      const subLines = doc.splitTextToSize(cover.subtitle, contentWidth - 40);
+      subLines.forEach((line) => {
+        doc.text(line, pageWidth / 2, cy, { align: 'center' });
+        cy += 24;
+      });
+      cy += 10;
+    }
+
+    // Dates
+    if (cover.showDates && numberedBill.header?.dates) {
+      doc.setFontSize(16);
+      doc.setFont(coverFont, 'normal');
+      doc.text(numberedBill.header.dates, pageWidth / 2, cy, { align: 'center' });
+      cy += 24;
+    }
+
+    // Venue
+    if (cover.showVenue && numberedBill.header?.venue) {
+      doc.setFontSize(14);
+      doc.setFont(coverFont, 'normal');
+      doc.text(numberedBill.header.venue, pageWidth / 2, cy, { align: 'center' });
+      cy += 22;
+    }
+
+    // Custom text / advertisement
+    if (cover.customText) {
+      cy += 20;
+      doc.setFontSize(12);
+      doc.setFont(coverFont, 'normal');
+      const customLines = doc.splitTextToSize(cover.customText, contentWidth - 60);
+      customLines.forEach((line) => {
+        doc.text(line, pageWidth / 2, cy, { align: 'center' });
+        cy += 16;
+      });
+    }
+
+    // Sponsor logos row
+    const sponsors = cover.sponsorLogos || [];
+    if (sponsors.length > 0) {
+      cy += 30;
+      // "Sponsors" label
+      doc.setFontSize(8);
+      doc.setFont(coverFont, 'normal');
+      doc.setTextColor(...txtColor);
+      doc.text('SPONSORS', pageWidth / 2, cy, { align: 'center' });
+      cy += 14;
+
+      const sponsorMaxH = 40;
+      const sponsorMaxW = 80;
+      const gap = 16;
+      const totalW = sponsors.length * sponsorMaxW + (sponsors.length - 1) * gap;
+      let sx = (pageWidth - totalW) / 2;
+
+      for (const s of sponsors) {
+        try {
+          doc.addImage(s.data, 'PNG', sx, cy, sponsorMaxW, sponsorMaxH);
+        } catch (e) {
+          console.warn('Failed to render sponsor logo:', e);
+        }
+        sx += sponsorMaxW + gap;
+      }
+      cy += sponsorMaxH + 10;
+    }
+
+    // Reset font and text color for schedule pages
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0);
+
+    // Start a new page for the actual schedule
+    doc.addPage();
+  }
+
+  // Draw background on first schedule page
   drawBackground();
 
   // --- Helpers ---
@@ -349,13 +506,18 @@ export async function generateShowBillPdf(showBill, allClassItems, associationsD
   // ============================================================
   if (ls.showFooter) {
     const totalPages = doc.internal.getNumberOfPages();
+    const coverOffset = cover.enabled ? 1 : 0;
+    const schedulePages = totalPages - coverOffset;
     for (let i = 1; i <= totalPages; i++) {
+      // Skip footer on cover page
+      if (cover.enabled && i === 1) continue;
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setFont(undefined, 'normal');
       doc.setTextColor(120);
+      const pageNum = i - coverOffset;
       doc.text(
-        `Page ${i} of ${totalPages}`,
+        `Page ${pageNum} of ${schedulePages}`,
         pageWidth / 2,
         pageHeight - 16,
         { align: 'center' }

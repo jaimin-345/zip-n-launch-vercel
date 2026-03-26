@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Download, RotateCcw, Hash, Type, PanelTop, PanelBottom, AlertTriangle, Image, Columns, FileText } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Download, RotateCcw, Hash, Type, PanelTop, PanelBottom, AlertTriangle, Image, Columns, FileText, BookOpen, Upload, X, Plus } from 'lucide-react';
 import BackgroundManager from '@/components/BackgroundManager';
 import { useToast } from '@/components/ui/use-toast';
 import { getAllClassItems, getUnplacedClasses, initializeShowBill, renumberShowBill } from '@/lib/showBillUtils';
@@ -33,6 +34,217 @@ const DEFAULT_LAYOUT = {
   showFooter: true,
   customFooterText: '',
   background: { id: 'none', type: 'none', value: '' },
+  coverPage: {
+    enabled: false,
+    logoUrl: '',
+    logoData: '',
+    title: '',
+    subtitle: '',
+    customText: '',
+    showDates: true,
+    showVenue: true,
+    bgColor: '#ffffff',
+    textColor: '#000000',
+    bgImageData: '',
+    fontFamily: 'helvetica',
+    sponsorLogos: [],
+  },
+};
+
+// --- File-to-base64 helper ---
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+// --- Cover Page Controls Sub-component ---
+const CoverPageControls = ({ settings, update }) => {
+  const logoInputRef = useRef(null);
+  const bgImageInputRef = useRef(null);
+  const sponsorInputRef = useRef(null);
+  const cp = settings.coverPage || {};
+
+  const updateCover = (fields) => update('coverPage', { ...cp, ...fields });
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    updateCover({ logoData: dataUrl, logoUrl: '' });
+  };
+
+  const handleBgImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    updateCover({ bgImageData: dataUrl });
+  };
+
+  const handleSponsorUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    const current = cp.sponsorLogos || [];
+    updateCover({ sponsorLogos: [...current, { id: Date.now().toString(), data: dataUrl, name: file.name }] });
+  };
+
+  const removeSponsor = (id) => {
+    updateCover({ sponsorLogos: (cp.sponsorLogos || []).filter((s) => s.id !== id) });
+  };
+
+  const logoSrc = cp.logoData || cp.logoUrl || '';
+
+  return (
+    <>
+      {/* Main Logo */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Show / Organization Logo</Label>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="text-xs" onClick={() => logoInputRef.current?.click()}>
+            <Upload className="h-3.5 w-3.5 mr-1.5" /> Upload Logo
+          </Button>
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+          {logoSrc && (
+            <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateCover({ logoData: '', logoUrl: '' })}>
+              <X className="h-3.5 w-3.5 mr-1" /> Remove
+            </Button>
+          )}
+        </div>
+        {logoSrc && (
+          <img src={logoSrc} alt="Logo preview" className="max-h-[60px] object-contain rounded border p-1 bg-white" />
+        )}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] text-muted-foreground">or paste URL:</span>
+          <Input
+            value={cp.logoUrl || ''}
+            onChange={(e) => updateCover({ logoUrl: e.target.value, logoData: '' })}
+            placeholder="https://..."
+            className="h-6 text-[11px] flex-1"
+          />
+        </div>
+      </div>
+
+      {/* Font Family */}
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Cover Font</Label>
+        <Select value={cp.fontFamily || 'helvetica'} onValueChange={(v) => updateCover({ fontFamily: v })}>
+          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="helvetica">Helvetica (Clean)</SelectItem>
+            <SelectItem value="times">Times (Serif / Classic)</SelectItem>
+            <SelectItem value="courier">Courier (Monospace)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Cover Title */}
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Cover Title</Label>
+        <Input
+          value={cp.title || ''}
+          onChange={(e) => updateCover({ title: e.target.value })}
+          placeholder="Defaults to show name"
+          className="h-8 text-sm"
+        />
+      </div>
+
+      {/* Subtitle */}
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Subtitle</Label>
+        <Input
+          value={cp.subtitle || ''}
+          onChange={(e) => updateCover({ subtitle: e.target.value })}
+          placeholder="e.g., Official Show Schedule"
+          className="h-8 text-sm"
+        />
+      </div>
+
+      {/* Toggles */}
+      <div className="flex items-center justify-between">
+        <Label htmlFor="coverShowDates" className="text-sm">Show dates</Label>
+        <Switch id="coverShowDates" checked={cp.showDates ?? true} onCheckedChange={(v) => updateCover({ showDates: v })} />
+      </div>
+      <div className="flex items-center justify-between">
+        <Label htmlFor="coverShowVenue" className="text-sm">Show venue</Label>
+        <Switch id="coverShowVenue" checked={cp.showVenue ?? true} onCheckedChange={(v) => updateCover({ showVenue: v })} />
+      </div>
+
+      {/* Advertisement / Custom Text */}
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Advertisement / Custom Text</Label>
+        <Textarea
+          value={cp.customText || ''}
+          onChange={(e) => updateCover({ customText: e.target.value })}
+          placeholder="Sponsors, welcome message, etc."
+          className="text-sm min-h-[80px]"
+        />
+      </div>
+
+      {/* Sponsor Logos */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Sponsor Logos</Label>
+        <div className="flex flex-wrap gap-2">
+          {(cp.sponsorLogos || []).map((s) => (
+            <div key={s.id} className="relative group">
+              <img src={s.data} alt={s.name} className="h-10 w-auto object-contain rounded border p-0.5 bg-white" />
+              <button
+                onClick={() => removeSponsor(s.id)}
+                className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <Button variant="outline" size="sm" className="text-xs" onClick={() => sponsorInputRef.current?.click()}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Sponsor Logo
+        </Button>
+        <input ref={sponsorInputRef} type="file" accept="image/*" className="hidden" onChange={handleSponsorUpload} />
+        <p className="text-[10px] text-muted-foreground">Displayed in a row below the custom text</p>
+      </div>
+
+      {/* Colors */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Background Color</Label>
+          <div className="flex items-center gap-2">
+            <input type="color" value={cp.bgColor || '#ffffff'} onChange={(e) => updateCover({ bgColor: e.target.value })} className="w-8 h-8 rounded border cursor-pointer" />
+            <span className="text-xs text-muted-foreground">{cp.bgColor || '#ffffff'}</span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Text Color</Label>
+          <div className="flex items-center gap-2">
+            <input type="color" value={cp.textColor || '#000000'} onChange={(e) => updateCover({ textColor: e.target.value })} className="w-8 h-8 rounded border cursor-pointer" />
+            <span className="text-xs text-muted-foreground">{cp.textColor || '#000000'}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Background Image */}
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Cover Background Image</Label>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="text-xs" onClick={() => bgImageInputRef.current?.click()}>
+            <Image className="h-3.5 w-3.5 mr-1.5" /> Upload Background
+          </Button>
+          <input ref={bgImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleBgImageUpload} />
+          {cp.bgImageData && (
+            <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => updateCover({ bgImageData: '' })}>
+              <X className="h-3.5 w-3.5 mr-1" /> Remove
+            </Button>
+          )}
+        </div>
+        {cp.bgImageData && (
+          <img src={cp.bgImageData} alt="Background preview" className="max-h-[50px] w-full object-cover rounded border opacity-40" />
+        )}
+        <p className="text-[10px] text-muted-foreground">Shown behind the cover text at low opacity</p>
+      </div>
+    </>
+  );
 };
 
 // --- Layout Controls Panel ---
@@ -236,6 +448,22 @@ const LayoutControls = ({ settings, onChange, onExportPdf, onReset, exportDisabl
             </AccordionContent>
           </AccordionItem>
 
+          {/* Cover Page */}
+          <AccordionItem value="coverPage" className="border rounded-lg px-3">
+            <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">
+              <span className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> Cover Page</span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pb-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="coverEnabled" className="text-sm">Include cover page</Label>
+                <Switch id="coverEnabled" checked={settings.coverPage?.enabled || false} onCheckedChange={(v) => update('coverPage', { ...settings.coverPage, enabled: v })} />
+              </div>
+              {settings.coverPage?.enabled && (
+                <CoverPageControls settings={settings} update={update} />
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
           {/* Background */}
           <AccordionItem value="background" className="border rounded-lg px-3">
             <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">
@@ -329,6 +557,66 @@ const ShowBillPreview = ({ showBill, settings, allClassItems, associationsData }
         />
       )}
       <div className="relative">
+      {/* Cover Page Preview */}
+      {settings.coverPage?.enabled && (() => {
+        const cp = settings.coverPage;
+        const coverLogoSrc = cp.logoData || cp.logoUrl || '';
+        const fontMap = { helvetica: 'font-sans', times: 'font-serif', courier: 'font-mono' };
+        const fontClass = fontMap[cp.fontFamily] || 'font-sans';
+        return (
+          <div
+            className={`relative rounded-lg mb-6 p-8 text-center flex flex-col items-center justify-center min-h-[500px] overflow-hidden ${fontClass}`}
+            style={{
+              backgroundColor: cp.bgColor || '#ffffff',
+              color: cp.textColor || '#000000',
+            }}
+          >
+            {/* Background image overlay */}
+            {cp.bgImageData && (
+              <div
+                className="absolute inset-0 bg-cover bg-center pointer-events-none"
+                style={{ backgroundImage: `url(${cp.bgImageData})`, opacity: 0.15 }}
+              />
+            )}
+            <div className="relative z-10 flex flex-col items-center">
+              {coverLogoSrc && (
+                <img
+                  src={coverLogoSrc}
+                  alt="Cover logo"
+                  className="max-w-[200px] max-h-[120px] object-contain mb-6"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              )}
+              <h1 className="text-2xl font-bold mb-2">
+                {cp.title || header.showName || 'Show Bill'}
+              </h1>
+              {cp.subtitle && (
+                <p className="text-lg mb-2">{cp.subtitle}</p>
+              )}
+              {cp.showDates !== false && header.dates && (
+                <p className="text-base mb-1">{header.dates}</p>
+              )}
+              {cp.showVenue !== false && header.venue && (
+                <p className="text-sm mb-4">{header.venue}</p>
+              )}
+              {cp.customText && (
+                <p className="text-sm mt-4 whitespace-pre-line max-w-md">{cp.customText}</p>
+              )}
+              {/* Sponsor Logos Row */}
+              {cp.sponsorLogos?.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-4 mt-6 pt-4 border-t border-current/10">
+                  <span className="text-[10px] uppercase tracking-wider opacity-50 w-full mb-1">Sponsors</span>
+                  {cp.sponsorLogos.map((s) => (
+                    <img key={s.id} src={s.data} alt={s.name} className="h-10 w-auto object-contain" />
+                  ))}
+                </div>
+              )}
+              <div className="mt-6 text-xs opacity-50 italic">— Cover Page —</div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Header */}
       {settings.showHeader && (
         <div className="text-center mb-4">

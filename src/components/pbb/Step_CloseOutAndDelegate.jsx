@@ -24,7 +24,7 @@ const STATUS_CONFIG = {
   'In progress': { label: 'In Progress', color: 'bg-orange-100 text-orange-800 border-orange-300', dotColor: 'bg-orange-500' },
   'Draft':       { label: 'Draft',       color: 'bg-yellow-100 text-yellow-800 border-yellow-300', dotColor: 'bg-yellow-500' },
   'Locked':      { label: 'Locked',      color: 'bg-blue-100 text-blue-800 border-blue-300',      dotColor: 'bg-blue-600' },
-  'Final':       { label: 'Final',       color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-600' },
+  'Final':       { label: 'Published',   color: 'bg-green-100 text-green-800 border-green-300',   dotColor: 'bg-green-600' },
 };
 
 const accessPhases = [
@@ -775,8 +775,8 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly }) =>
       >
         {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
         <div className="text-left">
-          <span className="font-semibold">Finalize Pattern Book</span>
-          <span className="block text-xs text-green-200">Mark as final — ready for export</span>
+          <span className="font-semibold">Publish Pattern Book</span>
+          <span className="block text-xs text-green-200">Mark as published — ready for export</span>
         </div>
       </Button>
 
@@ -1342,7 +1342,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         </ReviewItem>
 
                         <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel">
-                            <p><strong>Judges:</strong> {Object.values(formData.associationJudges || {}).reduce((sum, a) => sum + (a.judges || []).filter(j => j.name).length, 0)} added</p>
+                            <p><strong>Judges:</strong> {(() => { const names = new Set(); Object.values(formData.associationJudges || {}).forEach(a => (a.judges || []).forEach(j => { if (j.name) names.add(j.name.trim()); })); Object.values(formData.patternSelections || {}).forEach(d => { if (d && typeof d === 'object') Object.values(d).forEach(s => { if (s?.type === 'judgeAssigned' && s?.judgeName?.trim()) names.add(s.judgeName.trim()); }); }); return names.size; })()} added</p>
                             <p><strong>Officials:</strong> {(formData.officials || []).filter(o => o.name).length} added</p>
                         </ReviewItem>
 

@@ -276,19 +276,20 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
         const judgesList = [];
         
         // Get judges from associationJudges
+        const seenJudgeNames = new Set();
         Object.entries(formData.associationJudges || {}).forEach(([assocId, assocData]) => {
             (assocData.judges || []).forEach((judge, index) => {
                 if (judge && judge.name) {
                     const judgeId = `judge-${assocId}-${index}`;
                     const judgeDelegation = delegations[judgeId] || {};
                     const accessPhase = judgeDelegation.accessPhase || [];
-                    
+
                     // Determine status from accessPhase
                     let status = 'Pending';
                     if (accessPhase.includes('publication')) status = 'Published';
                     else if (accessPhase.includes('approval') || accessPhase.includes('locked')) status = 'Approval and Locked';
                     else if (accessPhase.includes('draft')) status = 'Review';
-                    
+
                     judgesList.push({
                         id: judgeId,
                         name: judge.name,
@@ -298,10 +299,34 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                         status: status,
                         updatedAt: project.updated_at
                     });
+                    seenJudgeNames.add(judge.name.trim().toLowerCase());
                 }
             });
         });
-        
+
+        // Get judges from patternSelections (assigned at discipline level in Step 5)
+        Object.entries(formData.patternSelections || {}).forEach(([discId, disciplineSels]) => {
+            if (disciplineSels && typeof disciplineSels === 'object') {
+                Object.values(disciplineSels).forEach(sel => {
+                    if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
+                        const name = sel.judgeName.trim();
+                        if (!seenJudgeNames.has(name.toLowerCase())) {
+                            seenJudgeNames.add(name.toLowerCase());
+                            judgesList.push({
+                                id: `judge-pattern-${discId}`,
+                                name: name,
+                                email: '',
+                                role: 'Judge',
+                                delegation: {},
+                                status: 'Assigned',
+                                updatedAt: project.updated_at
+                            });
+                        }
+                    }
+                });
+            }
+        });
+
         return judgesList;
     };
     
@@ -1666,12 +1691,23 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
         const admin = projectData.secondAdmin || projectData.officials?.find(o => o.role === 'admin')?.name || 'Not set';
         
-        // Count judges from associationJudges
-        let judgesCount = 0;
+        // Count judges from associationJudges + patternSelections (Step 5 judge assignments)
+        const judgeNames = new Set();
         Object.values(projectData.associationJudges || {}).forEach(assocData => {
             const judges = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
-            judgesCount += Array.isArray(judges) ? judges.length : 0;
+            if (Array.isArray(judges)) judges.forEach(j => { if (j?.name) judgeNames.add(j.name.trim()); });
         });
+        // From patternSelections (judges assigned at discipline level in Step 5)
+        Object.values(projectData.patternSelections || {}).forEach(disciplineSels => {
+            if (disciplineSels && typeof disciplineSels === 'object') {
+                Object.values(disciplineSels).forEach(sel => {
+                    if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
+                        judgeNames.add(sel.judgeName.trim());
+                    }
+                });
+            }
+        });
+        const judgesCount = judgeNames.size;
         
         // Count staff from officials (excluding judges)
         const officials = projectData.officials || [];
@@ -1954,7 +1990,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                                             <Lock className="h-3.5 w-3.5 text-white" />
                                         )}
                                         <SelectValue>
-                                            {displayStatus === 'Lock & Approve Mode' ? 'Apprvd & Locked' : displayStatus}
+                                            {displayStatus === 'Lock & Approve Mode' ? 'Apprvd & Locked' : displayStatus === 'Publication' ? 'Published' : displayStatus}
                                         </SelectValue>
                                     </div>
                                 </SelectTrigger>
@@ -1977,7 +2013,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                                         value="Publication"
                                         className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                     >
-                                        Publication
+                                        Published
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
@@ -3256,7 +3292,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return [...dates].sort();
     }, [projectData]);
 
-    // Get unique judges from patterns and project data (associationJudges, officials, groupJudges)
+    // Get unique judges from patterns and project data (associationJudges, officials, groupJudges, patternSelections)
     const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
     const allJudgesFromProjectData = useMemo(() => {
         const judges = new Set();
@@ -3279,6 +3315,16 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 });
             } else if (Array.isArray(disciplineGroups)) {
                 disciplineGroups.forEach(j => { if (typeof j === 'string' && j.trim()) judges.add(j.trim()); });
+            }
+        });
+        // From patternSelections (judges assigned at discipline/group level in Step 5)
+        Object.values(projectData.patternSelections || {}).forEach(disciplineSels => {
+            if (disciplineSels && typeof disciplineSels === 'object') {
+                Object.values(disciplineSels).forEach(sel => {
+                    if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
+                        judges.add(sel.judgeName.trim());
+                    }
+                });
             }
         });
         return [...judges];
@@ -4230,8 +4276,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
 
             // For each discipline, look up the base scoresheet image and cross-product
             for (const discipline of selectedDisciplines) {
-                const hasScoresheet = discipline.scoresheet || discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
-                if (!hasScoresheet) continue;
+                // Check if discipline explicitly has scoresheet flag, OR if it has pattern selections
+                // (pattern disciplines may have linked scoresheets in tbl_scoresheet via pattern_id)
+                const hasExplicitScoresheet = discipline.scoresheet || discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
+                const hasPatternSelections = !!(patternSelections[discipline.id] || patternSelections[disciplines.indexOf(discipline)]);
+                if (!hasExplicitScoresheet && !hasPatternSelections) continue;
 
                 const disciplineName = (discipline.name || 'Unknown Discipline').trim();
                 const associationId = discipline.association_id ||
@@ -4358,9 +4407,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                 }
 
-                // Cross-product: division x judge
+                // Cross-product: division x judge (use [''] if no judges so scoresheets still generate)
+                const judgesList = selectedJudgesList.length > 0 ? selectedJudgesList : [''];
                 for (const divisionName of matchingDivisions) {
-                    for (const judgeName of selectedJudgesList) {
+                    for (const judgeName of judgesList) {
                         const uniqueKey = `${disciplineName}-${divisionName}-${judgeName}`;
                         result.push({
                             ...(baseScoresheetData || {}),
@@ -5094,7 +5144,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         <Lock className="h-3.5 w-3.5 text-white" />
                                     )}
                                     <SelectValue>
-                                        {displayStatus === 'Lock & Approve Mode' ? 'Apprvd & Locked' : displayStatus}
+                                        {displayStatus === 'Lock & Approve Mode' ? 'Apprvd & Locked' : displayStatus === 'Publication' ? 'Published' : displayStatus}
                                     </SelectValue>
                                 </div>
                             </SelectTrigger>
@@ -5123,7 +5173,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 value="Publication"
                                                 className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                             >
-                                                Publication
+                                                Published
                                             </SelectItem>
                                         </>
                                     );
@@ -7853,13 +7903,14 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
                                         ? 'text-green-500'
                                         : 'text-foreground'
                                 }`}>
-                                    {(project.status || '').toString().toLowerCase() === 'in progress'
-                                        ? 'In progress'
-                                        : project.status === 'Draft'
-                                            ? 'Draft'
-                                            : project.status === 'Lock & Approve Mode'
-                                                ? 'Lock & Approve Mode'
-                                                : project.status || 'Draft'}
+                                    {(() => {
+                                        const s = (project.status || 'Draft').toString().toLowerCase();
+                                        if (s === 'in progress') return 'In Progress';
+                                        if (s === 'draft') return 'Draft';
+                                        if (s === 'locked' || s === 'lock & approve mode') return 'Apprvd & Locked';
+                                        if (s === 'final' || s === 'publication' || s === 'published') return 'Published';
+                                        return project.status || 'Draft';
+                                    })()}
                                 </span>
                             </p>
                         )}
