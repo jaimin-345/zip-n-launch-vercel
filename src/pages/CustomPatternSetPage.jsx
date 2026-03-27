@@ -42,7 +42,7 @@ const CustomPatternSetPage = () => {
       const { data, error } = await supabase
         .from('patterns')
         .select(`
-          *,
+          *, approved_associations,
           pattern_associations ( association_id, difficulty ),
           pattern_divisions ( association_id, division_level )
         `)
@@ -79,7 +79,10 @@ const CustomPatternSetPage = () => {
   const getAssociationName = (id) => associationsData.find(a => a.id === id)?.name || id;
 
   const PatternCard = ({ pattern }) => {
-    const uniqueAssociations = [...new Set(pattern.pattern_associations.map(pa => pa.association_id))];
+    // Use approved_associations if set by admin, otherwise fall back to submitted pattern_associations
+    const uniqueAssociations = (pattern.approved_associations && pattern.approved_associations.length > 0)
+      ? pattern.approved_associations
+      : [...new Set(pattern.pattern_associations.map(pa => pa.association_id))];
     
     return (
       <Card className="overflow-hidden transition-all hover:shadow-lg">
@@ -96,9 +99,9 @@ const CustomPatternSetPage = () => {
         </CardHeader>
         <CardContent>
           <div className="aspect-w-16 aspect-h-9 mb-4 bg-muted rounded-md flex items-center justify-center">
-            <img-replace src={pattern.preview_image_url || 'https://placehold.co/600x400?text=Pattern'} alt={pattern.name} className="object-cover w-full h-full" />
+            <img-replace src={pattern.preview_image_url || 'https://placehold.co/600x400?text=Pattern'} alt={pattern.display_name || pattern.name} className="object-cover w-full h-full" />
           </div>
-          <p className="font-semibold text-sm truncate mb-2">{pattern.name}</p>
+          <p className="font-semibold text-sm truncate mb-2">{pattern.display_name || pattern.name}</p>
           <div className="space-y-1 text-xs text-muted-foreground">
             <p><strong>Associations:</strong> {uniqueAssociations.map(getAssociationName).join(', ')}</p>
           </div>

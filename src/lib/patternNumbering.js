@@ -19,7 +19,20 @@ const DISCIPLINE_PREFIXES = {
   'ranch reining': 'RRN',
   'versatility ranch horse': 'VRH',
   'ranch versatility': 'RV',
+  'hunt seat equitation': 'HSE',
+  'hunter hack': 'HH',
+  'hunt seat': 'HS',
 };
+
+// Valid pattern levels
+export const PATTERN_LEVELS = [
+  'Beginner',
+  'Intermediate',
+  'Advanced',
+  'L1 / Novice',
+  'Walk Trot',
+  'Championship',
+];
 
 /**
  * Get the discipline prefix for a given discipline name.
@@ -35,6 +48,107 @@ export function getDisciplinePrefix(discipline) {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
   return discipline.substring(0, 2).toUpperCase();
+}
+
+/**
+ * Get the next discipline sequence number by querying existing patterns.
+ * Returns the next available number for the given discipline.
+ */
+export async function getNextDisciplineSequenceNumber(discipline) {
+  if (!discipline) return 1;
+  const normalizedDiscipline = discipline.trim();
+
+  const { data, error } = await supabase
+    .from('patterns')
+    .select('discipline_sequence_number')
+    .ilike('class_name', `%${normalizedDiscipline}%`)
+    .not('discipline_sequence_number', 'is', null)
+    .order('discipline_sequence_number', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching sequence number:', error);
+    return 1;
+  }
+  if (!data || data.length === 0) return 1;
+  return (data[0].discipline_sequence_number || 0) + 1;
+}
+
+/**
+ * Generate the auto display name for a pattern.
+ * Format: "[Discipline] Pattern [Number]"
+ * e.g., "Trail Pattern 1", "Hunter Hack Pattern 2"
+ */
+export function generateDisplayName(discipline, sequenceNumber) {
+  if (!discipline) return `Pattern ${sequenceNumber || 1}`;
+  // Title-case the discipline name
+  const titleCased = discipline
+    .trim()
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+  return `${titleCased} Pattern ${sequenceNumber || 1}`;
+}
+
+/**
+ * Generate the internal pattern identifier.
+ * Format: "Discipline-Level-Number" (e.g., "Trail-Intermediate-3")
+ * If no level, format: "Discipline-Number" (e.g., "Trail-3")
+ */
+export function generatePatternIdentifier(discipline, level, sequenceNumber) {
+  if (!discipline) return `Unknown-${sequenceNumber || 1}`;
+  const slug = discipline
+    .trim()
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join('');
+  if (level) {
+    const levelSlug = level.replace(/[\s\/]+/g, '');
+    return `${slug}-${levelSlug}-${sequenceNumber || 1}`;
+  }
+  return `${slug}-${sequenceNumber || 1}`;
+}
+
+/**
+ * Assign display name and sequence number to a pattern during submission.
+ * This fetches the next sequence number, generates the display name and identifier,
+ * and updates the pattern record in the database.
+ * Once assigned, the sequence number should NEVER change.
+ */
+export async function assignPatternDisplayName(patternId, discipline, level) {
+  const seqNum = await getNextDisciplineSequenceNumber(discipline);
+  const displayName = generateDisplayName(discipline, seqNum);
+  const identifier = generatePatternIdentifier(discipline, level, seqNum);
+
+  const { error } = await supabase
+    .from('patterns')
+    .update({
+      display_name: displayName,
+      discipline_sequence_number: seqNum,
+      pattern_identifier: identifier,
+    })
+    .eq('id', patternId);
+
+  return { error, displayName, sequenceNumber: seqNum, identifier };
+}
+
+/**
+ * Update the pattern identifier when level or discipline changes.
+ * Does NOT change the sequence number (it's persistent).
+ */
+export async function updatePatternIdentifier(patternId, discipline, level, existingSequenceNumber) {
+  const identifier = generatePatternIdentifier(discipline, level, existingSequenceNumber);
+  const displayName = generateDisplayName(discipline, existingSequenceNumber);
+
+  const { error } = await supabase
+    .from('patterns')
+    .update({
+      display_name: displayName,
+      pattern_identifier: identifier,
+    })
+    .eq('id', patternId);
+
+  return { error, displayName, identifier };
 }
 
 /**
@@ -84,6 +198,14 @@ export async function assignPatternNumber(patternId, patternNumber) {
     .eq('id', patternId);
 
   return { error };
+}
+
+/**
+ * Get the public-facing name for a pattern.
+ * Prefers display_name, falls back to name.
+ */
+export function getPatternPublicName(pattern) {
+  return pattern?.display_name || pattern?.name || 'Unnamed Pattern';
 }
 
 export { DISCIPLINE_PREFIXES };

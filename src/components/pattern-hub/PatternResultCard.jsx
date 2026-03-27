@@ -44,7 +44,7 @@ export const PatternResultCard = ({ item }) => {
         };
     }, [item?.id, trackPatternEvent]);
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (!item.file_url && !item.pdf_url) {
             toast({
                 title: "Download Not Available",
@@ -68,7 +68,23 @@ export const PatternResultCard = ({ item }) => {
             timeSpent: timeSpent,
         });
         
-        window.open(item.file_url || item.pdf_url, '_blank');
+        // Use blob download to force file save instead of opening in browser
+        const url = item.file_url || item.pdf_url;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Download failed');
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = item.display_name || item.name || 'pattern.pdf';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            window.open(url, '_blank');
+        }
     };
 
     const handleAddToCart = () => {
@@ -83,7 +99,7 @@ export const PatternResultCard = ({ item }) => {
             <CardHeader>
                 <div className="aspect-[4/3] bg-background rounded-lg mb-4 flex items-center justify-center pattern-grid overflow-hidden relative">
                     {item.preview_image_url ? (
-                        <img-replace src={item.preview_image_url} alt={item.name} className="w-full h-full object-contain rounded-lg p-2 opacity-90 group-hover:scale-105 transition-transform duration-300" />
+                        <img-replace src={item.preview_image_url} alt={item.display_name || item.name} className="w-full h-full object-contain rounded-lg p-2 opacity-90 group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                         <div className="text-muted-foreground/50">No Preview</div>
                     )}
@@ -92,7 +108,7 @@ export const PatternResultCard = ({ item }) => {
                         {item.type}
                     </Badge>
                 </div>
-                <CardTitle className="text-base font-bold group-hover:text-primary transition-colors">{item.name}</CardTitle>
+                <CardTitle className="text-base font-bold group-hover:text-primary transition-colors">{item.display_name || item.name}</CardTitle>
                 <CardDescription className="text-xs">{item.class_name || item.class}</CardDescription>
             </CardHeader>
             <CardContent className="flex-grow">

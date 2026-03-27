@@ -2523,50 +2523,74 @@ export type Database = {
         Row: {
           class_name: string
           created_at: string | null
+          discipline_sequence_number: number | null
+          display_name: string | null
           file_path: string | null
           file_url: string | null
           hierarchy_order: number | null
           id: string
           is_custom: boolean | null
+          level: string | null
           name: string
+          original_file_name: string | null
+          pattern_identifier: string | null
           pattern_set_name: string | null
           preview_image_url: string | null
           project_id: string | null
           review_status: string | null
+          scoresheet_id: number | null
           updated_at: string | null
           user_id: string
+          verbiage: string | null
+          approved_package: Json | null
         }
         Insert: {
           class_name: string
           created_at?: string | null
+          discipline_sequence_number?: number | null
+          display_name?: string | null
           file_path?: string | null
           file_url?: string | null
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
+          level?: string | null
           name: string
+          original_file_name?: string | null
+          pattern_identifier?: string | null
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
           review_status?: string | null
+          scoresheet_id?: number | null
           updated_at?: string | null
           user_id: string
+          verbiage?: string | null
+          approved_package?: Json | null
         }
         Update: {
           class_name?: string
           created_at?: string | null
+          discipline_sequence_number?: number | null
+          display_name?: string | null
           file_path?: string | null
           file_url?: string | null
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
+          level?: string | null
           name?: string
+          original_file_name?: string | null
+          pattern_identifier?: string | null
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
           review_status?: string | null
+          scoresheet_id?: number | null
           updated_at?: string | null
           user_id?: string
+          verbiage?: string | null
+          approved_package?: Json | null
         }
         Relationships: [
           {

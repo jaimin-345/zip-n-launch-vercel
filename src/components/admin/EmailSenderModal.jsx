@@ -8,19 +8,17 @@ import React, { useState, useEffect } from 'react';
     import { supabase } from '@/lib/supabaseClient';
     import { Loader2, Send, Paperclip } from 'lucide-react';
 
-    const defaultSubject = (setName) => `Information Regarding Your Pattern Set: ${setName}`;
-    const defaultBody = (setName, userName, eventLink, showBookLink) => `Hello ${userName || 'Contributor'},
+    const defaultSubject = (setName) => `Regarding Your Pattern Set: ${setName}`;
+    const defaultBody = (setName, userName) => `Hello ${userName || 'Contributor'},
 
-    Thank you for your submission of the pattern set "${setName}".
+Thank you for your submission of the pattern set "${setName}".
 
-    Here are some details regarding the upcoming event:
-    Event Page Link: ${eventLink}
-    Show Book Link: ${showBookLink}
+The patterns you submitted are attached to this email for your reference.
 
-    The patterns you submitted are attached to this email for your reference.
+[Add your message here]
 
-    Best regards,
-    The EquiPatterns Team`;
+Best regards,
+The EquiPatterns Team`;
 
     export const EmailSenderModal = ({ isOpen, onClose, patternSet }) => {
         const { toast } = useToast();
@@ -28,22 +26,12 @@ import React, { useState, useEffect } from 'react';
         const [subject, setSubject] = useState('');
         const [body, setBody] = useState('');
         const [isSending, setIsSending] = useState(false);
-        const [eventLink, setEventLink] = useState('');
-        const [showBookLink, setShowBookLink] = useState('');
 
         useEffect(() => {
             if (patternSet) {
-                const projectId = patternSet.patterns[0]?.project_id;
-                const baseUrl = window.location.origin;
-                const generatedEventLink = projectId ? `${baseUrl}/show/${projectId}` : '[INSERT EVENT PAGE LINK HERE]';
-                const generatedShowBookLink = '[INSERT SHOW BOOK LINK HERE]'; // Placeholder for now
-
-                setEventLink(generatedEventLink);
-                setShowBookLink(generatedShowBookLink);
-
                 setTo(patternSet.user?.email || '');
                 setSubject(defaultSubject(patternSet.setName));
-                setBody(defaultBody(patternSet.setName, patternSet.user?.full_name, generatedEventLink, generatedShowBookLink));
+                setBody(defaultBody(patternSet.setName, patternSet.user?.full_name));
             }
         }, [patternSet]);
 

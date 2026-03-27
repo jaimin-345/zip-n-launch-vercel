@@ -332,22 +332,30 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
         try {
             const patternPromises = allGroupKeys.map(async groupInfo => {
                 const assocKeys = Object.keys(groupInfo.selectedAssociations);
-                
+
                 let query = supabase
                     .from('patterns')
-                    .select('id, name, difficulty:pattern_set_name, url:preview_image_url, pattern_associations!inner(association_id)')
+                    .select('id, name, display_name, difficulty:pattern_set_name, url:preview_image_url, approved_associations, pattern_associations(association_id), level, pattern_identifier')
                     .eq('review_status', 'approved')
-                    .or(`class_name.eq.${groupInfo.disciplineName},class_name.eq.All`)
-                    .in('pattern_associations.association_id', assocKeys);
-                
+                    .or(`class_name.eq.${groupInfo.disciplineName},class_name.eq.All`);
+
                 const { data, error } = await query;
-                
+
                 if (error) {
                     console.error('Error fetching patterns for', groupInfo.key, error);
                     return { key: groupInfo.key, patterns: [] };
                 }
 
-                return { key: groupInfo.key, patterns: data || [] };
+                // Filter by associations: use approved_associations if set, otherwise fall back to pattern_associations
+                const filtered = (data || []).filter(pattern => {
+                    if (pattern.approved_associations && pattern.approved_associations.length > 0) {
+                        return assocKeys.some(key => pattern.approved_associations.includes(key));
+                    }
+                    const submittedAssocs = (pattern.pattern_associations || []).map(pa => pa.association_id);
+                    return assocKeys.some(key => submittedAssocs.includes(key));
+                });
+
+                return { key: groupInfo.key, patterns: filtered };
             });
 
             const results = await Promise.all(patternPromises);

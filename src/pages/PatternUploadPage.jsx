@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
 import AccessoryDocumentUploader from '@/components/pattern-upload/AccessoryDocumentUploader';
+import { assignPatternDisplayName } from '@/lib/patternNumbering';
 
 const PatternUploadPage = () => {
     const { toast } = useToast();
@@ -164,6 +165,7 @@ const PatternUploadPage = () => {
 
             const dbPatterns = uploadedPatternsData.map(p => ({
                 name: p.name,
+                original_file_name: p.name, // Preserve original filename for admin reference
                 file_url: p.file_url,
                 file_path: p.file_path,
                 user_id: p.user_id,
@@ -180,6 +182,20 @@ const PatternUploadPage = () => {
                 .select();
 
             if (dbError) throw new Error(`Database error: ${dbError.message}`);
+
+            // Assign auto-generated display names (e.g., "Trail Pattern 1")
+            // Numbers are assigned now and persist forever, even if rejected/resubmitted
+            for (const dbPattern of insertedPatterns) {
+                try {
+                  const discipline = dbPattern.class_name || finalClassType || 'Unknown';
+                  const result = await assignPatternDisplayName(dbPattern.id, discipline, null);
+                  if (result.error) {
+                    console.error('Failed to assign display name:', result.error);
+                  }
+                } catch (e) {
+                  console.error('Failed to assign display name for pattern:', dbPattern.id, e);
+                }
+            }
 
             const originalIdToDbIdMap = insertedPatterns.reduce((acc, dbPattern) => {
                 const originalPattern = uploadedPatternsData.find(p => p.file_path === dbPattern.file_path);

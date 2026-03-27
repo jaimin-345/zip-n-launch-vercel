@@ -39,15 +39,23 @@ const PatternPreviewModal = ({ isOpen, onClose, pattern }) => {
     }
   }, [isOpen, displayUrl]);
 
-  const handleDownload = () => {
-    if (displayUrl) {
+  const handleDownload = async () => {
+    if (!displayUrl) return;
+    try {
+      const response = await fetch(displayUrl);
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = displayUrl;
+      link.href = url;
       link.download = pattern?.name || 'pattern.pdf';
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback: open in new tab
+      window.open(displayUrl, '_blank');
     }
   };
 
@@ -55,7 +63,7 @@ const PatternPreviewModal = ({ isOpen, onClose, pattern }) => {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="flex-shrink-0 p-4 border-b flex flex-row items-center justify-between">
-          <DialogTitle>{pattern?.name || 'Pattern Preview'}</DialogTitle>
+          <DialogTitle>{pattern?.display_name || pattern?.name || 'Pattern Preview'}</DialogTitle>
           <div className="flex items-center gap-2">
             {displayUrl && (
               <Button variant="outline" size="sm" onClick={handleDownload}>

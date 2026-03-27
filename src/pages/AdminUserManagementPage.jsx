@@ -72,20 +72,23 @@ const AdminUserManagementPage = () => {
 
       if (profilesError) throw profilesError;
 
-      const { data: customersData, error: customersError } = await supabase
-        .from('customers')
-        .select('user_id, email, created_at');
+      // Get emails from auth.users via RPC, fallback to customers table
+      const profileIds = profilesData.map(p => p.id);
+      const [authResult, customersResult] = await Promise.all([
+        supabase.rpc('get_auth_user_emails', { user_ids: profileIds }),
+        supabase.from('customers').select('user_id, email, created_at').in('user_id', profileIds),
+      ]);
 
-      if (customersError) throw customersError;
-
-      const customersMap = new Map(customersData.map(c => [c.user_id, c]));
+      const authMap = new Map((authResult.data || []).map(u => [u.id, u]));
+      const customersMap = new Map((customersResult.data || []).map(c => [c.user_id, c]));
 
       const combinedUsers = profilesData.map(profile => {
+        const authUser = authMap.get(profile.id);
         const customer = customersMap.get(profile.id);
         return {
           ...profile,
-          email: customer?.email || 'N/A',
-          created_at: customer?.created_at
+          email: authUser?.email || customer?.email || 'N/A',
+          created_at: authUser?.created_at || customer?.created_at,
         };
       });
 
