@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Loader2, Eye, Trash2, PlusCircle, Pen, Image as ImageIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import Navigation from '@/components/Navigation';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -497,19 +498,16 @@ const ScoresheetUploadPage = () => {
                 <Navigation />
                 <main className="flex-grow p-4 sm:p-6 lg:p-8">
                     <div className="max-w-7xl mx-auto">
-                        <header className="flex flex-col sm:flex-row items-center justify-between mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                                    Scoresheet Upload
-                                </h1>
-                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                                    Upload scoresheet images and associate them with patterns
-                                </p>
+                        <div className="flex items-center justify-between mb-4">
+                            <AdminBackButton />
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl md:text-3xl font-bold">Scoresheet Upload</h1>
+                                <p className="text-sm text-muted-foreground">Upload scoresheet images and associate them with patterns.</p>
                             </div>
                             <Button onClick={() => { resetForm(); setIsFormOpen(true); }}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Scoresheet
                             </Button>
-                        </header>
+                        </div>
 
                         <Card>
                             <CardHeader><CardTitle>Existing Scoresheets ({filteredScoresheets.length})</CardTitle></CardHeader>
@@ -565,7 +563,6 @@ const ScoresheetUploadPage = () => {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Pattern</TableHead>
                                                     <TableHead>Association</TableHead>
                                                     <TableHead>Discipline</TableHead>
                                                     <TableHead>Actions</TableHead>
@@ -576,7 +573,6 @@ const ScoresheetUploadPage = () => {
                                                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                                     .map(s => (
                                                     <TableRow key={s.id}>
-                                                        <TableCell>{s.pattern?.pdf_file_name || 'N/A'}</TableCell>
                                                         <TableCell>
                                                             {(() => {
                                                                 const abbrev = s.association_abbrev || s.pattern?.association_name;

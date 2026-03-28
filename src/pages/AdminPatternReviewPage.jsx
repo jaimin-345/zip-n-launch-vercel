@@ -306,7 +306,7 @@ const AdminPatternReviewPage = () => {
     };
   };
 
-  const executeReview = async (patternIds, newStatus, discipline, setName, userId) => {
+  const executeReview = async (patternIds, newStatus, discipline, setName, userId, rejectionReason = null) => {
     const now = new Date().toISOString();
     const updateData = {
       review_status: newStatus,
@@ -321,6 +321,9 @@ const AdminPatternReviewPage = () => {
     if (newStatus === 'rejected') {
       updateData.rejected_at = now;
       updateData.approved_at = null; // Clear approval on reject
+      if (rejectionReason) {
+        updateData.rejection_reason = rejectionReason;
+      }
     }
 
     const { error } = await supabase
@@ -376,7 +379,7 @@ const AdminPatternReviewPage = () => {
       pattern_set_name: setName || 'Unknown',
       user_id: userId || patternIds[0],
       action: newStatus,
-      changes: { status: newStatus, pattern_count: patternIds.length },
+      changes: { status: newStatus, pattern_count: patternIds.length, ...(rejectionReason ? { rejection_reason: rejectionReason } : {}) },
       admin_id: user?.id || null,
       admin_email: user?.email || null,
     });
@@ -395,7 +398,7 @@ const AdminPatternReviewPage = () => {
       isOpen: true,
       patternSet: set,
       reviewType: newStatus,
-      onConfirm: () => executeReview(patternIds, newStatus, set.className, set.setName, set.patterns[0]?.user_id),
+      onConfirm: (rejectionReason) => executeReview(patternIds, newStatus, set.className, set.setName, set.patterns[0]?.user_id, rejectionReason),
     });
   };
 
@@ -998,17 +1001,18 @@ const AdminPatternReviewPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-12">
+        <main className="container mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <div className="mb-6">
+            <div className="flex items-start justify-between mb-4">
               <AdminBackButton />
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Pattern Review Queue</h1>
+                <p className="text-sm text-muted-foreground">
+                  Approve, reject, or delete pattern submissions from the community.
+                </p>
+              </div>
+              <div className="w-[70px]" />
             </div>
-            <CardHeader className="text-center px-0 mb-8">
-              <CardTitle className="text-4xl md:text-5xl font-bold">Pattern Review Queue</CardTitle>
-              <CardDescription className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Approve, reject, or delete pattern submissions from the community.
-              </CardDescription>
-            </CardHeader>
 
             {isLoading ? (
               <div className="flex justify-center items-center py-20">

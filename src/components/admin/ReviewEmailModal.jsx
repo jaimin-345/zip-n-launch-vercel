@@ -28,7 +28,7 @@ The EquiPatterns Team`;
 const rejectionSubject = (setName) =>
   `Your Pattern Set "${setName}" Requires Changes`;
 
-const rejectionBody = (setName, userName, patternNames) =>
+const rejectionBody = (setName, userName, patternNames, reason) =>
   `Hello ${userName || 'Contributor'},
 
 Thank you for submitting the pattern set "${setName}". After reviewing your submission, we are unable to approve it in its current form.
@@ -39,7 +39,7 @@ ${patternNames.map(n => `  - ${n}`).join('\n')}
 Please review the notes below and resubmit with the necessary corrections.
 
 Admin Notes:
-[Please add specific feedback here — what needs to be fixed or changed]
+${reason || '[Please add specific feedback here — what needs to be fixed or changed]'}
 
 If you have any questions, please reply to this email or contact us through the platform.
 
@@ -51,6 +51,7 @@ export const ReviewEmailModal = ({ isOpen, onClose, patternSet, reviewType, onCo
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
   const [isSending, setIsSending] = useState(false);
 
   const isApproval = reviewType === 'approved';
@@ -61,17 +62,31 @@ export const ReviewEmailModal = ({ isOpen, onClose, patternSet, reviewType, onCo
       const userName = patternSet.user?.full_name || patternSet.user?.email || 'Contributor';
 
       setTo(patternSet.user?.email || '');
+      setRejectionReason('');
       if (isApproval) {
         setSubject(approvalSubject(patternSet.setName));
         setBody(approvalBody(patternSet.setName, userName, patternNames));
       } else {
         setSubject(rejectionSubject(patternSet.setName));
-        setBody(rejectionBody(patternSet.setName, userName, patternNames));
+        setBody(rejectionBody(patternSet.setName, userName, patternNames, ''));
       }
     }
   }, [patternSet, isOpen, isApproval]);
 
+  // Auto-update email body when rejection reason changes
+  useEffect(() => {
+    if (!isApproval && patternSet && isOpen) {
+      const patternNames = patternSet.patterns.map(p => p.name);
+      const userName = patternSet.user?.full_name || patternSet.user?.email || 'Contributor';
+      setBody(rejectionBody(patternSet.setName, userName, patternNames, rejectionReason));
+    }
+  }, [rejectionReason]);
+
   const handleSendAndConfirm = async () => {
+    if (!isApproval && !rejectionReason.trim()) {
+      toast({ title: 'Rejection reason required', description: 'Please provide a reason so the contributor knows what to fix.', variant: 'destructive' });
+      return;
+    }
     setIsSending(true);
 
     // Send the email if recipient is provided
@@ -106,9 +121,9 @@ export const ReviewEmailModal = ({ isOpen, onClose, patternSet, reviewType, onCo
       }
     }
 
-    // Proceed with the approve/reject action
+    // Proceed with the approve/reject action, passing rejection reason if rejecting
     if (onConfirm) {
-      await onConfirm();
+      await onConfirm(!isApproval ? rejectionReason : null);
     }
 
     setIsSending(false);
@@ -116,9 +131,13 @@ export const ReviewEmailModal = ({ isOpen, onClose, patternSet, reviewType, onCo
   };
 
   const handleSkipEmail = async () => {
+    if (!isApproval && !rejectionReason.trim()) {
+      toast({ title: 'Rejection reason required', description: 'Please provide a reason so the contributor knows what to fix.', variant: 'destructive' });
+      return;
+    }
     setIsSending(true);
     if (onConfirm) {
-      await onConfirm();
+      await onConfirm(!isApproval ? rejectionReason : null);
     }
     setIsSending(false);
     onClose();
@@ -157,6 +176,20 @@ export const ReviewEmailModal = ({ isOpen, onClose, patternSet, reviewType, onCo
               <span className="text-xs text-muted-foreground">({patternSet.patterns.length} pattern{patternSet.patterns.length !== 1 ? 's' : ''})</span>
             </div>
           </div>
+
+          {!isApproval && (
+            <div className="space-y-1.5">
+              <Label htmlFor="rejection-reason" className="text-red-700 font-semibold">Rejection Reason (visible to contributor) *</Label>
+              <Textarea
+                id="rejection-reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Explain why this pattern set is being rejected and what the contributor should fix..."
+                rows={3}
+                className="border-red-300 focus:border-red-500"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="review-to">To</Label>

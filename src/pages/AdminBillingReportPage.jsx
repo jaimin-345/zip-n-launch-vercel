@@ -189,7 +189,7 @@ export default function AdminBillingReportPage() {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -197,15 +197,15 @@ export default function AdminBillingReportPage() {
             className="space-y-6"
           >
             {/* Page Header */}
-            <div>
-              <AdminBackButton className="mb-4" />
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Receipt className="h-8 w-8" />
-                Billing & Revenue Report
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                View all subscriptions, purchases, and revenue across the platform.
-              </p>
+            <div className="flex items-start justify-between">
+              <AdminBackButton />
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Billing & Revenue Report</h1>
+                <p className="text-sm text-muted-foreground">
+                  View all subscriptions, purchases, and revenue across the platform.
+                </p>
+              </div>
+              <div className="w-[70px]" />
             </div>
 
             {/* Summary Cards */}

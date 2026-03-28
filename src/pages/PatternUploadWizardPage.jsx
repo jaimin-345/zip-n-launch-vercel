@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ArrowLeft, FileText, ListChecks, Upload, PenTool, Package, ShieldCheck, Save, Loader2, CheckCircle, LogOut, Send } from 'lucide-react';
+import { ArrowRight, ArrowLeft, FileText, ListChecks, Upload, PenTool, Package, ShieldCheck, Save, Loader2, CheckCircle, LogOut, Send, MessageCircle } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -277,12 +277,27 @@ const PatternUploadWizardPage = () => {
           >
             <Upload className="mx-auto h-12 w-12 text-primary mb-2" />
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
-              Upload Patterns
+              {formData.resubmitPatternId ? 'Edit & Resubmit Pattern' : 'Upload Patterns'}
             </h1>
             <p className="mt-2 max-w-2xl mx-auto text-base text-muted-foreground">
-              Share your expertise through our guided pattern upload wizard.
+              {formData.resubmitPatternId
+                ? 'Update your pattern based on the admin feedback and resubmit for review.'
+                : 'Share your expertise through our guided pattern upload wizard.'}
             </p>
           </motion.div>
+
+          {/* Rejection reason banner for resubmissions */}
+          {formData.rejectionReason && (
+            <div className="max-w-7xl mx-auto mb-4 p-4 bg-red-50 border border-red-300 rounded-lg">
+              <div className="flex items-start gap-3">
+                <MessageCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-red-800 text-sm">Admin Feedback — Why This Was Rejected</h3>
+                  <p className="text-red-700 text-sm mt-1 whitespace-pre-line">{formData.rejectionReason}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="max-w-7xl mx-auto">
             <BuilderSteps

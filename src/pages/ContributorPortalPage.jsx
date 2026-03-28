@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, UploadCloud, BarChart2, PlusCircle, AlertCircle, LogIn, DollarSign, Share2, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Loader2, UploadCloud, BarChart2, PlusCircle, AlertCircle, LogIn, DollarSign, Share2, Eye, MessageCircle, Pencil } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -17,6 +18,7 @@ import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal
 const ContributorPortalPage = () => {
     const { user, loading: authLoading, openAuthModal } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [patterns, setPatterns] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [error, setError] = useState(null);
@@ -83,6 +85,92 @@ const ContributorPortalPage = () => {
             file_url: pattern.file_url || pattern.pdf_url || pattern.image_url,
         });
     };
+
+    const [isCreatingEdit, setIsCreatingEdit] = useState(null);
+
+    const handleEditAndResubmit = async (pattern) => {
+        setIsCreatingEdit(pattern.id);
+        try {
+            // Fetch the pattern's associations
+            const { data: assocData } = await supabase
+                .from('pattern_associations')
+                .select('association_id, difficulty')
+                .eq('pattern_id', pattern.id);
+
+            // Build wizard formData from the rejected pattern
+            const associations = {};
+            const associationDifficulties = {};
+            (assocData || []).forEach(pa => {
+                associations[pa.association_id] = true;
+                associationDifficulties[pa.association_id] = pa.difficulty || 'Intermediate';
+            });
+
+            // Determine the slot ID for the pattern
+            const slotId = 'level-1'; // Default to first hierarchy slot
+            const wizardFormData = {
+                showName: pattern.pattern_set_name || '',
+                associations,
+                primaryAffiliates: [],
+                subAssociationSelections: {},
+                associationDifficulties,
+                selectedDiscipline: pattern.class_name || '',
+                selectedClasses: pattern.class_name
+                    ? Object.keys(associations).map(assocId => `${assocId}::${pattern.class_name}`)
+                    : [],
+                hierarchyOrder: [
+                    { id: 'level-1', title: 'Championship', description: 'Pinnacle difficulty, finals-style patterns' },
+                    { id: 'level-2', title: 'Skilled', description: 'Polished, technical riding' },
+                    { id: 'level-3', title: 'Intermediate', description: 'Standard, reliable proficiency' },
+                    { id: 'level-4', title: 'Novice', description: 'Basic, learning stage' },
+                    { id: 'level-5', title: 'Walk-Trot', description: 'Entry, foundation patterns' },
+                ],
+                patterns: {
+                    [slotId]: {
+                        id: slotId,
+                        name: pattern.name || 'pattern.pdf',
+                        dataUrl: pattern.file_url,
+                    },
+                },
+                patternManeuvers: {},
+                patternAnnotations: {},
+                patternVerbiage: { [slotId]: pattern.verbiage || '' },
+                patternDivisions: {},
+                accessoryDocs: [],
+                equipmentNotes: '',
+                agreedToTerms: false,
+                stagedPdfs: [],
+                // Track which rejected pattern this is editing
+                resubmitPatternId: pattern.id,
+                rejectionReason: pattern.rejection_reason,
+                currentStep: 1,
+                completedSteps: [],
+            };
+
+            // Create a project for the wizard
+            const projectId = uuidv4();
+            const { error } = await supabase.from('projects').insert([{
+                id: projectId,
+                project_name: pattern.pattern_set_name || pattern.name || 'Resubmit Pattern',
+                project_type: 'pattern_upload',
+                project_data: wizardFormData,
+                status: 'In progress',
+                user_id: user.id,
+            }]);
+
+            if (error) throw error;
+
+            navigate(`/upload-patterns/edit/${projectId}`);
+        } catch (err) {
+            toast({
+                title: 'Error',
+                description: err.message || 'Failed to open editor.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsCreatingEdit(null);
+        }
+    };
+
     
     const LoggedOutView = () => (
         <div className="text-center py-16">
@@ -209,15 +297,41 @@ const ContributorPortalPage = () => {
                                             <Badge variant={getStatusVariant(pattern.review_status)}>
                                                 {pattern.review_status}
                                             </Badge>
+                                            {pattern.review_status === 'rejected' && pattern.rejection_reason && (
+                                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md text-xs text-red-800">
+                                                    <div className="flex items-center gap-1 font-medium mb-1">
+                                                        <MessageCircle className="h-3 w-3" /> Admin Feedback
+                                                    </div>
+                                                    <p className="whitespace-pre-line">{pattern.rejection_reason}</p>
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => handleViewPattern(pattern)}
-                                            >
-                                                <Eye className="mr-1.5 h-3.5 w-3.5" /> View
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleViewPattern(pattern)}
+                                                >
+                                                    <Eye className="mr-1.5 h-3.5 w-3.5" /> View
+                                                </Button>
+                                                {pattern.review_status === 'rejected' && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-primary border-primary hover:bg-primary hover:text-white"
+                                                        onClick={() => handleEditAndResubmit(pattern)}
+                                                        disabled={isCreatingEdit === pattern.id}
+                                                    >
+                                                        {isCreatingEdit === pattern.id ? (
+                                                            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                                        ) : (
+                                                            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                                                        )}
+                                                        Edit & Resubmit
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -265,6 +379,7 @@ const ContributorPortalPage = () => {
                 onClose={() => setPreviewPattern(null)}
                 pattern={previewPattern}
             />
+
         </>
     );
 };

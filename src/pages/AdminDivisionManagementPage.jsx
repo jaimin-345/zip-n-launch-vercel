@@ -105,16 +105,16 @@ const AdminDivisionManagementPage = () => {
             <Helmet><title>Division Management - Admin</title></Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="container mx-auto px-4 py-12">
+                <main className="container mx-auto px-4 py-6">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                        <div className="mb-6 flex justify-between items-center">
+                        <div className="flex items-center justify-between mb-4">
                             <AdminBackButton />
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl md:text-3xl font-bold">Division Management</h1>
+                                <p className="text-sm text-muted-foreground">Manage all divisions across associations.</p>
+                            </div>
                             <Button onClick={() => openDivisionForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Division</Button>
                         </div>
-                        <CardHeader className="text-center px-0 mb-8">
-                            <CardTitle className="text-4xl md:text-5xl font-bold flex items-center justify-center gap-3"><GitBranch className="w-12 h-12" /> Division Management</CardTitle>
-                            <CardDescription className="text-xl text-muted-foreground">Manage all divisions across associations.</CardDescription>
-                        </CardHeader>
 
                         <Card>
                             <CardHeader>

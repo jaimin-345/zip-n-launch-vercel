@@ -232,21 +232,16 @@ const AdminPatternExtractorPage = () => {
         <Navigation />
         <main className="flex-grow p-4 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
-            <header className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-              <div className="flex items-center gap-3">
-                <AdminBackButton />
-                <motion.h1
-                  initial={{ opacity: 0, y: -20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white"
-                >
-                  Pattern Extractor
-                </motion.h1>
+            <div className="flex items-center justify-between mb-4">
+              <AdminBackButton />
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Pattern Extractor</h1>
+                <p className="text-sm text-muted-foreground">AI-powered PDF pattern data extraction.</p>
               </div>
               <Button onClick={() => setIsModalOpen(true)}>
                 <UploadCloud className="mr-2 h-4 w-4" /> Add New Pattern PDF
               </Button>
-            </header>
+            </div>
 
             <Card>
               <CardHeader>

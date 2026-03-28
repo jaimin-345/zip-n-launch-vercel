@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, Archive, Activity, Shield, Gavel, Briefcase, Receipt } from 'lucide-react';
+import { Menu, X, User, LogOut, LayoutDashboard, UserPlus, UploadCloud, Library, Edit, Archive, Activity, Shield, Gavel, Briefcase, Receipt, Palette } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
 import { useSiteBranding } from '@/contexts/SiteBrandingContext';
 
@@ -106,6 +106,14 @@ const Navigation = () => {
                                     <Link to="/admin/tracking-user" className="w-full">
                                         <Activity className="mr-2 h-4 w-4" />
                                         <span>Tracking User</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                            )}
+                            {!isAdmin && (
+                                <DropdownMenuItem asChild>
+                                    <Link to="/contributor-portal" className="w-full">
+                                        <Palette className="mr-2 h-4 w-4" />
+                                        <span>Contributor Portal</span>
                                     </Link>
                                 </DropdownMenuItem>
                             )}
@@ -277,6 +285,7 @@ const Navigation = () => {
                                 {isAdmin && <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><LayoutDashboard className="inline-block mr-2 h-4 w-4"/>Admin</Link>}
                                 {isAdmin && <Link to="/admin/tracking-user" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Activity className="inline-block mr-2 h-4 w-4"/>Tracking User</Link>}
                                 <Link to={hasMembership ? "/customer-portal" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Library className="inline-block mr-2 h-4 w-4"/>My Projects</Link>
+                                {!isAdmin && <Link to="/contributor-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Palette className="inline-block mr-2 h-4 w-4"/>Contributor Portal</Link>}
                                 <Link to={hasMembership ? "/archive-patterns" : "/membership"} className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Archive className="inline-block mr-2 h-4 w-4"/>Archive Pattern</Link>
                                 <Link to="/judges-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Gavel className="inline-block mr-2 h-4 w-4"/>Judges Portal</Link>
                                 <Link to="/staff-portal" className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:bg-accent/50" onClick={() => setIsMenuOpen(false)}><Briefcase className="inline-block mr-2 h-4 w-4"/>Staff Portal</Link>

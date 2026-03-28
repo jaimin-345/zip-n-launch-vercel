@@ -189,18 +189,18 @@ const AdminPatternLevelManagementPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-4 py-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-            <div className="mb-6">
+            <div className="flex items-start justify-between mb-4">
               <AdminBackButton />
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Pattern Level Management</h1>
+                <p className="text-sm text-muted-foreground">
+                  Configure pattern level categories (ALL, L1, L2, etc.) and manage pattern sets.
+                </p>
+              </div>
+              <div className="w-[70px]" />
             </div>
-
-            <CardHeader className="px-0 mb-6">
-              <CardTitle className="text-3xl font-bold">Pattern Level Management</CardTitle>
-              <CardDescription className="text-lg text-muted-foreground">
-                Configure pattern level categories (ALL, L1, L2, etc.) and manage pattern sets.
-              </CardDescription>
-            </CardHeader>
 
             {/* Level Categories Management */}
             <Card className="mb-8">

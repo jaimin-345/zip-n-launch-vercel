@@ -22,7 +22,7 @@ import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import AdminBackButton from '@/components/admin/AdminBackButton';
 
-const DivisionLevelForm = ({ level, onSave, onCancel, isSaving, divisions, availableMedia }) => {
+const DivisionLevelForm = ({ level, onSave, onCancel, isSaving, divisions, associations = [], availableMedia }) => {
     const [formData, setFormData] = useState({ name: '', sort_order: 0, division_id: '', pattern_media: null });
     const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
@@ -56,7 +56,7 @@ const DivisionLevelForm = ({ level, onSave, onCancel, isSaving, divisions, avail
         <>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2"><Label htmlFor="name">Level Name</Label><Input id="name" value={formData.name} onChange={e => handleChange('name', e.target.value)} required /></div>
-                <div className="space-y-2"><Label htmlFor="division_id">Division</Label><Select onValueChange={value => handleChange('division_id', value)} value={formData.division_id}><SelectTrigger><SelectValue placeholder="Select division" /></SelectTrigger><SelectContent>{divisions.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({d.associations?.name})</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label htmlFor="division_id">Division</Label><Select onValueChange={value => handleChange('division_id', value)} value={formData.division_id}><SelectTrigger><SelectValue placeholder="Select division" /></SelectTrigger><SelectContent>{divisions.map(d => <SelectItem key={d.id} value={d.id}>{d.name} ({associations.find(a => a.id === d.association_id)?.name || 'N/A'})</SelectItem>)}</SelectContent></Select></div>
                 <div className="space-y-2"><Label htmlFor="sort_order">Sort Order</Label><Input id="sort_order" type="number" value={formData.sort_order} onChange={e => handleChange('sort_order', parseInt(e.target.value, 10) || 0)} /></div>
                 
                 <div className="space-y-2">
@@ -193,6 +193,7 @@ const AdminDivisionLevelManagementPage = () => {
     const { user } = useAuth();
     const [levels, setLevels] = useState([]);
     const [divisions, setDivisions] = useState([]);
+    const [associations, setAssociations] = useState([]);
     const [availableMedia, setAvailableMedia] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -208,17 +209,20 @@ const AdminDivisionLevelManagementPage = () => {
         const from = page * RPP;
         const to = from + RPP - 1;
 
-        let query = supabase.from('division_levels').select('*, divisions(*, associations(name))', { count: 'exact' });
-        if (searchTerm) { query = query.or(`name.ilike.%${searchTerm}%,divisions.name.ilike.%${searchTerm}%,divisions.associations.name.ilike.%${searchTerm}%`); }
-        query = query.order('divisions(associations(name))').order('divisions(sort_order)').order('divisions(name)').order('sort_order').order('name').range(from, to);
+        let query = supabase.from('division_levels').select('*, divisions(*)', { count: 'exact' });
+        if (searchTerm) { query = query.or(`name.ilike.%${searchTerm}%`); }
+        query = query.order('sort_order').order('name').range(from, to);
 
         const { data, error, count } = await query;
         if (error) { toast({ title: 'Error fetching levels', description: error.message, variant: 'destructive' }); }
         else { setLevels(data); setCount(count); }
 
-        const { data: divisionsData, error: divisionsError } = await supabase.from('divisions').select('*, associations(name)').order('name');
+        const { data: divisionsData, error: divisionsError } = await supabase.from('divisions').select('*').order('name');
         if (divisionsError) { toast({ title: 'Error fetching divisions', description: divisionsError.message, variant: 'destructive' }); }
         else { setDivisions(divisionsData); }
+
+        const { data: assocData } = await supabase.from('associations').select('id, name').order('name');
+        if (assocData) { setAssociations(assocData); }
 
         const { data: mediaData, error: mediaError } = await supabase.from('association_assets').select('id, file_name, file_url').limit(1000);
         if (mediaError) { toast({ title: 'Error fetching media', description: mediaError.message, variant: 'destructive' }); }
@@ -265,16 +269,16 @@ const AdminDivisionLevelManagementPage = () => {
             <Helmet><title>Division Level Management - Admin</title></Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="container mx-auto px-4 py-12">
+                <main className="container mx-auto px-4 py-6">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                        <div className="mb-6 flex justify-between items-center">
+                        <div className="flex items-center justify-between mb-4">
                             <AdminBackButton />
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl md:text-3xl font-bold">Division Level Management</h1>
+                                <p className="text-sm text-muted-foreground">Manage all levels within divisions.</p>
+                            </div>
                             <Button onClick={() => openLevelForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Level</Button>
                         </div>
-                        <CardHeader className="text-center px-0 mb-8">
-                            <CardTitle className="text-4xl md:text-5xl font-bold flex items-center justify-center gap-3"><Layers className="w-12 h-12" /> Division Level Management</CardTitle>
-                            <CardDescription className="text-xl text-muted-foreground">Manage all levels within divisions.</CardDescription>
-                        </CardHeader>
 
                         <Card>
                             <CardHeader>
@@ -296,7 +300,7 @@ const AdminDivisionLevelManagementPage = () => {
                                                     <TableRow key={level.id}>
                                                         <TableCell className="font-medium">{level.name}</TableCell>
                                                         <TableCell><Badge variant="outline">{level.divisions?.name || 'N/A'}</Badge></TableCell>
-                                                        <TableCell><Badge variant="secondary">{level.divisions?.associations?.name || 'N/A'}</Badge></TableCell>
+                                                        <TableCell><Badge variant="secondary">{associations.find(a => a.id === level.divisions?.association_id)?.name || 'N/A'}</Badge></TableCell>
                                                         <TableCell>{level.sort_order}</TableCell>
                                                         <TableCell>
                                                             {level.pattern_media ? (
@@ -330,7 +334,7 @@ const AdminDivisionLevelManagementPage = () => {
             </div>
 
             <Dialog open={isLevelFormOpen} onOpenChange={setIsLevelFormOpen}>
-                <DialogContent><DialogHeader><DialogTitle>{editingLevel?.id ? 'Edit' : 'Create'} Level</DialogTitle></DialogHeader><DivisionLevelForm level={editingLevel} onSave={handleSaveLevel} onCancel={() => setIsLevelFormOpen(false)} isSaving={isSaving} divisions={divisions} availableMedia={availableMedia} /></DialogContent>
+                <DialogContent><DialogHeader><DialogTitle>{editingLevel?.id ? 'Edit' : 'Create'} Level</DialogTitle></DialogHeader><DivisionLevelForm level={editingLevel} onSave={handleSaveLevel} onCancel={() => setIsLevelFormOpen(false)} isSaving={isSaving} divisions={divisions} associations={associations} availableMedia={availableMedia} /></DialogContent>
             </Dialog>
         </>
     );

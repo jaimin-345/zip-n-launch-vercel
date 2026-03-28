@@ -201,21 +201,21 @@ const AdminUserManagementPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-12">
+        <main className="container mx-auto px-4 py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="mb-6">
+            <div className="flex items-start justify-between mb-4">
               <AdminBackButton />
-            </div>
-
-            <div className="text-center mb-8">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">User Management</h1>
-              <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-                Manage user accounts and their assigned roles across the platform.
-              </p>
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">User Management</h1>
+                <p className="text-sm text-muted-foreground">
+                  Manage user accounts and their assigned roles across the platform.
+                </p>
+              </div>
+              <div className="w-[70px]" />
             </div>
 
             <div className="flex flex-col md:flex-row gap-4 mb-8">

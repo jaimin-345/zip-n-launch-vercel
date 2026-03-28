@@ -48,7 +48,6 @@ import CustomerAssetLibraryPage from '@/pages/CustomerAssetLibraryPage';
 import CustomerPortalPage from '@/pages/CustomerPortalPage';
 import ArchivePatternsPage from '@/pages/ArchivePatternsPage';
 import PatternUploadLandingPage from '@/pages/PatternUploadLandingPage';
-import MyPatternUploadsPage from '@/pages/MyPatternUploadsPage';
 import HorseShowManagerPage from '@/pages/HorseShowManagerPage';
 import CreateShowPage from '@/pages/CreateShowPage';
 import ShowStructurePage from '@/pages/ShowStructurePage';
@@ -259,7 +258,6 @@ function App() {
                   <Route path="/horse-show-manager/results-management/:showId" element={<MembershipRoute><ResultsManagementPage /></MembershipRoute>} />
                   <Route path="/collaboration-hub" element={<CollaborationHubPage />} />
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
-                  <Route path="/upload-patterns/my-uploads" element={<MembershipRoute><MyPatternUploadsPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/new" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/edit/:projectId" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/legacy" element={<MembershipRoute><PatternUploadPage /></MembershipRoute>} />

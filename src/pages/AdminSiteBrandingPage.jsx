@@ -225,18 +225,17 @@ const AdminSiteBrandingPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-start justify-between mb-4">
               <AdminBackButton />
-              <div>
-                <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-                  Site Branding
-                </h1>
-                <p className="text-sm md:text-base text-muted-foreground">
+              <div className="text-center flex-1">
+                <h1 className="text-2xl md:text-3xl font-bold">Site Branding</h1>
+                <p className="text-sm text-muted-foreground">
                   Upload the homepage background image and site logo.
                 </p>
               </div>
+              <div className="w-[70px]" />
             </div>
 
             {isTableMissing && (

@@ -129,13 +129,14 @@ const AdminShowManagementPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Show Management</h1>
-              <p className="text-muted-foreground">Oversee and manage all created horse shows.</p>
-            </div>
+        <main className="container mx-auto px-4 py-6">
+          <div className="flex items-start justify-between mb-4">
             <AdminBackButton />
+            <div className="text-center flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold">Show Management</h1>
+              <p className="text-sm text-muted-foreground">Oversee and manage all created horse shows.</p>
+            </div>
+            <div className="w-[70px]" />
           </div>
 
           <Card>

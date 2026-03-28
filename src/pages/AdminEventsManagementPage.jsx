@@ -301,16 +301,14 @@ const AdminEventsManagementPage = () => {
       </Helmet>
       <div className="min-h-screen bg-background">
         <Navigation />
-        <main className="container mx-auto px-4 py-8">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <AdminBackButton />
-              <div>
-                <h1 className="text-2xl md:text-3xl font-semibold">Event Management</h1>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Create and manage events that appear on the public Events page.
-                </p>
-              </div>
+        <main className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <AdminBackButton />
+            <div className="text-center flex-1">
+              <h1 className="text-2xl md:text-3xl font-bold">Event Management</h1>
+              <p className="text-sm text-muted-foreground">
+                Create and manage events that appear on the public Events page.
+              </p>
             </div>
             <Button onClick={openCreateDialog}>
               <PlusCircle className="mr-2 h-4 w-4" />

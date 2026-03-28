@@ -77,7 +77,7 @@ const AdminDisciplineManagementPage = () => {
         const from = page * RPP;
         const to = from + RPP - 1;
 
-        let query = supabase.from('disciplines').select('*, associations(id, name)', { count: 'exact' });
+        let query = supabase.from('disciplines').select('*', { count: 'exact' });
         if (searchTerm) { query = query.ilike('name', `%${searchTerm}%`); }
         query = query.order('sort_order').order('name').range(from, to);
 
@@ -122,16 +122,16 @@ const AdminDisciplineManagementPage = () => {
             <Helmet><title>Discipline Management - Admin</title></Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="container mx-auto px-4 py-12">
+                <main className="container mx-auto px-4 py-6">
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-                        <div className="mb-6 flex justify-between items-center">
+                        <div className="flex items-center justify-between mb-4">
                             <AdminBackButton />
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl md:text-3xl font-bold">Discipline Management</h1>
+                                <p className="text-sm text-muted-foreground">Manage disciplines and their associations.</p>
+                            </div>
                             <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Discipline</Button>
                         </div>
-                        <CardHeader className="text-center px-0 mb-8">
-                            <CardTitle className="text-4xl md:text-5xl font-bold flex items-center justify-center gap-3"><BookCopy className="w-12 h-12" /> Discipline Management</CardTitle>
-                            <CardDescription className="text-xl text-muted-foreground">Manage disciplines and their associations.</CardDescription>
-                        </CardHeader>
 
                         <Card>
                             <CardHeader>
@@ -155,7 +155,7 @@ const AdminDisciplineManagementPage = () => {
                                                         <TableCell>{d.category}</TableCell>
                                                         <TableCell>{d.pattern_type}</TableCell>
                                                         <TableCell>
-                                                            {d.associations ? <Badge variant="secondary">{d.associations.name}</Badge> : 'None'}
+                                                            {d.association_id ? <Badge variant="secondary">{associations.find(a => a.id === d.association_id)?.name || d.association_id}</Badge> : 'None'}
                                                         </TableCell>
                                                         <TableCell>{d.sub_association_type || 'N/A'}</TableCell>
                                                         <TableCell>{d.sort_order}</TableCell>

@@ -154,16 +154,14 @@ const AdminSponsorshipPackagesPage = () => {
             <Helmet><title>Admin: Sponsorship Packages</title></Helmet>
             <div className="min-h-screen bg-background">
                 <Navigation />
-                <main className="container mx-auto px-4 py-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2"><Package className="h-8 w-8" /> Sponsorship Packages</h1>
-                            <p className="text-muted-foreground">Manage sponsorship tiers and pricing.</p>
+                <main className="container mx-auto px-4 py-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <AdminBackButton />
+                        <div className="text-center flex-1">
+                            <h1 className="text-2xl md:text-3xl font-bold">Sponsorship Packages</h1>
+                            <p className="text-sm text-muted-foreground">Manage sponsorship tiers and pricing.</p>
                         </div>
-                        <div className="flex gap-2">
-                          <AdminBackButton />
-                          <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Package</Button>
-                        </div>
+                        <Button onClick={() => openForm()}><PlusCircle className="mr-2 h-4 w-4" /> Add Package</Button>
                     </div>
 
                     {isLoading ? (

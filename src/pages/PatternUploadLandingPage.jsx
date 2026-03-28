@@ -61,7 +61,7 @@ const PatternUploadLandingPage = () => {
                 </Button>
                 {user && (
                   <Button size="lg" variant="outline" asChild>
-                    <Link to="/upload-patterns/my-uploads">
+                    <Link to="/contributor-portal">
                       <FolderOpen className="mr-2 h-5 w-5" /> My Uploads
                     </Link>
                   </Button>

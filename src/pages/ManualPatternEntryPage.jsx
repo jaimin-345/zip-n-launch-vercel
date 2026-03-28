@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Navigation from '@/components/Navigation';
+import AdminBackButton from '@/components/admin/AdminBackButton';
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { useMemo } from 'react';
 
@@ -384,12 +385,16 @@ const ManualPatternEntryPage = () => {
                 <Navigation />
                 <main className="flex-grow p-4 sm:p-6 lg:p-8">
                     <div className="max-w-7xl mx-auto">
-                        <header className="flex flex-col sm:flex-row items-center justify-between mb-8">
-                            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Manual Pattern Entry</h1>
+                        <div className="flex items-center justify-between mb-4">
+                            <AdminBackButton />
+                            <div className="text-center flex-1">
+                                <h1 className="text-2xl md:text-3xl font-bold">Manual Pattern Entry</h1>
+                                <p className="text-sm text-muted-foreground">Manually input pattern data.</p>
+                            </div>
                             <Button onClick={() => { resetForm(); setIsFormOpen(true); }}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Pattern
                             </Button>
-                        </header>
+                        </div>
 
                         <Card>
                             <CardHeader>

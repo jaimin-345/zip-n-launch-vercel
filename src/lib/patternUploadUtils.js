@@ -34,6 +34,11 @@ const getUploadSlots = (formData) => {
 export const submitPatternSet = async (formData, user) => {
   if (!user) throw new Error('User must be authenticated');
 
+  // Handle resubmit of a rejected pattern
+  if (formData.resubmitPatternId) {
+    return await resubmitPattern(formData, user);
+  }
+
   const classType = formData.selectedDiscipline || 'Custom';
   const selectedAssocIds = Object.keys(formData.associations).filter(k => formData.associations[k]);
 
@@ -224,4 +229,92 @@ export const submitPatternSet = async (formData, user) => {
   }
 
   return { success: true, patternCount: insertedPatterns.length };
+};
+
+/**
+ * Resubmits a rejected pattern by updating the existing record.
+ */
+const resubmitPattern = async (formData, user) => {
+  const patternId = formData.resubmitPatternId;
+  const classType = formData.selectedDiscipline || 'Custom';
+  const selectedAssocIds = Object.keys(formData.associations).filter(k => formData.associations[k]);
+
+  const updateData = {
+    name: formData.showName || 'Untitled Pattern',
+    pattern_set_name: formData.showName || '',
+    class_name: classType,
+    review_status: 'pending',
+    rejected_at: null,
+    rejection_reason: null,
+    last_modified_at: new Date().toISOString(),
+  };
+
+  // Check if a new file was uploaded (patterns object has a file with a File object)
+  const uploadSlots = getUploadSlots(formData);
+  const patternEntry = uploadSlots.find(h => formData.patterns[h.id]);
+
+  if (patternEntry) {
+    const pattern = formData.patterns[patternEntry.id];
+
+    // If it has a File object (new upload), upload it
+    if (pattern.file) {
+      const fileExt = pattern.file.name.split('.').pop();
+      const filePath = `${user.id}/${classType}/${uuidv4()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pattern_files')
+        .upload(filePath, pattern.file);
+
+      if (uploadError) throw new Error(`Failed to upload: ${uploadError.message}`);
+
+      const { data: { publicUrl } } = supabase.storage.from('pattern_files').getPublicUrl(filePath);
+      updateData.file_url = publicUrl;
+      updateData.file_path = filePath;
+      updateData.original_file_name = pattern.file.name;
+    }
+
+    updateData.name = pattern.name || updateData.name;
+  }
+
+  // Update the pattern record
+  const { error } = await supabase
+    .from('patterns')
+    .update(updateData)
+    .eq('id', patternId);
+
+  if (error) throw new Error(`Update error: ${error.message}`);
+
+  // Update associations
+  await supabase.from('pattern_associations').delete().eq('pattern_id', patternId);
+
+  if (selectedAssocIds.length > 0) {
+    const assocInserts = selectedAssocIds.map(assocId => ({
+      pattern_id: patternId,
+      association_id: assocId,
+      difficulty: formData.associationDifficulties?.[assocId] || 'Intermediate',
+    }));
+    await supabase.from('pattern_associations').insert(assocInserts);
+  }
+
+  // Update divisions
+  await supabase.from('pattern_divisions').delete().eq('pattern_id', patternId);
+
+  if (patternEntry) {
+    const divisions = formData.patternDivisions?.[patternEntry.id] || {};
+    const divInserts = Object.entries(divisions).flatMap(([assocId, levels]) =>
+      Array.isArray(levels)
+        ? levels.map(levelName => ({
+            pattern_id: patternId,
+            association_id: assocId,
+            division_group: 'default',
+            division_level: levelName,
+          }))
+        : []
+    );
+    if (divInserts.length > 0) {
+      await supabase.from('pattern_divisions').insert(divInserts);
+    }
+  }
+
+  return { success: true, patternCount: 1 };
 };
