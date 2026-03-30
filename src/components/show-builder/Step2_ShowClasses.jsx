@@ -236,13 +236,129 @@ const DisciplineGroupSection = ({ groupKey, disciplines, assocId, divisionsData,
     if (!meta) return null;
 
     const Icon = meta.icon;
-    const groupCount = disciplines.reduce((sum, disc) => sum + (selectionCounts[getDisciplineKey(disc)] || 0), 0);
     const divisions = divisionsData?.[assocId] || [];
+
+    // Calculate total possible and total selected for "Select All"
+    const { totalPossible, totalSelected } = useMemo(() => {
+        let possible = 0;
+        let selected = 0;
+        disciplines.forEach(disc => {
+            const relevantDivisions = divisions.filter(dg =>
+                !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
+            );
+            relevantDivisions.forEach(group => {
+                group.levels.forEach(level => {
+                    possible++;
+                    const divKey = makeDivisionKey(group.group, level);
+                    const existingDisc = (formData.disciplines || []).find(d => getDisciplineKey(d) === getDisciplineKey(disc));
+                    if (existingDisc?.divisions?.[assocId]?.[divKey]) selected++;
+                });
+            });
+        });
+        return { totalPossible, totalSelected: selected };
+    }, [disciplines, divisions, formData.disciplines, assocId]);
+
+    const allChecked = totalPossible > 0 && totalSelected === totalPossible;
+    const someChecked = totalSelected > 0 && totalSelected < totalPossible;
+
+    const handleSelectAll = (checked) => {
+        setFormData(prev => {
+            let newDisciplines = [...(prev.disciplines || [])];
+
+            disciplines.forEach(disc => {
+                const relevantDivisions = divisions.filter(dg =>
+                    !dg.sub_association_type || !disc.sub_association_type || dg.sub_association_type === disc.sub_association_type
+                );
+
+                if (checked) {
+                    // Select all levels for this discipline
+                    let discIdx = newDisciplines.findIndex(d => getDisciplineKey(d) === getDisciplineKey(disc));
+                    if (discIdx === -1) {
+                        const newDisc = {
+                            ...disc,
+                            id: `${disc.name.replace(/\s+/g, '-')}-${disc.association_id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                            pattern: disc.pattern_type !== 'none' && disc.pattern_type !== 'scoresheet_only',
+                            scoresheet: disc.category !== 'none',
+                            isCustom: disc.isCustom || false,
+                            selectedAssociations: { [disc.association_id]: true },
+                            divisions: {},
+                            divisionOrder: [],
+                            customDivisions: [],
+                            patternGroups: [],
+                            sub_association_type: disc.sub_association_type,
+                            pattern_type: disc.pattern_type || 'none',
+                            discipline_group: disc.discipline_group || null,
+                        };
+                        if (newDisc.pattern) {
+                            newDisc.patternGroups.push({ id: `pattern-group-${Date.now()}`, name: 'Group 1', divisions: [], rulebookPatternId: '', competitionDate: null });
+                        }
+                        newDisciplines.push(newDisc);
+                        discIdx = newDisciplines.length - 1;
+                    }
+
+                    const d = { ...newDisciplines[discIdx] };
+                    const newDivisions = { ...(d.divisions || {}) };
+                    if (!newDivisions[assocId]) newDivisions[assocId] = {};
+                    newDivisions[assocId] = { ...newDivisions[assocId] };
+                    const newDivisionOrder = d.divisionOrder ? [...d.divisionOrder] : [];
+
+                    relevantDivisions.forEach(group => {
+                        group.levels.forEach(level => {
+                            const divKey = makeDivisionKey(group.group, level);
+                            const divId = makeDivisionId(assocId, group.group, level);
+                            newDivisions[assocId][divKey] = true;
+                            if (!newDivisionOrder.includes(divId)) newDivisionOrder.push(divId);
+                        });
+                    });
+
+                    newDisciplines[discIdx] = { ...d, divisions: newDivisions, divisionOrder: newDivisionOrder };
+                } else {
+                    // Deselect all levels for this discipline
+                    const discIdx = newDisciplines.findIndex(d => getDisciplineKey(d) === getDisciplineKey(disc));
+                    if (discIdx === -1) return;
+
+                    const d = { ...newDisciplines[discIdx] };
+                    const newDivisions = { ...(d.divisions || {}) };
+                    if (newDivisions[assocId]) {
+                        newDivisions[assocId] = { ...newDivisions[assocId] };
+                        relevantDivisions.forEach(group => {
+                            group.levels.forEach(level => {
+                                const divKey = makeDivisionKey(group.group, level);
+                                delete newDivisions[assocId][divKey];
+                            });
+                        });
+                        if (Object.keys(newDivisions[assocId]).length === 0) delete newDivisions[assocId];
+                    }
+
+                    const totalRemaining = Object.values(newDivisions).reduce((sum, assocDivs) => sum + Object.keys(assocDivs).length, 0);
+                    if (totalRemaining === 0) {
+                        newDisciplines = newDisciplines.filter((_, i) => i !== discIdx);
+                    } else {
+                        let newDivisionOrder = (d.divisionOrder || []).filter(x => {
+                            return !relevantDivisions.some(group =>
+                                group.levels.some(level => makeDivisionId(assocId, group.group, level) === x)
+                            );
+                        });
+                        newDisciplines[discIdx] = { ...d, divisions: newDivisions, divisionOrder: newDivisionOrder };
+                    }
+                }
+            });
+
+            return { ...prev, disciplines: newDisciplines };
+        });
+    };
+
+    const groupCount = disciplines.reduce((sum, disc) => sum + (selectionCounts[getDisciplineKey(disc)] || 0), 0);
 
     return (
         <div className={cn('rounded-lg border p-3 space-y-1', meta.borderColor)}>
             <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
+                    <Checkbox
+                        checked={allChecked}
+                        onCheckedChange={handleSelectAll}
+                        className={someChecked ? 'data-[state=unchecked]:bg-primary/30 data-[state=unchecked]:border-primary' : ''}
+                    />
                     <Icon className={cn('h-4 w-4', meta.color)} />
                     <span className="font-semibold text-sm">{meta.label}</span>
                     {groupCount > 0 && (

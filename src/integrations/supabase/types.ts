@@ -826,6 +826,7 @@ export type Database = {
           category: string | null
           city: string | null
           description: string | null
+          discipline_group: string | null
           id: string
           name: string
           open_divisions: boolean | null
@@ -839,6 +840,7 @@ export type Database = {
           category?: string | null
           city?: string | null
           description?: string | null
+          discipline_group?: string | null
           id?: string
           name: string
           open_divisions?: boolean | null
@@ -852,6 +854,7 @@ export type Database = {
           category?: string | null
           city?: string | null
           description?: string | null
+          discipline_group?: string | null
           id?: string
           name?: string
           open_divisions?: boolean | null
@@ -2487,6 +2490,39 @@ export type Database = {
           },
         ]
       }
+      pattern_change_history: {
+        Row: {
+          action: string
+          admin_email: string | null
+          admin_id: string | null
+          changes: Json
+          created_at: string | null
+          id: string
+          pattern_set_name: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          admin_email?: string | null
+          admin_id?: string | null
+          changes?: Json
+          created_at?: string | null
+          id?: string
+          pattern_set_name: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          admin_email?: string | null
+          admin_id?: string | null
+          changes?: Json
+          created_at?: string | null
+          id?: string
+          pattern_set_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pattern_divisions: {
         Row: {
           association_id: string
@@ -2521,6 +2557,10 @@ export type Database = {
       }
       patterns: {
         Row: {
+          approved_associations: Json | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_package: Json | null
           class_name: string
           created_at: string | null
           discipline_sequence_number: number | null
@@ -2530,21 +2570,29 @@ export type Database = {
           hierarchy_order: number | null
           id: string
           is_custom: boolean | null
+          last_modified_at: string | null
+          last_modified_by: string | null
           level: string | null
           name: string
+          original_associations: Json | null
           original_file_name: string | null
           pattern_identifier: string | null
           pattern_set_name: string | null
           preview_image_url: string | null
           project_id: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
           review_status: string | null
           scoresheet_id: number | null
           updated_at: string | null
           user_id: string
           verbiage: string | null
-          approved_package: Json | null
         }
         Insert: {
+          approved_associations?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_package?: Json | null
           class_name: string
           created_at?: string | null
           discipline_sequence_number?: number | null
@@ -2554,21 +2602,29 @@ export type Database = {
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           level?: string | null
           name: string
+          original_associations?: Json | null
           original_file_name?: string | null
           pattern_identifier?: string | null
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
           review_status?: string | null
           scoresheet_id?: number | null
           updated_at?: string | null
           user_id: string
           verbiage?: string | null
-          approved_package?: Json | null
         }
         Update: {
+          approved_associations?: Json | null
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_package?: Json | null
           class_name?: string
           created_at?: string | null
           discipline_sequence_number?: number | null
@@ -2578,19 +2634,23 @@ export type Database = {
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           level?: string | null
           name?: string
+          original_associations?: Json | null
           original_file_name?: string | null
           pattern_identifier?: string | null
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
           review_status?: string | null
           scoresheet_id?: number | null
           updated_at?: string | null
           user_id?: string
           verbiage?: string | null
-          approved_package?: Json | null
         }
         Relationships: [
           {
@@ -3677,6 +3737,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_old_rejected_patterns: { Args: never; Returns: undefined }
+      get_auth_user_emails: {
+        Args: { user_ids: string[] }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+        }[]
+      }
       get_my_permissions: { Args: never; Returns: string[] }
       get_my_role: { Args: never; Returns: string }
       get_my_shows: {
@@ -3731,6 +3800,7 @@ export type Database = {
           category: string | null
           city: string | null
           description: string | null
+          discipline_group: string | null
           id: string
           name: string
           open_divisions: boolean | null
