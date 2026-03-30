@@ -782,7 +782,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         <h3 className="text-sm font-semibold text-foreground">Configuration Steps</h3>
                         {currentStep && (
                             <Badge variant={currentStep === null ? "default" : "secondary"} className="text-xs">
-                                Step {currentStep} of 3
+                                Step {currentStep} of 2
                             </Badge>
                         )}
                     </div>
