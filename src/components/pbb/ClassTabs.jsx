@@ -672,16 +672,10 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 prevHasSelectedDivisions.current = hasSelectedDivisions;
                 prevHasScheduled.current = hasScheduled;
                 
-                if (isScoresheetOnly) {
-                    setActiveTab('divisions');
+                if (hasSelectedDivisions) {
+                    setActiveTab('schedule');
                 } else {
-                    if (pbbDiscipline.pattern && hasScheduled) {
-                        setActiveTab('grouping');
-                    } else if (hasSelectedDivisions) {
-                        setActiveTab('schedule');
-                    } else {
-                        setActiveTab('divisions');
-                    }
+                    setActiveTab('divisions');
                 }
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
