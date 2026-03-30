@@ -731,7 +731,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                             </span>
                         )}
                     </div>
-                    {stepNumber < 3 && (
+                    {stepNumber < 2 && (
                         <div className={cn(
                             "flex-1 h-0.5 mx-2 transition-colors",
                             isComplete ? "bg-green-500" : "bg-muted"
