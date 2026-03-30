@@ -1464,23 +1464,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         associationsData={associationsData}
                     />
                 </TabsContent>
-                <TabsContent 
-                    value="grouping" 
-                    className={cn(
-                        "mt-2 transition-all duration-300",
-                        nextStepHighlight === 'grouping' && "ring-2 ring-blue-500/50 rounded-lg p-2 bg-blue-500/5"
-                    )}
-                >
-                    <PatternGrouping
-                        pbbDiscipline={pbbDiscipline}
-                        setFormData={setFormData}
-                        isCustomOpenShow={isCustomOpenShowDiscipline}
-                        formData={formData}
-                        associationsData={associationsData}
-                        divisionsData={divisionsData}
-                        onAutoGroupComplete={onAutoGroupComplete}
-                    />
-                </TabsContent>
             </Tabs>
         );
     };
