@@ -370,6 +370,21 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                 </div>
             </AccordionTrigger>
             <AccordionContent className="p-3 space-y-3">
+                {/* Select All checkbox */}
+                {disciplines.length > 0 && (
+                    <div className="flex items-center space-x-2 px-1.5 pb-1 border-b border-border/50">
+                        <Checkbox
+                            id={`select-all-${groupKey}`}
+                            checked={allChecked}
+                            onCheckedChange={handleSelectAll}
+                            {...(someChecked ? { 'data-state': 'indeterminate' } : {})}
+                        />
+                        <Label htmlFor={`select-all-${groupKey}`} className="font-medium text-sm cursor-pointer">
+                            Select All
+                        </Label>
+                        <span className="text-xs text-muted-foreground">({selectedCount}/{allKeys.length})</span>
+                    </div>
+                )}
                 {/* Always show Custom Pattern section with Add button */}
                 {(association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ?
                     <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} maxReached={maxReached} /> :
