@@ -290,6 +290,24 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
+    // Select All logic
+    const allKeys = useMemo(() => disciplines.map(d => getDisciplineKey(d)), [disciplines, getDisciplineKey]);
+    const selectedCount = useMemo(() => allKeys.filter(k => selectedDisciplineKeys.has(k)).length, [allKeys, selectedDisciplineKeys]);
+    const allChecked = allKeys.length > 0 && selectedCount === allKeys.length;
+    const someChecked = selectedCount > 0 && selectedCount < allKeys.length;
+
+    const handleSelectAll = useCallback((checked) => {
+        disciplines.forEach(disc => {
+            const key = getDisciplineKey(disc);
+            const isSelected = selectedDisciplineKeys.has(key);
+            if (checked && !isSelected) {
+                onDisciplineToggle(disc, true);
+            } else if (!checked && isSelected) {
+                onDisciplineToggle(disc, false);
+            }
+        });
+    }, [disciplines, getDisciplineKey, selectedDisciplineKeys, onDisciplineToggle]);
+
     const categorized = useMemo(() => {
         // Use discipline_group when available (e.g., Colorado 4-H), fall back to pattern_type
         const hasGroups = disciplines.some(d => d.discipline_group);
@@ -352,6 +370,21 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                 </div>
             </AccordionTrigger>
             <AccordionContent className="p-3 space-y-3">
+                {/* Select All checkbox */}
+                {disciplines.length > 0 && (
+                    <div className="flex items-center space-x-2 px-1.5 pb-1 border-b border-border/50">
+                        <Checkbox
+                            id={`select-all-${groupKey}`}
+                            checked={allChecked}
+                            onCheckedChange={handleSelectAll}
+                            {...(someChecked ? { 'data-state': 'indeterminate' } : {})}
+                        />
+                        <Label htmlFor={`select-all-${groupKey}`} className="font-medium text-sm cursor-pointer">
+                            Select All
+                        </Label>
+                        <span className="text-xs text-muted-foreground">({selectedCount}/{allKeys.length})</span>
+                    </div>
+                )}
                 {/* Always show Custom Pattern section with Add button */}
                 {(association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ?
                     <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} maxReached={maxReached} /> :
