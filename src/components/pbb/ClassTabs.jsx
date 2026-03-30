@@ -658,28 +658,11 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
         const currentStep = getCurrentStep();
         const nextStep = currentStep ? currentStep + 1 : null;
 
-        // Auto-switch to next step when current completes (only for Step 2 -> Step 3)
+        // Track previous state
         useEffect(() => {
-            const scheduleJustCompleted = !prevHasScheduled.current && hasScheduled;
-
-            // Only auto-redirect from Step 2 to Step 3, not from Step 1 to Step 2
-            if (scheduleJustCompleted && activeTab === 'schedule' && !isScoresheetOnly && pbbDiscipline.pattern) {
-                setHasJustCompleted(true);
-                setNextStepHighlight('grouping');
-                // Auto-switch to grouping tab after a brief delay
-                setTimeout(() => {
-                    setActiveTab('grouping');
-                    setHasJustCompleted(false);
-                    // Scroll to grouping tab
-                    setTimeout(() => {
-                        groupingTabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }, 100);
-                }, 800);
-            }
-
             prevHasSelectedDivisions.current = hasSelectedDivisions;
             prevHasScheduled.current = hasScheduled;
-        }, [hasSelectedDivisions, hasScheduled, activeTab, isScoresheetOnly, pbbDiscipline.pattern]);
+        }, [hasSelectedDivisions, hasScheduled]);
 
         // Auto-open appropriate tab when component mounts or discipline changes
         React.useEffect(() => {
