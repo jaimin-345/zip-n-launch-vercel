@@ -648,41 +648,21 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 return 1;
             } else if (activeTab === 'schedule') {
                 return 2;
-            } else if (activeTab === 'grouping') {
-                return 3;
             }
             // Fallback: determine by completion status
             if (!step1Complete) return 1;
             if (!step2Complete) return 2;
-            if (!step3Complete && !isScoresheetOnly && pbbDiscipline.pattern) return 3;
             return null; // All complete
         };
 
         const currentStep = getCurrentStep();
         const nextStep = currentStep ? currentStep + 1 : null;
 
-        // Auto-switch to next step when current completes (only for Step 2 -> Step 3)
+        // Track previous state
         useEffect(() => {
-            const scheduleJustCompleted = !prevHasScheduled.current && hasScheduled;
-
-            // Only auto-redirect from Step 2 to Step 3, not from Step 1 to Step 2
-            if (scheduleJustCompleted && activeTab === 'schedule' && !isScoresheetOnly && pbbDiscipline.pattern) {
-                setHasJustCompleted(true);
-                setNextStepHighlight('grouping');
-                // Auto-switch to grouping tab after a brief delay
-                setTimeout(() => {
-                    setActiveTab('grouping');
-                    setHasJustCompleted(false);
-                    // Scroll to grouping tab
-                    setTimeout(() => {
-                        groupingTabRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    }, 100);
-                }, 800);
-            }
-
             prevHasSelectedDivisions.current = hasSelectedDivisions;
             prevHasScheduled.current = hasScheduled;
-        }, [hasSelectedDivisions, hasScheduled, activeTab, isScoresheetOnly, pbbDiscipline.pattern]);
+        }, [hasSelectedDivisions, hasScheduled]);
 
         // Auto-open appropriate tab when component mounts or discipline changes
         React.useEffect(() => {
@@ -692,16 +672,10 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 prevHasSelectedDivisions.current = hasSelectedDivisions;
                 prevHasScheduled.current = hasScheduled;
                 
-                if (isScoresheetOnly) {
-                    setActiveTab('divisions');
+                if (hasSelectedDivisions) {
+                    setActiveTab('schedule');
                 } else {
-                    if (pbbDiscipline.pattern && hasScheduled) {
-                        setActiveTab('grouping');
-                    } else if (hasSelectedDivisions) {
-                        setActiveTab('schedule');
-                    } else {
-                        setActiveTab('divisions');
-                    }
+                    setActiveTab('divisions');
                 }
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -757,7 +731,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                             </span>
                         )}
                     </div>
-                    {stepNumber < 3 && (
+                    {stepNumber < 2 && (
                         <div className={cn(
                             "flex-1 h-0.5 mx-2 transition-colors",
                             isComplete ? "bg-green-500" : "bg-muted"
@@ -782,7 +756,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         <h3 className="text-sm font-semibold text-foreground">Configuration Steps</h3>
                         {currentStep && (
                             <Badge variant={currentStep === null ? "default" : "secondary"} className="text-xs">
-                                Step {currentStep} of 3
+                                Step {currentStep} of 2
                             </Badge>
                         )}
                     </div>
@@ -807,22 +781,10 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                             onClick={() => setActiveTab('schedule')}
                             disabled={!hasSelectedDivisions}
                         />
-                        {!isScoresheetOnly && pbbDiscipline.pattern && (
-                            <StepIndicator
-                                step="grouping"
-                                stepNumber={3}
-                                label="Sort Classes by Pattern Level"
-                                isComplete={step3Complete}
-                                isActive={activeTab === 'grouping'}
-                                isNext={currentStep === 2 && step2Complete && !step3Complete}
-                                onClick={() => setActiveTab('grouping')}
-                                disabled={false}
-                            />
-                        )}
                     </div>
                 </div>
 
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger 
                         value="divisions"
                         className={cn(
@@ -846,20 +808,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         2. Add Dates &amp; Arrange Classes
                         {step2Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
                         {!hasSelectedDivisions && <AlertCircle className="ml-2 w-4 h-4" />}
-                    </TabsTrigger>
-                    <TabsTrigger 
-                        ref={groupingTabRef}
-                        value="grouping" 
-                        disabled={isScoresheetOnly || !pbbDiscipline.pattern}
-                        className={cn(
-                            nextStepHighlight === 'grouping' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
-                            activeTab === 'grouping' && "bg-primary text-primary-foreground",
-                            (isScoresheetOnly || !pbbDiscipline.pattern) && "opacity-50"
-                        )}
-                    >
-                        3. Sort Classes by Pattern Level
-                        {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
-                        {(isScoresheetOnly || !pbbDiscipline.pattern) && <AlertCircle className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
@@ -1488,23 +1436,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         setFormData={setFormData}
                         formData={formData}
                         associationsData={associationsData}
-                    />
-                </TabsContent>
-                <TabsContent 
-                    value="grouping" 
-                    className={cn(
-                        "mt-2 transition-all duration-300",
-                        nextStepHighlight === 'grouping' && "ring-2 ring-blue-500/50 rounded-lg p-2 bg-blue-500/5"
-                    )}
-                >
-                    <PatternGrouping
-                        pbbDiscipline={pbbDiscipline}
-                        setFormData={setFormData}
-                        isCustomOpenShow={isCustomOpenShowDiscipline}
-                        formData={formData}
-                        associationsData={associationsData}
-                        divisionsData={divisionsData}
-                        onAutoGroupComplete={onAutoGroupComplete}
                     />
                 </TabsContent>
             </Tabs>

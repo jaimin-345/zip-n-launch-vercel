@@ -301,64 +301,12 @@ const SortableDisciplineItem = ({ pbbDiscipline, mergedDisciplines, isOpenShowMo
     }, [pbbDiscipline?.id, formData?.patternSelections]);
     
     const isComplete = useMemo(() => {
-        // Check if any discipline in the merged group actually requires patterns
-        const hasPatternDiscipline = allDisciplines.some(disc => disc?.pattern);
-
-        // Check if any divisions are selected at all (across all merged disciplines)
+        // Complete if any divisions are selected (Step 1)
         const hasAnyDivisions = allDisciplines.some(disc =>
             disc?.divisionOrder?.length > 0
         );
-
-        // If no divisions selected anywhere, mark as incomplete
-        if (!hasAnyDivisions) return false;
-
-        // If no discipline requires patterns (all are scoresheet-only), complete when divisions exist
-        if (!hasPatternDiscipline) return true;
-
-        // For pattern disciplines: collect expected and grouped divisions
-        // Only require grouping for disciplines that have pattern: true
-        // Account for Go 1/Go 2 splitting: when a division has hasGo2, it becomes
-        // two entries (divId-go1, divId-go2) in patternGroups
-        const allExpectedDivisions = new Set();
-        const allGroupedDivisions = new Set();
-
-        allDisciplines.forEach(disc => {
-            if (!disc) return;
-
-            // Only expect grouping for disciplines that require patterns
-            if (disc.pattern && disc.divisionOrder && Array.isArray(disc.divisionOrder)) {
-                disc.divisionOrder.forEach(divId => {
-                    if (!divId) return;
-                    const goInfo = disc.divisionGos?.[divId];
-                    if (goInfo?.hasGo2) {
-                        allExpectedDivisions.add(`${divId}-go1`);
-                        allExpectedDivisions.add(`${divId}-go2`);
-                    } else {
-                        allExpectedDivisions.add(divId);
-                    }
-                });
-            }
-
-            // Get grouped divisions for this discipline
-            const groups = disc.patternGroups || [];
-            groups.forEach(g => {
-                if (g && g.divisions && Array.isArray(g.divisions)) {
-                    g.divisions.forEach(d => {
-                        const divId = typeof d === 'string' ? d : (d?.id || d);
-                        if (divId) {
-                            allGroupedDivisions.add(divId);
-                        }
-                    });
-                }
-            });
-        });
-
-        // If no pattern-requiring divisions exist, it's complete
-        if (allExpectedDivisions.size === 0) return true;
-
-        // All expected divisions (after Go splitting) must be grouped
-        return [...allExpectedDivisions].every(d => allGroupedDivisions.has(d));
-    }, [allDisciplines, isOpenShowMode]);
+        return hasAnyDivisions;
+    }, [allDisciplines]);
 
     const getDivisionCounts = () => {
         // Get associations that this discipline belongs to (from merged disciplines)
