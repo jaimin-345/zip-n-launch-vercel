@@ -648,13 +648,10 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 return 1;
             } else if (activeTab === 'schedule') {
                 return 2;
-            } else if (activeTab === 'grouping') {
-                return 3;
             }
             // Fallback: determine by completion status
             if (!step1Complete) return 1;
             if (!step2Complete) return 2;
-            if (!step3Complete && !isScoresheetOnly && pbbDiscipline.pattern) return 3;
             return null; // All complete
         };
 
