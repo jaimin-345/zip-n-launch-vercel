@@ -290,6 +290,24 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
     const logoUrl = getAssociationLogo(association);
     const Icon = getDefaultAssociationIcon(association);
 
+    // Select All logic
+    const allKeys = useMemo(() => disciplines.map(d => getDisciplineKey(d)), [disciplines, getDisciplineKey]);
+    const selectedCount = useMemo(() => allKeys.filter(k => selectedDisciplineKeys.has(k)).length, [allKeys, selectedDisciplineKeys]);
+    const allChecked = allKeys.length > 0 && selectedCount === allKeys.length;
+    const someChecked = selectedCount > 0 && selectedCount < allKeys.length;
+
+    const handleSelectAll = useCallback((checked) => {
+        disciplines.forEach(disc => {
+            const key = getDisciplineKey(disc);
+            const isSelected = selectedDisciplineKeys.has(key);
+            if (checked && !isSelected) {
+                onDisciplineToggle(disc, true);
+            } else if (!checked && isSelected) {
+                onDisciplineToggle(disc, false);
+            }
+        });
+    }, [disciplines, getDisciplineKey, selectedDisciplineKeys, onDisciplineToggle]);
+
     const categorized = useMemo(() => {
         // Use discipline_group when available (e.g., Colorado 4-H), fall back to pattern_type
         const hasGroups = disciplines.some(d => d.discipline_group);
