@@ -835,20 +835,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         {step2Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
                         {!hasSelectedDivisions && <AlertCircle className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
-                    <TabsTrigger 
-                        ref={groupingTabRef}
-                        value="grouping" 
-                        disabled={isScoresheetOnly || !pbbDiscipline.pattern}
-                        className={cn(
-                            nextStepHighlight === 'grouping' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
-                            activeTab === 'grouping' && "bg-primary text-primary-foreground",
-                            (isScoresheetOnly || !pbbDiscipline.pattern) && "opacity-50"
-                        )}
-                    >
-                        3. Sort Classes by Pattern Level
-                        {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
-                        {(isScoresheetOnly || !pbbDiscipline.pattern) && <AlertCircle className="ml-2 w-4 h-4" />}
-                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
                     {isCustomOpenShowDiscipline ? (
