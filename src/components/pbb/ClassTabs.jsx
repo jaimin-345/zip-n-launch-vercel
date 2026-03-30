@@ -807,18 +807,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                             onClick={() => setActiveTab('schedule')}
                             disabled={!hasSelectedDivisions}
                         />
-                        {!isScoresheetOnly && pbbDiscipline.pattern && (
-                            <StepIndicator
-                                step="grouping"
-                                stepNumber={3}
-                                label="Sort Classes by Pattern Level"
-                                isComplete={step3Complete}
-                                isActive={activeTab === 'grouping'}
-                                isNext={currentStep === 2 && step2Complete && !step3Complete}
-                                onClick={() => setActiveTab('grouping')}
-                                disabled={false}
-                            />
-                        )}
                     </div>
                 </div>
 
