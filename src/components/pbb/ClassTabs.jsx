@@ -810,7 +810,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                     </div>
                 </div>
 
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger 
                         value="divisions"
                         className={cn(
