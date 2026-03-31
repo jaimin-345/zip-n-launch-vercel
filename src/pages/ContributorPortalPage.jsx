@@ -82,7 +82,8 @@ const ContributorPortalPage = () => {
     const handleViewPattern = (pattern) => {
         setPreviewPattern({
             name: getPatternDisplayName(pattern),
-            file_url: pattern.file_url || pattern.pdf_url || pattern.image_url,
+            // Show extracted diagram image if available, otherwise show original PDF
+            file_url: pattern.preview_image_url || pattern.file_url || pattern.pdf_url || pattern.image_url,
         });
     };
 

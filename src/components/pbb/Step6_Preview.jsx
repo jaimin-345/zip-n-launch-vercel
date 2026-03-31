@@ -1046,7 +1046,11 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                 // Get pattern selections for badges
                 const disciplinePatternSelections = [];
                 groups.forEach((group) => {
-                  const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                  let rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                  if (!rawSelection && groups.length === 1) {
+                    const discSels = formData.patternSelections?.[pbbDiscipline.id];
+                    if (discSels) { const fk = Object.keys(discSels)[0]; if (fk) rawSelection = discSels[fk]; }
+                  }
                   const state = getGroupDisplayState(rawSelection);
                   if (state === 'judgeAssigned') {
                     disciplinePatternSelections.push({
@@ -1180,7 +1184,17 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                   {groups.map((group, groupIndex) => {
                                     const groupKey = `${originalDisciplineIndex}-${groupIndex}`;
                                     const groupPatterns = availablePatterns[groupKey] || [];
-                                    const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    // Try exact group.id match first; for single-group disciplines
+                                    // fall back to first available selection (group IDs may differ
+                                    // between auto-grouping runs)
+                                    let rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    if (!rawSelection && groups.length === 1) {
+                                      const discSelections = formData.patternSelections?.[pbbDiscipline.id];
+                                      if (discSelections) {
+                                        const firstKey = Object.keys(discSelections)[0];
+                                        if (firstKey) rawSelection = discSelections[firstKey];
+                                      }
+                                    }
                                     const displayState = getGroupDisplayState(rawSelection);
                                     const selectedId = displayState === 'patternSelected'
                                       ? (typeof rawSelection === 'object' ? rawSelection?.patternId : rawSelection)
@@ -1325,7 +1339,11 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                 <div className="space-y-6">
                                   {groups.map((group, groupIndex) => {
                                     // Check if this group is a custom pattern request
-                                    const rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    let rawSelection = formData.patternSelections?.[pbbDiscipline.id]?.[group.id];
+                                    if (!rawSelection && groups.length === 1) {
+                                      const discSels = formData.patternSelections?.[pbbDiscipline.id];
+                                      if (discSels) { const fk = Object.keys(discSels)[0]; if (fk) rawSelection = discSels[fk]; }
+                                    }
                                     const isCustomRequest = rawSelection?.type === 'customRequest';
 
                                     if (isCustomRequest) {
@@ -1344,7 +1362,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                       return (
                                         <div key={group.id} className="border border-slate-700 rounded-lg p-4 bg-slate-900/30">
                                           <div className="mb-2">
-                                            <p className="font-semibold">{group.name}</p>
+                                            {groups.length > 1 && <p className="font-semibold">{group.name}</p>}
                                             <div className="flex flex-wrap gap-1 mt-1">
                                               {divisions.map((d, i) => (
                                                 <Badge key={i} variant="secondary" className="text-xs">{d}</Badge>
@@ -1442,6 +1460,7 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
                                         discipline={pbbDiscipline}
                                         formData={formData}
                                         scoresheetImage={scoresheetData}
+                                        hideGroupName={groups.length === 1}
                                       />
                                     );
                                   })}

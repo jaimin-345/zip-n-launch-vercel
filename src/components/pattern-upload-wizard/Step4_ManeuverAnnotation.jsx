@@ -4,7 +4,7 @@ import { CardHeader, CardTitle, CardDescription, CardContent } from '@/component
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Wand2, Maximize, Info, Check, ChevronDown, ChevronUp, Pencil, AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { Loader2, Wand2, Maximize, Info, Check, ChevronDown, ChevronUp, Pencil, AlertTriangle, CheckCircle2, X, ImageIcon, Scissors, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -66,6 +66,14 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots })
   const [isEditingRaw, setIsEditingRaw] = useState(false);
   const [editableRawText, setEditableRawText] = useState('');
   const [showRawText, setShowRawText] = useState(false);
+
+  // Pattern image extraction state
+  const [isExtractingImage, setIsExtractingImage] = useState(false);
+  const [showDiagramPreview, setShowDiagramPreview] = useState(false);
+  const [isCropMode, setIsCropMode] = useState(false);
+  const [cropSelection, setCropSelection] = useState(null); // { startY, endY } normalized 0-1
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
+  const cropImageRef = React.useRef(null);
 
   // Set active pattern when patterns change
   useEffect(() => {
@@ -283,6 +291,90 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots })
       toast({ title: 'Format Error', description: 'Could not parse the edited text.', variant: 'destructive' });
     }
   }, [editableRawText, toast]);
+
+  // Open crop mode — shows the full image and lets user drag to select diagram area
+  const handleStartCrop = useCallback(() => {
+    setIsCropMode(true);
+    setCropSelection(null);
+    setShowDiagramPreview(true);
+  }, []);
+
+  // Mouse handlers for crop selection on the image
+  const handleCropMouseDown = useCallback((e) => {
+    if (!cropImageRef.current) return;
+    const rect = cropImageRef.current.getBoundingClientRect();
+    const y = (e.clientY - rect.top) / rect.height;
+    setCropSelection({ startY: Math.max(0, Math.min(1, y)), endY: Math.max(0, Math.min(1, y)) });
+    setIsDraggingCrop(true);
+  }, []);
+
+  const handleCropMouseMove = useCallback((e) => {
+    if (!isDraggingCrop || !cropImageRef.current) return;
+    const rect = cropImageRef.current.getBoundingClientRect();
+    const y = (e.clientY - rect.top) / rect.height;
+    setCropSelection(prev => prev ? { ...prev, endY: Math.max(0, Math.min(1, y)) } : null);
+  }, [isDraggingCrop]);
+
+  const handleCropMouseUp = useCallback(() => {
+    setIsDraggingCrop(false);
+  }, []);
+
+  // Apply the crop selection
+  const handleApplyCrop = useCallback(async (levelId) => {
+    if (!cropSelection) return;
+    const fullImage = pdfImageUrls[levelId];
+    if (!fullImage) return;
+
+    const top = Math.min(cropSelection.startY, cropSelection.endY);
+    const bottom = Math.max(cropSelection.startY, cropSelection.endY);
+
+    if (bottom - top < 0.05) {
+      toast({ title: 'Selection too small', description: 'Please drag a larger area on the image.', variant: 'destructive' });
+      return;
+    }
+
+    setIsExtractingImage(true);
+    try {
+      const { cropImageWithBounds } = await import('@/lib/patternImageExtractor');
+      const diagramDataUrl = await cropImageWithBounds(fullImage, { top, bottom });
+
+      setFormData(prev => ({
+        ...prev,
+        patternImages: {
+          ...prev.patternImages,
+          [levelId]: {
+            diagramDataUrl,
+            fullImageDataUrl: fullImage,
+            cropped: true,
+            cropBounds: { top, bottom, heightRatio: bottom - top },
+            extractedAt: new Date().toISOString(),
+          },
+        },
+      }));
+
+      setIsCropMode(false);
+      setCropSelection(null);
+      toast({ title: 'Diagram extracted', description: `Kept ${Math.round((bottom - top) * 100)}% of the page — diagram only.` });
+    } catch (error) {
+      console.error('Crop error:', error);
+      toast({ title: 'Crop failed', variant: 'destructive' });
+    } finally {
+      setIsExtractingImage(false);
+    }
+  }, [cropSelection, pdfImageUrls, setFormData, toast]);
+
+  // Clear extracted pattern image
+  const handleClearPatternImage = useCallback((levelId) => {
+    setFormData(prev => {
+      const updated = { ...prev.patternImages };
+      delete updated[levelId];
+      return { ...prev, patternImages: updated };
+    });
+    setShowDiagramPreview(false);
+    setIsCropMode(false);
+    setCropSelection(null);
+    toast({ title: 'Extracted image removed' });
+  }, [setFormData, toast]);
 
   const handleManeuversChange = useCallback((levelId, maneuvers) => {
     setFormData(prev => ({
@@ -622,17 +714,142 @@ export const Step4_ManeuverAnnotation = ({ formData, setFormData, uploadSlots })
               />
             </div>
 
-            {/* Right: Annotation Canvas */}
-            <div className="space-y-3">
-              <h3 className="font-semibold text-sm">Pattern Annotation</h3>
-              <p className="text-xs text-muted-foreground">
-                Draw, circle, or highlight areas on the pattern image.
-              </p>
-              <FreehandAnnotationCanvas
-                backgroundImageUrl={pdfImageUrls[activePatternId]}
-                onAnnotationChange={(annotation) => handleAnnotationChange(activePatternId, annotation)}
-                initialAnnotation={activeAnnotation}
-              />
+            {/* Right: Pattern Image + Annotation */}
+            <div className="space-y-4">
+              {/* Pattern Image Extraction */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h3 className="font-semibold text-sm">Pattern Image</h3>
+                  <div className="flex items-center gap-2">
+                    {formData.patternImages?.[activePatternId] ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={handleStartCrop}>
+                          <Scissors className="mr-1.5 h-3.5 w-3.5" /> Re-crop
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleClearPatternImage(activePatternId)}
+                        >
+                          <X className="mr-1 h-3 w-3" /> Remove
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline" size="sm"
+                        onClick={handleStartCrop}
+                        disabled={!pdfImageUrls[activePatternId]}
+                      >
+                        <Scissors className="mr-1.5 h-3.5 w-3.5" /> Select Diagram Area
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* CROP MODE: Drag on image to select diagram */}
+                {isCropMode && pdfImageUrls[activePatternId] && (
+                  <div className="rounded-lg border-2 border-blue-400 overflow-hidden">
+                    <div className="bg-blue-50 dark:bg-blue-950/30 px-3 py-2 flex items-center justify-between">
+                      <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                        Drag on the image to select the diagram area
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApplyCrop(activePatternId)}
+                          disabled={!cropSelection || isExtractingImage || Math.abs((cropSelection?.endY || 0) - (cropSelection?.startY || 0)) < 0.05}
+                          className="bg-blue-600 hover:bg-blue-700 text-white h-7"
+                        >
+                          {isExtractingImage ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Check className="mr-1 h-3 w-3" />}
+                          Apply
+                        </Button>
+                        <Button
+                          size="sm" variant="ghost" className="h-7"
+                          onClick={() => { setIsCropMode(false); setCropSelection(null); }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                    <div
+                      className="relative select-none cursor-crosshair"
+                      ref={cropImageRef}
+                      onMouseDown={handleCropMouseDown}
+                      onMouseMove={handleCropMouseMove}
+                      onMouseUp={handleCropMouseUp}
+                      onMouseLeave={handleCropMouseUp}
+                    >
+                      <img
+                        src={pdfImageUrls[activePatternId]}
+                        alt="Pattern — drag to select diagram"
+                        className="w-full h-auto"
+                        draggable={false}
+                      />
+                      {/* Dim everything OUTSIDE the selection */}
+                      {cropSelection && (() => {
+                        const top = Math.min(cropSelection.startY, cropSelection.endY);
+                        const bottom = Math.max(cropSelection.startY, cropSelection.endY);
+                        return (
+                          <>
+                            {/* Top dim */}
+                            <div
+                              className="absolute top-0 left-0 right-0 bg-black/40 pointer-events-none"
+                              style={{ height: `${top * 100}%` }}
+                            />
+                            {/* Bottom dim */}
+                            <div
+                              className="absolute bottom-0 left-0 right-0 bg-black/40 pointer-events-none"
+                              style={{ height: `${(1 - bottom) * 100}%` }}
+                            />
+                            {/* Selection border */}
+                            <div
+                              className="absolute left-0 right-0 border-y-2 border-blue-500 pointer-events-none"
+                              style={{ top: `${top * 100}%`, height: `${(bottom - top) * 100}%` }}
+                            />
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* RESULT: Show extracted diagram */}
+                {!isCropMode && formData.patternImages?.[activePatternId] && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <span className="text-xs font-medium text-green-700 dark:text-green-300">Diagram extracted</span>
+                    </div>
+                    <div className="rounded-lg border border-green-200 bg-white overflow-hidden">
+                      <img
+                        src={formData.patternImages[activePatternId].diagramDataUrl}
+                        alt="Extracted diagram"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* No extraction yet and not in crop mode */}
+                {!isCropMode && !formData.patternImages?.[activePatternId] && pdfImageUrls[activePatternId] && (
+                  <p className="text-xs text-muted-foreground">
+                    Click "Select Diagram Area" to crop the diagram from the pattern PDF.
+                  </p>
+                )}
+              </div>
+
+              {/* Pattern Annotation */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-sm">Pattern Annotation</h3>
+                <p className="text-xs text-muted-foreground">
+                  Draw, circle, or highlight areas on the pattern image.
+                </p>
+                <FreehandAnnotationCanvas
+                  backgroundImageUrl={pdfImageUrls[activePatternId]}
+                  onAnnotationChange={(annotation) => handleAnnotationChange(activePatternId, annotation)}
+                  initialAnnotation={activeAnnotation}
+                />
+              </div>
             </div>
           </div>
         )}

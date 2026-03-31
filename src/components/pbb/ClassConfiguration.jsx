@@ -205,47 +205,13 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
     );
 };
 
-const isDisciplineComplete = (pbbDiscipline, isOpenShowMode) => {
+const isDisciplineComplete = (pbbDiscipline, isOpenShowMode, mergedDisciplines) => {
     if (!pbbDiscipline) return false;
 
-    const getSelectedDivisionsSet = () => {
-        const divisions = new Set();
-        if (!pbbDiscipline.divisions) return divisions;
+    const allDisciplines = mergedDisciplines && mergedDisciplines.length > 0 ? mergedDisciplines : [pbbDiscipline];
 
-        if (pbbDiscipline.isCustom && isOpenShowMode) {
-            const openShowDivs = pbbDiscipline.divisions['open-show'] || {};
-            Object.entries(openShowDivs).forEach(([group, levels]) => {
-                if (Array.isArray(levels)) {
-                    levels.forEach(level => divisions.add(`open-show-${group} - ${level}`));
-                }
-            });
-        } else {
-            Object.entries(pbbDiscipline.divisions).forEach(([assocId, divs]) => {
-                Object.keys(divs || {}).filter(d => divs[d]).forEach(divisionKey => {
-                     const cleanDivisionName = divisionKey.startsWith('custom-') ? divisionKey.substring(7) : divisionKey;
-                     divisions.add(`${assocId}-${cleanDivisionName}`);
-                });
-            });
-        }
-        return divisions;
-    };
-    
-    const selectedDivisions = getSelectedDivisionsSet();
-    const hasPattern = pbbDiscipline.pattern_type === 'none' || pbbDiscipline.pattern_type === 'scoresheet_only' || !pbbDiscipline.pattern;
-
-    if (hasPattern) { // For disciplines without patterns, only division selection matters.
-        return selectedDivisions.size > 0;
-    }
-
-    // For disciplines with patterns, all selected divisions must be grouped.
-    const groupedDivisions = new Set((pbbDiscipline.patternGroups || []).flatMap(g => g.divisions.map(d => d.id)));
-
-    if (selectedDivisions.size === 0) {
-        return false;
-    }
-    
-    // Check if every selected division has been placed into a group.
-    return selectedDivisions.size === groupedDivisions.size && [...selectedDivisions].every(d => groupedDivisions.has(d));
+    // Complete when any discipline has divisions in divisionOrder
+    return allDisciplines.some(disc => disc?.divisionOrder?.length > 0);
 };
 
 

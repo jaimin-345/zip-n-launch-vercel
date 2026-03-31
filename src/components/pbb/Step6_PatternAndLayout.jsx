@@ -1789,16 +1789,17 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               const currentSelection = getPatternSelection(discipline.id, group.id);
                               const filteredPatterns = getFilteredPatterns(discipline.id);
                               const hubGroupIndex = isHubMode ? groups.filter(g => !g._hubExtra || groups.indexOf(g) <= groups.indexOf(group)).indexOf(group) : groupIndex;
+                              const isSingleGroup = groups.length === 1 && !isHubMode;
 
                               return (
                                 <div
                                   key={group.id}
-                                  className="p-2 sm:p-4 border rounded-lg bg-background/50 space-y-3 sm:space-y-4"
+                                  className={cn("space-y-3 sm:space-y-4", !isSingleGroup && "p-2 sm:p-4 border rounded-lg bg-background/50")}
                                 >
                                   <div>
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      {!isHubMode && <Label className="font-semibold text-base">{group.name}</Label>}
+                                      {!isHubMode && !isSingleGroup && <Label className="font-semibold text-base">{group.name}</Label>}
                                       {/* Hub mode: show entry label with custom name input */}
                                       {isHubMode && groups.filter(g => !g._hubExtra || g === group).length > 0 && (
                                         <div className="flex items-center gap-2">
@@ -1899,7 +1900,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                         return null;
                                       })()}
                                     </div>
-                                    <div className="flex flex-wrap gap-1 mt-2">
+                                    {!isSingleGroup && <div className="flex flex-wrap gap-1 mt-2">
                                       {(group.divisions || []).map(div => {
                                         const divisionName = div.division || div.id || '';
 
@@ -1967,7 +1968,7 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                           </Badge>
                                         );
                                       })}
-                                    </div>
+                                    </div>}
                                   </div>
 
                                 {/* Judge/Custom badges shown inline at group level (controls moved to discipline level) */}

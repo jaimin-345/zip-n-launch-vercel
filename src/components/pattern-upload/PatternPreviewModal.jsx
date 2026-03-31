@@ -90,20 +90,37 @@ const PatternPreviewModal = ({ isOpen, onClose, pattern }) => {
               <p className="font-semibold">{error}</p>
             </div>
           )}
-          {!loading && !error && displayUrl && (
-            <iframe
-              src={displayUrl}
-              title={pattern?.name || 'Pattern Preview'}
-              width="100%"
-              height="100%"
-              className="border-none"
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setError('Failed to load PDF in iframe.');
-                setLoading(false);
-              }}
-            />
-          )}
+          {!loading && !error && displayUrl && (() => {
+            // Detect if URL points to an image (PNG, JPG, etc.) vs a PDF
+            const isImage = /\.(png|jpg|jpeg|gif|webp|svg)(\?|$)/i.test(displayUrl) || displayUrl.startsWith('data:image/');
+            return isImage ? (
+              <div className="flex items-center justify-center h-full overflow-auto bg-white rounded">
+                <img
+                  src={displayUrl}
+                  alt={pattern?.name || 'Pattern Preview'}
+                  className="max-w-full max-h-full object-contain"
+                  onLoad={() => setLoading(false)}
+                  onError={() => {
+                    setError('Failed to load image.');
+                    setLoading(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <iframe
+                src={displayUrl}
+                title={pattern?.name || 'Pattern Preview'}
+                width="100%"
+                height="100%"
+                className="border-none"
+                onLoad={() => setLoading(false)}
+                onError={() => {
+                  setError('Failed to load PDF in iframe.');
+                  setLoading(false);
+                }}
+              />
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>

@@ -7,7 +7,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
     import { Input } from '@/components/ui/input';
     import { Button } from '@/components/ui/button';
     import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-    import { PlusCircle, Trash2, CheckCircle2, Circle, ArrowRight, AlertCircle, Loader2, Copy } from 'lucide-react';
+    import { PlusCircle, Trash2, CheckCircle2, Circle, AlertCircle, Loader2, Copy } from 'lucide-react';
     import { PatternGrouping } from '@/components/pbb/PatternGrouping';
     import { ScheduleOrganizer } from '@/components/pbb/ScheduleOrganizer';
     import { cn } from '@/lib/utils';
@@ -112,12 +112,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
         const [activeAssocTab, setActiveAssocTab] = React.useState(null);
         const [activeTab, setActiveTab] = React.useState('divisions');
         const prevDisciplineIdRef = React.useRef(null);
-        const [nextStepHighlight, setNextStepHighlight] = useState(null);
-        const [hasJustCompleted, setHasJustCompleted] = useState(false);
         const scheduleTabRef = useRef(null);
         const groupingTabRef = useRef(null);
-        const prevHasSelectedDivisions = useRef(false);
-        const prevHasScheduled = useRef(false);
         const [isSavingCustomDivision, setIsSavingCustomDivision] = useState(false);
         const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
         const [selectedSourceDisciplineId, setSelectedSourceDisciplineId] = useState(null);
@@ -641,37 +637,12 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                 return allGrouped;
             })();
 
-        // Determine which step should be active/next based on current tab
-        const getCurrentStep = () => {
-            // Base current step on which tab is active, not just completion status
-            if (activeTab === 'divisions') {
-                return 1;
-            } else if (activeTab === 'schedule') {
-                return 2;
-            }
-            // Fallback: determine by completion status
-            if (!step1Complete) return 1;
-            if (!step2Complete) return 2;
-            return null; // All complete
-        };
-
-        const currentStep = getCurrentStep();
-        const nextStep = currentStep ? currentStep + 1 : null;
-
-        // Track previous state
-        useEffect(() => {
-            prevHasSelectedDivisions.current = hasSelectedDivisions;
-            prevHasScheduled.current = hasScheduled;
-        }, [hasSelectedDivisions, hasScheduled]);
-
         // Auto-open appropriate tab when component mounts or discipline changes
         React.useEffect(() => {
             const disciplineChanged = prevDisciplineIdRef.current !== pbbDiscipline.id;
             if (disciplineChanged || prevDisciplineIdRef.current === null) {
                 prevDisciplineIdRef.current = pbbDiscipline.id;
-                prevHasSelectedDivisions.current = hasSelectedDivisions;
-                prevHasScheduled.current = hasScheduled;
-                
+
                 if (hasSelectedDivisions) {
                     setActiveTab('schedule');
                 } else {
@@ -680,66 +651,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
             }
             // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [pbbDiscipline.id, isScoresheetOnly]);
-
-        // Clear highlight when user interacts with highlighted tab
-        useEffect(() => {
-            if (nextStepHighlight && activeTab === nextStepHighlight) {
-                const timer = setTimeout(() => setNextStepHighlight(null), 2000);
-                return () => clearTimeout(timer);
-            }
-        }, [activeTab, nextStepHighlight]);
-
-        // Step indicator component
-        const StepIndicator = ({ step, label, stepNumber, isComplete, isActive, isNext, onClick, disabled }) => {
-            const isHighlighted = isNext && nextStepHighlight === step;
-            return (
-                <div 
-                    className={cn(
-                        "flex items-center gap-2 cursor-pointer transition-all duration-300",
-                        disabled && "opacity-50 cursor-not-allowed",
-                        isHighlighted && "animate-pulse"
-                    )}
-                    onClick={!disabled ? onClick : undefined}
-                >
-                    <div className={cn(
-                        "flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-300",
-                        isComplete && "bg-green-500 border-green-500 text-white",
-                        !isComplete && isActive && "bg-primary border-primary text-white",
-                        !isComplete && !isActive && !isNext && "bg-muted border-muted-foreground text-muted-foreground",
-                        isNext && !isComplete && "bg-blue-500/20 border-blue-500 text-blue-600 dark:bg-blue-500/30 dark:border-blue-400 dark:text-blue-400",
-                        isHighlighted && "ring-4 ring-blue-400/50 shadow-lg shadow-blue-500/50"
-                    )}>
-                        {isComplete ? (
-                            <CheckCircle2 className="w-5 h-5" />
-                        ) : (
-                            <span className="text-sm font-semibold">{stepNumber}</span>
-                        )}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className={cn(
-                            "text-sm font-medium transition-colors",
-                            isActive && "text-primary",
-                            isNext && !isComplete && "text-blue-600 dark:text-blue-400",
-                            !isActive && !isNext && "text-muted-foreground"
-                        )}>
-                            {label}
-                        </span>
-                        {isNext && !isComplete && (
-                            <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                <ArrowRight className="w-3 h-3" />
-                                Next step
-                            </span>
-                        )}
-                    </div>
-                    {stepNumber < 2 && (
-                        <div className={cn(
-                            "flex-1 h-0.5 mx-2 transition-colors",
-                            isComplete ? "bg-green-500" : "bg-muted"
-                        )} />
-                    )}
-                </div>
-            );
-        };
 
         return (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -750,40 +661,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                     </div>
                 )}
                 
-                {/* Step-by-Step Flow Indicator */}
-                <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-semibold text-foreground">Configuration Steps</h3>
-                        {currentStep && (
-                            <Badge variant={currentStep === null ? "default" : "secondary"} className="text-xs">
-                                Step {currentStep} of 2
-                            </Badge>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <StepIndicator
-                            step="divisions"
-                            stepNumber={1}
-                            label="Select Divisions"
-                            isComplete={step1Complete}
-                            isActive={activeTab === 'divisions'}
-                            isNext={false}
-                            onClick={() => setActiveTab('divisions')}
-                            disabled={false}
-                        />
-                        <StepIndicator
-                            step="schedule"
-                            stepNumber={2}
-                            label="Add Dates & Arrange Classes"
-                            isComplete={step2Complete}
-                            isActive={activeTab === 'schedule'}
-                            isNext={currentStep === 1 && step1Complete && !step2Complete}
-                            onClick={() => setActiveTab('schedule')}
-                            disabled={!hasSelectedDivisions}
-                        />
-                    </div>
-                </div>
-
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger 
                         value="divisions"
@@ -800,7 +677,6 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         value="schedule" 
                         disabled={!hasSelectedDivisions}
                         className={cn(
-                            nextStepHighlight === 'schedule' && "ring-2 ring-blue-500 ring-offset-2 animate-pulse",
                             activeTab === 'schedule' && "bg-primary text-primary-foreground",
                             !hasSelectedDivisions && "opacity-50"
                         )}
@@ -1424,12 +1300,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         </div>
                     )}
                 </TabsContent>
-                <TabsContent 
-                    value="schedule" 
-                    className={cn(
-                        "mt-2 transition-all duration-300",
-                        nextStepHighlight === 'schedule' && "ring-2 ring-blue-500/50 rounded-lg p-2 bg-blue-500/5"
-                    )}
+                <TabsContent
+                    value="schedule"
+                    className="mt-2"
                 >
                     <ScheduleOrganizer
                         pbbDiscipline={pbbDiscipline}

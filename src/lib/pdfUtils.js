@@ -247,35 +247,48 @@ export const generateScoreSheetPdf = async (templatePath, steps, patternInfo) =>
     const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    page.drawText(patternInfo.className || '', {
+    // Minimal margins for full-page use
+    const margin = 20;
+
+    // Header: class name
+    page.drawText(patternInfo.className || 'Equipatterns', {
         x: width / 2,
-        y: height - 60,
+        y: height - margin - 20,
         font: helveticaBoldFont,
-        size: 24,
+        size: 20,
         color: rgb(0, 0, 0),
-        maxWidth: width - 100,
-        lineHeight: 28,
+        maxWidth: width - margin * 2,
+        lineHeight: 24,
         xAlign: 'center',
     });
 
-    page.drawText(patternInfo.patternName || '', {
-        x: width / 2,
-        y: height - 85,
-        font: helveticaFont,
-        size: 18,
-        color: rgb(0, 0, 0),
-        maxWidth: width - 100,
-        lineHeight: 22,
-        xAlign: 'center',
-    });
+    // Sub-header: pattern name
+    if (patternInfo.patternName) {
+        page.drawText(patternInfo.patternName, {
+            x: width / 2,
+            y: height - margin - 42,
+            font: helveticaFont,
+            size: 14,
+            color: rgb(0, 0, 0),
+            maxWidth: width - margin * 2,
+            lineHeight: 18,
+            xAlign: 'center',
+        });
+    }
 
-    const boxWidth = 160;
-    const boxHeight = 60;
-    const startX = 65;
-    const startY = height - 180;
-    const gapX = 20;
-    const gapY = 25;
+    // Grid layout — dynamically sized to fill page
     const cols = 3;
+    const rows = 5;
+    const gapX = 8;
+    const gapY = 6;
+    const gridTop = height - margin - 60;
+    const gridBottom = margin + 50; // reserve space for penalty/total row
+    const gridLeft = margin;
+    const gridWidth = width - margin * 2;
+
+    const totalGridH = gridTop - gridBottom;
+    const boxWidth = (gridWidth - (cols - 1) * gapX) / cols;
+    const boxHeight = (totalGridH - (rows - 1) * gapY) / rows;
 
     for (const stepNumberStr in steps) {
         const stepNumber = parseInt(stepNumberStr, 10);
@@ -285,22 +298,22 @@ export const generateScoreSheetPdf = async (templatePath, steps, patternInfo) =>
         const col = (stepNumber - 1) % cols;
         const row = Math.floor((stepNumber - 1) / cols);
 
-        const x = startX + col * (boxWidth + gapX);
-        const y = startY - row * (boxHeight + gapY);
+        const x = gridLeft + col * (boxWidth + gapX);
+        const y = gridTop - row * (boxHeight + gapY);
 
-        let fontSize = 10;
+        let fontSize = 11;
         let textWidth = helveticaFont.widthOfTextAtSize(text, fontSize);
-        while (textWidth > boxWidth - 10 && fontSize > 6) {
+        while (textWidth > boxWidth - 12 && fontSize > 6) {
             fontSize -= 0.5;
             textWidth = helveticaFont.widthOfTextAtSize(text, fontSize);
         }
-        
+
         const textLines = [];
         let currentLine = '';
         const words = text.split(' ');
-        for(const word of words) {
+        for (const word of words) {
             const testLine = currentLine ? `${currentLine} ${word}` : word;
-            if (helveticaFont.widthOfTextAtSize(testLine, fontSize) < boxWidth - 10) {
+            if (helveticaFont.widthOfTextAtSize(testLine, fontSize) < boxWidth - 12) {
                 currentLine = testLine;
             } else {
                 textLines.push(currentLine);
@@ -311,7 +324,7 @@ export const generateScoreSheetPdf = async (templatePath, steps, patternInfo) =>
 
         page.drawText(textLines.join('\n'), {
             x: x + boxWidth / 2,
-            y: y - 5,
+            y: y - 8,
             font: helveticaFont,
             size: fontSize,
             color: rgb(0, 0, 0),

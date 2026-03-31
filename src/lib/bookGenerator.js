@@ -5,7 +5,7 @@ import { fetchImageAsBase64, fetchPatternAndScoresheetAssets, compressImage } fr
 import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
 import patternDiagram from '@/assets/pattern-diagram-sample.png';
-import { drawGenericScoreSheetPage } from './genericScoreSheet';
+import { drawGenericScoreSheetPage, SCORESHEET_LAYOUT } from './genericScoreSheet';
 
 export const generatePatternBookPdf = async (pbbData, options = {}) => {
     console.log('Generating PDF for', pbbData);
@@ -588,6 +588,11 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 if (!patternSelection) {
                     patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
                 }
+                // Single-group fallback: use first available selection for the discipline
+                if (!patternSelection && discipline.patternGroups?.length === 1 && disciplineId) {
+                    const discSels = pbbData.patternSelections?.[disciplineId];
+                    if (discSels) { const fk = Object.keys(discSels)[0]; if (fk) patternSelection = discSels[fk]; }
+                }
                 const patternDisplay = getPatternDisplayName(patternSelection) || 'TBD';
                 
                 // Class Name
@@ -643,10 +648,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             if (disciplineId && groupId) {
                 patternSelection = pbbData.patternSelections?.[disciplineId]?.[groupId];
             }
-            
+
             // Fallback to index-based keys (legacy)
             if (!patternSelection) {
                 patternSelection = pbbData.patternSelections?.[discIndex]?.[groupIndex];
+            }
+
+            // Single-group fallback: use first available selection for the discipline
+            if (!patternSelection && discipline.patternGroups?.length === 1 && disciplineId) {
+                const discSels = pbbData.patternSelections?.[disciplineId];
+                if (discSels) { const fk = Object.keys(discSels)[0]; if (fk) patternSelection = discSels[fk]; }
             }
             
             // Check for special selection types (judge-assigned, custom-request)
@@ -911,17 +922,19 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     ? scoresheetImagesMap.get(numericPidForSs) : null;
                 if (ssBase64) {
                     addNewPage();
-                    yPos = margin;
+                    // Use minimal margins to fill the page
+                    const ssMargin = SCORESHEET_LAYOUT.margin;
                     try {
                         const ssProps = doc.getImageProperties(ssBase64);
                         const ssAspect = ssProps.height / ssProps.width;
-                        const ssAvailH = pageHeight - yPos - 40;
-                        const ssImgW = pageWidth - margin * 2;
+                        const ssAvailH = pageHeight - ssMargin * 2;
+                        const ssImgW = pageWidth - ssMargin * 2;
                         let ssFinalW = ssImgW;
                         let ssFinalH = ssImgW * ssAspect;
                         if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
                         const ssXOff = (pageWidth - ssFinalW) / 2;
-                        await addImageToPage(ssBase64, ssXOff, yPos, ssFinalW, ssFinalH);
+                        const ssYOff = (pageHeight - ssFinalH) / 2;
+                        await addImageToPage(ssBase64, ssXOff, ssYOff, ssFinalW, ssFinalH);
                     } catch (ssErr) {
                         console.error('Failed to add scoresheet image:', ssErr);
                     }
@@ -1137,17 +1150,19 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         ? scoresheetImagesMap.get(numericPidForSsB) : null;
                     if (ssBase64B) {
                         addNewPage();
-                        yPos = margin;
+                        // Use minimal margins to fill the page
+                        const ssMarginB = SCORESHEET_LAYOUT.margin;
                         try {
                             const ssProps = doc.getImageProperties(ssBase64B);
                             const ssAspect = ssProps.height / ssProps.width;
-                            const ssAvailH = pageHeight - yPos - 40;
-                            const ssImgW = pageWidth - margin * 2;
+                            const ssAvailH = pageHeight - ssMarginB * 2;
+                            const ssImgW = pageWidth - ssMarginB * 2;
                             let ssFinalW = ssImgW;
                             let ssFinalH = ssImgW * ssAspect;
                             if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
                             const ssXOff = (pageWidth - ssFinalW) / 2;
-                            await addImageToPage(ssBase64B, ssXOff, yPos, ssFinalW, ssFinalH);
+                            const ssYOff = (pageHeight - ssFinalH) / 2;
+                            await addImageToPage(ssBase64B, ssXOff, ssYOff, ssFinalW, ssFinalH);
                         } catch (ssErr) {
                             console.error('Failed to add scoresheet image (layout-b):', ssErr);
                         }

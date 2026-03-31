@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { FileText } from 'lucide-react';
 
-const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId, onScoresheetSelect, primaryAffiliates = new Set(), scoresheetImage }) => {
+const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId, onScoresheetSelect, primaryAffiliates = new Set(), scoresheetImage, hideGroupName = false }) => {
     const [imageZoom, setImageZoom] = useState(1);
     
     useEffect(() => {
@@ -19,7 +19,7 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
     return (
         <div className="border border-slate-700 rounded-lg p-4 bg-slate-900/30">
             <div className="mb-2">
-                <p className="font-semibold">{group.name}</p>
+                {!hideGroupName && <p className="font-semibold">{group.name}</p>}
                 <div className="flex flex-wrap gap-1 mt-1">
                     {(group.divisions || []).map(div => {
                         // Remove first word, "Pro", and "Non-Pro" from division name

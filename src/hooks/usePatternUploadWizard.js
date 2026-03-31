@@ -40,6 +40,7 @@ const initialFormData = {
   patternManeuvers: {},
   patternAnnotations: {},
   patternVerbiage: {}, // { [levelId]: { raw: string, formatted: ManeuverStep[], extractedAt: ISO } }
+  patternImages: {},   // { [levelId]: { diagramDataUrl, fullImageDataUrl, cropped, cropBounds } }
 
   // Step 5: Equipment & Documents
   accessoryDocs: [],

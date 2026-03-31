@@ -3,11 +3,12 @@ import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 import { fetchImageAsBase64 } from './pdfHelpers';
-import { createGenericScoreSheetPdf } from './genericScoreSheet';
+import { createGenericScoreSheetPdf, SCORESHEET_LAYOUT } from './genericScoreSheet';
 import { parseLocalDate } from '@/lib/utils';
 
 /**
- * Creates a PDF from an image (pattern or scoresheet)
+ * Creates a PDF from an image (pattern or scoresheet).
+ * Uses minimal margins and centres the image to fill the page.
  */
 const createPdfFromImage = async (imageUrl, title) => {
     try {
@@ -17,21 +18,16 @@ const createPdfFromImage = async (imageUrl, title) => {
         const doc = new jsPDF('p', 'pt', 'a4');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 40;
+        const margin = SCORESHEET_LAYOUT.margin;
 
-        // Add title
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text(title, pageWidth / 2, margin, { align: 'center' });
-
-        // Add image centered on page
+        // Maximise image area — no title header so image can fill the page
         const imgMaxWidth = pageWidth - margin * 2;
-        const imgMaxHeight = pageHeight - margin * 3;
+        const imgMaxHeight = pageHeight - margin * 2;
 
         // Create image to get dimensions
         const img = new Image();
         img.src = base64;
-        
+
         await new Promise((resolve) => {
             img.onload = resolve;
             img.onerror = resolve;
@@ -40,13 +36,14 @@ const createPdfFromImage = async (imageUrl, title) => {
         let imgWidth = img.width || 500;
         let imgHeight = img.height || 700;
 
-        // Scale image to fit
+        // Scale image to fit while maintaining aspect ratio
         const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
         imgWidth *= scale;
         imgHeight *= scale;
 
+        // Centre on page
         const x = (pageWidth - imgWidth) / 2;
-        const y = margin + 30;
+        const y = (pageHeight - imgHeight) / 2;
 
         const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
         doc.addImage(base64, imageType, x, y, imgWidth, imgHeight);

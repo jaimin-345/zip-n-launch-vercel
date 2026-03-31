@@ -3699,25 +3699,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
-                    const groupName = group.name || `Group ${groupIndex + 1}`;
+                    // Hide group name when there's only 1 group (no manual grouping)
+                    const groupName = groups.length > 1 ? (group.name || `Group ${groupIndex + 1}`) : '';
                     const groupId = group.id || `pattern-group-${groupIndex}`;
-                    
+
                     // Try multiple ways to find pattern selection
                     let patternSelection = disciplineSelections[groupIndex]
                         || disciplineSelections[`${groupIndex}`]
                         || disciplineSelections[groupId]
                         || disciplineSelections[group.id]
                         || (Array.isArray(disciplineSelections) ? disciplineSelections[groupIndex] : null);
-                    
+
                     // If not found, try to find by group ID pattern (e.g., "pattern-group-1767684453160")
                     if (!patternSelection && groupId) {
                         const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
                             return key === groupId || key.includes('pattern-group') || key === `group-${groupIndex}`;
                         });
-                        
+
                         if (matchingGroupKey) {
                             patternSelection = disciplineSelections[matchingGroupKey];
                         }
+                    }
+
+                    // Single-group fallback: use first available selection
+                    if (!patternSelection && groups.length === 1) {
+                        const firstKey = Object.keys(disciplineSelections)[0];
+                        if (firstKey) patternSelection = disciplineSelections[firstKey];
                     }
                     
                     if (!patternSelection) {
@@ -4101,21 +4108,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
-                    const groupName = group.name || `Group ${groupIndex + 1}`;
+                    const groupName = groups.length > 1 ? (group.name || `Group ${groupIndex + 1}`) : '';
                     const groupId = group.id || `pattern-group-${groupIndex}`;
-                    
+
                     // Get judges for this group
                     const judgesForGroup = groupJudges[groupIndex] || groupJudges[`${groupIndex}`] || [];
-                    const judgeNames = Array.isArray(judgesForGroup) 
-                        ? judgesForGroup 
+                    const judgeNames = Array.isArray(judgesForGroup)
+                        ? judgesForGroup
                         : (judgesForGroup ? [judgesForGroup] : []);
-                    
+
                     // Get pattern selection to find pattern ID - try multiple matching strategies
                     let patternSelection = disciplineSelections?.[groupIndex]
                         || disciplineSelections?.[`${groupIndex}`]
                         || disciplineSelections?.[groupId]
                         || disciplineSelections?.[group.id];
-                    
+
                     // If not found, try to find by group ID pattern
                     if (!patternSelection && disciplineSelections && groupId) {
                         const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
@@ -4125,7 +4132,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             patternSelection = disciplineSelections[matchingGroupKey];
                         }
                     }
-                    
+
+                    // Single-group fallback
+                    if (!patternSelection && groups.length === 1 && disciplineSelections) {
+                        const firstKey = Object.keys(disciplineSelections)[0];
+                        if (firstKey) patternSelection = disciplineSelections[firstKey];
+                    }
+
                     let scoresheetData = null;
                     let numericPatternId = null;
                     

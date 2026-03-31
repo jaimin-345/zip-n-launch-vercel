@@ -160,7 +160,39 @@ export const submitPatternSet = async (formData, user) => {
     if (error) console.warn('Maneuver insert error (table may not exist yet):', error.message);
   }
 
-  // 6. Upload annotation images and insert pattern_annotations (new)
+  // 6. Upload extracted pattern images (diagram-only) and update pattern records
+  for (const [originalId, patternImage] of Object.entries(formData.patternImages || {})) {
+    const dbId = idMap[originalId];
+    if (!dbId || !patternImage?.diagramDataUrl) continue;
+
+    try {
+      const response = await fetch(patternImage.diagramDataUrl);
+      const blob = await response.blob();
+      const imgPath = `${user.id}/pattern_images/${uuidv4()}.png`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pattern_files')
+        .upload(imgPath, blob, { contentType: 'image/png' });
+
+      if (uploadError) {
+        console.warn('Pattern image upload error:', uploadError.message);
+        continue;
+      }
+
+      const { data: { publicUrl } } = supabase.storage.from('pattern_files').getPublicUrl(imgPath);
+
+      // Update the pattern record with the extracted diagram image URL
+      const { error } = await supabase.from('patterns').update({
+        preview_image_url: publicUrl,
+      }).eq('id', dbId);
+
+      if (error) console.warn('Pattern image URL update error:', error.message);
+    } catch (err) {
+      console.warn('Pattern image processing error:', err.message);
+    }
+  }
+
+  // 7. Upload annotation images and insert pattern_annotations (new)
   for (const [originalId, annotation] of Object.entries(formData.patternAnnotations || {})) {
     const dbId = idMap[originalId];
     if (!dbId || !annotation?.imageDataUrl) continue;
@@ -194,7 +226,7 @@ export const submitPatternSet = async (formData, user) => {
     }
   }
 
-  // 7. Upload accessory documents
+  // 8. Upload accessory documents
   for (const doc of formData.accessoryDocs || []) {
     if (!doc.file) continue;
 
