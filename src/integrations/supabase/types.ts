@@ -2567,6 +2567,7 @@ export type Database = {
           display_name: string | null
           file_path: string | null
           file_url: string | null
+          final_file_url: string | null
           hierarchy_order: number | null
           id: string
           is_custom: boolean | null
@@ -2580,6 +2581,7 @@ export type Database = {
           pattern_set_name: string | null
           preview_image_url: string | null
           project_id: string | null
+          publication_status: string | null
           rejected_at: string | null
           rejection_reason: string | null
           review_status: string | null
@@ -2599,6 +2601,7 @@ export type Database = {
           display_name?: string | null
           file_path?: string | null
           file_url?: string | null
+          final_file_url?: string | null
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
@@ -2612,6 +2615,7 @@ export type Database = {
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
+          publication_status?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
           review_status?: string | null
@@ -2631,6 +2635,7 @@ export type Database = {
           display_name?: string | null
           file_path?: string | null
           file_url?: string | null
+          final_file_url?: string | null
           hierarchy_order?: number | null
           id?: string
           is_custom?: boolean | null
@@ -2644,6 +2649,7 @@ export type Database = {
           pattern_set_name?: string | null
           preview_image_url?: string | null
           project_id?: string | null
+          publication_status?: string | null
           rejected_at?: string | null
           rejection_reason?: string | null
           review_status?: string | null

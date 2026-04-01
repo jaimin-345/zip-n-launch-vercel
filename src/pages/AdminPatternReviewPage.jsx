@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, X, Eye, FileText, User, Loader2, Download, Trash2,
   Mail, ExternalLink, Pencil, ChevronDown, ChevronUp, Plus, Minus,
-  History, Shield, Clock, Tag
+  History, Shield, Clock, Tag, Sparkles, Globe, AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
@@ -25,6 +25,8 @@ import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { EmailSenderModal } from '@/components/admin/EmailSenderModal';
 import { ReviewEmailModal } from '@/components/admin/ReviewEmailModal';
 import { generateNextPatternNumber, assignPatternNumber, PATTERN_LEVELS, assignPatternDisplayName, updatePatternIdentifier } from '@/lib/patternNumbering';
+import { generateFinalFilePdf, uploadFinalFile } from '@/lib/finalFileGenerator';
+import PatternArtifactCard from '@/components/admin/PatternArtifactCard';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,6 +49,7 @@ const AdminPatternReviewPage = () => {
   const [historyState, setHistoryState] = useState({ isOpen: false, setName: null, history: [], isLoading: false });
   const [expandedSets, setExpandedSets] = useState(new Set());
   const [reviewEmailState, setReviewEmailState] = useState({ isOpen: false, patternSet: null, reviewType: null, onConfirm: null });
+  const [generatingFinals, setGeneratingFinals] = useState(new Set());
 
   // Fetch all available associations for the multi-select
   useEffect(() => {
@@ -469,6 +472,73 @@ const AdminPatternReviewPage = () => {
     setEmailState({ isOpen: true, patternSet });
   };
 
+  const handleGenerateFinalFile = async (pattern) => {
+    if (!pattern.preview_image_url && !pattern.verbiage) {
+      toast({ title: 'Cannot Generate', description: 'Pattern needs at least an image or verbiage text.', variant: 'destructive' });
+      return;
+    }
+
+    setGeneratingFinals(prev => new Set(prev).add(pattern.id));
+    try {
+      const blob = await generateFinalFilePdf({
+        patternImageUrl: pattern.preview_image_url,
+        verbiageText: pattern.verbiage,
+        patternName: pattern.display_name || pattern.name,
+      });
+      await uploadFinalFile(blob, pattern.id, pattern.user_id);
+      toast({ title: 'Final File Generated', description: `Final file created for "${pattern.display_name || pattern.name}".` });
+      fetchPatterns();
+    } catch (error) {
+      toast({ title: 'Generation Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setGeneratingFinals(prev => {
+        const next = new Set(prev);
+        next.delete(pattern.id);
+        return next;
+      });
+    }
+  };
+
+  const handleGenerateAllFinals = async (set) => {
+    const patternsToGenerate = set.patterns.filter(p => !p.final_file_url);
+    if (patternsToGenerate.length === 0) {
+      toast({ title: 'All Done', description: 'All patterns already have final files.' });
+      return;
+    }
+    for (const pattern of patternsToGenerate) {
+      await handleGenerateFinalFile(pattern);
+    }
+  };
+
+  const handlePublish = async (set) => {
+    const patternIds = set.patterns.map(p => p.id);
+    const { error } = await supabase
+      .from('patterns')
+      .update({
+        publication_status: 'published',
+        last_modified_at: new Date().toISOString(),
+        last_modified_by: user?.id || null,
+      })
+      .in('id', patternIds);
+
+    if (error) {
+      toast({ title: 'Publish Failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    await supabase.from('pattern_change_history').insert({
+      pattern_set_name: set.setName,
+      user_id: set.patterns[0]?.user_id,
+      action: 'published',
+      changes: { status: 'published', pattern_count: patternIds.length },
+      admin_id: user?.id || null,
+      admin_email: user?.email || null,
+    });
+
+    toast({ title: 'Published', description: `"${set.setName}" is now available for system use.` });
+    fetchPatterns();
+  };
+
   const handleOpenEditDialog = (pattern) => {
     setEditState({
       isOpen: true,
@@ -547,6 +617,12 @@ const AdminPatternReviewPage = () => {
       toast({ title: 'Failed to update pattern', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Pattern Updated', description: `"${editState.fields.name}" saved successfully.` });
+      // Warn if verbiage changed and a final file exists
+      if (editState.pattern?.final_file_url && editState.fields.verbiage !== (editState.pattern.verbiage || '')) {
+        // Clear final file since verbiage changed
+        await supabase.from('patterns').update({ final_file_url: null }).eq('id', editState.pattern.id);
+        toast({ title: 'Final File Cleared', description: 'Verbiage changed — please regenerate the final file.', variant: 'default' });
+      }
       setEditState({ isOpen: false, pattern: null, fields: {} });
       fetchPatterns();
     }
@@ -825,48 +901,45 @@ const AdminPatternReviewPage = () => {
               <Badge variant={isPendingReview ? 'default' : set.patterns[0]?.review_status === 'rejected' ? 'destructive' : 'secondary'}>
                 {isPendingReview ? 'Pending' : set.patterns[0]?.review_status || 'approved'}
               </Badge>
+              {set.patterns[0]?.publication_status === 'published' && (
+                <Badge variant="default" className="bg-blue-600 text-xs">
+                  <Globe className="h-3 w-3 mr-1" /> Published
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-base">{set.className}</Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Patterns list */}
+          {/* Structured Pattern Artifacts */}
           <div>
-            <p className="font-semibold text-sm mb-2">Patterns in this set:</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-sm">Patterns in this set:</p>
+              {set.patterns.some(p => !p.final_file_url) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => handleGenerateAllFinals(set)}
+                  disabled={set.patterns.some(p => generatingFinals.has(p.id))}
+                >
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  Generate All Finals ({set.patterns.filter(p => !p.final_file_url).length})
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
               {set.patterns.map(pattern => (
-                <div key={pattern.id} className="flex items-center gap-1 p-2 border rounded-md bg-background/50">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{pattern.display_name || pattern.name}</span>
-                    {pattern.original_file_name && pattern.original_file_name !== pattern.display_name && (
-                      <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={pattern.original_file_name}>
-                        File: {pattern.original_file_name}
-                      </span>
-                    )}
-                    {pattern.level && (
-                      <Badge variant="outline" className="text-[10px] w-fit mt-0.5">{pattern.level}</Badge>
-                    )}
-                    {pattern.verbiage && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5 italic line-clamp-2" title={pattern.verbiage}>
-                        {pattern.verbiage}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1 ml-2">
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handlePreviewPattern(pattern)}>
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleOpenEditDialog(pattern)}>
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownloadPattern(pattern)}>
-                      <Download className="h-3 w-3" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => setDeleteState({ isOpen: true, pattern })}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
+                <PatternArtifactCard
+                  key={pattern.id}
+                  pattern={pattern}
+                  onGenerateFinal={handleGenerateFinalFile}
+                  onPreview={handlePreviewPattern}
+                  onEdit={handleOpenEditDialog}
+                  onDownload={handleDownloadPattern}
+                  onDelete={(p) => setDeleteState({ isOpen: true, pattern: p })}
+                  isGenerating={generatingFinals.has(pattern.id)}
+                />
               ))}
             </div>
           </div>
@@ -912,7 +985,7 @@ const AdminPatternReviewPage = () => {
             >
               <History className="mr-1 h-3 w-3" /> View History
             </Button>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-end">
               {projectId && (
                 <Link to={`/show/${projectId}`} target="_blank">
                   <Button variant="outline">
@@ -923,22 +996,47 @@ const AdminPatternReviewPage = () => {
               <Button variant="outline" onClick={() => handleOpenEmailModal(set)}>
                 <Mail className="mr-2 h-4 w-4" /> Send Email
               </Button>
-              {/* Approve/Reject always visible for admin override */}
-              {set.patterns[0]?.review_status !== 'approved' && (
-                <Button
-                  variant="default"
-                  className="bg-green-600 hover:bg-green-700"
-                  onClick={() => handleReviewWithEmail(set, 'approved')}
-                >
-                  <Check className="mr-2 h-4 w-4" /> Approve Set
-                </Button>
-              )}
+              {/* Approve: requires all final files generated */}
+              {set.patterns[0]?.review_status !== 'approved' && (() => {
+                const allHaveFinal = set.patterns.every(p => p.final_file_url);
+                return (
+                  <Button
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={() => handleReviewWithEmail(set, 'approved')}
+                    disabled={!allHaveFinal}
+                    title={!allHaveFinal ? 'Generate all final files before approving' : ''}
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    {!allHaveFinal ? (
+                      <span className="flex items-center gap-1">
+                        Approve Set
+                        <AlertCircle className="h-3 w-3 text-amber-300" />
+                      </span>
+                    ) : 'Approve Set'}
+                  </Button>
+                );
+              })()}
               {set.patterns[0]?.review_status !== 'rejected' && (
                 <Button
                   variant="destructive"
                   onClick={() => handleReviewWithEmail(set, 'rejected')}
                 >
                   <X className="mr-2 h-4 w-4" /> Reject Set
+                </Button>
+              )}
+              {/* Publish: only for approved sets with final files */}
+              {set.patterns[0]?.review_status === 'approved' && set.patterns.every(p => p.final_file_url) && (
+                <Button
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handlePublish(set)}
+                  disabled={set.patterns.every(p => p.publication_status === 'published')}
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  {set.patterns.every(p => p.publication_status === 'published')
+                    ? 'Published'
+                    : 'Submit for Publication'}
                 </Button>
               )}
             </div>
@@ -986,6 +1084,8 @@ const AdminPatternReviewPage = () => {
         return <p className="text-sm font-medium text-green-600">Pattern Set Approved</p>;
       case 'rejected':
         return <p className="text-sm font-medium text-red-600">Pattern Set Rejected</p>;
+      case 'published':
+        return <p className="text-sm font-medium text-blue-600">Pattern Set Published</p>;
       case 'edited':
         return <p className="text-sm font-medium text-blue-600">Pattern Details Edited</p>;
       default:
