@@ -22,6 +22,8 @@ interface ContractEmailRequest {
   emailSubject: string;
   contractId: string;
   projectId: string;
+  contractPdfBase64?: string;
+  contractFileName?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -52,6 +54,8 @@ const handler = async (req: Request): Promise<Response> => {
       signingDeadline,
       customMessage,
       emailSubject,
+      contractPdfBase64,
+      contractFileName,
     } = body;
 
     if (!recipientEmail) {
@@ -162,6 +166,13 @@ const handler = async (req: Request): Promise<Response> => {
         Subject: emailSubject || `Contract Ready for Signature — ${showName}`,
         HtmlBody: htmlBody,
         MessageStream: "outbound",
+        ...(contractPdfBase64 ? {
+          Attachments: [{
+            Name: contractFileName || "Contract.pdf",
+            Content: contractPdfBase64,
+            ContentType: "application/pdf",
+          }],
+        } : {}),
       }),
     });
 

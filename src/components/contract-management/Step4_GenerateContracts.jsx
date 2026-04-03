@@ -174,7 +174,34 @@ export const Step4_GenerateContracts = ({ formData, setFormData, onSave, isSavin
     const now = new Date().toISOString();
 
     try {
-      const result = await sendContractEmail({ member, formData });
+      // Generate contract PDF as base64 for email attachment
+      const contractText = folder.editedContract || folder.resolvedContract || '';
+      let contractPdfBase64 = null;
+      if (contractText) {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
+        const maxWidth = pageWidth - margin * 2;
+        const lines = doc.splitTextToSize(contractText, maxWidth);
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(10);
+        let y = margin;
+        const lineHeight = 6;
+        for (const line of lines) {
+          if (y + lineHeight > doc.internal.pageSize.getHeight() - margin) {
+            doc.addPage();
+            y = margin;
+          }
+          doc.text(line, margin, y);
+          y += lineHeight;
+        }
+        // Get base64 without the data URI prefix
+        const dataUri = doc.output('datauristring');
+        contractPdfBase64 = dataUri.split(',')[1];
+      }
+
+      const contractFileName = `Contract_${(member.name || 'Employee').replace(/\s+/g, '_')}.pdf`;
+      const result = await sendContractEmail({ member, formData, contractPdfBase64, contractFileName });
 
       if (!result.success) {
         // Log failed attempt

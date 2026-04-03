@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2, Printer, Mail, Link2, Image as LucideImage } from 'lucide-react';
+import { Loader2, BookCopy, CalendarDays, PlusCircle, ArrowRight, Pencil, ImageIcon, CalendarIcon, Archive, ChevronDown, ChevronRight, FolderOpen, Eye, Folder, Edit, Download, FileText, LayoutGrid, Info, Users, Lock, MoreVertical, Trash2, Check, X, Share2, Printer, Mail, Link2, Image as LucideImage, FileSignature } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -7579,7 +7579,9 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
         toast({ title: "Due date updated", description: date ? `Due date set to ${format(new Date(date), 'MMM d, yyyy')}` : "Due date removed" });
     };
 
-    const isCompletedPatternHub = isPatternHub && (project.status || '').toLowerCase() !== 'in progress';
+    // Pattern hub is "completed" when it has pattern selections OR status is not 'in progress'
+    const hasPatternSelections = isPatternHub && Object.keys(project.project_data?.patternSelections || {}).length > 0;
+    const isCompletedPatternHub = isPatternHub && (hasPatternSelections || (project.status || '').toLowerCase() !== 'in progress');
 
     // Render menu items based on menuType
     const renderMenuItems = () => {
@@ -8019,6 +8021,89 @@ const ProjectCard = ({ project, menuType = 'full', onRefresh, isPastPatternPorta
     );
 };
 
+// Contract Card for Contracts Portal section
+const ContractCard = ({ project, onRefresh }) => {
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const projectData = project.project_data || {};
+    const hasLinkedShow = !!projectData.linkedProjectId;
+    const showName = projectData.showName || projectData.showDetails?.showName;
+    const status = project.status || 'Draft';
+    const createdAt = project.created_at ? format(new Date(project.created_at), 'MMM d, yyyy') : '—';
+
+    const statusColor = {
+        Draft: 'bg-gray-100 text-gray-700',
+        'In progress': 'bg-blue-100 text-blue-700',
+        Locked: 'bg-amber-100 text-amber-700',
+        Final: 'bg-green-100 text-green-700',
+    }[status] || 'bg-gray-100 text-gray-700';
+
+    const handleDelete = async () => {
+        const { error } = await supabase.from('projects').delete().eq('id', project.id);
+        if (error) {
+            toast({ variant: 'destructive', title: 'Delete failed', description: error.message });
+        } else {
+            toast({ title: 'Contract deleted' });
+            onRefresh?.();
+        }
+    };
+
+    return (
+        <Card className="group relative flex flex-col hover:shadow-md transition-shadow">
+            <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <FileSignature className="h-5 w-5 text-primary shrink-0" />
+                        <CardTitle className="text-base truncate">{project.project_name || 'Untitled Contract'}</CardTitle>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                                <MoreVertical className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/horse-show-manager/employee-management/contracts/${project.id}`)}>
+                                <Eye className="mr-2 h-4 w-4" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/horse-show-manager/employee-management/contracts/${project.id}`)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <CardDescription className="text-xs mt-1">Created {createdAt}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 pb-3">
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                    <Badge variant="outline" className={statusColor}>{status}</Badge>
+                    {hasLinkedShow ? (
+                        <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">Linked to Show</Badge>
+                    ) : (
+                        <Badge variant="secondary" className="bg-orange-50 text-orange-700 border-orange-200">Unassigned</Badge>
+                    )}
+                </div>
+                {showName && (
+                    <p className="text-xs text-muted-foreground mt-2 truncate">Show: {showName}</p>
+                )}
+            </CardContent>
+            <CardFooter className="pt-0">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => navigate(`/horse-show-manager/employee-management/contracts/${project.id}`)}
+                >
+                    <ArrowRight className="mr-2 h-4 w-4" /> Open Contract
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+};
+
 const CustomerPortalPage = () => {
     const { user, profile } = useAuth();
     const navigate = useNavigate();
@@ -8110,10 +8195,14 @@ const CustomerPortalPage = () => {
         const mode = (p.mode || '').toString().trim();
         return mode.toLowerCase() === 'archived';
     });
-    
+
+    // Contracts Portal: All contract projects (both linked and standalone)
+    const contractProjects = projects.filter(p => p.project_type === 'contract');
+
     const [expandedSections, setExpandedSections] = useState({
         activePatternBooks: true,
         inProgressPatternBooks: true,
+        contractsPortal: true,
         patternPortal: true,
         choosePatternPortal: true,
         pastPatternPortal: true,
@@ -8241,6 +8330,41 @@ const CustomerPortalPage = () => {
                                 "default",
                                 true
                             )}
+                            {/* Contracts Portal */}
+                            <div className="mb-16">
+                                <div className="flex justify-between items-center mb-4">
+                                    <button
+                                        onClick={() => toggleSection('contractsPortal')}
+                                        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                                    >
+                                        {expandedSections.contractsPortal ? (
+                                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                        ) : (
+                                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                        )}
+                                        <div className="text-left">
+                                            <h2 className="text-3xl font-bold tracking-tight">Contracts Portal</h2>
+                                            <p className="text-muted-foreground mt-1">Manage all your contracts — linked to shows or standalone.</p>
+                                        </div>
+                                    </button>
+                                    <Button onClick={() => navigate('/horse-show-manager/employee-management/contracts')}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> New Contract
+                                    </Button>
+                                </div>
+                                {expandedSections.contractsPortal && (
+                                    contractProjects.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {contractProjects.map(project => (
+                                                <ContractCard key={project.id} project={project} onRefresh={fetchProjects} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                                            <p className="text-muted-foreground">You haven't created any contracts yet.</p>
+                                        </div>
+                                    )
+                                )}
+                            </div>
                             {renderProjectList(
                                 patternPortalBooks,
                                 "Pattern Portal",

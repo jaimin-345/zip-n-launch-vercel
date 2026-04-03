@@ -8,8 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Check, ChevronsUpDown, Info } from "lucide-react";
+import { Check, ChevronsUpDown, Info, Construction } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+
+// Associations that are fully built out — everything else shows "Coming Soon"
+const READY_ASSOCIATIONS = ['aqha', 'apha', 'nsba', 'phba', '4-h', 'open-show'];
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +23,18 @@ import {
 } from "@/components/ui/tooltip";
 
 const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setFormData, allAssociations, isReadOnly = false, context = 'default' }) => {
+  const { toast } = useToast();
+  const isComingSoon = !READY_ASSOCIATIONS.includes(association.id.toLowerCase());
+
+  const handleSelect = (assocId, checked) => {
+    if (checked && isComingSoon) {
+      toast({
+        title: `${association.name} — Coming Soon`,
+        description: 'This association is coming soon. Data may be incomplete.',
+      });
+    }
+    onSelect(assocId, checked);
+  };
 
   const handleSubAssociationChange = (assocId, key, value) => {
     setFormData(prev => ({
@@ -270,10 +287,16 @@ const AssociationCheckbox = ({ association, isSelected, onSelect, formData, setF
         isSelected ? 'border-primary ring-1 ring-primary' : 'hover:bg-muted/50'
       )}
     >
-      <div className="flex items-center space-x-3 p-3 cursor-pointer" onClick={() => onSelect(association.id, !isSelected)}>
-        <Checkbox id={`assoc-${association.id}`} checked={isSelected} onCheckedChange={(checked) => onSelect(association.id, checked)} />
-        <Label htmlFor={`assoc-${association.id}`} className="font-normal cursor-pointer flex-grow">
+      <div className="flex items-center space-x-3 p-3 cursor-pointer" onClick={() => handleSelect(association.id, !isSelected)}>
+        <Checkbox id={`assoc-${association.id}`} checked={isSelected} onCheckedChange={(checked) => handleSelect(association.id, checked)} />
+        <Label htmlFor={`assoc-${association.id}`} className="font-normal cursor-pointer flex-grow flex items-center gap-2">
           {association.name}
+          {isComingSoon && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300">
+              <Construction className="h-3 w-3 mr-0.5" />
+              Coming Soon
+            </Badge>
+          )}
         </Label>
         {isSelected && (
           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>

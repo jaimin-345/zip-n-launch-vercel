@@ -11,7 +11,7 @@ import { calculateMemberFinancials, currency, formatDate } from '@/lib/contractU
  * @param {Object} [params.deliverySettings] - Optional delivery settings override
  * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function sendContractEmail({ member, formData, deliverySettings }) {
+export async function sendContractEmail({ member, formData, deliverySettings, contractPdfBase64, contractFileName }) {
   const settings = deliverySettings || formData.deliverySettings || {};
   const contractSettings = formData.contractSettings || {};
   const financials = calculateMemberFinancials(member);
@@ -31,6 +31,8 @@ export async function sendContractEmail({ member, formData, deliverySettings }) 
     emailSubject: settings.emailSubject || `Contract Ready for Signature — ${formData.showName || 'Horse Show'}`,
     contractId: member.id,
     projectId: formData.id || '',
+    contractPdfBase64: contractPdfBase64 || null,
+    contractFileName: contractFileName || 'Contract.pdf',
   };
 
   // Validate email

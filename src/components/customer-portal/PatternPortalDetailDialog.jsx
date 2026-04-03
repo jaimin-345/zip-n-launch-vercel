@@ -21,6 +21,9 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [isExporting, setIsExporting] = useState(false);
 
+    // Pattern Hub projects use full images (no crop) and minimal headers
+    const isHubProject = (project?.project_type || '') === 'pattern_hub';
+
     // Inline email form state
     const [showEmailForm, setShowEmailForm] = useState(false);
     const [recipientEmail, setRecipientEmail] = useState('');
@@ -341,16 +344,27 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 // This keeps PDF under Postmark's 10MB attachment limit
                 let base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
 
-                // Crop bottom portion for pattern images (removes summary box)
-                if (shouldCrop) {
+                // Crop bottom portion for pattern images (removes summary box) — skip for hub projects
+                if (shouldCrop && !isHubProject) {
                     base64 = await cropImageBottom(base64);
                 }
 
                 if (!isFirstPage) doc.addPage();
                 isFirstPage = false;
 
-                // Render detailed header matching pattern book layout
                 let yPos = margin;
+
+                if (isHubProject) {
+                    // Hub mode: minimal one-line header — pattern image has its own title
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(10);
+                    const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+                    const parts = [item.associationName?.toUpperCase(), (item.disciplineName || '').toUpperCase(), dateStr].filter(Boolean);
+                    doc.text(parts.join('  \u2022  '), margin, yPos, { maxWidth: pageWidth - margin * 2 });
+                    yPos += 18;
+                } else {
+                // Render detailed header matching pattern book layout
                 const showName = project.project_name || project.project_data?.showName || '';
 
                 // Show name (light gray, small)
@@ -406,6 +420,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 } else {
                     yPos += 15;
                 }
+                } // end full header (non-hub)
 
                 // Detect image type from data URI
                 const imageType = base64.substring(base64.indexOf('/') + 1, base64.indexOf(';'));
@@ -501,9 +516,22 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
 
             // Helper: draw header text on canvas and return the Y offset where image should start
             const drawHeaderOnCanvas = (ctx, canvasWidth, item) => {
-                const showName = project.project_name || project.project_data?.showName || '';
                 const scale = canvasWidth / 600; // scale text relative to a 600px reference width
                 let yPos = 10 * scale;
+
+                if (isHubProject) {
+                    // Hub mode: single compact line
+                    const dateStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+                    const parts = [item.associationName?.toUpperCase(), (item.disciplineName || '').toUpperCase(), dateStr].filter(Boolean);
+                    ctx.fillStyle = '#000000';
+                    ctx.font = `bold ${Math.max(10, Math.floor(12 * scale))}px helvetica, sans-serif`;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(parts.join('  \u2022  '), 10 * scale, yPos + 12 * scale);
+                    yPos += 18 * scale;
+                    return Math.ceil(yPos + 6 * scale);
+                }
+
+                const showName = project.project_name || project.project_data?.showName || '';
 
                 // Show name
                 if (showName) {
@@ -561,7 +589,8 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
             };
 
             // Helper: add header, optional crop, and branding to a blob image
-            const processImageBlob = async (blob, item, shouldCrop = false, cropPercent = 0.88) => {
+            const processImageBlob = async (blob, item, shouldCrop_ = false, cropPercent = 0.88) => {
+                const shouldCrop = shouldCrop_ && !isHubProject;
                 return new Promise((resolve) => {
                     const url = URL.createObjectURL(blob);
                     const tempImg = new Image();

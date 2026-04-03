@@ -6,7 +6,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, Dialog
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Lock, Search, Loader2, ListPlus } from 'lucide-react';
+import { PlusCircle, Lock, Search, Loader2, ListPlus, Construction } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -90,7 +91,7 @@ const DisciplineCheckboxWithDualApproved = ({ disc, selectedDisciplineKeys, onDi
     );
 };
 
-const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, maxReached = false }) => {
+const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys, onDisciplineToggle, associationId, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, maxReached = false, comingSoon = false }) => {
     // Define the custom 3-column layout based on association
     let leftColumn, middleColumn, rightColumn;
     
@@ -150,10 +151,18 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     return (
         <div className="space-y-1.5">
             <div className="flex items-center justify-between px-1.5">
-                <h4 className="text-sm font-semibold text-muted-foreground">{title}</h4>
-                <Button 
-                    variant="outline" 
-                    size="sm" 
+                <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    {title}
+                    {comingSoon && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                            <Construction className="h-3 w-3 mr-0.5" />
+                            Coming Soon
+                        </Badge>
+                    )}
+                </h4>
+                <Button
+                    variant="outline"
+                    size="sm"
                     className="h-7 text-xs"
                     onClick={() => onAddCustomDiscipline(associationId)}
                 >
@@ -189,14 +198,22 @@ const AQHACustomPatternCategory = ({ title, disciplines, selectedDisciplineKeys,
     );
 };
 
-const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, associationId, showAddButton, maxReached = false, addButtonLabel = 'Add Custom', disciplineGroup = 'custom_patterns' }) => {
+const DisciplineCategory = ({ title, description, disciplines, selectedDisciplineKeys, onDisciplineToggle, getDisciplineKey, dualApprovedAssociations, dualApprovedSelections, onDualApprovedToggle, vrhRanchCowWorkOptions, vrhRanchCowWorkSelections, onVrhRanchCowWorkSelect, onAddCustomDiscipline, associationId, showAddButton, maxReached = false, addButtonLabel = 'Add Custom', disciplineGroup = 'custom_patterns', comingSoon = false }) => {
     const showEmptyWithButton = disciplines.length === 0 && showAddButton;
     if (disciplines.length === 0 && !showAddButton) return null;
 
     return (
         <div className="space-y-1.5">
             <div className="flex items-center justify-between px-1.5">
-                <h4 className="text-sm font-semibold text-muted-foreground">{title}</h4>
+                <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    {title}
+                    {comingSoon && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-amber-50 text-amber-700 border-amber-300">
+                            <Construction className="h-3 w-3 mr-0.5" />
+                            Coming Soon
+                        </Badge>
+                    )}
+                </h4>
                 {showAddButton && onAddCustomDiscipline && (
                     <Button
                         variant="outline"
@@ -387,8 +404,8 @@ const AssociationDisciplineGroup = ({ association, disciplines, selectedDiscipli
                 )}
                 {/* Always show Custom Pattern section with Add button */}
                 {(association.id === 'AQHA' || association.id === 'APHA' || association.id === 'ApHC' || association.id === 'ABRA' || association.id === 'PtHA') ?
-                    <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} maxReached={maxReached} /> :
-                    <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} associationId={association.id} showAddButton={true} maxReached={maxReached} />
+                    <AQHACustomPatternCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} associationId={association.id} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} maxReached={maxReached} comingSoon /> :
+                    <DisciplineCategory title="Custom Pattern" disciplines={categorized.custom} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} onAddCustomDiscipline={onAddCustomDiscipline} associationId={association.id} showAddButton={true} maxReached={maxReached} comingSoon />
                 }
                 {categorized.rulebook.length > 0 && <DisciplineCategory title="Rulebook Pattern" disciplines={categorized.rulebook} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} maxReached={maxReached} />}
                 {categorized.pattern.length > 0 && <DisciplineCategory title="Pattern" disciplines={categorized.pattern} selectedDisciplineKeys={selectedDisciplineKeys} onDisciplineToggle={onDisciplineToggle} getDisciplineKey={getDisciplineKey} dualApprovedAssociations={dualApprovedAssociations} dualApprovedSelections={dualApprovedSelections} onDualApprovedToggle={onDualApprovedToggle} vrhRanchCowWorkOptions={vrhRanchCowWorkOptions} vrhRanchCowWorkSelections={vrhRanchCowWorkSelections} onVrhRanchCowWorkSelect={onVrhRanchCowWorkSelect} maxReached={maxReached} />}

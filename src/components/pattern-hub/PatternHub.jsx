@@ -35,10 +35,10 @@ const ALL_STEPS = [
 
 const UsagePurposeStep = ({ setFormData, usageType, usagePurposes, isLoadingPurposes }) => {
     const getShowName = (type) => {
-        if (type === 'horse_show') return 'Horse Show Patterns';
+        if (type === 'horse_show') return 'equipatterns.com - Horse Show Patterns';
         if (type === 'clinic') return '';
-        if (type === 'just_for_fun') return 'Choose a Pattern';
-        return 'Choose a Pattern';
+        if (type === 'just_for_fun') return 'equipatterns.com - Choose a Pattern';
+        return 'equipatterns.com - Choose a Pattern';
     };
 
     return (
@@ -281,6 +281,16 @@ export const PatternHub = ({ projectId }) => {
     const maxStepId = hubSteps[hubSteps.length - 1]?.id ?? 5;
 
     const handleNext = () => {
+        // Auto-fill show name if user left it blank on the Event Setup step
+        if (currentStep === 1 && !formData.showName?.trim()) {
+            const defaultName = formData.usageType === 'horse_show'
+                ? 'equipatterns.com - Horse Show Patterns'
+                : formData.usageType === 'clinic'
+                    ? 'Untitled Clinic'
+                    : 'equipatterns.com - Choose a Pattern';
+            setFormData(prev => ({ ...prev, showName: defaultName }));
+        }
+
         const currentIndex = hubSteps.findIndex(s => s.id === currentStep);
         const nextStep = hubSteps[currentIndex + 1];
         if (nextStep) {
@@ -310,12 +320,12 @@ export const PatternHub = ({ projectId }) => {
                 return;
             }
 
-            // Check if all steps are complete
+            // Check if all steps are complete (skip step 3 for non-horse-show, matching the UI flow)
             const isStep0Complete = !!formData.usageType;
             const isStep1Complete = Object.values(formData.associations || {}).some(val => val);
             const isStep2Complete = formData.disciplines.length > 0;
-            const isStep3Complete = (formData.disciplines || []).length > 0 &&
-                (formData.disciplines || []).every(d => (d.divisionOrder || []).length > 0);
+            const isStep3Complete = !isHorseShow || ((formData.disciplines || []).length > 0 &&
+                (formData.disciplines || []).every(d => (d.divisionOrder || []).length > 0));
             const isStep4Complete = (() => {
                 const patternDisciplines = formData.disciplines.filter(d => d.pattern);
                 if (patternDisciplines.length === 0) return true;
@@ -378,16 +388,10 @@ export const PatternHub = ({ projectId }) => {
 
             if (error) throw error;
 
-            // Only mark as "saved" (enabling download) when all steps are complete (Draft status)
-            // In-progress saves are temporary and should not enable download or consume credits
-            if (status === 'Draft') {
-                setIsSaved(true);
-            }
+            setIsSaved(true);
             toast({
                 title: "Project Saved",
-                description: status === 'Draft'
-                    ? 'Your project has been saved. You can now generate and download.'
-                    : 'Your progress has been saved. Complete all steps to enable download.',
+                description: 'Your project has been saved. You can now generate and download.',
             });
         } catch (error) {
             toast({

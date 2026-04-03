@@ -728,6 +728,17 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             // Render pattern page based on selected layout
             if (selectedLayout === 'layout-a') {
             if (includePattern) {
+
+            if (skipCoverAndToc) {
+                // Hub mode: minimal header — pattern image already contains its own title
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                const headerLine = `${assocName.toUpperCase()}  •  ${discipline.name.toUpperCase()}  •  ${dateStr}`;
+                doc.text(headerLine, margin, yPos, { maxWidth: pageWidth - margin * 2 });
+                yPos += 18;
+            } else {
             // Format like the example: Header info, then large image
 
             // Top left: Association name
@@ -735,9 +746,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
             doc.text(assocName.toUpperCase(), margin, yPos);
-            
+
             yPos += 18;
-            
+
             // Discipline name and date (left side) - wrap if needed
             doc.setFontSize(11);
             doc.setFont('helvetica', 'normal');
@@ -746,7 +757,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             const disciplineMaxWidth = pageWidth - margin * 2;
             const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
             doc.text(disciplineLines, margin, yPos);
-            
+
             yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
 
             // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
@@ -774,17 +785,18 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 doc.setFont('helvetica', 'normal');
                 const maxWidth = pageWidth - margin * 2; // Available width for text
                 const divisionLines = doc.splitTextToSize(divisions, maxWidth);
-                
+
                 // Limit to 2 lines maximum
                 const linesToDisplay = divisionLines.slice(0, 2);
                 doc.text(linesToDisplay, margin, yPos);
-                
+
                 // Calculate height based on number of lines displayed
                 const lineHeight = 12;
                 yPos += (linesToDisplay.length * lineHeight) + 15; // Space before image
             } else {
                 yPos += 15; // Space before image if no divisions
             }
+            } // end full header (non-hub)
             
             // Render placeholder or real pattern image
             if (isJudgeAssigned) {
@@ -872,9 +884,11 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
             if (patternImageBase64) {
                 try {
-                    // Crop bottom portion of pattern image (removes summary box)
-                    const croppedBase64 = await cropPatternImageBottom(patternImageBase64);
-                    const imgProps = doc.getImageProperties(croppedBase64);
+                    // In hub mode, use full image; in book mode, crop bottom summary box
+                    const imageBase64 = skipCoverAndToc
+                        ? patternImageBase64
+                        : await cropPatternImageBottom(patternImageBase64);
+                    const imgProps = doc.getImageProperties(imageBase64);
                     const aspect = imgProps.height / imgProps.width;
                     // Calculate image size - use most of the page
                     const availableHeight = pageHeight - yPos - 40; // Space for footer
@@ -892,7 +906,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     // Center the image
                     const xOffset = (pageWidth - finalWidth) / 2;
 
-                    await addImageToPage(croppedBase64, xOffset, yPos, finalWidth, finalHeight);
+                    await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);
                     yPos += finalHeight + 20;
                 } catch (e) {
                     console.error('Failed to add pattern image:', e);
@@ -959,6 +973,17 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
             } else if (selectedLayout === 'layout-b') {
                 if (includePattern) {
+
+                if (skipCoverAndToc) {
+                    // Hub mode: minimal header — pattern image already contains its own title
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFont('times', 'bold');
+                    doc.setFontSize(10);
+                    const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                    const headerLine = `${assocName.toUpperCase()}  •  ${discipline.name.toUpperCase()}  •  ${dateStr}`;
+                    doc.text(headerLine, margin, yPos, { maxWidth: pageWidth - margin * 2 });
+                    yPos += 18;
+                } else {
                 // LAYOUT B: Same format as Layout A
 
                 // Top left: Association name
@@ -966,9 +991,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 doc.setFont('times', 'bold');
                 doc.setFontSize(12);
                 doc.text(assocName.toUpperCase(), margin, yPos);
-                
+
                 yPos += 18;
-                
+
                 // Discipline name and date (left side) - wrap if needed
                 doc.setFontSize(11);
                 doc.setFont('times', 'normal');
@@ -977,7 +1002,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 const disciplineMaxWidth = pageWidth - margin * 2;
                 const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
                 doc.text(disciplineLines, margin, yPos);
-                
+
                 yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
 
                 // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
@@ -1005,17 +1030,18 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     doc.setFont('times', 'normal');
                     const maxWidth = pageWidth - margin * 2; // Available width for text
                     const divisionLines = doc.splitTextToSize(divisions, maxWidth);
-                    
+
                     // Limit to 2 lines maximum
                     const linesToDisplay = divisionLines.slice(0, 2);
                     doc.text(linesToDisplay, margin, yPos);
-                    
+
                     // Calculate height based on number of lines displayed
                     const lineHeight = 12;
                     yPos += (linesToDisplay.length * lineHeight) + 15; // Space before image
                 } else {
                     yPos += 15; // Space before image if no divisions
                 }
+                } // end full header (non-hub)
                 
                 // Render placeholder or real pattern image (Layout B)
                 if (isJudgeAssigned) {
@@ -1100,9 +1126,11 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
                 if (patternImageBase64) {
                     try {
-                        // Crop bottom portion of pattern image (removes summary box)
-                        const croppedBase64 = await cropPatternImageBottom(patternImageBase64);
-                        const imgProps = doc.getImageProperties(croppedBase64);
+                        // In hub mode, use full image; in book mode, crop bottom summary box
+                        const imageBase64 = skipCoverAndToc
+                            ? patternImageBase64
+                            : await cropPatternImageBottom(patternImageBase64);
+                        const imgProps = doc.getImageProperties(imageBase64);
                         const aspect = imgProps.height / imgProps.width;
                         // Calculate image size - use most of the page
                         const availableHeight = pageHeight - yPos - 40; // Space for footer
@@ -1120,7 +1148,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         // Center the image
                         const xOffset = (pageWidth - finalWidth) / 2;
 
-                        await addImageToPage(croppedBase64, xOffset, yPos, finalWidth, finalHeight);
+                        await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);
                         yPos += finalHeight + 20;
                     } catch (e) {
                         console.error('Failed to add pattern image:', e);

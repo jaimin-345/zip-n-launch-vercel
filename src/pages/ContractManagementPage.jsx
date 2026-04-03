@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { applyLinkedProjectData, isBudgetFrozen } from '@/lib/contractUtils';
+import { format } from 'date-fns';
 
 // Step Components
 import { Step1_ShowStructure } from '@/components/contract-management/Step1_ShowStructure';
@@ -296,14 +297,14 @@ const ContractManagementPage = () => {
 
     setIsSaving(true);
     try {
-      const trimmedName = latestFormData.showName.trim();
+      const showNameTrimmed = latestFormData.showName.trim();
       let currentProjectId = sanitizedProjectId || latestFormData.id;
 
       // If linked to a project, find existing contract for that project to avoid duplicates
       if (!currentProjectId && latestFormData.linkedProjectId) {
         const { data: linkedContract } = await supabase
           .from('projects')
-          .select('id')
+          .select('id, project_name')
           .eq('project_type', 'contract')
           .eq('user_id', user.id)
           .filter('project_data->>linkedProjectId', 'eq', latestFormData.linkedProjectId)
@@ -316,14 +317,14 @@ const ContractManagementPage = () => {
         }
       }
 
-      // Fallback: if still no ID, check for existing contract with same name
-      if (!currentProjectId && trimmedName) {
+      // Fallback: if still no ID, check for existing contract with same show name
+      if (!currentProjectId && showNameTrimmed) {
         const { data: nameMatch } = await supabase
           .from('projects')
-          .select('id')
+          .select('id, project_name')
           .eq('project_type', 'contract')
           .eq('user_id', user.id)
-          .ilike('project_name', trimmedName)
+          .filter('project_data->>showName', 'ilike', showNameTrimmed)
           .limit(1)
           .maybeSingle();
 
@@ -333,18 +334,38 @@ const ContractManagementPage = () => {
         }
       }
 
+      // Auto-generate project_name: on new creation use today's date, on update keep existing name
+      let projectDisplayName;
+      if (currentProjectId) {
+        // Fetch existing project_name to preserve original date
+        const { data: existingProject } = await supabase
+          .from('projects')
+          .select('project_name')
+          .eq('id', currentProjectId)
+          .single();
+        projectDisplayName = existingProject?.project_name || `Contract - ${showNameTrimmed} - ${format(new Date(), 'MMM d yyyy')}`;
+        // Update name if show name changed but keep the original date
+        if (existingProject?.project_name) {
+          const dateMatch = existingProject.project_name.match(/ - ([A-Z][a-z]{2} \d{1,2} \d{4})$/);
+          const originalDate = dateMatch ? dateMatch[1] : format(new Date(), 'MMM d yyyy');
+          projectDisplayName = `Contract - ${showNameTrimmed} - ${originalDate}`;
+        }
+      } else {
+        projectDisplayName = `Contract - ${showNameTrimmed} - ${format(new Date(), 'MMM d yyyy')}`;
+      }
+
       // Check for duplicate project name (when not linked to an existing project)
       if (!currentProjectId && !latestFormData.linkedProjectId) {
         const { data: existing } = await supabase
           .from('projects')
           .select('id')
           .eq('project_type', 'contract')
-          .eq('project_name', trimmedName)
+          .eq('project_name', projectDisplayName)
           .eq('user_id', user.id);
 
         const isDuplicate = existing?.some(p => p.id !== currentProjectId);
         if (isDuplicate) {
-          if (!silent) toast({ title: 'Duplicate Name', description: `A contract project named "${trimmedName}" already exists. Please use a different name.`, variant: 'destructive' });
+          if (!silent) toast({ title: 'Duplicate Name', description: `A contract project named "${projectDisplayName}" already exists. Please use a different name.`, variant: 'destructive' });
           setIsSaving(false);
           return null;
         }
@@ -362,7 +383,7 @@ const ContractManagementPage = () => {
       };
 
       const projectPayload = {
-        project_name: trimmedName,
+        project_name: projectDisplayName,
         project_type: 'contract',
         project_data: projectToSave,
         status: 'In progress',
