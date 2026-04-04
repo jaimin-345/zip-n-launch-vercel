@@ -13,9 +13,12 @@ import {
   CalendarDays, FileText, DollarSign, LayoutGrid, Building2,
   Radio, Award, Edit, ChevronRight, Users, ClipboardList,
   BarChart3, Warehouse, Check, Lock, Circle, ChevronDown, BookOpen,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { generateShowPacketPdf } from '@/lib/showPacketPdfGenerator';
+import { getAllClassItems } from '@/lib/showBillUtils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -181,6 +184,8 @@ const ShowWorkspacePage = () => {
   const [show, setShow] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [linkedContracts, setLinkedContracts] = useState([]);
+  const [associationsData, setAssociationsData] = useState([]);
+  const [isGeneratingPacket, setIsGeneratingPacket] = useState(false);
 
   useEffect(() => {
     const fetchShow = async () => {
@@ -205,6 +210,11 @@ const ShowWorkspacePage = () => {
         setShow(showRes.data);
       }
       setLinkedContracts(contractsRes.data || []);
+
+      // Fetch associations for packet generator
+      const { data: assocs } = await supabase.from('associations').select('*');
+      if (assocs) setAssociationsData(assocs);
+
       setIsLoading(false);
     };
     fetchShow();
@@ -245,6 +255,22 @@ const ShowWorkspacePage = () => {
       }));
     }
   }, [show, showId, toast]);
+
+  const handleGeneratePacket = useCallback(async () => {
+    if (!show?.project_data) return;
+    setIsGeneratingPacket(true);
+    try {
+      const pd = show.project_data;
+      const allClassItems = getAllClassItems(pd);
+      await generateShowPacketPdf(pd, { allClassItems, associationsData });
+      toast({ title: 'Show Packet Generated', description: 'Your PDF has been downloaded.' });
+    } catch (err) {
+      console.error('Failed to generate show packet:', err);
+      toast({ title: 'Generation Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingPacket(false);
+    }
+  }, [show, associationsData, toast]);
 
   if (isLoading) {
     return (
@@ -371,13 +397,28 @@ const ShowWorkspacePage = () => {
                   </Badge>
                 </div>
               </div>
-              <Button
-                onClick={() => navigate(`/horse-show-manager/edit/${showId}`)}
-                className="bg-blue-500 hover:bg-blue-600 text-white shrink-0"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Show
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={handleGeneratePacket}
+                  disabled={isGeneratingPacket}
+                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                >
+                  {isGeneratingPacket ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isGeneratingPacket ? 'Generating...' : 'Show Packet'}
+                </Button>
+                <Button
+                  onClick={() => navigate(`/horse-show-manager/edit/${showId}`)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Show
+                </Button>
+              </div>
             </div>
           </motion.div>
 
