@@ -22,6 +22,7 @@ import { LinkToExistingShow } from '@/components/shared/LinkToExistingShow';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
+import { stampModuleStatusOnSave } from '@/lib/moduleStatusService';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -622,10 +623,10 @@ const AwardsManagementPage = () => {
         if (!selectedShow) return;
         setIsSaving(true);
         try {
-            const updatedData = {
+            const updatedData = stampModuleStatusOnSave({
                 ...selectedShow.project_data,
                 awardsManagement: { classAwards, specialAwards, highPointAwards },
-            };
+            }, 'awards');
             const { error } = await supabase
                 .from('projects')
                 .update({ project_data: updatedData })

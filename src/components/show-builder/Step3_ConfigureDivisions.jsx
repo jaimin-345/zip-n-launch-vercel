@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, useDroppable } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
@@ -757,6 +757,27 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         setShowBill(renumberShowBill(sb));
     }, [showBill, activeDayId, setShowBill]);
 
+    // Reorder a class within its discipline's divisionOrder
+    const handleReorderPaletteClass = useCallback((classItem, direction) => {
+        setFormData(prev => {
+            const newDisciplines = prev.disciplines.map(disc => {
+                const order = disc.divisionOrder || [];
+                // classItem.id is "disciplineId::divisionId", divisionOrder stores divisionId
+                const divId = classItem.divisionId || classItem.id;
+                const idx = order.indexOf(divId);
+                if (idx === -1) return disc;
+
+                const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+                if (swapIdx < 0 || swapIdx >= order.length) return disc;
+
+                const newOrder = [...order];
+                [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+                return { ...disc, divisionOrder: newOrder };
+            });
+            return { ...prev, disciplines: newDisciplines };
+        });
+    }, [setFormData]);
+
     // ─── Execute a validated drop action ─────────────────────────
     const executeDrop = useCallback((action) => {
         if (action.type === 'palette-to-arena') {
@@ -776,6 +797,20 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         } else if (action.type === 'arena-multi-move') {
             const { destDayId, destArenaId, overId, itemIds } = action;
             const sb = JSON.parse(JSON.stringify(showBill));
+
+            // Find the original index of the over-item BEFORE removal, so we can
+            // determine whether selected items were above or below the drop target
+            const destDayPre = sb.days.find(d => d.id === destDayId);
+            const destArenaPre = destDayPre?.arenas.find(a => a.id === destArenaId);
+            const overOriginalIdx = destArenaPre?.items.findIndex(i => i.id === overId) ?? -1;
+            // Count how many selected items sit before the over-item in the destination arena
+            let selectedBeforeOver = 0;
+            if (destArenaPre) {
+                for (let i = 0; i < overOriginalIdx; i++) {
+                    if (itemIds.has(destArenaPre.items[i].id)) selectedBeforeOver++;
+                }
+            }
+
             const collectedItems = [];
             for (const day of sb.days) {
                 for (const arena of day.arenas) {
@@ -791,7 +826,12 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
             const destArena = destDay?.arenas.find(a => a.id === destArenaId);
             if (!destArena) return;
             let destIdx = destArena.items.findIndex(i => i.id === overId);
-            if (destIdx === -1) destIdx = destArena.items.length;
+            if (destIdx === -1) {
+                destIdx = destArena.items.length;
+            } else if (selectedBeforeOver > 0) {
+                // Items were dragged downward — insert AFTER the over-item
+                destIdx += 1;
+            }
             destArena.items.splice(destIdx, 0, ...collectedItems);
             setShowBill(renumberShowBill(sb));
             clearSelection();
@@ -876,6 +916,16 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
         setPendingDrop(null);
     }, []);
 
+    // Custom collision detection: palette drags require the pointer to actually
+    // be inside an arena zone (pointerWithin) — prevents accidental placement when
+    // the user drags within the palette list. Arena reordering uses closestCenter.
+    const collisionDetection = useCallback((args) => {
+        if (activeDragData?.origin === 'palette') {
+            return pointerWithin(args);
+        }
+        return closestCenter(args);
+    }, [activeDragData]);
+
     // DnD handlers
     const handleDragStart = (event) => {
         setActiveDragData(event.active.data.current);
@@ -890,6 +940,12 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
 
         // Case 1: Palette → Arena
         if (activeData?.origin === 'palette') {
+            // Ignore drops back onto palette items (user was reordering within palette, not placing)
+            const overId = String(over.id);
+            if (overId.startsWith('palette-') || over.data.current?.origin === 'palette') {
+                return;
+            }
+
             const classItem = activeData.classItem;
 
             const isMulti = selectedPaletteIds.has(classItem.id) && selectedPaletteIds.size > 1;
@@ -1038,7 +1094,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                 </div>
             </CardHeader>
             <CardContent>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
                     {/* Day tabs */}
                     {showBill.days.length > 1 && (
                         <Tabs value={activeDayId} onValueChange={setActiveDayId} className="mb-4">
@@ -1063,6 +1119,7 @@ export const Step3_ConfigureDivisions = ({ formData, setFormData, associationsDa
                                     onBulkToggle={bulkTogglePaletteSelection}
                                     formData={formData}
                                     activeDayDate={activeDay?.date}
+                                    onReorderClass={handleReorderPaletteClass}
                                 />
                             </div>
                         </div>

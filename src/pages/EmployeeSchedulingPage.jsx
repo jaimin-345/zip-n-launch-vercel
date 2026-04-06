@@ -18,6 +18,7 @@ import {
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { cn } from '@/lib/utils';
+import { stampModuleStatusOnSave } from '@/lib/moduleStatusService';
 import { v4 as uuidv4 } from 'uuid';
 import { staffRoles } from '@/lib/staffingData';
 import { useToast } from '@/components/ui/use-toast';
@@ -671,10 +672,10 @@ const EmployeeSchedulingPage = () => {
         if (!selectedShow) return;
         setIsSaving(true);
         try {
-            const updatedData = {
+            const updatedData = stampModuleStatusOnSave({
                 ...selectedShow.project_data,
                 staffSchedule: { assignments, roster },
-            };
+            }, 'employeeScheduling');
             const { error } = await supabase
                 .from('projects')
                 .update({ project_data: updatedData })

@@ -121,7 +121,7 @@ const ScheduleBuilderPage = () => {
         if (!formData.id && !showId) return;
         setAutoSaveStatus('saving');
         try {
-            await createOrUpdateShow();
+            await createOrUpdateShow(null, 'scheduleBuilder', 'draft');
             lastSavedData.current = JSON.stringify(formData);
             setAutoSaveStatus('saved');
             setTimeout(() => setAutoSaveStatus(null), 2000);
@@ -165,7 +165,7 @@ const ScheduleBuilderPage = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const project = await createOrUpdateShow();
+            const project = await createOrUpdateShow(null, 'scheduleBuilder', 'draft');
             lastSavedData.current = JSON.stringify(formData);
             if (project && !showId) {
                 navigate(`/horse-show-manager/schedule-builder/${project.id}`, { replace: true });
@@ -315,7 +315,7 @@ const ScheduleBuilderPage = () => {
                                     onClick={async () => {
                                         setIsSaving(true);
                                         try {
-                                            const project = await createOrUpdateShow();
+                                            const project = await createOrUpdateShow(null, 'scheduleBuilder', 'draft');
                                             lastSavedData.current = JSON.stringify(formData);
                                             const id = project?.id || showId || formData.id;
                                             toast({ title: 'Schedule Saved!', description: 'Your show schedule has been saved successfully.' });

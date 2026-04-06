@@ -110,7 +110,7 @@ const CreateHorseShowWizardPage = () => {
         if (!formData.id && !showId) return; // Don't auto-save brand new unsaved shows
         setAutoSaveStatus('saving');
         try {
-            await createOrUpdateShow();
+            await createOrUpdateShow(null, 'feeStructure', 'draft');
             lastSavedData.current = JSON.stringify(formData);
             setAutoSaveStatus('saved');
             setTimeout(() => setAutoSaveStatus(null), 2000);
@@ -154,7 +154,7 @@ const CreateHorseShowWizardPage = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const project = await createOrUpdateShow();
+            const project = await createOrUpdateShow(null, 'feeStructure', 'draft');
             lastSavedData.current = JSON.stringify(formData);
             if (project && !showId) {
                 navigate(`/horse-show-manager/fee-structure/${project.id}`, { replace: true });

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, pointerWithin } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -248,6 +248,15 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
     });
   }, [showBill, setShowBill, bulkAddTarget, toast]);
 
+  // Custom collision detection: palette drags use pointerWithin to prevent
+  // accidental placement when dragging within the palette list.
+  const collisionDetection = useCallback((args) => {
+    if (activeDragData?.origin === 'palette') {
+      return pointerWithin(args);
+    }
+    return closestCenter(args);
+  }, [activeDragData]);
+
   // --- DnD Handlers ---
   const handleDragStart = (event) => {
     const { active } = event;
@@ -264,6 +273,12 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
 
     // Case 1: Dragging from palette into an arena
     if (activeData?.origin === 'palette') {
+      // Ignore drops back onto palette items (user was reordering within palette, not placing)
+      const overId = String(over.id);
+      if (overId.startsWith('palette-') || over.data.current?.origin === 'palette') {
+        return;
+      }
+
       const classItem = activeData.classItem;
 
       // Determine which classes to move (multi-select or single)
@@ -355,6 +370,18 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
       if (isDraggedSelected) {
         // Multi-move: collect all selected items, remove from sources, insert at drop position
         const sb = JSON.parse(JSON.stringify(showBill));
+
+        // Find the original index of the over-item BEFORE removal to detect drag direction
+        const destDayPre = sb.days.find(d => d.id === destDayId);
+        const destArenaPre = destDayPre?.arenas.find(a => a.id === destArenaId);
+        const overOriginalIdx = destArenaPre?.items.findIndex(i => i.id === over.id) ?? -1;
+        let selectedBeforeOver = 0;
+        if (destArenaPre) {
+          for (let i = 0; i < overOriginalIdx; i++) {
+            if (selectedArenaItemIds.has(destArenaPre.items[i].id)) selectedBeforeOver++;
+          }
+        }
+
         const collectedItems = [];
 
         // Remove selected items from their current positions (maintain relative order)
@@ -378,7 +405,12 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
         if (!destArena) return;
 
         let destIndex = destArena.items.findIndex(i => i.id === over.id);
-        if (destIndex === -1) destIndex = destArena.items.length;
+        if (destIndex === -1) {
+          destIndex = destArena.items.length;
+        } else if (selectedBeforeOver > 0) {
+          // Items were dragged downward — insert AFTER the over-item
+          destIndex += 1;
+        }
 
         destArena.items.splice(destIndex, 0, ...collectedItems);
         setShowBill(renumberShowBill(sb));
@@ -423,7 +455,7 @@ const ShowBillBuilder = ({ formData, setFormData, associationsData: propAssociat
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <ShowBillToolbar
         showName={showBill.header?.showName}
         startDate={formData.startDate}

@@ -30,7 +30,7 @@ const CreateShowPage = () => {
 
     const handleSave = async () => {
         try {
-            const project = await createOrUpdateShow();
+            const project = await createOrUpdateShow(null, 'editWizard', 'draft');
             if (!project) return; // validation failed (name required, duplicate, etc.)
             toast({
                 title: 'Progress Saved',

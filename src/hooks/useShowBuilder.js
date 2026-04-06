@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
+import { MODULE_STATUS, migrateLegacyStatus, migrateAllModuleStatuses, stampModuleStatusOnSave } from '@/lib/moduleStatusService';
 
 const initialFormData = {
   showName: '',
@@ -31,6 +32,8 @@ const initialFormData = {
   showBill: null,
   layoutSettings: null,
   showStatus: 'draft',
+  isShowLocked: false,
+  moduleStatuses: {},
   sponsorLevels: [
     { id: 'platinum', name: 'Platinum', amount: 5000, color: '#E5E4E2', benefits: 'Main arena banner, program cover logo, PA announcements, VIP passes' },
     { id: 'gold', name: 'Gold', amount: 2500, color: '#FFD700', benefits: 'Class sponsorship, program logo, banner placement' },
@@ -104,7 +107,16 @@ export const useShowBuilder = (showId) => {
 
         if (showError) throw showError;
         if (showData && showData.project_data) {
-          setFormData(prev => ({ ...initialFormData, ...showData.project_data, id: showId }));
+          // Migrate legacy statuses on load
+          const migratedModuleStatuses = migrateAllModuleStatuses(showData.project_data.moduleStatuses);
+          const migratedShowStatus = migrateLegacyStatus(showData.project_data.showStatus || 'draft');
+          setFormData(prev => ({
+            ...initialFormData,
+            ...showData.project_data,
+            moduleStatuses: migratedModuleStatuses,
+            showStatus: migratedShowStatus,
+            id: showId,
+          }));
           const savedStep = Math.min(showData.project_data.currentStep || 1, 8);
           const savedCompleted = showData.project_data.completedSteps || [];
           setStep(savedStep);
@@ -154,6 +166,12 @@ export const useShowBuilder = (showId) => {
       return null;
     }
 
+    // Block saves when show is globally locked (except for explicit unlock operations)
+    if (formData.isShowLocked && statusOverride !== 'force_unlock') {
+      toast({ title: 'Show Locked', description: 'Unlock the show to make changes.', variant: 'destructive' });
+      return null;
+    }
+
     // Validate: show name is required
     const trimmedName = (formData.showName || '').trim();
     if (!trimmedName) {
@@ -182,19 +200,13 @@ export const useShowBuilder = (showId) => {
       }
     }
 
-    // Use the module status as the project-level status when moduleKey is provided
-    // This ensures the portal card reflects the actual status (e.g., locked, published)
-    const effectiveStatus = moduleKey
-      ? (moduleStatus || formData.showStatus || 'draft')
-      : (statusOverride || formData.showStatus || 'draft');
+    // Auto-advance module status when moduleKey is provided
+    // Uses stampModuleStatusOnSave: NOT_STARTED→IN_PROGRESS→DRAFT (auto)
+    // Explicit statusOverride (e.g. 'locked', 'published') from Step6_Preview is respected
+    const effectiveStatus = statusOverride || formData.showStatus || MODULE_STATUS.DRAFT;
 
-    // Update formData with the status if overridden
     if (!moduleKey && statusOverride && statusOverride !== formData.showStatus) {
       setFormData(prev => ({ ...prev, showStatus: statusOverride }));
-    }
-    // Also sync showStatus when module status changes (e.g., editWizard locked/published)
-    if (moduleKey && moduleStatus && moduleStatus !== formData.showStatus) {
-      setFormData(prev => ({ ...prev, showStatus: moduleStatus }));
     }
 
     // Mark current step as completed on save
@@ -202,10 +214,18 @@ export const useShowBuilder = (showId) => {
     updatedCompletedSteps.add(step);
     setCompletedSteps(updatedCompletedSteps);
 
-    // If a moduleKey is provided, update moduleStatuses for that specific module
-    const updatedModuleStatuses = moduleKey
-      ? { ...(formData.moduleStatuses || {}), [moduleKey]: moduleStatus || statusOverride || 'draft' }
-      : formData.moduleStatuses;
+    // If a moduleKey is provided, auto-advance its status
+    let updatedModuleStatuses = formData.moduleStatuses || {};
+    if (moduleKey) {
+      // If an explicit status was given from Step6 (locked/published), use that directly
+      if (moduleStatus && [MODULE_STATUS.LOCKED, MODULE_STATUS.PUBLISHED].includes(moduleStatus)) {
+        updatedModuleStatuses = { ...updatedModuleStatuses, [moduleKey]: moduleStatus };
+      } else {
+        // Otherwise, auto-advance: NOT_STARTED→IN_PROGRESS, IN_PROGRESS→DRAFT
+        const stamped = stampModuleStatusOnSave({ moduleStatuses: updatedModuleStatuses }, moduleKey);
+        updatedModuleStatuses = stamped.moduleStatuses;
+      }
+    }
 
     const showDataToSave = {
       ...formData,

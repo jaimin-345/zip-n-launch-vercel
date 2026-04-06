@@ -5,10 +5,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Search, GripVertical, CalendarDays } from 'lucide-react';
+import { Search, GripVertical, CalendarDays, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onToggleSelection }) => {
+const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onToggleSelection, onMoveUp, onMoveDown, isFirst, isLast }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-${classItem.id}`,
     data: { origin: 'palette', classItem },
@@ -22,7 +22,7 @@ const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onTogg
       {...attributes}
       {...listeners}
       className={cn(
-        'flex items-center gap-1.5 px-2 py-1.5 rounded bg-background touch-none cursor-grab active:cursor-grabbing text-sm transition-colors',
+        'group/item flex items-center gap-1.5 px-2 py-1.5 rounded bg-background touch-none cursor-grab active:cursor-grabbing text-sm transition-colors',
         isDragging && 'opacity-50',
         isSelected
           ? 'bg-primary/10 border border-primary/30'
@@ -47,6 +47,28 @@ const DraggablePaletteClass = ({ classItem, associationsData, isSelected, onTogg
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
           {assoc.abbreviation || assoc.name}
         </Badge>
+      )}
+      {(onMoveUp || onMoveDown) && (
+        <div className="flex flex-col shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity" onPointerDown={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            disabled={isFirst}
+            onClick={(e) => { e.stopPropagation(); onMoveUp?.(classItem); }}
+            className="h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-primary/10 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Move up"
+          >
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            disabled={isLast}
+            onClick={(e) => { e.stopPropagation(); onMoveDown?.(classItem); }}
+            className="h-3.5 w-3.5 flex items-center justify-center rounded hover:bg-primary/10 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Move down"
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
+        </div>
       )}
     </div>
   );
@@ -119,7 +141,7 @@ function groupByDiscipline(classes) {
   return Object.entries(groups);
 }
 
-const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection, onBulkToggle, formData, activeDayDate }) => {
+const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, selectedIds, onToggleSelection, onBulkToggle, formData, activeDayDate, onReorderClass }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter by active day: only show classes assigned to this day, or unassigned classes
@@ -185,13 +207,17 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, select
           onBulkToggle={onBulkToggle}
         />
         <div className="space-y-1 mt-1">
-          {clsList.map(cls => (
+          {clsList.map((cls, idx) => (
             <DraggablePaletteClass
               key={cls.id}
               classItem={cls}
               associationsData={associationsData}
               isSelected={selectedIds?.has(cls.id)}
               onToggleSelection={onToggleSelection}
+              onMoveUp={onReorderClass ? (c) => onReorderClass(c, 'up') : undefined}
+              onMoveDown={onReorderClass ? (c) => onReorderClass(c, 'down') : undefined}
+              isFirst={idx === 0}
+              isLast={idx === clsList.length - 1}
             />
           ))}
         </div>
@@ -255,13 +281,17 @@ const ClassPalette = ({ allClassItems, unplacedClasses, associationsData, select
                   onBulkToggle={onBulkToggle}
                 />
                 <div className="space-y-1 mt-1">
-                  {classes.map(cls => (
+                  {classes.map((cls, idx) => (
                     <DraggablePaletteClass
                       key={cls.id}
                       classItem={cls}
                       associationsData={associationsData}
                       isSelected={selectedIds?.has(cls.id)}
                       onToggleSelection={onToggleSelection}
+                      onMoveUp={onReorderClass ? (c) => onReorderClass(c, 'up') : undefined}
+                      onMoveDown={onReorderClass ? (c) => onReorderClass(c, 'down') : undefined}
+                      isFirst={idx === 0}
+                      isLast={idx === classes.length - 1}
                     />
                   ))}
                 </div>

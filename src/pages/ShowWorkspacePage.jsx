@@ -13,77 +13,25 @@ import {
   CalendarDays, FileText, DollarSign, LayoutGrid, Building2,
   Radio, Award, Edit, ChevronRight, Users, ClipboardList,
   BarChart3, Warehouse, Check, Lock, Circle, ChevronDown, BookOpen,
-  Download,
+  Download, Unlock, ShieldAlert,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { generateShowPacketPdf } from '@/lib/showPacketPdfGenerator';
 import { getAllClassItems } from '@/lib/showBillUtils';
+import { useModuleStatus } from '@/hooks/useModuleStatus';
+import { MODULE_STATUS, STATUS_META, migrateLegacyStatus, canGeneratePdf } from '@/lib/moduleStatusService';
+import { ModuleStatusBadge } from '@/components/show-builder/ModuleStatusBadge';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-/* ── Status helpers ── */
-
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft', icon: Circle, color: 'text-blue-600', iconSize: 'h-3.5 w-3.5', rank: 0 },
-  { value: 'locked', label: 'Locked', icon: Lock, color: 'text-amber-600', iconSize: 'h-3.5 w-3.5', rank: 1 },
-  { value: 'published', label: 'Published', icon: Check, color: 'text-emerald-600', iconSize: 'h-3.5 w-3.5', rank: 2 },
-];
-
-const getModuleStatus = (key, pd) => {
-  return (pd.moduleStatuses || {})[key] || 'draft';
-};
-
-const StatusBadge = ({ status, moduleKey, onStatusChange }) => {
-  const opt = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
-  const IconComp = opt.icon;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={cn('flex items-center gap-1 text-[11px] font-medium rounded-md px-1.5 py-0.5 hover:bg-muted transition-colors', opt.color)}
-          onClick={(e) => e.preventDefault()}
-        >
-          <IconComp className={opt.iconSize} />
-          {opt.label}
-          <ChevronDown className="h-3 w-3 opacity-50" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36">
-        {STATUS_OPTIONS.map((option) => {
-          const OptIcon = option.icon;
-          const currentRank = STATUS_OPTIONS.find(o => o.value === status)?.rank || 0;
-          const isDisabled = option.rank < currentRank;
-          return (
-            <DropdownMenuItem
-              key={option.value}
-              disabled={isDisabled}
-              className={cn('flex items-center gap-2 text-xs', option.color, status === option.value && 'bg-muted', isDisabled && 'opacity-40 cursor-not-allowed')}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!isDisabled) onStatusChange(moduleKey, option.value);
-              }}
-            >
-              <OptIcon className={option.iconSize} />
-              {option.label}
-              {status === option.value && <Check className="h-3 w-3 ml-auto" />}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 /* ── Module card ── */
 
-const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status, moduleKey, onStatusChange, comingSoon }) => {
+const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status, moduleKey, onStatusChange, comingSoon, isShowLocked }) => {
   const { toast } = useToast();
   const colorMap = {
     blue: 'bg-blue-100 dark:bg-blue-950/40 text-blue-600',
@@ -92,43 +40,56 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
     violet: 'bg-violet-100 dark:bg-violet-950/40 text-violet-600',
     rose: 'bg-rose-100 dark:bg-rose-950/40 text-rose-600',
     sky: 'bg-sky-100 dark:bg-sky-950/40 text-sky-600',
+    indigo: 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600',
   };
 
-  const borderClass = status === 'published'
-    ? 'border-emerald-200 dark:border-emerald-800'
-    : status === 'locked'
-      ? 'border-amber-200 dark:border-amber-800'
-      : '';
+  const meta = STATUS_META[status] || STATUS_META[MODULE_STATUS.NOT_STARTED];
+  const borderClass = meta.borderColor || '';
 
   const handleClick = (e) => {
     if (comingSoon) {
       e.preventDefault();
       toast({ title: 'Coming Soon!', description: "This feature isn't implemented yet — stay tuned!" });
+    } else if (isShowLocked) {
+      e.preventDefault();
+      toast({ title: 'Show Locked', description: 'Unlock the show to access this module.', variant: 'destructive' });
     }
   };
 
-  const Wrapper = comingSoon ? 'div' : Link;
-  const wrapperProps = comingSoon ? { onClick: handleClick } : { to };
+  const isClickable = !comingSoon && !isShowLocked;
+  const Wrapper = isClickable ? Link : 'div';
+  const wrapperProps = isClickable ? { to } : { onClick: handleClick };
 
   return (
     <Wrapper {...wrapperProps}>
-      <motion.div whileHover={{ y: -2 }} className="h-full">
-        <Card className={cn('h-full transition-all cursor-pointer', comingSoon ? 'hover:border-amber-300 hover:shadow-md' : 'hover:border-blue-300 hover:shadow-md', borderClass)}>
+      <motion.div whileHover={{ y: isClickable ? -2 : 0 }} className="h-full">
+        <Card className={cn(
+          'h-full transition-all',
+          isClickable ? 'cursor-pointer hover:border-blue-300 hover:shadow-md' : 'cursor-not-allowed',
+          comingSoon && 'hover:border-amber-300 hover:shadow-md cursor-pointer',
+          borderClass,
+          isShowLocked && !comingSoon && 'opacity-75',
+        )}>
           <CardContent className="p-5">
             <div className="flex items-start gap-4">
-              <div className={cn('p-2.5 rounded-lg shrink-0', colorMap[color])}>
+              <div className={cn('p-2.5 rounded-lg shrink-0', colorMap[color] || colorMap.blue)}>
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="font-semibold text-sm text-foreground">{title}</h3>
                   {!comingSoon && (
-                    <StatusBadge status={status} moduleKey={moduleKey} onStatusChange={onStatusChange} />
+                    <ModuleStatusBadge
+                      status={status}
+                      moduleKey={moduleKey}
+                      isShowLocked={isShowLocked}
+                      onStatusChange={onStatusChange}
+                    />
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
               </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+              <ChevronRight className={cn('h-4 w-4 shrink-0 mt-1', isShowLocked ? 'text-muted-foreground/30' : 'text-muted-foreground')} />
             </div>
           </CardContent>
         </Card>
@@ -142,17 +103,21 @@ const ModuleCard = ({ icon: Icon, title, description, to, color = 'blue', status
 const OverallProgress = ({ modules }) => {
   const allItems = modules.flatMap(s => s.items);
   const total = allItems.length;
-  const published = allItems.filter(m => m.status === 'published').length;
-  const locked = allItems.filter(m => m.status === 'locked').length;
+  const published = allItems.filter(m => m.status === MODULE_STATUS.PUBLISHED).length;
+  const locked = allItems.filter(m => m.status === MODULE_STATUS.LOCKED).length;
+  const draft = allItems.filter(m => m.status === MODULE_STATUS.DRAFT).length;
+  const inProgress = allItems.filter(m => m.status === MODULE_STATUS.IN_PROGRESS).length;
   const pct = total > 0 ? Math.round(((published + locked) / total) * 100) : 0;
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-foreground">Show Progress</span>
-        <span className="text-muted-foreground">
-          {published}/{total} modules published
+        <span className="text-muted-foreground text-xs">
+          {published} published
           {locked > 0 && ` · ${locked} locked`}
+          {draft > 0 && ` · ${draft} draft`}
+          {inProgress > 0 && ` · ${inProgress} in progress`}
         </span>
       </div>
       <div className="h-2.5 bg-muted rounded-full overflow-hidden flex">
@@ -168,8 +133,20 @@ const OverallProgress = ({ modules }) => {
             style={{ width: `${(locked / total) * 100}%` }}
           />
         )}
+        {draft > 0 && (
+          <div
+            className="h-full bg-orange-300 transition-all duration-500"
+            style={{ width: `${(draft / total) * 100}%` }}
+          />
+        )}
+        {inProgress > 0 && (
+          <div
+            className="h-full bg-blue-300 transition-all duration-500"
+            style={{ width: `${(inProgress / total) * 100}%` }}
+          />
+        )}
       </div>
-      <p className="text-xs text-muted-foreground">{pct}% complete</p>
+      <p className="text-xs text-muted-foreground">{pct}% finalized ({published + locked}/{total})</p>
     </div>
   );
 };
@@ -220,41 +197,25 @@ const ShowWorkspacePage = () => {
     fetchShow();
   }, [user, showId]);
 
-  // Save per-module status directly to Supabase
-  const handleModuleStatusChange = useCallback(async (moduleKey, newStatus) => {
-    if (!show) return;
+  // ── Module status system (hooks must be before early returns) ──
+  const handleProjectDataChange = useCallback((updatedProjectData) => {
+    setShow(prev => ({ ...prev, project_data: updatedProjectData }));
+  }, []);
 
-    const updatedModuleStatuses = {
-      ...(show.project_data?.moduleStatuses || {}),
-      [moduleKey]: newStatus,
-    };
-
-    const updatedProjectData = {
-      ...show.project_data,
-      moduleStatuses: updatedModuleStatuses,
-    };
-
-    // Update local state immediately
-    setShow(prev => ({
-      ...prev,
-      project_data: updatedProjectData,
-    }));
-
-    // Persist to Supabase
-    const { error } = await supabase
-      .from('projects')
-      .update({ project_data: updatedProjectData })
-      .eq('id', showId);
-
-    if (error) {
-      toast({ title: 'Error saving status', description: error.message, variant: 'destructive' });
-      // Revert on error
-      setShow(prev => ({
-        ...prev,
-        project_data: show.project_data,
-      }));
-    }
-  }, [show, showId, toast]);
+  const {
+    moduleStatuses,
+    isShowLocked,
+    isSaving: isStatusSaving,
+    changeModuleStatus,
+    lockShow,
+    unlockShow,
+    getModuleStatus: getStatus,
+    getModulePdfAllowed,
+  } = useModuleStatus({
+    projectData: show?.project_data,
+    showId,
+    onProjectDataChange: handleProjectDataChange,
+  });
 
   const handleGeneratePacket = useCallback(async () => {
     if (!show?.project_data) return;
@@ -307,8 +268,7 @@ const ShowWorkspacePage = () => {
     {
       section: 'Show Setup',
       items: [
-        { key: 'editWizard', icon: Edit, title: 'Edit Show Wizard', description: 'Edit associations, disciplines, classes, details, arenas, and schedule.', to: `/horse-show-manager/edit/${showId}`, color: 'blue' },
-        { key: 'scheduleBuilder', icon: CalendarDays, title: 'Schedule Builder', description: 'Build and organize the show schedule with drag-and-drop.', to: `/horse-show-manager/schedule-builder/${showId}`, color: 'blue' },
+        { key: 'editWizard', icon: Edit, title: 'Edit Show Wizard', description: 'Edit associations, disciplines, classes, details, arenas, schedule, and show bill.', to: `/horse-show-manager/edit/${showId}`, color: 'blue' },
         { key: 'showStructure', icon: DollarSign, title: 'Show Structure & Expenses', description: 'Manage show expenses, fee structures, and sponsors.', to: `/horse-show-manager/show-structure-expenses/${showId}`, color: 'blue' },
         { key: 'feeStructure', icon: DollarSign, title: 'Fee Structure & Sponsors', description: 'Configure entry fees, stall fees, and sponsor levels.', to: `/horse-show-manager/fee-structure/${showId}`, color: 'blue' },
         { key: 'contracts', icon: FileText, title: 'Contract Management', description: 'Create and manage employee contracts for this show.', to: `/horse-show-manager/employee-management/contracts?showId=${showId}`, color: 'blue' },
@@ -334,12 +294,12 @@ const ShowWorkspacePage = () => {
     },
   ];
 
-  // Compute status for each module
+  // Compute status for each module (using new 5-status system with migration)
   const modulesWithStatus = modules.map(section => ({
     ...section,
     items: section.items.map(item => ({
       ...item,
-      status: getModuleStatus(item.key, pd),
+      status: getStatus(item.key),
     })),
   }));
 
@@ -385,35 +345,90 @@ const ShowWorkspacePage = () => {
                       {pd.venueName}
                     </span>
                   )}
-                  <Badge
-                    variant="outline"
-                    className={cn('text-xs',
-                      show.status === 'published' && 'bg-emerald-50 text-emerald-700 border-emerald-300',
-                      show.status === 'locked' && 'bg-amber-50 text-amber-700 border-amber-300',
-                      (!show.status || show.status === 'draft') && 'bg-blue-50 text-blue-700 border-blue-300'
-                    )}
-                  >
-                    {show.status || 'draft'}
-                  </Badge>
+                  {isShowLocked && (
+                    <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300 flex items-center gap-1">
+                      <ShieldAlert className="h-3 w-3" />
+                      Show Locked
+                    </Badge>
+                  )}
+                  {!isShowLocked && (
+                    <Badge
+                      variant="outline"
+                      className={cn('text-xs',
+                        show.status === 'published' && 'bg-emerald-50 text-emerald-700 border-emerald-300',
+                        show.status === 'locked' && 'bg-amber-50 text-amber-700 border-amber-300',
+                        (!show.status || show.status === 'draft') && 'bg-blue-50 text-blue-700 border-blue-300'
+                      )}
+                    >
+                      {show.status || 'draft'}
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
+                {/* Show Lock/Unlock Toggle */}
+                {isShowLocked ? (
+                  <Button
+                    variant="outline"
+                    onClick={unlockShow}
+                    disabled={isStatusSaving}
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                  >
+                    <Unlock className="mr-2 h-4 w-4" />
+                    Unlock Show
+                  </Button>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={lockShow}
+                          disabled={isStatusSaving}
+                          className="border-amber-300 text-amber-600 hover:bg-amber-50"
+                        >
+                          <Lock className="mr-2 h-4 w-4" />
+                          Lock Show
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Lock all modules to prevent edits</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {/* Show Packet PDF */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={handleGeneratePacket}
+                        disabled={isGeneratingPacket}
+                        className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                      >
+                        {isGeneratingPacket ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {isGeneratingPacket ? 'Generating...' : 'Show Packet'}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Generate a comprehensive PDF of all show data</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Edit Show */}
                 <Button
-                  variant="outline"
-                  onClick={handleGeneratePacket}
-                  disabled={isGeneratingPacket}
-                  className="border-blue-300 text-blue-600 hover:bg-blue-50"
-                >
-                  {isGeneratingPacket ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  {isGeneratingPacket ? 'Generating...' : 'Show Packet'}
-                </Button>
-                <Button
-                  onClick={() => navigate(`/horse-show-manager/edit/${showId}`)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
+                  onClick={() => {
+                    if (isShowLocked) {
+                      toast({ title: 'Show Locked', description: 'Unlock the show to edit.', variant: 'destructive' });
+                      return;
+                    }
+                    navigate(`/horse-show-manager/edit/${showId}`);
+                  }}
+                  disabled={isShowLocked}
+                  className={cn('text-white', isShowLocked ? 'bg-gray-400' : 'bg-blue-500 hover:bg-blue-600')}
                 >
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Show
@@ -466,6 +481,30 @@ const ShowWorkspacePage = () => {
             </Card>
           </motion.div>
 
+          {/* Show-level lock banner */}
+          {isShowLocked && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.09 }}
+              className="mb-6"
+            >
+              <Card className="border-red-200 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <ShieldAlert className="h-5 w-5 text-red-500 shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">Show is Globally Locked</p>
+                    <p className="text-xs text-red-600/80 dark:text-red-400/70 mt-0.5">All modules are read-only. No edits or status changes are allowed until the show is unlocked.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={unlockShow} disabled={isStatusSaving} className="border-red-300 text-red-600 hover:bg-red-100 shrink-0">
+                    <Unlock className="h-3.5 w-3.5 mr-1.5" />
+                    Unlock
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Module sections */}
           {modulesWithStatus.map((section, sIdx) => (
             <motion.div
@@ -478,7 +517,7 @@ const ShowWorkspacePage = () => {
               <h2 className="text-lg font-bold text-foreground mb-4">{section.section}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {section.items.map((mod) => (
-                  <ModuleCard key={mod.title} {...mod} moduleKey={mod.key} onStatusChange={handleModuleStatusChange} />
+                  <ModuleCard key={mod.title} {...mod} moduleKey={mod.key} onStatusChange={changeModuleStatus} isShowLocked={isShowLocked} />
                 ))}
               </div>
             </motion.div>

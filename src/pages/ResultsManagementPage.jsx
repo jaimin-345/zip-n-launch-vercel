@@ -9,6 +9,7 @@ import { ResultsDashboard } from '@/components/show-builder/results/ResultsDashb
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useToast } from '@/components/ui/use-toast';
+import { stampModuleStatusOnSave } from '@/lib/moduleStatusService';
 
 const ResultsManagementPage = () => {
     const { showId } = useParams();
@@ -44,13 +45,14 @@ const ResultsManagementPage = () => {
         if (!selectedShow) return;
         setIsSaving(true);
         try {
+            const dataWithStatus = stampModuleStatusOnSave(updatedProjectData, 'results');
             const { error } = await supabase
                 .from('projects')
-                .update({ project_data: updatedProjectData })
+                .update({ project_data: dataWithStatus })
                 .eq('id', selectedShow.id);
             if (error) throw error;
-            setSelectedShow(prev => ({ ...prev, project_data: updatedProjectData }));
-            setShows(prev => prev.map(s => s.id === selectedShow.id ? { ...s, project_data: updatedProjectData } : s));
+            setSelectedShow(prev => ({ ...prev, project_data: dataWithStatus }));
+            setShows(prev => prev.map(s => s.id === selectedShow.id ? { ...s, project_data: dataWithStatus } : s));
             toast({ title: 'Results Saved', description: 'All results data has been saved successfully.' });
         } catch (error) {
             toast({ title: 'Error saving', description: error.message, variant: 'destructive' });

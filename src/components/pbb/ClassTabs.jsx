@@ -643,7 +643,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
             if (disciplineChanged || prevDisciplineIdRef.current === null) {
                 prevDisciplineIdRef.current = pbbDiscipline.id;
 
-                if (hasSelectedDivisions) {
+                if (hasSelectedDivisions && hasScheduled && !isScoresheetOnly) {
+                    setActiveTab('grouping');
+                } else if (hasSelectedDivisions) {
                     setActiveTab('schedule');
                 } else {
                     setActiveTab('divisions');
@@ -661,8 +663,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                     </div>
                 )}
                 
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger 
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger
                         value="divisions"
                         className={cn(
                             activeTab === 'divisions' && "bg-primary text-primary-foreground",
@@ -672,9 +674,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         1. Select Divisions
                         {step1Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
-                    <TabsTrigger 
+                    <TabsTrigger
                         ref={scheduleTabRef}
-                        value="schedule" 
+                        value="schedule"
                         disabled={!hasSelectedDivisions}
                         className={cn(
                             activeTab === 'schedule' && "bg-primary text-primary-foreground",
@@ -684,6 +686,19 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         2. Add Dates &amp; Arrange Classes
                         {step2Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
                         {!hasSelectedDivisions && <AlertCircle className="ml-2 w-4 h-4" />}
+                    </TabsTrigger>
+                    <TabsTrigger
+                        ref={groupingTabRef}
+                        value="grouping"
+                        disabled={!hasSelectedDivisions || isScoresheetOnly}
+                        className={cn(
+                            activeTab === 'grouping' && "bg-primary text-primary-foreground",
+                            (!hasSelectedDivisions || isScoresheetOnly) && "opacity-50"
+                        )}
+                    >
+                        3. Group Patterns
+                        {step3Complete && <CheckCircle2 className="ml-2 w-4 h-4" />}
+                        {(!hasSelectedDivisions || isScoresheetOnly) && <AlertCircle className="ml-2 w-4 h-4" />}
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="divisions" className="mt-2">
@@ -1309,6 +1324,20 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         setFormData={setFormData}
                         formData={formData}
                         associationsData={associationsData}
+                    />
+                </TabsContent>
+                <TabsContent
+                    value="grouping"
+                    className="mt-2"
+                >
+                    <PatternGrouping
+                        pbbDiscipline={pbbDiscipline}
+                        setFormData={setFormData}
+                        isCustomOpenShow={isCustomOpenShowDiscipline}
+                        formData={formData}
+                        associationsData={associationsData}
+                        divisionsData={divisionsData}
+                        onAutoGroupComplete={onAutoGroupComplete}
                     />
                 </TabsContent>
             </Tabs>

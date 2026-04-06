@@ -120,7 +120,7 @@ const ShowStructurePage = () => {
     const handleSave = useCallback(async () => {
         setIsSaving(true);
         try {
-            const project = await createOrUpdateShow();
+            const project = await createOrUpdateShow(null, 'showStructure', 'draft');
             if (project) {
                 lastSavedDataRef.current = { ...formData };
                 setHasUnsavedChanges(false);
@@ -141,7 +141,7 @@ const ShowStructurePage = () => {
 
         // Auto-save in the background
         try {
-            const project = await createOrUpdateShow();
+            const project = await createOrUpdateShow(null, 'showStructure', 'draft');
             if (project) {
                 lastSavedDataRef.current = { ...formData };
                 setHasUnsavedChanges(false);

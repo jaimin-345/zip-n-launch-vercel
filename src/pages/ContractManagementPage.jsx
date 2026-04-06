@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { BuilderSteps } from '@/components/pbb/BuilderSteps';
 import { applyLinkedProjectData, isBudgetFrozen } from '@/lib/contractUtils';
+import { stampModuleStatusOnSave } from '@/lib/moduleStatusService';
 import { format } from 'date-fns';
 
 // Step Components
@@ -401,6 +402,25 @@ const ContractManagementPage = () => {
           return null;
         }
         hasPendingChangesRef.current = false;
+
+        // Sync module status to the linked show
+        if (latestFormData.linkedProjectId) {
+          try {
+            const { data: showRow } = await supabase
+              .from('projects')
+              .select('project_data')
+              .eq('id', latestFormData.linkedProjectId)
+              .single();
+            if (showRow?.project_data) {
+              const updated = stampModuleStatusOnSave(showRow.project_data, 'contracts');
+              await supabase
+                .from('projects')
+                .update({ project_data: updated })
+                .eq('id', latestFormData.linkedProjectId);
+            }
+          } catch { /* non-critical — don't block save */ }
+        }
+
         return currentProjectId;
       } else {
         const newId = uuidv4();
@@ -420,6 +440,25 @@ const ContractManagementPage = () => {
         skipReloadRef.current = true;
         navigate(`/horse-show-manager/employee-management/contracts/${newProjectId}`, { replace: true });
         hasPendingChangesRef.current = false;
+
+        // Sync module status to the linked show
+        if (latestFormData.linkedProjectId) {
+          try {
+            const { data: showRow } = await supabase
+              .from('projects')
+              .select('project_data')
+              .eq('id', latestFormData.linkedProjectId)
+              .single();
+            if (showRow?.project_data) {
+              const updated = stampModuleStatusOnSave(showRow.project_data, 'contracts');
+              await supabase
+                .from('projects')
+                .update({ project_data: updated })
+                .eq('id', latestFormData.linkedProjectId);
+            }
+          } catch { /* non-critical — don't block save */ }
+        }
+
         return newProjectId;
       }
     } catch (error) {
@@ -523,7 +562,7 @@ const ContractManagementPage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navigation />
         <main className="container mx-auto px-4 py-4">
-          <PageHeader title="Contract Management" backTo={showIdFromQuery ? `/horse-show-manager/show/${showIdFromQuery}` : projectId ? `/horse-show-manager/show/${projectId}` : '/horse-show-manager'} />
+          <PageHeader title="Contract Management" backTo={showIdFromQuery ? `/horse-show-manager/show/${showIdFromQuery}` : formData.linkedProjectId ? `/horse-show-manager/show/${formData.linkedProjectId}` : '/horse-show-manager'} />
           <div className="max-w-7xl mx-auto">
             <BuilderSteps steps={steps} currentStep={currentStep} completedSteps={completedSteps} setCurrentStep={handleStepClick} isEditMode={!!sanitizedProjectId} />
             <Card className="glass-effect">
