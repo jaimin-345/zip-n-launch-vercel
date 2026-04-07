@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 import { Link } from 'react-router-dom';
-import { UploadCloud, Award, Sparkles, FolderOpen, Plus } from 'lucide-react';
+import { UploadCloud, Award, Sparkles, FolderOpen, Plus, ScanLine } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 const PatternUploadLandingPage = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const features = [
     {
       icon: <UploadCloud className="h-8 w-8 text-primary" />,
@@ -54,6 +54,13 @@ const PatternUploadLandingPage = () => {
                 Join our community of elite pattern designers. Upload your custom patterns, tag them with our intelligent system, and get them in front of thousands of equestrians and show managers.
               </p>
               <div className="flex items-center justify-center gap-4">
+                {isAdmin && (
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/upload-patterns/extractor">
+                      <ScanLine className="mr-2 h-5 w-5" /> PDF Extractor
+                    </Link>
+                  </Button>
+                )}
                 <Button size="lg" asChild>
                   <Link to="/upload-patterns/new">
                     <Plus className="mr-2 h-5 w-5" /> Start New Upload

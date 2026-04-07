@@ -261,6 +261,7 @@ function App() {
                   <Route path="/upload-patterns/new" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/edit/:projectId" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/legacy" element={<MembershipRoute><PatternUploadPage /></MembershipRoute>} />
+                  <Route path="/upload-patterns/extractor" element={<AdminRoute><AdminPatternExtractorPage /></AdminRoute>} />
                   <Route path="/score-sheet-generator" element={<ScoreSheetGeneratorPage />} />
                 </Routes>
                 <Toaster />

@@ -3,18 +3,8 @@ import { motion } from 'framer-motion';
 import { BrainCircuit, BookCopy, Share2, Bot, Database, Eye, Check, ArrowRight, Rss, Code, FileJson, HeartHandshake as Handshake, Building, User, Image, Mail, Search, ListChecks, Download, Target, Gauge, ShieldCheck, Milestone } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import AdminBackButton from '@/components/admin/AdminBackButton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
     Accordion,
     AccordionContent,
