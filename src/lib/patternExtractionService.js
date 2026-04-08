@@ -142,7 +142,7 @@ export async function saveExtractedPattern({ formData, extractionResult, origina
 
   onProgress?.({ stage: 'save', message: 'Saving pattern record...', percent: 50 });
 
-  // 3. Insert pattern record (only columns that exist in tbl_patterns)
+  // 3. Insert pattern record
   const patternRecord = {
     association_name: formData.association || null,
     discipline: formData.discipline || null,
@@ -152,6 +152,9 @@ export async function saveExtractedPattern({ formData, extractionResult, origina
     pattern_version: '1',
     page_no: 1,
     pattern_date: new Date().toISOString().split('T')[0],
+    pattern_name: formData.patternName || null,
+    created_by: userId || null,
+    status: 'draft',
   };
 
   const { data: patternData, error: patternError } = await supabase

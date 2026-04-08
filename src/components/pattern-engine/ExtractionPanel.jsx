@@ -23,7 +23,7 @@ import ManeuverEditor from './ManeuverEditor';
  *   onCancel: () => void
  */
 const ExtractionPanel = ({ associations = [], disciplines = [], userId, onComplete, onCancel }) => {
-  const [formData, setFormData] = useState({ patternName: '', association: '', discipline: '' });
+  const [formData, setFormData] = useState({ patternName: '', association: '', discipline: '', division: '', divisionLevel: '' });
   const [file, setFile] = useState(null);
   const [extractionResult, setExtractionResult] = useState(null);
   const [progress, setProgress] = useState(null);
@@ -95,7 +95,7 @@ const ExtractionPanel = ({ associations = [], disciplines = [], userId, onComple
     setProgress(null);
     setStage('upload');
     setError(null);
-    setFormData({ patternName: '', association: '', discipline: '' });
+    setFormData({ patternName: '', association: '', discipline: '', division: '', divisionLevel: '' });
   };
 
   const filePreview = useMemo(() => {
@@ -165,6 +165,28 @@ const ExtractionPanel = ({ associations = [], disciplines = [], userId, onComple
               {disciplines.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="division">Division</Label>
+          <Input
+            id="division"
+            value={formData.division}
+            onChange={(e) => setFormData(prev => ({ ...prev, division: e.target.value }))}
+            placeholder="e.g., Open, Youth, Amateur"
+            disabled={stage === 'extracting' || stage === 'saving'}
+          />
+        </div>
+        <div>
+          <Label htmlFor="divisionLevel">Division Level</Label>
+          <Input
+            id="divisionLevel"
+            value={formData.divisionLevel}
+            onChange={(e) => setFormData(prev => ({ ...prev, divisionLevel: e.target.value }))}
+            placeholder="e.g., Beginner, Intermediate, Advanced"
+            disabled={stage === 'extracting' || stage === 'saving'}
+          />
         </div>
       </div>
 

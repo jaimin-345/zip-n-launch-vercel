@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
@@ -104,6 +104,8 @@ export const usePatternBookBuilder = (projectId) => {
   const [step, setStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  // Track when project was just created locally to skip reload resetting the step
+  const justCreatedRef = useRef(false);
   const [disciplineLibrary, setDisciplineLibrary] = useState([]);
   const [associationsData, setAssociationsData] = useState([]);
   const [divisionsData, setDivisionsData] = useState({});
@@ -177,21 +179,27 @@ export const usePatternBookBuilder = (projectId) => {
         if (projectsRes.data) setExistingProjects(projectsRes.data);
 
         if (sanitizedProjectId) {
-          const { data: projectData, error: projectError } = await supabase
-            .from('projects')
-            .select('project_data')
-            .eq('id', sanitizedProjectId)
-            .single();
+          // Skip reloading from DB if we just created this project in the same session.
+          // The URL changed (added projectId) but step/formData are already correct in state.
+          if (justCreatedRef.current) {
+            justCreatedRef.current = false;
+          } else {
+            const { data: projectData, error: projectError } = await supabase
+              .from('projects')
+              .select('project_data')
+              .eq('id', sanitizedProjectId)
+              .single();
 
-          if (projectError) throw projectError;
-          if (projectData && projectData.project_data) {
-            // Migrate old Prelims/Finals format to new Go 1/Go 2 format
-            const migratedData = migrateToGoFormat(projectData.project_data);
-            setFormData(prev => ({ ...initialFormData, ...migratedData, id: sanitizedProjectId }));
-            const savedStep = migratedData.currentStep || 1;
-            const savedCompleted = migratedData.completedSteps || [];
-            setStep(savedStep);
-            setCompletedSteps(new Set(savedCompleted));
+            if (projectError) throw projectError;
+            if (projectData && projectData.project_data) {
+              // Migrate old Prelims/Finals format to new Go 1/Go 2 format
+              const migratedData = migrateToGoFormat(projectData.project_data);
+              setFormData(prev => ({ ...initialFormData, ...migratedData, id: sanitizedProjectId }));
+              const savedStep = migratedData.currentStep || 1;
+              const savedCompleted = migratedData.completedSteps || [];
+              setStep(savedStep);
+              setCompletedSteps(new Set(savedCompleted));
+            }
           }
         } else {
           setFormData(initialFormData);
@@ -540,6 +548,7 @@ export const usePatternBookBuilder = (projectId) => {
       }));
       // If URL doesn't have the project ID yet, navigate to it
       if (!sanitizedProjectId) {
+        justCreatedRef.current = true;
         navigate(`/pattern-book-builder/${currentProjectId}`, { replace: true });
       }
       // Create notifications for judges and staff
@@ -565,6 +574,7 @@ export const usePatternBookBuilder = (projectId) => {
         id: newProjectId,
         lockedSections: { ...prev.lockedSections, step1: true, structure: true }
       }));
+      justCreatedRef.current = true;
       navigate(`/pattern-book-builder/${newProjectId}`, { replace: true });
       // Silent save — no popup during normal editing
       return newProjectId;
