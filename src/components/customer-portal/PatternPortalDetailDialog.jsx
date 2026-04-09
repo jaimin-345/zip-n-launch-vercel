@@ -297,7 +297,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
         let isFirstPage = true;
 
         // Crop bottom portion of an image (removes summary box from pattern images)
-        const cropImageBottom = (base64Src, cropPercent = 0.88) => {
+        const cropImageBottom = (base64Src, cropPercent = 0.97) => {
             return new Promise((resolve) => {
                 const tempImg = new Image();
                 tempImg.onload = () => {
@@ -416,9 +416,9 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                     const divisionLines = doc.splitTextToSize(divisions, pageWidth - margin * 2);
                     const linesToDisplay = divisionLines.slice(0, 2);
                     doc.text(linesToDisplay, margin, yPos);
-                    yPos += (linesToDisplay.length * 12) + 15;
+                    yPos += (linesToDisplay.length * 12) + 8;
                 } else {
-                    yPos += 15;
+                    yPos += 8;
                 }
                 } // end full header (non-hub)
 
@@ -434,7 +434,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 });
 
                 const maxW = pageWidth - margin * 2;
-                const maxH = pageHeight - yPos - 30;
+                const maxH = pageHeight - yPos - 25;
                 const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
                 const w = img.width * ratio;
                 const h = img.height * ratio;

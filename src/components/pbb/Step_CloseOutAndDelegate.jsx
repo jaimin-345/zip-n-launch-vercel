@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
+import PatternBookDownloadDialog from '@/components/PatternBookDownloadDialog';
 
 const STATUS_CONFIG = {
   'In progress': { label: 'In Progress', color: 'bg-orange-100 text-orange-800 border-orange-300', dotColor: 'bg-orange-500' },
@@ -724,28 +725,14 @@ const ProjectInfoCard = ({ formData, user }) => {
 const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, formData }) => {
   const isFinalized = currentStatus === 'Final';
   const isLocked = currentStatus === 'Locked' || isFinalized;
-  const [isExporting, setIsExporting] = useState(false);
-  const { toast } = useToast();
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
-  const handleExportPdf = async () => {
-    setIsExporting(true);
-    try {
-      toast({ title: 'Generating PDF...', description: 'Your pattern book is being created.' });
-      const pdfDataUri = await generatePatternBookPdf(formData);
-      const link = document.createElement('a');
-      link.href = pdfDataUri;
-      link.download = (formData.showName || 'Pattern-Book').replace(/ /g, '_') + '.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast({ title: 'Success!', description: 'Pattern book PDF downloaded.' });
-    } catch (error) {
-      console.error('PDF export error:', error);
-      toast({ variant: 'destructive', title: 'Export failed', description: error.message || 'Could not generate PDF.' });
-    } finally {
-      setIsExporting(false);
-    }
-  };
+  // Build a project-shaped object for the reusable dialog
+  const projectForDialog = useMemo(() => ({
+    id: formData.id,
+    project_name: formData.showName || 'Pattern-Book',
+    project_data: formData,
+  }), [formData]);
 
   return (
     <div className="space-y-3">
@@ -810,10 +797,10 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, form
         <Button
           size="lg"
           className="w-full text-sm font-semibold h-12"
-          disabled={isSaving || isExporting || !isLocked}
-          onClick={handleExportPdf}
+          disabled={isSaving || !isLocked}
+          onClick={() => setShowExportDialog(true)}
         >
-          {isExporting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Download className="mr-2 h-5 w-5" />} Export Pattern Book PDF
+          <Download className="mr-2 h-5 w-5" /> Export Pattern Book PDF
         </Button>
         {!isLocked && (
           <p className="text-xs text-muted-foreground mt-1 text-center">
@@ -821,6 +808,13 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, form
           </p>
         )}
       </div>
+
+      {/* Reusable View/Download Dialog (patterns only, no score sheets) */}
+      <PatternBookDownloadDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        project={projectForDialog}
+      />
     </div>
   );
 };

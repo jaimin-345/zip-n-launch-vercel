@@ -111,8 +111,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     };
 
     // Crop the bottom portion of a pattern image (removes summary box)
-    // cropPercent: fraction of height to keep (e.g., 0.88 keeps top 88%)
-    const cropPatternImageBottom = async (base64, cropPercent = 0.88) => {
+    // cropPercent: fraction of height to keep (e.g., 0.95 keeps top 95%)
+    const cropPatternImageBottom = async (base64, cropPercent = 0.97) => {
         try {
             return await new Promise((resolve, reject) => {
                 const img = new Image();
@@ -281,19 +281,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             
             if (!mediaError && mediaData) {
                 console.log(`Found ${mediaData.length} pattern media records`);
-                for (const media of mediaData) {
-                    const imageUrl = media.image_url;
-                    if (imageUrl && !patternImagesMap.has(media.pattern_id)) {
-                        console.log(`Fetching image for pattern ${media.pattern_id}: ${imageUrl}`);
-                        const base64 = await fetchImageAsBase64(imageUrl);
+                // Fetch all pattern images in parallel for better performance
+                const mediaFetches = mediaData
+                    .filter(media => media.image_url && !patternImagesMap.has(media.pattern_id))
+                    .map(async (media) => {
+                        const base64 = await fetchImageAsBase64(media.image_url);
                         if (base64) {
                             patternImagesMap.set(media.pattern_id, base64);
-                            console.log(`Successfully loaded image for pattern ${media.pattern_id}`);
-                        } else {
-                            console.warn(`Failed to fetch image for pattern ${media.pattern_id}`);
                         }
-                    }
-                }
+                    });
+                await Promise.all(mediaFetches);
             } else if (mediaError) {
                 console.error('Error fetching pattern media:', mediaError);
             }
@@ -308,19 +305,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 
                 if (!patternsError && patternsData) {
                     console.log(`Found ${patternsData.length} patterns without media, checking tbl_patterns`);
-                    for (const pattern of patternsData) {
-                        const imageUrl = pattern.image_url || pattern.url;
-                        if (imageUrl && !patternImagesMap.has(pattern.id)) {
-                            console.log(`Fetching image for pattern ${pattern.id} from tbl_patterns: ${imageUrl}`);
+                    const fallbackFetches = patternsData
+                        .filter(p => (p.image_url || p.url) && !patternImagesMap.has(p.id))
+                        .map(async (pattern) => {
+                            const imageUrl = pattern.image_url || pattern.url;
                             const base64 = await fetchImageAsBase64(imageUrl);
                             if (base64) {
                                 patternImagesMap.set(pattern.id, base64);
-                                console.log(`Successfully loaded image for pattern ${pattern.id} from tbl_patterns`);
-                            } else {
-                                console.warn(`Failed to fetch image for pattern ${pattern.id} from tbl_patterns`);
                             }
-                        }
-                    }
+                        });
+                    await Promise.all(fallbackFetches);
                 } else if (patternsError) {
                     console.error('Error fetching patterns:', patternsError);
                 }
@@ -349,16 +343,15 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
             if (!scoresheetError && scoresheetData) {
                 console.log(`Found ${scoresheetData.length} scoresheet records`);
-                for (const ss of scoresheetData) {
-                    const imageUrl = ss.image_url;
-                    if (imageUrl && !scoresheetImagesMap.has(ss.pattern_id)) {
-                        const base64 = await fetchImageAsBase64(imageUrl);
+                const ssFetches = scoresheetData
+                    .filter(ss => ss.image_url && !scoresheetImagesMap.has(ss.pattern_id))
+                    .map(async (ss) => {
+                        const base64 = await fetchImageAsBase64(ss.image_url);
                         if (base64) {
                             scoresheetImagesMap.set(ss.pattern_id, base64);
-                            console.log(`Successfully loaded scoresheet for pattern ${ss.pattern_id}`);
                         }
-                    }
-                }
+                    });
+                await Promise.all(ssFetches);
             } else if (scoresheetError) {
                 console.error('Error fetching scoresheets:', scoresheetError);
             }
@@ -739,62 +732,61 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 doc.text(headerLine, margin, yPos, { maxWidth: pageWidth - margin * 2 });
                 yPos += 18;
             } else {
-            // Format like the example: Header info, then large image
+            // Compact header: Association + Discipline/Date on one line, then pattern + divisions
 
-            // Top left: Association name
+            const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+
+            // Line 1: Association name (bold) + date (right-aligned)
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.text(assocName.toUpperCase(), margin, yPos);
-
-            yPos += 18;
-
-            // Discipline name and date (left side) - wrap if needed
             doc.setFontSize(11);
+            doc.text(assocName.toUpperCase(), margin, yPos);
+            if (dateStr) {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text(dateStr, pageWidth - margin, yPos, { align: 'right' });
+            }
+            yPos += 15;
+
+            // Line 2: Discipline name
+            doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
-            const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
-            const disciplineText = `${discipline.name.toUpperCase()} - ${dateStr}`;
+            const disciplineText = discipline.name.toUpperCase();
             const disciplineMaxWidth = pageWidth - margin * 2;
             const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
             doc.text(disciplineLines, margin, yPos);
-
-            yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
+            yPos += (disciplineLines.length * 12) + 2;
 
             // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
             const customLabel = group.customLabel;
             if (customLabel) {
-                doc.setFontSize(11);
+                doc.setFontSize(10);
                 doc.setFont('helvetica', 'italic');
                 doc.text(customLabel, margin, yPos);
-                yPos += 14;
+                yPos += 12;
             }
 
             // Pattern name line (e.g., "Pattern 6 - L1")
             const patternDisplayName = getPatternDisplayName(patternSelection);
             if (patternDisplayName) {
-                doc.setFontSize(11);
+                doc.setFontSize(10);
                 doc.setFont('helvetica', 'bold');
                 doc.text(patternDisplayName, margin, yPos);
-                yPos += 16;
+                yPos += 13;
             }
 
-            // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
+            // Division names - single line, compact
             const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
             if (divisions) {
-                doc.setFontSize(10);
+                doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
-                const maxWidth = pageWidth - margin * 2; // Available width for text
+                const maxWidth = pageWidth - margin * 2;
                 const divisionLines = doc.splitTextToSize(divisions, maxWidth);
-
-                // Limit to 2 lines maximum
                 const linesToDisplay = divisionLines.slice(0, 2);
                 doc.text(linesToDisplay, margin, yPos);
-
-                // Calculate height based on number of lines displayed
-                const lineHeight = 12;
-                yPos += (linesToDisplay.length * lineHeight) + 15; // Space before image
+                yPos += (linesToDisplay.length * 11) + 6;
             } else {
-                yPos += 15; // Space before image if no divisions
+                yPos += 6;
             }
             } // end full header (non-hub)
             
@@ -815,14 +807,14 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         if (uploadedBase64) {
                             const imgProps = doc.getImageProperties(uploadedBase64);
                             const aspect = imgProps.height / imgProps.width;
-                            const availH = pageHeight - yPos - 40;
+                            const availH = pageHeight - yPos - 25;
                             const imgW = pageWidth - margin * 2;
                             let finalW = imgW;
                             let finalH = imgW * aspect;
                             if (finalH > availH) { finalH = availH; finalW = finalH / aspect; }
                             const xOff = (pageWidth - finalW) / 2;
                             await addImageToPage(uploadedBase64, xOff, yPos, finalW, finalH);
-                            yPos += finalH + 20;
+                            yPos += finalH + 10;
                         } else {
                             throw new Error('fetch failed');
                         }
@@ -852,21 +844,23 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 }
                 doc.setTextColor(0, 0, 0);
 
-                // Add generic scoresheet page (no maneuvers)
-                addNewPage();
-                const judges = Object.values(pbbData.associationJudges || {})
-                    .flatMap(a => (a.judges || []))
-                    .filter(j => j?.name)
-                    .map(j => j.name);
-                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
-                drawGenericScoreSheetPage(doc, {
-                    association: assocName,
-                    showName: pbbData.showName || '',
-                    discipline: discipline.name || '',
-                    division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
-                    date: dateStr,
-                    judge: judges[0] || '',
-                });
+                // Add generic scoresheet page (no maneuvers) — only if scoresheets are included
+                if (includeScoresheet) {
+                    addNewPage();
+                    const judges = Object.values(pbbData.associationJudges || {})
+                        .flatMap(a => (a.judges || []))
+                        .filter(j => j?.name)
+                        .map(j => j.name);
+                    const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                    drawGenericScoreSheetPage(doc, {
+                        association: assocName,
+                        showName: pbbData.showName || '',
+                        discipline: discipline.name || '',
+                        division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                        date: dateStr,
+                        judge: judges[0] || '',
+                    });
+                }
             } else if (hasNoPattern) {
                 // No pattern assigned placeholder
                 const placeholderY = yPos + 150;
@@ -890,8 +884,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         : await cropPatternImageBottom(patternImageBase64);
                     const imgProps = doc.getImageProperties(imageBase64);
                     const aspect = imgProps.height / imgProps.width;
-                    // Calculate image size - use most of the page
-                    const availableHeight = pageHeight - yPos - 40; // Space for footer
+                    // Calculate image size - fill as much of the page as possible
+                    const availableHeight = pageHeight - yPos - 25; // Minimal footer space
                     const imgWidth = pageWidth - margin * 2;
                     const imgHeight = imgWidth * aspect;
 
@@ -903,11 +897,11 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         finalWidth = finalHeight / aspect;
                     }
 
-                    // Center the image
+                    // Center the image horizontally
                     const xOffset = (pageWidth - finalWidth) / 2;
 
                     await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);
-                    yPos += finalHeight + 20;
+                    yPos += finalHeight + 10;
                 } catch (e) {
                     console.error('Failed to add pattern image:', e);
                     const placeholderY = yPos + 150;
@@ -984,62 +978,61 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     doc.text(headerLine, margin, yPos, { maxWidth: pageWidth - margin * 2 });
                     yPos += 18;
                 } else {
-                // LAYOUT B: Same format as Layout A
+                // LAYOUT B: Compact header matching Layout A style with serif fonts
 
-                // Top left: Association name
+                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+
+                // Line 1: Association name (bold) + date (right-aligned)
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('times', 'bold');
-                doc.setFontSize(12);
-                doc.text(assocName.toUpperCase(), margin, yPos);
-
-                yPos += 18;
-
-                // Discipline name and date (left side) - wrap if needed
                 doc.setFontSize(11);
+                doc.text(assocName.toUpperCase(), margin, yPos);
+                if (dateStr) {
+                    doc.setFont('times', 'normal');
+                    doc.setFontSize(10);
+                    doc.text(dateStr, pageWidth - margin, yPos, { align: 'right' });
+                }
+                yPos += 15;
+
+                // Line 2: Discipline name
+                doc.setFontSize(10);
                 doc.setFont('times', 'normal');
-                const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
-                const disciplineText = `${discipline.name.toUpperCase()} - ${dateStr}`;
+                const disciplineText = discipline.name.toUpperCase();
                 const disciplineMaxWidth = pageWidth - margin * 2;
                 const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
                 doc.text(disciplineLines, margin, yPos);
-
-                yPos += (disciplineLines.length * 14) + 4; // Dynamic height based on lines
+                yPos += (disciplineLines.length * 12) + 2;
 
                 // Custom label (e.g., "Monday Practice") — from hub multi-pattern entries
                 const customLabelB = group.customLabel;
                 if (customLabelB) {
-                    doc.setFontSize(11);
+                    doc.setFontSize(10);
                     doc.setFont('times', 'italic');
                     doc.text(customLabelB, margin, yPos);
-                    yPos += 14;
+                    yPos += 12;
                 }
 
                 // Pattern name line (e.g., "Pattern 6 - L1")
                 const patternDisplayNameB = getPatternDisplayName(patternSelection);
                 if (patternDisplayNameB) {
-                    doc.setFontSize(11);
+                    doc.setFontSize(10);
                     doc.setFont('times', 'bold');
                     doc.text(patternDisplayNameB, margin, yPos);
-                    yPos += 16;
+                    yPos += 13;
                 }
 
-                // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
+                // Division names - single line, compact
                 const divisions = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
                 if (divisions) {
-                    doc.setFontSize(10);
+                    doc.setFontSize(9);
                     doc.setFont('times', 'normal');
-                    const maxWidth = pageWidth - margin * 2; // Available width for text
+                    const maxWidth = pageWidth - margin * 2;
                     const divisionLines = doc.splitTextToSize(divisions, maxWidth);
-
-                    // Limit to 2 lines maximum
                     const linesToDisplay = divisionLines.slice(0, 2);
                     doc.text(linesToDisplay, margin, yPos);
-
-                    // Calculate height based on number of lines displayed
-                    const lineHeight = 12;
-                    yPos += (linesToDisplay.length * lineHeight) + 15; // Space before image
+                    yPos += (linesToDisplay.length * 11) + 6;
                 } else {
-                    yPos += 15; // Space before image if no divisions
+                    yPos += 6;
                 }
                 } // end full header (non-hub)
                 
@@ -1059,7 +1052,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             if (uploadedBase64) {
                                 const imgProps = doc.getImageProperties(uploadedBase64);
                                 const aspect = imgProps.height / imgProps.width;
-                                const availH = pageHeight - yPos - 40;
+                                const availH = pageHeight - yPos - 25;
                                 const imgW = pageWidth - margin * 2;
                                 let finalW = imgW;
                                 let finalH = imgW * aspect;
@@ -1095,21 +1088,23 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     }
                     doc.setTextColor(0, 0, 0);
 
-                    // Add generic scoresheet page (no maneuvers)
-                    addNewPage();
-                    const judgesB = Object.values(pbbData.associationJudges || {})
-                        .flatMap(a => (a.judges || []))
-                        .filter(j => j?.name)
-                        .map(j => j.name);
-                    const dateStrB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
-                    drawGenericScoreSheetPage(doc, {
-                        association: assocName,
-                        showName: pbbData.showName || '',
-                        discipline: discipline.name || '',
-                        division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
-                        date: dateStrB,
-                        judge: judgesB[0] || '',
-                    });
+                    // Add generic scoresheet page (no maneuvers) — only if scoresheets are included
+                    if (includeScoresheet) {
+                        addNewPage();
+                        const judgesB = Object.values(pbbData.associationJudges || {})
+                            .flatMap(a => (a.judges || []))
+                            .filter(j => j?.name)
+                            .map(j => j.name);
+                        const dateStrB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
+                        drawGenericScoreSheetPage(doc, {
+                            association: assocName,
+                            showName: pbbData.showName || '',
+                            discipline: discipline.name || '',
+                            division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                            date: dateStrB,
+                            judge: judgesB[0] || '',
+                        });
+                    }
                 } else if (hasNoPattern) {
                     const placeholderY = yPos + 150;
                     doc.setFontSize(20);
@@ -1132,8 +1127,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             : await cropPatternImageBottom(patternImageBase64);
                         const imgProps = doc.getImageProperties(imageBase64);
                         const aspect = imgProps.height / imgProps.width;
-                        // Calculate image size - use most of the page
-                        const availableHeight = pageHeight - yPos - 40; // Space for footer
+                        // Calculate image size - fill as much of the page as possible
+                        const availableHeight = pageHeight - yPos - 25; // Minimal footer space
                         const imgWidth = pageWidth - margin * 2;
                         const imgHeight = imgWidth * aspect;
 
@@ -1145,7 +1140,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             finalWidth = finalHeight / aspect;
                         }
 
-                        // Center the image
+                        // Center the image horizontally
                         const xOffset = (pageWidth - finalWidth) / 2;
 
                         await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);

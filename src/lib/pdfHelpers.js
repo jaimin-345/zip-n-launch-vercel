@@ -103,20 +103,25 @@ export const fetchPatternAndScoresheetAssets = async (pbbData) => {
 
     const [patternsRes, scoresheetsRes] = await Promise.all(fetchPromises);
 
+    // Fetch all images in parallel for better performance
     if (patternsRes.data) {
-        for (const pattern of patternsRes.data) {
-            if (pattern.preview_image_url) {
-                assetUrls.patterns[pattern.id] = await fetchImageAsBase64(pattern.preview_image_url);
-            }
-        }
+        const patternFetches = patternsRes.data
+            .filter(p => p.preview_image_url)
+            .map(async (pattern) => {
+                const base64 = await fetchImageAsBase64(pattern.preview_image_url);
+                if (base64) assetUrls.patterns[pattern.id] = base64;
+            });
+        await Promise.all(patternFetches);
     }
 
     if (scoresheetsRes.data) {
-        for (const scoresheet of scoresheetsRes.data) {
-             if (scoresheet.file_url) {
-                assetUrls.scoresheets[scoresheet.id] = await fetchImageAsBase64(scoresheet.file_url);
-            }
-        }
+        const scoresheetFetches = scoresheetsRes.data
+            .filter(s => s.file_url)
+            .map(async (scoresheet) => {
+                const base64 = await fetchImageAsBase64(scoresheet.file_url);
+                if (base64) assetUrls.scoresheets[scoresheet.id] = base64;
+            });
+        await Promise.all(scoresheetFetches);
     }
 
     return assetUrls;
