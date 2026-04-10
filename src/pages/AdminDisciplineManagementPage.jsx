@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { BookCopy, Loader2, PlusCircle, Edit, Trash2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
