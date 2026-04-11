@@ -770,6 +770,20 @@ export const Step2_ClassesAndDivisions = ({ formData, setFormData, disciplineLib
                     const matchesSearch = searchTerm ? d.name.toLowerCase().includes(searchTerm.toLowerCase()) : true;
                     // Only include disciplines without sub-type requirement, or if no sub-types are defined
                     const matchesSubType = !d.sub_association_type || !association.sub_association_info;
+                    // NSBA does not sanction Reining, Ranch Reining, Ranch
+                    // Riding, or Western Riding — hide these only under the
+                    // NSBA association (other associations still show them).
+                    if (assocId === 'NSBA') {
+                        const n = (d.name || '').toLowerCase().trim();
+                        if (
+                            n === 'reining' ||
+                            n === 'ranch reining' ||
+                            n === 'ranch riding' ||
+                            n === 'western riding'
+                        ) {
+                            return false;
+                        }
+                    }
                     return matchesAssoc && matchesSearch && matchesSubType;
                 });
 

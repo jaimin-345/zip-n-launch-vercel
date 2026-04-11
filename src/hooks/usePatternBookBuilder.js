@@ -186,7 +186,7 @@ export const usePatternBookBuilder = (projectId) => {
           } else {
             const { data: projectData, error: projectError } = await supabase
               .from('projects')
-              .select('project_data')
+              .select('project_data, status')
               .eq('id', sanitizedProjectId)
               .single();
 
@@ -194,6 +194,13 @@ export const usePatternBookBuilder = (projectId) => {
             if (projectData && projectData.project_data) {
               // Migrate old Prelims/Finals format to new Go 1/Go 2 format
               const migratedData = migrateToGoFormat(projectData.project_data);
+              // The top-level `projects.status` column is the source of truth
+              // for lock/publish state (Customer Portal writes to it directly).
+              // Override any stale projectStatus inside the JSON blob so Step 8
+              // always reflects the current lock state.
+              if (projectData.status) {
+                migratedData.projectStatus = projectData.status;
+              }
               setFormData(prev => ({ ...initialFormData, ...migratedData, id: sanitizedProjectId }));
               const savedStep = migratedData.currentStep || 1;
               const savedCompleted = migratedData.completedSteps || [];

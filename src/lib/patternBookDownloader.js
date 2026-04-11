@@ -9,8 +9,9 @@ import { parseLocalDate } from '@/lib/utils';
 /**
  * Creates a PDF from an image (pattern or scoresheet).
  * Uses minimal margins and centres the image to fill the page.
+ * If `judgeName` is provided, overlays it at the top of the page.
  */
-const createPdfFromImage = async (imageUrl, title) => {
+const createPdfFromImage = async (imageUrl, title, judgeName = '') => {
     try {
         const base64 = await fetchImageAsBase64(imageUrl);
         if (!base64) return null;
@@ -20,11 +21,12 @@ const createPdfFromImage = async (imageUrl, title) => {
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = SCORESHEET_LAYOUT.margin;
 
-        // Maximise image area — no title header so image can fill the page
-        const imgMaxWidth = pageWidth - margin * 2;
-        const imgMaxHeight = pageHeight - margin * 2;
+        // Reserve space at top for judge overlay (only if judge provided)
+        const topReserve = judgeName ? 22 : 0;
 
-        // Create image to get dimensions
+        const imgMaxWidth = pageWidth - margin * 2;
+        const imgMaxHeight = pageHeight - margin * 2 - topReserve;
+
         const img = new Image();
         img.src = base64;
 
@@ -36,14 +38,19 @@ const createPdfFromImage = async (imageUrl, title) => {
         let imgWidth = img.width || 500;
         let imgHeight = img.height || 700;
 
-        // Scale image to fit while maintaining aspect ratio
         const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
         imgWidth *= scale;
         imgHeight *= scale;
 
-        // Centre on page
         const x = (pageWidth - imgWidth) / 2;
-        const y = (pageHeight - imgHeight) / 2;
+        const y = (pageHeight - imgHeight - topReserve) / 2 + topReserve;
+
+        if (judgeName) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Judge: ${judgeName}`, margin, margin - 5);
+        }
 
         const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
         doc.addImage(base64, imageType, x, y, imgWidth, imgHeight);
@@ -53,6 +60,41 @@ const createPdfFromImage = async (imageUrl, title) => {
         console.error("Error creating PDF from image:", error);
         return null;
     }
+};
+
+/**
+ * Resolve the judge name for a discipline/group from projectData.
+ * Priority: patternSelections[discId][groupId].judgeName
+ *   → discipline.assignedJudge / judgeName
+ *   → showDetails.judges[association_id] (Step 4 Number-of-Judges UI)
+ *   → associationJudges[association_id]
+ *   → any judge anywhere in the project
+ */
+const resolveJudgeForGroup = (projectData, discipline, group) => {
+    const sel = projectData.patternSelections?.[discipline.id]?.[group.id];
+    if (sel && typeof sel === 'object' && sel.judgeName) return sel.judgeName;
+
+    const discAssigned = discipline?.assignedJudge || discipline?.judgeName;
+    if (discAssigned) return discAssigned;
+
+    const assocId = discipline.association_id;
+    const showDetailsJudges = projectData.showDetails?.judges?.[assocId] || [];
+    const showFirst = showDetailsJudges.find(j => j?.name);
+    if (showFirst) return showFirst.name;
+
+    const assocJudges = projectData.associationJudges?.[assocId];
+    const first = assocJudges?.judges?.find(j => j?.name);
+    if (first) return first.name;
+
+    const anyShowJudge = Object.values(projectData.showDetails?.judges || {})
+        .flat()
+        .find(j => j?.name);
+    if (anyShowJudge) return anyShowJudge.name;
+
+    const anyJudge = Object.values(projectData.associationJudges || {})
+        .flatMap(a => (a.judges || []))
+        .find(j => j?.name);
+    return anyJudge?.name || '';
 };
 
 /**
@@ -67,74 +109,151 @@ const sanitizeFilename = (name) => {
 };
 
 /**
- * Get scoresheet for a discipline and group following the same priority as Step6_Preview
+ * Prefetch all scoresheet records referenced by the project in a single
+ * round-trip per lookup strategy, so per-group lookups become synchronous.
+ *
+ * Returns { byPatternId, byAssocDiscipline } — byAssocDiscipline is keyed as
+ * `${abbrev}::${disciplineNameLower}` and used for VRH + fallback matches.
  */
-const getScoresheetForGroup = async (discipline, group, projectData, associationsData) => {
+const prefetchScoresheets = async (projectData, associationsData) => {
+    const byPatternId = new Map();
+    const byAssocDiscipline = new Map();
+
+    const patternIds = new Set();
+    const assocDisciplineQueries = new Set(); // `${abbrev}::${disciplineName}`
+
+    const disciplines = projectData.disciplines || [];
+    disciplines.forEach((discipline) => {
+        const assoc = associationsData?.find(a => a.id === discipline.association_id);
+        const abbrev = assoc?.abbreviation;
+
+        // Collect pattern_ids from selections
+        const groupSels = projectData.patternSelections?.[discipline.id] || {};
+        Object.values(groupSels).forEach(sel => {
+            if (!sel) return;
+            const pid = typeof sel === 'object' ? (sel.patternId || sel.id) : sel;
+            if (pid && !isNaN(parseInt(pid))) patternIds.add(parseInt(pid));
+        });
+
+        // Collect VRH discipline queries
+        const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
+        const vrhSel = projectData.vrhRanchCowWorkSelections?.[disciplineKey];
+        if (vrhSel && abbrev) {
+            let name = 'VRH-RHC Ranch CowWork';
+            if (vrhSel === 'rookie') name = 'VRH-RHC Ranch CowWork Rookie';
+            else if (vrhSel === 'limited') name = 'VRH-RHC Ranch CowWork Limited';
+            assocDisciplineQueries.add(`${abbrev}::${name}`);
+        }
+
+        // Collect discipline-name fallback queries
+        if (abbrev && discipline.name) {
+            assocDisciplineQueries.add(`${abbrev}::${discipline.name}`);
+        }
+    });
+
+    // Single batch by pattern_id
+    if (patternIds.size > 0) {
+        try {
+            const { data } = await supabase
+                .from('tbl_scoresheet')
+                .select('id, pattern_id, image_url, storage_path, discipline, association_abbrev')
+                .in('pattern_id', Array.from(patternIds));
+            (data || []).forEach(row => {
+                if (row.pattern_id != null) byPatternId.set(row.pattern_id, row);
+                if (row.association_abbrev && row.discipline) {
+                    byAssocDiscipline.set(`${row.association_abbrev}::${row.discipline.toLowerCase()}`, row);
+                }
+            });
+        } catch (err) {
+            console.error('prefetchScoresheets: pattern_id batch failed', err);
+        }
+    }
+
+    // Batch by association + discipline (ilike cannot be batched, so OR via .or())
+    if (assocDisciplineQueries.size > 0) {
+        const pending = Array.from(assocDisciplineQueries).filter(k => {
+            // Skip if we already have this record from the pattern_id batch
+            const [abbrev, disc] = k.split('::');
+            return !byAssocDiscipline.has(`${abbrev}::${disc.toLowerCase()}`);
+        });
+        // Fetch in one go per unique association abbreviation
+        const byAbbrev = new Map();
+        pending.forEach(k => {
+            const [abbrev, disc] = k.split('::');
+            if (!byAbbrev.has(abbrev)) byAbbrev.set(abbrev, []);
+            byAbbrev.get(abbrev).push(disc);
+        });
+        for (const [abbrev, discs] of byAbbrev.entries()) {
+            try {
+                const { data } = await supabase
+                    .from('tbl_scoresheet')
+                    .select('id, pattern_id, image_url, storage_path, discipline, association_abbrev')
+                    .eq('association_abbrev', abbrev)
+                    .in('discipline', discs);
+                (data || []).forEach(row => {
+                    if (row.discipline) {
+                        byAssocDiscipline.set(`${abbrev}::${row.discipline.toLowerCase()}`, row);
+                    }
+                    if (row.pattern_id != null && !byPatternId.has(row.pattern_id)) {
+                        byPatternId.set(row.pattern_id, row);
+                    }
+                });
+            } catch (err) {
+                console.error('prefetchScoresheets: assoc/discipline batch failed', err);
+            }
+        }
+    }
+
+    return { byPatternId, byAssocDiscipline };
+};
+
+/**
+ * Synchronous scoresheet resolver using prefetched maps.
+ * Follows the same priority order as the original implementation.
+ */
+const getScoresheetForGroup = (discipline, group, projectData, associationsData, cache) => {
     const disciplineKey = `${discipline.association_id}-${discipline.sub_association_type || 'none'}-${discipline.name}-${discipline.pattern_type || 'none'}`;
-    
-    // Priority 1: Check if scoresheet was selected in Step 3 (per group via patternSelections)
+
+    // Priority 1: Step 3 per-group selection
     const patternSelection = projectData.patternSelections?.[discipline.id]?.[group.id];
     if (patternSelection && typeof patternSelection === 'object' && patternSelection.scoresheetData) {
         return patternSelection.scoresheetData;
     }
-    
-    // Priority 2: Check VRH-RHC Ranch CowWork selections from Step 2
+
+    const association = associationsData?.find(a => a.id === discipline.association_id);
+    const abbrev = association?.abbreviation;
+
+    // Priority 2: VRH-RHC Ranch CowWork
     const vrhSelection = projectData.vrhRanchCowWorkSelections?.[disciplineKey];
-    if (vrhSelection) {
-        let queryDisciplineName = 'VRH-RHC Ranch CowWork';
-        if (vrhSelection === 'rookie') {
-            queryDisciplineName = 'VRH-RHC Ranch CowWork Rookie';
-        } else if (vrhSelection === 'limited') {
-            queryDisciplineName = 'VRH-RHC Ranch CowWork Limited';
-        }
-        
-        const association = associationsData?.find(a => a.id === discipline.association_id);
-        if (association?.abbreviation) {
-            const { data } = await supabase
-                .from('tbl_scoresheet')
-                .select('id, pattern_id, image_url, storage_path, discipline')
-                .eq('association_abbrev', association.abbreviation)
-                .eq('discipline', queryDisciplineName)
-                .maybeSingle();
-            
-            if (data) return data;
-        }
+    if (vrhSelection && abbrev) {
+        let name = 'VRH-RHC Ranch CowWork';
+        if (vrhSelection === 'rookie') name = 'VRH-RHC Ranch CowWork Rookie';
+        else if (vrhSelection === 'limited') name = 'VRH-RHC Ranch CowWork Limited';
+        const row = cache.byAssocDiscipline.get(`${abbrev}::${name.toLowerCase()}`);
+        if (row) return row;
     }
-    
-    // Priority 3: Check disciplineScoresheetSelections from Step 2 (user-selected)
+
+    // Priority 3: Step 2 user-selected scoresheet
     const userSelectedScoresheet = projectData.disciplineScoresheetSelections?.[disciplineKey];
     if (userSelectedScoresheet && userSelectedScoresheet.image_url) {
         return userSelectedScoresheet;
     }
-    
-    // Priority 4: Try to get scoresheet by pattern_id if pattern is selected
+
+    // Priority 4: by pattern_id
     const selectedPatternId = patternSelection
         ? (typeof patternSelection === 'object' ? (patternSelection.patternId || patternSelection.id) : patternSelection)
         : null;
-    
     if (selectedPatternId) {
-        const { data } = await supabase
-            .from('tbl_scoresheet')
-            .select('id, pattern_id, image_url, storage_path, discipline')
-            .eq('pattern_id', parseInt(selectedPatternId))
-            .maybeSingle();
-        
-        if (data) return data;
+        const row = cache.byPatternId.get(parseInt(selectedPatternId));
+        if (row) return row;
     }
-    
-    // Priority 5: Fallback - try to find scoresheet by association and discipline name
-    const association = associationsData?.find(a => a.id === discipline.association_id);
-    if (association?.abbreviation && discipline.name) {
-        const { data } = await supabase
-            .from('tbl_scoresheet')
-            .select('id, pattern_id, image_url, storage_path, discipline')
-            .eq('association_abbrev', association.abbreviation)
-            .ilike('discipline', `%${discipline.name}%`)
-            .maybeSingle();
-        
-        if (data) return data;
+
+    // Priority 5: association + discipline name fallback
+    if (abbrev && discipline.name) {
+        const row = cache.byAssocDiscipline.get(`${abbrev}::${discipline.name.toLowerCase()}`);
+        if (row) return row;
     }
-    
+
     return null;
 };
 
@@ -163,6 +282,9 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
     } catch (err) {
         console.error('Error fetching associations:', err);
     }
+
+    // Prefetch ALL scoresheet records in batched queries (was N+1 per group)
+    const scoresheetCache = await prefetchScoresheets(projectData, associationsData);
 
     // Collect all pattern IDs for batch fetching
     const patternIds = new Set();
@@ -291,17 +413,14 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                 }
                 const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                 const assoc = associationsData?.find(a => a.id === discipline.association_id);
-                const judges = Object.values(projectData.associationJudges || {})
-                    .flatMap(a => (a.judges || []))
-                    .filter(j => j?.name)
-                    .map(j => j.name);
+                const resolvedJudge = resolveJudgeForGroup(projectData, discipline, group);
                 const genericBlob = createGenericScoreSheetPdf({
                     association: assoc?.abbreviation || assoc?.name || '',
                     showName: projectData.showName || '',
                     discipline: discipline.name || '',
                     division: divisions,
                     date: dateStr,
-                    judge: judges[0] || '',
+                    judge: resolvedJudge,
                 });
                 groupFolder.file(`${sanitizeFilename(discipline.name)}_generic_scoresheet.pdf`, genericBlob);
                 console.log(`✓ Added generic scoresheet for custom request: ${discipline.name}`);
@@ -334,8 +453,8 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                     console.warn(`Pattern ID ${numericPatternId} not found in pattern data map`);
                 }
 
-                // Get scoresheet using the same priority logic as Step6_Preview
-                const scoresheetData = await getScoresheetForGroup(discipline, group, projectData, associationsData);
+                // Get scoresheet from prefetched cache (sync, no per-group query)
+                const scoresheetData = getScoresheetForGroup(discipline, group, projectData, associationsData, scoresheetCache);
 
                 if (scoresheetData && scoresheetData.image_url) {
                     const scoresheetName = scoresheetData.file_name ||
@@ -343,10 +462,11 @@ export const downloadPatternBookFolder = async (projectData, projectName, onProg
                                            scoresheetData.discipline ||
                                            `Scoresheet_${discipline.name}`;
 
-                    console.log(`Creating PDF for scoresheet: ${scoresheetName}`);
-                    const pdfBlob = await createPdfFromImage(scoresheetData.image_url, scoresheetName);
+                    const judgeName = resolveJudgeForGroup(projectData, discipline, group);
+                    const pdfBlob = await createPdfFromImage(scoresheetData.image_url, scoresheetName, judgeName);
                     if (pdfBlob) {
-                        groupFolder.file(`${sanitizeFilename(scoresheetName)}_scoresheet.pdf`, pdfBlob);
+                        const judgeSuffix = judgeName ? `_${sanitizeFilename(judgeName)}` : '';
+                        groupFolder.file(`${sanitizeFilename(scoresheetName)}${judgeSuffix}_scoresheet.pdf`, pdfBlob);
                     }
                 }
             }

@@ -47,16 +47,18 @@ export const BuilderSteps = ({ steps, currentStep, completedSteps = new Set(), s
                         >
                             <div className={cn(
                                 'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300',
-                                isActive ? 'bg-primary border-primary text-primary-foreground' : 'bg-secondary border-border text-muted-foreground',
+                                isActive
+                                    ? 'bg-primary border-primary text-primary-foreground scale-110 shadow-lg ring-4 ring-primary/30'
+                                    : 'bg-secondary border-border text-muted-foreground',
                                 isCompleted && !isActive && 'bg-green-600 border-green-600 text-white',
                                 isNext && 'highlight-next-step'
                             )}>
                                 {isCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : <step.icon className="h-3 w-3 sm:h-4 sm:w-4" />}
                             </div>
                             <p className={cn(
-                                'mt-1 sm:mt-2 text-[10px] sm:text-xs font-medium leading-tight hidden sm:block',
-                                isActive ? 'text-foreground' : 'text-muted-foreground',
-                                isCompleted && !isActive && 'text-green-600'
+                                'mt-1 sm:mt-2 text-[10px] sm:text-xs leading-tight hidden sm:block',
+                                isActive ? 'text-primary font-bold' : 'text-muted-foreground font-medium',
+                                isCompleted && !isActive && 'text-green-600 font-medium'
                             )}>
                                 {step.name}
                             </p>

@@ -1367,7 +1367,9 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                     key={discipline.id}
                     className={cn(
                       "bg-card rounded-lg border transition-all duration-300",
-                      isOpen && "border-primary"
+                      isOpen
+                        ? "border-2 border-primary shadow-md ring-2 ring-primary/20 bg-primary/5"
+                        : "border-border"
                     )}
                     ref={(el) => disciplineRefs.current[discipline.id] = el}
                   >
@@ -1785,7 +1787,13 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                         {/* Group Level Details */}
                         <div className="space-y-3">
                           {groups.length > 0 ? (
-                            (isHubMode ? groups.filter(g => !g._hubExtra || getPatternSelection(discipline.id, g.id)?.patternId || groups.indexOf(g) < 2) : groups).map((group, groupIndex) => {
+                            (isHubMode
+                              ? groups.filter(g => !g._hubExtra || getPatternSelection(discipline.id, g.id)?.patternId || groups.indexOf(g) < 2)
+                              // Non-hub mode: hide phantom groups that have no divisions
+                              // assigned AND no pattern selection — they show up as
+                              // empty "Select Pattern" rows the user can't delete.
+                              : groups.filter(g => (g.divisions && g.divisions.length > 0) || getPatternSelection(discipline.id, g.id)?.patternId)
+                            ).map((group, groupIndex) => {
                               const currentSelection = getPatternSelection(discipline.id, group.id);
                               const filteredPatterns = getFilteredPatterns(discipline.id);
                               const hubGroupIndex = isHubMode ? groups.filter(g => !g._hubExtra || groups.indexOf(g) <= groups.indexOf(group)).indexOf(group) : groupIndex;
@@ -1794,7 +1802,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                               return (
                                 <div
                                   key={group.id}
-                                  className={cn("space-y-3 sm:space-y-4", !isSingleGroup && "p-2 sm:p-4 border rounded-lg bg-background/50")}
+                                  className={cn(
+                                    "space-y-3 sm:space-y-4",
+                                    !isSingleGroup && "p-3 sm:p-4 border-2 border-primary rounded-lg bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                                  )}
                                 >
                                   <div>
                                     <div className="flex items-center justify-between gap-2 flex-wrap">

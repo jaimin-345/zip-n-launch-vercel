@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, Users, UserCog, Crown, Mail, Phone, Pencil, Loader2, Save, Lock, Rocket, Download, Info, CheckCircle2, Image, Paperclip, BookOpen, Home } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown, ChevronRight, Check, ChevronsUpDown, ShieldCheck, FileText, Palette, Users, UserCog, Crown, Mail, Phone, Pencil, Loader2, Save, Lock, Rocket, Download, Info, CheckCircle2, Image, Paperclip, BookOpen, Home, FolderOpen } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn, parseLocalDate } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -679,7 +679,7 @@ const ProjectInfoCard = ({ formData, user }) => {
       <h3 className="text-base font-semibold">Project Info</h3>
       <div className="space-y-3">
         <div>
-          <p className="text-xs text-muted-foreground">Pattern Book</p>
+          <p className="text-xs text-muted-foreground">Pattern Books & Score Sheets</p>
           <p className="text-sm font-medium">{formData.showName || 'Untitled Pattern Book'}</p>
         </div>
         <div>
@@ -722,10 +722,13 @@ const ProjectInfoCard = ({ formData, user }) => {
 };
 
 // --- Action Panel (Center Panel) ---
-const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, formData }) => {
+const ActionPanel = ({ currentStatus, onStatusChange, isSaving, savingAction, isReadOnly, formData }) => {
   const isFinalized = currentStatus === 'Final';
   const isLocked = currentStatus === 'Locked' || isFinalized;
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const isSavingDraft = savingAction === 'Draft';
+  const isSavingLock = savingAction === 'Locked';
+  const isSavingFinal = savingAction === 'Final';
 
   // Build a project-shaped object for the reusable dialog
   const projectForDialog = useMemo(() => ({
@@ -741,18 +744,20 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, form
         Save your pattern book, lock when ready for review, and finalize for export.
       </p>
 
-      {/* Save Draft */}
+      {/* Save Draft — also used to roll a Locked project back to Draft */}
       <Button
         variant="outline"
         size="lg"
         className="w-full justify-start text-sm h-12"
         onClick={() => onStatusChange('Draft')}
-        disabled={isSaving || isReadOnly || isLocked}
+        disabled={isSaving || isReadOnly}
       >
-        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
+        {isSavingDraft ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <Save className="mr-3 h-5 w-5" />}
         <div className="text-left">
-          <span className="font-semibold">Save Draft</span>
-          <span className="block text-xs text-muted-foreground">Save to My Projects as draft</span>
+          <span className="font-semibold">{isLocked ? 'Unlock & Save as Draft' : 'Save Draft'}</span>
+          <span className="block text-xs text-muted-foreground">
+            {isLocked ? 'Return to draft mode to edit' : 'Save to My Projects as draft'}
+          </span>
         </div>
       </Button>
 
@@ -764,7 +769,7 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, form
         onClick={() => onStatusChange('Locked')}
         disabled={isSaving || isReadOnly || isLocked}
       >
-        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
+        {isSavingLock ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : (
           <div className="mr-3 relative">
             <ShieldCheck className="h-5 w-5 text-blue-600" />
             <Lock className="h-3 w-3 text-blue-800 absolute -bottom-0.5 -right-0.5" />
@@ -783,7 +788,7 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, isReadOnly, form
         onClick={() => onStatusChange('Final')}
         disabled={isSaving || isReadOnly || isFinalized}
       >
-        {isSaving ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
+        {isSavingFinal ? <Loader2 className="mr-3 h-5 w-5 animate-spin text-white" /> : <Rocket className="mr-3 h-5 w-5" />}
         <div className="text-left">
           <span className="font-semibold">Publish Pattern Book</span>
           <span className="block text-xs text-green-200">Mark as published — ready for export</span>
@@ -855,7 +860,7 @@ const LicensingCard = () => (
 );
 
 // --- Success Confirmation Dialog ---
-const SuccessConfirmationDialog = ({ open, onClose, onGoHome, statusLabel }) => (
+const SuccessConfirmationDialog = ({ open, onClose, onGoHome, onGoToMyProjects, statusLabel }) => (
   <Dialog open={open} onOpenChange={onClose}>
     <DialogContent className="sm:max-w-md">
       <DialogHeader>
@@ -864,7 +869,7 @@ const SuccessConfirmationDialog = ({ open, onClose, onGoHome, statusLabel }) => 
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
         </div>
-        <DialogTitle className="text-center text-xl">Pattern Book Saved</DialogTitle>
+        <DialogTitle className="text-center text-xl">Pattern Books & Score Sheets Saved</DialogTitle>
         <DialogDescription className="text-center text-base mt-2">
           Thank you for building your pattern book.
           <span className="block mt-1 text-sm">
@@ -875,6 +880,10 @@ const SuccessConfirmationDialog = ({ open, onClose, onGoHome, statusLabel }) => 
       <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4">
         <Button variant="outline" onClick={onClose} className="flex-1">
           Continue Editing
+        </Button>
+        <Button variant="outline" onClick={onGoToMyProjects} className="flex-1">
+          <FolderOpen className="mr-2 h-4 w-4" />
+          Go to My Projects
         </Button>
         <Button onClick={onGoHome} className="flex-1">
           <Home className="mr-2 h-4 w-4" />
@@ -890,6 +899,9 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     const { toast } = useToast();
     const navigate = useNavigate();
     const [isSaving, setIsSaving] = useState(false);
+    // Tracks which specific action triggered the save so only that button
+    // shows the spinner, while the others are simply disabled.
+    const [savingAction, setSavingAction] = useState(null); // 'Draft' | 'Locked' | 'Final' | null
     const [showSuccessDialog, setShowSuccessDialog] = useState(false);
     const [lastSavedStatus, setLastSavedStatus] = useState('');
 
@@ -913,6 +925,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
     const handleStatusChange = useCallback(async (newStatus) => {
       if (!createOrUpdateProject) return;
       setIsSaving(true);
+      setSavingAction(newStatus);
       try {
         const project = await createOrUpdateProject(newStatus);
         if (project) {
@@ -928,6 +941,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
         });
       } finally {
         setIsSaving(false);
+        setSavingAction(null);
       }
     }, [createOrUpdateProject, toast]);
 
@@ -1265,6 +1279,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             currentStatus={currentStatus}
                             onStatusChange={handleStatusChange}
                             isSaving={isSaving}
+                            savingAction={savingAction}
                             isReadOnly={isReadOnly}
                             formData={formData}
                         />
@@ -1361,7 +1376,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                         </ReviewItem>
 
                         <ReviewItem icon={<Users className="w-5 h-5" />} title="Personnel">
-                            <p><strong>Judges:</strong> {(() => { const names = new Set(); Object.values(formData.associationJudges || {}).forEach(a => (a.judges || []).forEach(j => { if (j.name) names.add(j.name.trim()); })); Object.values(formData.patternSelections || {}).forEach(d => { if (d && typeof d === 'object') Object.values(d).forEach(s => { if (s?.type === 'judgeAssigned' && s?.judgeName?.trim()) names.add(s.judgeName.trim()); }); }); return names.size; })()} added</p>
+                            <p><strong>Judges:</strong> {(() => { const names = new Set(); Object.values(formData.associationJudges || {}).forEach(a => (a.judges || []).forEach(j => { if (j?.name) names.add(j.name.trim()); })); Object.values(formData.showDetails?.judges || {}).forEach(list => { (list || []).forEach(j => { if (j?.name) names.add(j.name.trim()); }); }); Object.values(formData.patternSelections || {}).forEach(d => { if (d && typeof d === 'object') Object.values(d).forEach(s => { if (s?.type === 'judgeAssigned' && s?.judgeName?.trim()) names.add(s.judgeName.trim()); }); }); return names.size; })()} added</p>
                             <p><strong>Officials:</strong> {(formData.officials || []).filter(o => o.name).length} added</p>
                         </ReviewItem>
 
@@ -1379,6 +1394,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                 open={showSuccessDialog}
                 onClose={() => setShowSuccessDialog(false)}
                 onGoHome={() => navigate('/')}
+                onGoToMyProjects={() => navigate('/customer-portal')}
                 statusLabel={lastSavedStatus}
             />
         </motion.div>

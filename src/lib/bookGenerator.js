@@ -24,6 +24,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     const pageHeight = doc.internal.pageSize.getHeight();
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 40;
+    // Pattern images use a tighter margin to maximize readable size.
+    // Headers/footers still use `margin` for safe white space.
+    const PATTERN_IMAGE_MARGIN = 8;
     let yPos = margin;
     let toc = [];
 
@@ -108,6 +111,132 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         } catch (e) {
             console.error("Failed to add image", e);
         }
+    };
+
+    // Resolve the judge name for a given discipline/group.
+    // Priority:
+    //   1. patternSelections[discId][groupId].judgeName (per-group assignment in Step 6)
+    //   2. groupJudges[discIndex][groupIndex]          (per-group assignment in Step 5)
+    //   3. discipline.assignedJudge / judgeName
+    //   4. showDetails.judges[association_id]          (Step 4 Number-of-Judges UI)
+    //   5. associationJudges[association_id]
+    //   6. any judge anywhere
+    const resolveJudgeName = (discipline, group, discIndex, groupIndex) => {
+        const sel = pbbData.patternSelections?.[discipline?.id]?.[group?.id];
+        if (sel && typeof sel === 'object' && sel.judgeName) return sel.judgeName;
+
+        // Step 5 assigns judges via groupJudges: { [discIndex]: { [groupIndex]: name } }
+        const gj = pbbData.groupJudges;
+        if (gj && discIndex != null && groupIndex != null) {
+            const byIndex = gj?.[discIndex]?.[groupIndex] || gj?.[String(discIndex)]?.[String(groupIndex)];
+            if (byIndex && typeof byIndex === 'string' && byIndex.trim()) return byIndex.trim();
+            // Fall back to the first judge on this discipline if the specific group has none
+            const discBucket = gj?.[discIndex] || gj?.[String(discIndex)];
+            if (discBucket && typeof discBucket === 'object') {
+                const firstName = Object.values(discBucket).find(v => typeof v === 'string' && v.trim());
+                if (firstName) return firstName.trim();
+            }
+        }
+
+        const discAssigned = discipline?.assignedJudge || discipline?.judgeName;
+        if (discAssigned) return discAssigned;
+
+        const assocId = discipline?.association_id;
+        const showDetailsJudges = pbbData.showDetails?.judges?.[assocId] || [];
+        const showFirst = showDetailsJudges.find(j => j?.name);
+        if (showFirst) return showFirst.name;
+
+        const assocJudges = pbbData.associationJudges?.[assocId];
+        const first = assocJudges?.judges?.find(j => j?.name);
+        if (first) return first.name;
+
+        const anyShowJudge = Object.values(pbbData.showDetails?.judges || {})
+            .flat()
+            .find(j => j?.name);
+        if (anyShowJudge) return anyShowJudge.name;
+
+        const anyJudge = Object.values(pbbData.associationJudges || {})
+            .flatMap(a => (a.judges || []))
+            .find(j => j?.name);
+        return anyJudge?.name || '';
+    };
+
+    // Draw a labeled banner at the top of a scoresheet page with the judge
+    // name, class/discipline, division, and date. The client asked for the
+    // score sheet to be identified at the top instead of just showing the
+    // raw image.
+    const drawScoreSheetHeader = ({ judgeName, disciplineName, division, assocName, dateStr }) => {
+        const bannerH = 34;
+        // Light grey band across the page top so the labels are visible even
+        // when the scoresheet image starts near the top margin.
+        doc.setFillColor(244, 247, 252);
+        doc.rect(0, 0, pageWidth, bannerH, 'F');
+        doc.setDrawColor(180, 190, 210);
+        doc.setLineWidth(0.5);
+        doc.line(0, bannerH, pageWidth, bannerH);
+
+        // Line 1 (left): Association • Discipline
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        const line1Left = [assocName, (disciplineName || '').toUpperCase()]
+            .filter(Boolean)
+            .join('  •  ');
+        doc.text(line1Left || '', margin, 14, { maxWidth: pageWidth - margin * 2 - 120 });
+
+        // Line 1 (right): Date
+        if (dateStr) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.text(dateStr, pageWidth - margin, 14, { align: 'right' });
+        }
+
+        // Line 2 (left): Division
+        if (division) {
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9);
+            doc.setTextColor(60, 60, 60);
+            doc.text(division, margin, 27, { maxWidth: pageWidth - margin * 2 - 160 });
+        }
+
+        // Line 2 (right): Judge
+        if (judgeName) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Judge: ${judgeName}`, pageWidth - margin, 27, { align: 'right' });
+        }
+    };
+
+    // Auto-fit a line of text inside a bounding box by shrinking the font
+    // until the text fits on at most `maxLines` lines. Returns the effective
+    // font size used and the wrapped lines array so the caller can advance
+    // yPos correctly instead of letting long titles overlap later content.
+    const fitTextLines = (text, { maxWidth, maxLines = 2, startSize, minSize = 10, font = 'helvetica', style = 'bold' }) => {
+        if (!text) return { size: startSize, lines: [''] };
+        doc.setFont(font, style);
+        let size = startSize;
+        let lines = [];
+        while (size >= minSize) {
+            doc.setFontSize(size);
+            lines = doc.splitTextToSize(text, maxWidth);
+            if (lines.length <= maxLines) break;
+            size -= 2;
+        }
+        // Final clamp in case even minSize still overflows — truncate extras.
+        if (lines.length > maxLines) {
+            lines = lines.slice(0, maxLines);
+        }
+        return { size, lines };
+    };
+
+    // Legacy alias — still used by other layout code paths.
+    const drawJudgeOverlay = (judgeName) => {
+        if (!judgeName) return;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Judge: ${judgeName}`, margin, margin);
     };
 
     // Crop the bottom portion of a pattern image (removes summary box)
@@ -235,6 +364,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     
     // Fetch real pattern images from database
     const patternImagesMap = new Map();
+    // Map of pattern_id -> association_name (e.g. "AQHA", "APHA") used to label
+    // the correct breed/association per class when generating pattern pages.
+    const patternAssociationMap = new Map();
     const patternIds = new Set();
     
     // Collect all pattern IDs from patternSelections
@@ -273,6 +405,25 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     // Fetch pattern images from database
     if (patternIds.size > 0) {
         try {
+            // Fetch association_name for every selected pattern so the PDF can
+            // label each class with its real breed (AQHA/APHA/...), instead of
+            // defaulting to the discipline's first association.
+            try {
+                const { data: assocRows } = await supabase
+                    .from('tbl_patterns')
+                    .select('id, association_name')
+                    .in('id', Array.from(patternIds));
+                if (assocRows) {
+                    assocRows.forEach(r => {
+                        if (r?.id && r.association_name) {
+                            patternAssociationMap.set(r.id, r.association_name);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error fetching pattern associations:', e);
+            }
+
             // First, try to fetch from tbl_pattern_media (priority)
             const { data: mediaData, error: mediaError } = await supabase
                 .from('tbl_pattern_media')
@@ -402,28 +553,44 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         }
 
         doc.setTextColor(0, 0, 0);
-        doc.setFont('times', 'bold');
-        doc.setFontSize(50);
         const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
-        doc.text(showTitle, pageWidth / 2, centerY - 80 + logoOffset, { align: 'center', maxWidth: pageWidth - 140 });
+        // Auto-fit the title so long show names (e.g. "California Paint Horse
+        // Association APHA-AQHA-Open Show") don't overflow or overlap the date.
+        const titleFit = fitTextLines(showTitle, {
+            maxWidth: pageWidth - 140,
+            maxLines: 3,
+            startSize: 50,
+            minSize: 22,
+            font: 'times',
+            style: 'bold',
+        });
+        doc.setFont('times', 'bold');
+        doc.setFontSize(titleFit.size);
+        const titleTopY = centerY - 80 + logoOffset;
+        doc.text(titleFit.lines, pageWidth / 2, titleTopY, { align: 'center' });
+        const titleBottomY = titleTopY + (titleFit.lines.length - 1) * titleFit.size * 1.15;
 
-        // Decorative Line
+        // Decorative Line — placed just below the (possibly wrapped) title.
+        const lineY = titleBottomY + 28;
         doc.setLineWidth(1);
-        doc.line(pageWidth / 2 - 100, centerY - 40 + logoOffset, pageWidth / 2 + 100, centerY - 40 + logoOffset);
+        doc.line(pageWidth / 2 - 100, lineY, pageWidth / 2 + 100, lineY);
 
-        // Date & Location
+        // Date & Location — positioned relative to the decorative line so
+        // they never collide with a wrapped title.
         doc.setFont('times', 'italic');
         doc.setFontSize(24);
 
+        let infoY = lineY + 34;
         if (pbbData.startDate && pbbData.endDate) {
             const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-            doc.text(dateText, pageWidth / 2, centerY + 20 + logoOffset, { align: 'center' });
+            doc.text(dateText, pageWidth / 2, infoY, { align: 'center' });
+            infoY += 34;
         }
 
         if (pbbData.venueAddress) {
             doc.setFontSize(18);
             doc.setFont('times', 'normal');
-            doc.text(pbbData.venueAddress, pageWidth / 2, centerY + 60 + logoOffset, { align: 'center' });
+            doc.text(pbbData.venueAddress, pageWidth / 2, infoY, { align: 'center', maxWidth: pageWidth - 120 });
         }
         
         // Associations at bottom
@@ -458,12 +625,24 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 await addImageToPage(showLogoCoverBase64, (pageWidth - logoSize) / 2, pageHeight / 2 - 100 - logoSize - 10, logoSize, logoSize);
             }
 
-            // Title
+            // Title — auto-fit so long show names don't overlap the metadata
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(42);
-            doc.setFont('helvetica', 'bold');
             const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
-            doc.text(showTitle, pageWidth / 2, pageHeight / 2 - 100 + logoOffsetA, { align: 'center', maxWidth: pageWidth - 100 });
+            const titleFitA = fitTextLines(showTitle, {
+                maxWidth: pageWidth - 100,
+                maxLines: 3,
+                startSize: 42,
+                minSize: 20,
+                font: 'helvetica',
+                style: 'bold',
+            });
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(titleFitA.size);
+            const titleTopYA = pageHeight / 2 - 100 + logoOffsetA;
+            doc.text(titleFitA.lines, pageWidth / 2, titleTopYA, { align: 'center' });
+            const titleBottomYA = titleTopYA + (titleFitA.lines.length - 1) * titleFitA.size * 1.15;
+            // Lay out each metadata row below the wrapped title so nothing collides.
+            let metaY = titleBottomYA + 40;
 
             // Associations
             const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
@@ -471,7 +650,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 doc.setFontSize(20);
                 doc.setFont('helvetica', 'normal');
                 const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
-                doc.text(assocText, pageWidth / 2, pageHeight / 2 - 40 + logoOffsetA, { align: 'center', maxWidth: pageWidth - 100 });
+                doc.text(assocText, pageWidth / 2, metaY, { align: 'center', maxWidth: pageWidth - 100 });
+                metaY += 36;
             }
 
             // Dates
@@ -479,13 +659,14 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.setFont('helvetica', 'normal');
             if (pbbData.startDate && pbbData.endDate) {
                 const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-                doc.text(dateText, pageWidth / 2, pageHeight / 2 + logoOffsetA, { align: 'center' });
+                doc.text(dateText, pageWidth / 2, metaY, { align: 'center' });
+                metaY += 28;
             }
 
             // Venue
             if (pbbData.venueAddress) {
                 doc.setFontSize(14);
-                doc.text(pbbData.venueAddress, pageWidth / 2, pageHeight / 2 + 30 + logoOffsetA, { align: 'center' });
+                doc.text(pbbData.venueAddress, pageWidth / 2, metaY, { align: 'center', maxWidth: pageWidth - 120 });
             }
 
             // Social media icons
@@ -654,20 +835,29 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             }
             
             // Check for special selection types (judge-assigned, custom-request)
-            const isJudgeAssigned = patternSelection?.type === 'judgeAssigned';
+            // Note: the "judgeAssigned" type in Step 6 assigns a judge name to
+            // the class but should NOT hide an already-selected pattern. The
+            // placeholder "Pattern to be selected by Judge" page should only
+            // render when no real patternId has been picked.
+            const rawJudgeAssigned = patternSelection?.type === 'judgeAssigned';
             const isCustomRequest = patternSelection?.type === 'customRequest';
 
-            if (patternSelection && !isJudgeAssigned && !isCustomRequest) {
+            if (patternSelection && !isCustomRequest) {
+                // Always try to pull a patternId from the selection — even when
+                // type === 'judgeAssigned' — so a pattern assigned alongside a
+                // judge is still rendered.
                 if (typeof patternSelection === 'object' && patternSelection !== null) {
                     patternId = patternSelection.patternId || patternSelection.id;
-                    // If still an object, try to extract from nested structure
                     if (!patternId || (typeof patternId === 'object' && patternId !== null)) {
-                        patternId = patternSelection;
+                        patternId = null;
                     }
                 } else {
                     patternId = patternSelection;
                 }
             }
+            // Only treat the class as judge-assigned (placeholder page) when
+            // there's no real pattern to render.
+            const isJudgeAssigned = rawJudgeAssigned && !patternId;
             const hasNoPattern = !patternId && !isJudgeAssigned && !isCustomRequest;
             console.log(`Extracted patternId for discipline ${disciplineId || discIndex}, group ${groupId || groupIndex}:`, patternSelection, '->', patternId);
             
@@ -695,10 +885,26 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 competitionDate = pbbData.groupDueDates?.[discIndex]?.[groupIndex] || pbbData.startDate;
             }
             
-            // Get association info from discipline
-            const assocId = discipline.association_id || Object.keys(pbbData.associations || {})[0];
-            console.log('DEBUG assocId:', assocId, 'discipline.association_id:', discipline.association_id, 'discipline:', JSON.stringify(discipline, null, 2));
-            const assocName = formatAssociationName(assocId);
+            // Resolve association per-class: prefer the association of the
+            // actually-selected pattern (so AQHA/APHA/NSBA are labeled correctly
+            // even when a single discipline has classes from multiple breeds).
+            const numericPidForAssoc = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
+            const patternAssocName = numericPidForAssoc && !isNaN(numericPidForAssoc)
+                ? patternAssociationMap.get(numericPidForAssoc)
+                : null;
+            const selectionFilterAssoc = (patternSelection && typeof patternSelection === 'object')
+                ? patternSelection.filterAssociation
+                : null;
+            const fallbackAssocId = discipline.association_id || Object.keys(pbbData.associations || {})[0];
+            let assocName;
+            if (patternAssocName) {
+                // Use the raw association name from tbl_patterns (e.g. "APHA")
+                assocName = patternAssocName.split(/[\s-]+/)[0].trim() || patternAssocName;
+            } else if (selectionFilterAssoc && selectionFilterAssoc !== 'all') {
+                assocName = selectionFilterAssoc;
+            } else {
+                assocName = formatAssociationName(fallbackAssocId);
+            }
             
             if (includePattern) {
                 addNewPage();
@@ -788,6 +994,17 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             } else {
                 yPos += 6;
             }
+
+            // Judge name — always show if we can resolve one so the client can
+            // see at a glance which judge owns this class on the pattern page.
+            const resolvedJudgePatternA = resolveJudgeName(discipline, group, discIndex, groupIndex);
+            if (resolvedJudgePatternA) {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Judge: ${resolvedJudgePatternA}`, margin, yPos);
+                yPos += 13;
+            }
             } // end full header (non-hub)
             
             // Render placeholder or real pattern image
@@ -847,10 +1064,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 // Add generic scoresheet page (no maneuvers) — only if scoresheets are included
                 if (includeScoresheet) {
                     addNewPage();
-                    const judges = Object.values(pbbData.associationJudges || {})
-                        .flatMap(a => (a.judges || []))
-                        .filter(j => j?.name)
-                        .map(j => j.name);
+                    const resolvedJudgeCustomA = resolveJudgeName(discipline, group, discIndex, groupIndex);
                     const dateStr = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                     drawGenericScoreSheetPage(doc, {
                         association: assocName,
@@ -858,7 +1072,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         discipline: discipline.name || '',
                         division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
                         date: dateStr,
-                        judge: judges[0] || '',
+                        judge: resolvedJudgeCustomA,
                     });
                 }
             } else if (hasNoPattern) {
@@ -884,9 +1098,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         : await cropPatternImageBottom(patternImageBase64);
                     const imgProps = doc.getImageProperties(imageBase64);
                     const aspect = imgProps.height / imgProps.width;
-                    // Calculate image size - fill as much of the page as possible
-                    const availableHeight = pageHeight - yPos - 25; // Minimal footer space
-                    const imgWidth = pageWidth - margin * 2;
+                    // Use tighter horizontal margin for pattern images only (readability)
+                    const availableHeight = pageHeight - yPos - 10;
+                    const imgWidth = pageWidth - PATTERN_IMAGE_MARGIN * 2;
                     const imgHeight = imgWidth * aspect;
 
                     let finalWidth = imgWidth;
@@ -897,7 +1111,6 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                         finalWidth = finalHeight / aspect;
                     }
 
-                    // Center the image horizontally
                     const xOffset = (pageWidth - finalWidth) / 2;
 
                     await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);
@@ -928,39 +1141,45 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 const numericPidForSs = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
                 const ssBase64 = numericPidForSs && !isNaN(numericPidForSs) && scoresheetImagesMap.has(numericPidForSs)
                     ? scoresheetImagesMap.get(numericPidForSs) : null;
+                const resolvedJudgeSsA = resolveJudgeName(discipline, group, discIndex, groupIndex);
+                const divisionLabelA = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
+                const ssDateStrA = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                 if (ssBase64) {
                     addNewPage();
-                    // Use minimal margins to fill the page
                     const ssMargin = SCORESHEET_LAYOUT.margin;
+                    // Reserve room at the top for the header banner so the
+                    // scoresheet image doesn't cover the judge/class labels.
+                    const topReserve = 40;
                     try {
                         const ssProps = doc.getImageProperties(ssBase64);
                         const ssAspect = ssProps.height / ssProps.width;
-                        const ssAvailH = pageHeight - ssMargin * 2;
+                        const ssAvailH = pageHeight - ssMargin - topReserve;
                         const ssImgW = pageWidth - ssMargin * 2;
                         let ssFinalW = ssImgW;
                         let ssFinalH = ssImgW * ssAspect;
                         if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
                         const ssXOff = (pageWidth - ssFinalW) / 2;
-                        const ssYOff = (pageHeight - ssFinalH) / 2;
+                        const ssYOff = topReserve + 4;
+                        drawScoreSheetHeader({
+                            judgeName: resolvedJudgeSsA,
+                            disciplineName: discipline.name,
+                            division: divisionLabelA,
+                            assocName,
+                            dateStr: ssDateStrA,
+                        });
                         await addImageToPage(ssBase64, ssXOff, ssYOff, ssFinalW, ssFinalH);
                     } catch (ssErr) {
                         console.error('Failed to add scoresheet image:', ssErr);
                     }
                 } else if (!hasNoPattern) {
-                    // Fallback: add generic scoresheet page
                     addNewPage();
-                    const judges = Object.values(pbbData.associationJudges || {})
-                        .flatMap(a => (a.judges || []))
-                        .filter(j => j?.name)
-                        .map(j => j.name);
-                    const dateStrSs = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                     drawGenericScoreSheetPage(doc, {
                         association: assocName,
                         showName: pbbData.showName || '',
                         discipline: discipline.name || '',
-                        division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
-                        date: dateStrSs,
-                        judge: judges[0] || '',
+                        division: divisionLabelA,
+                        date: ssDateStrA,
+                        judge: resolvedJudgeSsA,
                     });
                 }
             }
@@ -1034,6 +1253,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 } else {
                     yPos += 6;
                 }
+
+                // Judge name on the pattern page
+                const resolvedJudgePatternB = resolveJudgeName(discipline, group, discIndex, groupIndex);
+                if (resolvedJudgePatternB) {
+                    doc.setFontSize(10);
+                    doc.setFont('times', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`Judge: ${resolvedJudgePatternB}`, margin, yPos);
+                    yPos += 13;
+                }
                 } // end full header (non-hub)
                 
                 // Render placeholder or real pattern image (Layout B)
@@ -1091,10 +1320,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     // Add generic scoresheet page (no maneuvers) — only if scoresheets are included
                     if (includeScoresheet) {
                         addNewPage();
-                        const judgesB = Object.values(pbbData.associationJudges || {})
-                            .flatMap(a => (a.judges || []))
-                            .filter(j => j?.name)
-                            .map(j => j.name);
+                        const resolvedJudgeCustomB = resolveJudgeName(discipline, group, discIndex, groupIndex);
                         const dateStrB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                         drawGenericScoreSheetPage(doc, {
                             association: assocName,
@@ -1102,7 +1328,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             discipline: discipline.name || '',
                             division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
                             date: dateStrB,
-                            judge: judgesB[0] || '',
+                            judge: resolvedJudgeCustomB,
                         });
                     }
                 } else if (hasNoPattern) {
@@ -1127,9 +1353,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             : await cropPatternImageBottom(patternImageBase64);
                         const imgProps = doc.getImageProperties(imageBase64);
                         const aspect = imgProps.height / imgProps.width;
-                        // Calculate image size - fill as much of the page as possible
-                        const availableHeight = pageHeight - yPos - 25; // Minimal footer space
-                        const imgWidth = pageWidth - margin * 2;
+                        // Use tighter horizontal margin for pattern images only (readability)
+                        const availableHeight = pageHeight - yPos - 25;
+                        const imgWidth = pageWidth - PATTERN_IMAGE_MARGIN * 2;
                         const imgHeight = imgWidth * aspect;
 
                         let finalWidth = imgWidth;
@@ -1140,7 +1366,6 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                             finalWidth = finalHeight / aspect;
                         }
 
-                        // Center the image horizontally
                         const xOffset = (pageWidth - finalWidth) / 2;
 
                         await addImageToPage(imageBase64, xOffset, yPos, finalWidth, finalHeight);
@@ -1171,39 +1396,43 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     const numericPidForSsB = patternId ? (typeof patternId === 'number' ? patternId : parseInt(patternId)) : null;
                     const ssBase64B = numericPidForSsB && !isNaN(numericPidForSsB) && scoresheetImagesMap.has(numericPidForSsB)
                         ? scoresheetImagesMap.get(numericPidForSsB) : null;
+                    const resolvedJudgeSsB = resolveJudgeName(discipline, group, discIndex, groupIndex);
+                    const divisionLabelB = group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '';
+                    const dateStrSsB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                     if (ssBase64B) {
                         addNewPage();
-                        // Use minimal margins to fill the page
                         const ssMarginB = SCORESHEET_LAYOUT.margin;
+                        const topReserveB = 40;
                         try {
                             const ssProps = doc.getImageProperties(ssBase64B);
                             const ssAspect = ssProps.height / ssProps.width;
-                            const ssAvailH = pageHeight - ssMarginB * 2;
+                            const ssAvailH = pageHeight - ssMarginB - topReserveB;
                             const ssImgW = pageWidth - ssMarginB * 2;
                             let ssFinalW = ssImgW;
                             let ssFinalH = ssImgW * ssAspect;
                             if (ssFinalH > ssAvailH) { ssFinalH = ssAvailH; ssFinalW = ssFinalH / ssAspect; }
                             const ssXOff = (pageWidth - ssFinalW) / 2;
-                            const ssYOff = (pageHeight - ssFinalH) / 2;
+                            const ssYOff = topReserveB + 4;
+                            drawScoreSheetHeader({
+                                judgeName: resolvedJudgeSsB,
+                                disciplineName: discipline.name,
+                                division: divisionLabelB,
+                                assocName,
+                                dateStr: dateStrSsB,
+                            });
                             await addImageToPage(ssBase64B, ssXOff, ssYOff, ssFinalW, ssFinalH);
                         } catch (ssErr) {
                             console.error('Failed to add scoresheet image (layout-b):', ssErr);
                         }
                     } else if (!hasNoPattern) {
-                        // Fallback: add generic scoresheet page
                         addNewPage();
-                        const judgesSsB = Object.values(pbbData.associationJudges || {})
-                            .flatMap(a => (a.judges || []))
-                            .filter(j => j?.name)
-                            .map(j => j.name);
-                        const dateStrSsB = competitionDate ? format(parseLocalDate(competitionDate), 'MM-dd-yyyy') : '';
                         drawGenericScoreSheetPage(doc, {
                             association: assocName,
                             showName: pbbData.showName || '',
                             discipline: discipline.name || '',
-                            division: group.divisions?.map(d => formatDivisionWithGo(d)).join(' / ') || '',
+                            division: divisionLabelB,
                             date: dateStrSsB,
-                            judge: judgesSsB[0] || '',
+                            judge: resolvedJudgeSsB,
                         });
                     }
                 }
@@ -1402,10 +1631,22 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         // LAYOUT A: Default TOC Population (Existing Logic)
         yPos = margin + 30;
         doc.setTextColor(40, 40, 40);
+        // Auto-fit the TOC header so long show names don't get cut off on
+        // the left/right edges of the page (e.g. "California Paint Horse
+        // Association APHA-AQHA-Open Show – Table of Contents").
+        const tocTitle = `${pbbData.showName || 'Pattern Book'} – Table of Contents`;
+        const tocTitleFit = fitTextLines(tocTitle, {
+            maxWidth: pageWidth - margin * 2,
+            maxLines: 2,
+            startSize: 20,
+            minSize: 12,
+            font: 'helvetica',
+            style: 'bold',
+        });
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.text(`${pbbData.showName || 'Pattern Book'} – Table of Contents`, pageWidth / 2, yPos, { align: 'center' });
-        yPos += 50;
+        doc.setFontSize(tocTitleFit.size);
+        doc.text(tocTitleFit.lines, pageWidth / 2, yPos, { align: 'center' });
+        yPos += 30 + (tocTitleFit.lines.length - 1) * (tocTitleFit.size + 4);
     
         const tocByDate = {};
         toc.forEach(item => {

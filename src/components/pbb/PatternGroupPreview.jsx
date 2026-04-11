@@ -105,11 +105,11 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                         >
                             <CarouselContent className="flex items-center justify-center" style={{ overflow: 'visible' }}>
                                 {selectedPatternDetail.media.map((mediaItem, idx) => (
-                                    <CarouselItem key={idx} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
+                                    <CarouselItem key={idx} className="pl-2 md:pl-4 basis-full">
                                         <div className="p-1">
-                                            <UICard className="bg-slate-900 border-slate-700" style={{ overflow: 'visible' }}>
-                                                <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col" style={{ overflow: 'visible' }}>
-                                                    <div className="relative w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2" style={{ overflow: 'visible' }}>
+                                            <UICard className="bg-white dark:bg-slate-50 border-slate-300" style={{ overflow: 'visible' }}>
+                                                <UICardContent className="flex items-center justify-center p-2 flex-col min-h-[520px]" style={{ overflow: 'visible' }}>
+                                                    <div className="relative w-full h-full flex items-center justify-center bg-white border-2 border-dashed border-slate-300 rounded-sm m-2" style={{ overflow: 'visible' }}>
                                                         {mediaItem && (
                                                             <>
                                                                 <div 
@@ -136,10 +136,10 @@ const PatternGroupPreview = ({ group, patterns, selectedPatternId, selectedPatte
                                                                         }, 100);
                                                                     }}
                                                                 >
-                                                                    <img 
-                                                                        src={mediaItem.image_url || mediaItem.media_url} 
-                                                                        alt="Pattern Media" 
-                                                                        className="w-full h-full object-contain border-2 border-slate-600 rounded" 
+                                                                    <img
+                                                                        src={mediaItem.image_url || mediaItem.media_url}
+                                                                        alt="Pattern Media"
+                                                                        className="w-full h-auto max-h-[560px] object-contain border border-slate-300 rounded mx-auto bg-white"
                                                                     />
                                                                 </div>
                                                                 {/* Hover Preview - Rendered via portal at body level */}

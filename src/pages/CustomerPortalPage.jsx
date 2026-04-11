@@ -250,13 +250,18 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
     const [coverDialogOpen, setCoverDialogOpen] = useState(false);
     const [dueDateDialogOpen, setDueDateDialogOpen] = useState(false);
     const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState(() => {
-        const currentStatus = project.status || 'Draft';
-        // Map database status to display status
-        if (currentStatus === 'Locked' || currentStatus === 'Lock & Approve Mode') return 'Approval and Locked';
-        if (currentStatus === 'Final' || currentStatus === 'Publication') return 'Publication';
+    const mapDbStatusToDisplay = (currentStatus) => {
+        const s = currentStatus || 'Draft';
+        if (s === 'Locked' || s === 'Lock & Approve Mode') return 'Approval and Locked';
+        if (s === 'Final' || s === 'Publication') return 'Publication';
         return 'Draft';
-    });
+    };
+    const [selectedStatus, setSelectedStatus] = useState(() => mapDbStatusToDisplay(project.status));
+    // Re-sync when the parent refreshes the project so the lock state does
+    // not reset to "Draft" on refetch.
+    useEffect(() => {
+        setSelectedStatus(mapDbStatusToDisplay(project.status));
+    }, [project.status, project.id]);
     const [isSavingStatus, setIsSavingStatus] = useState(false);
     const [coverColor, setCoverColor] = useState(project.project_data?.coverColor || null);
     const [dueDate, setDueDate] = useState(project.project_data?.dueDate || null);
@@ -731,6 +736,16 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                 });
             });
             
+            // Collect from showDetails.judges (Step 4 "Number of Judges" UI — canonical storage)
+            const showDetailsJudgesMap = projectData.showDetails?.judges || {};
+            Object.values(showDetailsJudgesMap).forEach(list => {
+                (list || []).forEach(judge => {
+                    if (judge?.name && typeof judge.name === 'string') {
+                        allJudgesSet.add(judge.name.trim());
+                    }
+                });
+            });
+
             // Collect from officials
             officials.forEach(official => {
                 if (official && official.name && typeof official.name === 'string') {
@@ -748,6 +763,13 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                 }
             });
             
+            // Mark all showDetails.judges as assigned (they're explicitly added for the show)
+            Object.values(showDetailsJudgesMap).forEach(list => {
+                (list || []).forEach(judge => {
+                    if (judge?.name) assignedJudgesSet.add(judge.name.trim());
+                });
+            });
+
             // Collect from group-level assignments
             Object.values(groupJudges).forEach(disciplineGroups => {
                 if (disciplineGroups && typeof disciplineGroups === 'object' && !Array.isArray(disciplineGroups)) {
@@ -1475,11 +1497,11 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                         </p>
                         <div className="space-y-2">
                             {(() => {
-                                // Determine persisted status to enforce one-directional flow: Draft → Locked → Publication
+                                // Status flow: Draft ↔ Locked (bidirectional), → Publication (terminal).
+                                // Users can roll a Locked project back to Draft to edit, then re-lock.
                                 const dbStatus = project.status || 'Draft';
-                                const isLocked = dbStatus === 'Locked' || dbStatus === 'Lock & Approve Mode';
                                 const isPublished = dbStatus === 'Final' || dbStatus === 'Publication';
-                                const draftDisabled = isLocked || isPublished;
+                                const draftDisabled = isPublished;
                                 const lockedDisabled = isPublished;
                                 return (
                                     <>
@@ -1692,11 +1714,15 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
         const admin = projectData.secondAdmin || projectData.officials?.find(o => o.role === 'admin')?.name || 'Not set';
         
-        // Count judges from associationJudges + patternSelections (Step 5 judge assignments)
+        // Count judges from associationJudges + showDetails.judges + patternSelections
         const judgeNames = new Set();
         Object.values(projectData.associationJudges || {}).forEach(assocData => {
             const judges = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
             if (Array.isArray(judges)) judges.forEach(j => { if (j?.name) judgeNames.add(j.name.trim()); });
+        });
+        // From showDetails.judges (Step 4 "Number of Judges" UI — canonical storage)
+        Object.values(projectData.showDetails?.judges || {}).forEach(list => {
+            (list || []).forEach(j => { if (j?.name) judgeNames.add(j.name.trim()); });
         });
         // From patternSelections (judges assigned at discipline level in Step 5)
         Object.values(projectData.patternSelections || {}).forEach(disciplineSels => {
@@ -1880,7 +1906,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
                             onClick={() => { setDialogInitialTab('patternBook'); setPatternBookDialogOpen(true); }}
                             className="px-3 py-1.5 bg-primary text-white text-sm font-medium rounded-full hover:bg-primary/90 cursor-pointer"
                         >
-                            Pattern Book
+                            Pattern Books & Score Sheets
                         </button>
                         <button
                             onClick={() => { setDialogInitialTab('results'); setPatternBookDialogOpen(true); }}
@@ -3293,7 +3319,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return [...dates].sort();
     }, [projectData]);
 
-    // Get unique judges from patterns and project data (associationJudges, officials, groupJudges, patternSelections)
+    // Get unique judges from patterns and project data
+    // (associationJudges, showDetails.judges, officials, groupJudges, patternSelections)
     const allJudgesFromPatterns = patterns.flatMap(p => p.judges || []);
     const allJudgesFromProjectData = useMemo(() => {
         const judges = new Set();
@@ -3302,6 +3329,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             (assocData?.judges || []).forEach(j => {
                 if (j?.name) judges.add(j.name.trim());
             });
+        });
+        // From showDetails.judges (Step 4 "Number of Judges" UI — canonical storage)
+        Object.values(projectData.showDetails?.judges || {}).forEach(list => {
+            (list || []).forEach(j => { if (j?.name) judges.add(j.name.trim()); });
         });
         // From officials
         (projectData.officials || []).forEach(o => {
@@ -4112,11 +4143,41 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const groupName = groups.length > 1 ? (group.name || `Group ${groupIndex + 1}`) : '';
                     const groupId = group.id || `pattern-group-${groupIndex}`;
 
-                    // Get judges for this group
-                    const judgesForGroup = groupJudges[groupIndex] || groupJudges[`${groupIndex}`] || [];
-                    const judgeNames = Array.isArray(judgesForGroup)
-                        ? judgesForGroup
+                    // Get judges for this group — tries per-group, discipline-level,
+                    // and association-level judges in priority order.
+                    const judgesForGroup = groupJudges[groupIndex]
+                        || groupJudges[`${groupIndex}`]
+                        || groupJudges[group.id]
+                        || [];
+                    let judgeNames = Array.isArray(judgesForGroup)
+                        ? judgesForGroup.filter(Boolean)
                         : (judgesForGroup ? [judgesForGroup] : []);
+
+                    if (judgeNames.length === 0) {
+                        const discLevel = projectData.judgeSelections?.[disciplineIndex]
+                            || projectData.judgeSelections?.[`${disciplineIndex}`]
+                            || projectData.judgeSelections?.[discipline.id];
+                        if (discLevel) {
+                            judgeNames = Array.isArray(discLevel) ? discLevel.filter(Boolean) : [discLevel];
+                        }
+                    }
+                    if (judgeNames.length === 0 && associationId) {
+                        const showDetailsJudges = projectData.showDetails?.judges?.[associationId] || [];
+                        const sdNames = showDetailsJudges.map(j => j?.name).filter(Boolean);
+                        if (sdNames.length > 0) judgeNames = sdNames;
+                    }
+                    if (judgeNames.length === 0 && associationId) {
+                        const assocJudges = projectData.associationJudges?.[associationId]?.judges || [];
+                        const assocNames = assocJudges.map(j => j?.name).filter(Boolean);
+                        if (assocNames.length > 0) judgeNames = assocNames;
+                    }
+                    if (judgeNames.length === 0) {
+                        const allShowJudges = Object.values(projectData.showDetails?.judges || {})
+                            .flat()
+                            .map(j => j?.name)
+                            .filter(Boolean);
+                        if (allShowJudges.length > 0) judgeNames = allShowJudges;
+                    }
 
                     // Get pattern selection to find pattern ID - try multiple matching strategies
                     let patternSelection = disciplineSelections?.[groupIndex]
@@ -4219,6 +4280,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     // Create unique key based on content to prevent duplicates
                     const uniqueKey = `${disciplineName}-${groupName}-${scoresheetData?.id || 'no-scoresheet'}`;
                     
+                    // Per-selection override: Step 3 judgeAssigned patterns carry their own judgeName
+                    const selectionJudge = (typeof patternSelection === 'object' && patternSelection?.judgeName)
+                        ? patternSelection.judgeName
+                        : null;
+                    const finalJudgeNames = selectionJudge ? [selectionJudge] : judgeNames;
+
                     if (!processedScoresheets.has(uniqueKey)) {
                         scoresheetsList.push({
                             ...(scoresheetData || {}),
@@ -4231,15 +4298,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             displayName: scoresheetName,
                             divisions: extractedDivisions,
                             divisionNames: extractedDivisions.map(d => {
-                                // Remove category prefix (e.g., "Open - ", "Amateur - ", "Youth - ")
                                 const name = d.name || '';
                                 const parts = name.split(' - ');
-                                // If there's a " - ", take everything after it; otherwise keep original
                                 return parts.length > 1 ? parts.slice(1).join(' - ') : name;
                             }).join(', '),
-                            judges: judgeNames,
-                            judgeNames: judgeNames.join(', '),
-                            image_url: scoresheetData?.image_url || null // Ensure image_url is stored
+                            judges: finalJudgeNames,
+                            judgeNames: finalJudgeNames.join(', '),
+                            judgeName: finalJudgeNames.join(', '),
+                            image_url: scoresheetData?.image_url || null
                         });
                         processedScoresheets.add(uniqueKey);
                     }
@@ -5165,13 +5231,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             <SelectContent className="bg-popover border border-border">
                                 {(() => {
                                     const dbSt = project.status || 'Draft';
-                                    const isLockedOrAbove = dbSt === 'Locked' || dbSt === 'Lock & Approve Mode' || dbSt === 'Final' || dbSt === 'Publication';
                                     const isPublished = dbSt === 'Final' || dbSt === 'Publication';
                                     return (
                                         <>
                                             <SelectItem
                                                 value="Draft"
-                                                disabled={isLockedOrAbove}
+                                                disabled={isPublished}
                                                 className="cursor-pointer focus:bg-primary focus:text-primary-foreground"
                                             >
                                                 Draft
@@ -5217,11 +5282,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         onClick={() => setActiveTab('patternBook')}
                         className={`px-4 py-2 rounded-full text-sm font-medium ${
                             activeTab === 'patternBook' 
-                                ? 'bg-primary text-white' 
+                                ? 'bg-primary text-white'
                                 : 'bg-transparent text-muted-foreground hover:bg-primary/10'
                         }`}
                     >
-                        Pattern Book
+                        Pattern Books & Score Sheets
                     </button>
                     <button
                         onClick={() => setActiveTab('results')}
@@ -5512,7 +5577,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         onClick={() => setViewDownloadDialogOpen(true)}
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        View/Download Entire Pattern Book
+                        View/Download Pattern Books & Score Sheets
                     </Button>
                 </div>
                 

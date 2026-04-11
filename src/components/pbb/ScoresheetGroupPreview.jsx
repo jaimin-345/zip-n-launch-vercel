@@ -57,14 +57,14 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
                 </div>
             </div>
             
-            <div className="p-1 max-w-sm mx-auto">
-                <UICard className="overflow-hidden transition-all duration-300 bg-slate-900 border-slate-700">
-                    <UICardContent className="flex aspect-[4/5] items-center justify-center p-0 flex-col">
+            <div className="p-1 w-full mx-auto">
+                <UICard className="overflow-hidden transition-all duration-300 bg-white dark:bg-slate-50 border-slate-300">
+                    <UICardContent className="flex items-center justify-center p-2 flex-col min-h-[520px]">
                         {/* Scoresheet Preview Area */}
-                        <div className="w-full h-full flex items-center justify-center bg-slate-900 border-2 border-dashed border-slate-700 rounded-sm m-2">
+                        <div className="w-full h-full flex items-center justify-center bg-white border-2 border-dashed border-slate-300 rounded-sm m-2">
                             {scoresheetImage && scoresheetImage.image_url ? (
-                                <HoverCard 
-                                    openDelay={200} 
+                                <HoverCard
+                                    openDelay={200}
                                     closeDelay={100}
                                     onOpenChange={(open) => {
                                         if (open) {
@@ -74,10 +74,10 @@ const ScoresheetGroupPreview = ({ group, scoresheets = [], selectedScoresheetId,
                                 >
                                     <HoverCardTrigger asChild>
                                         <div className="w-full h-full cursor-pointer hover:opacity-90 transition-opacity">
-                                            <img 
-                                                src={scoresheetImage.image_url} 
-                                                alt="Scoresheet" 
-                                                className="w-full h-full object-contain border-2 border-slate-600 rounded"
+                                            <img
+                                                src={scoresheetImage.image_url}
+                                                alt="Scoresheet"
+                                                className="w-full h-auto max-h-[560px] object-contain border border-slate-300 rounded mx-auto bg-white"
                                             />
                                         </div>
                                     </HoverCardTrigger>
