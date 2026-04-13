@@ -1179,13 +1179,14 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                   
                   return displayDisciplines.map((discipline) => {
                     const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
-                    const groups = discipline.patternGroups || [];
+                    // Only count groups that have divisions assigned (exclude empty placeholder groups)
+                    const groups = (discipline.patternGroups || []).filter(g => g.divisions && g.divisions.length > 0);
                     const isComplete = isDisciplineComplete(discipline, disciplineIndex);
                     const isScoresheetOnly = discipline.pattern_type === 'scoresheet_only' || (!discipline.pattern && discipline.scoresheet);
-                    
+
                     // Count assigned patterns/groups
                     const assignedCount = isScoresheetOnly
-                      ? groups.filter(group => group.divisions && group.divisions.length > 0).length
+                      ? groups.length
                       : groups.filter(group => {
                           const selection = getPatternSelection(discipline.id, group.id);
                           return selection?.patternId;

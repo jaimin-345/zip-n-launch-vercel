@@ -51,7 +51,7 @@ import { Progress } from '@/components/ui/progress';
 import ProjectDetailModal from '@/components/ProjectDetailModal';
 import { downloadPatternBookFolder } from '@/lib/patternBookDownloader';
 import { applyTextOverlay, getOverlayDataFromContext, batchDetectFieldPositions, applyTextOverlayWithPositions } from '@/lib/scoresheetTextOverlay';
-import { fetchImageAsBase64 } from '@/lib/pdfHelpers';
+import { fetchImageAsBase64, cropPatternImageSmart } from '@/lib/pdfHelpers';
 import JSZip from 'jszip';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { jsPDF } from 'jspdf';
@@ -2132,14 +2132,17 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [filterDisciplines, setFilterDisciplines] = useState(new Set()); // multi-select discipline
     const [filterDivisions, setFilterDivisions] = useState(new Set()); // multi-select division (renamed from filterClasses)
     const [filterJudges, setFilterJudges] = useState(new Set()); // multi-select judge
+    const [filterAssociations, setFilterAssociations] = useState(new Set()); // multi-select association/breed
     const [sortBy, setSortBy] = useState('newest');
     // Filter dropdown open states
     const [disciplineFilterOpen, setDisciplineFilterOpen] = useState(false);
     const [divisionFilterOpen, setDivisionFilterOpen] = useState(false);
     const [judgeFilterOpen, setJudgeFilterOpen] = useState(false);
+    const [associationFilterOpen, setAssociationFilterOpen] = useState(false);
     const [disciplineSearch, setDisciplineSearch] = useState('');
     const [divisionSearch, setDivisionSearch] = useState('');
     const [judgeSearch, setJudgeSearch] = useState('');
+    const [associationSearch, setAssociationSearch] = useState('');
     const [filterDates, setFilterDates] = useState(new Set());
     const [dateFilterOpen, setDateFilterOpen] = useState(false);
 
@@ -2292,17 +2295,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     
     // Helper function to format association name (same as bookGenerator.js)
     const formatAssociationName = (assocId) => {
-        const assocNames = {
-            'aqha': 'AMERICAN QUARTER HORSE ASSOCIATION',
-            'aha': 'ARABIAN HORSE ASSOCIATION',
-            'apha': 'AMERICAN PAINT HORSE ASSOCIATION',
-            'aphc': 'APPALOOSA HORSE CLUB',
-            'nsba': 'NATIONAL SNAFFLE BIT ASSOCIATION',
-            'phba': 'PINTO HORSE ASSOCIATION',
-            'abra': 'AMERICAN BUCKSKIN REGISTRY ASSOCIATION',
-            'ptha': 'PALOMINO HORSE BREEDERS OF AMERICA'
-        };
-        return assocNames[assocId?.toLowerCase()] || assocId?.toUpperCase() || 'HORSE ASSOCIATION';
+        return assocId?.toUpperCase() || 'HORSE ASSOCIATION';
     };
     
     // Helper function to remove first word from division names (same as bookGenerator.js)
@@ -2442,61 +2435,64 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const base64 = await fetchImageAsBase64(imageUrl);
             if (!base64) return null;
 
-            const doc = new jsPDF('p', 'pt', 'a4');
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 40;
+            const doc = new jsPDF('p', 'pt', 'letter');
+            const pageWidth = doc.internal.pageSize.getWidth();   // 612 pt
+            const pageHeight = doc.internal.pageSize.getHeight();  // 792 pt
+            const margin = 36;
             let yPos = margin;
 
-            // Add header information (same format as Pattern Book, with show name and dates)
+            // Header: show name centered, association, discipline, divisions
+            // (same clean layout the client approved for individual downloads)
             if (headerInfo) {
                 // Show name (heading) - centered at top
                 if (headerInfo.showName) {
                     doc.setTextColor(0, 0, 0);
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(18);
+                    doc.setFontSize(16);
                     const showNameLines = doc.splitTextToSize(headerInfo.showName.toUpperCase(), pageWidth - margin * 2);
                     doc.text(showNameLines, pageWidth / 2, yPos, { align: 'center' });
-                    yPos += (showNameLines.length * 20) + 8;
+                    yPos += (showNameLines.length * 18) + 4;
                 }
-                
+
                 // Show dates - centered below show name
                 if (headerInfo.showDates) {
-                    doc.setFontSize(12);
+                    doc.setFontSize(10);
                     doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(80, 80, 80);
                     doc.text(headerInfo.showDates, pageWidth / 2, yPos, { align: 'center' });
-                    yPos += 20;
+                    doc.setTextColor(0, 0, 0);
+                    yPos += 16;
                 }
-                
-                // Top left: Association name
+
+                // Association name
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(12);
-                doc.text(headerInfo.associationName.toUpperCase(), margin, yPos);
-                yPos += 18;
-                
-                // Discipline name and competition date (left side) - wrap if needed
                 doc.setFontSize(11);
+                doc.text(headerInfo.associationName.toUpperCase(), margin, yPos);
+                yPos += 14;
+
+                // Discipline name and competition date
+                doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
                 const dateStr = headerInfo.competitionDate ? format(parseLocalDate(headerInfo.competitionDate), 'MM-dd-yyyy') : '';
                 const disciplineText = `${headerInfo.disciplineName.toUpperCase()}${dateStr ? ` - ${dateStr}` : ''}`;
                 const disciplineMaxWidth = pageWidth - margin * 2;
                 const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
                 doc.text(disciplineLines, margin, yPos);
-                yPos += (disciplineLines.length * 14) + 4;
-                
-                // Division names (left side) - wrap to multiple lines if needed (max 2 lines)
+                yPos += (disciplineLines.length * 13) + 2;
+
+                // Division names
                 if (headerInfo.divisions && headerInfo.divisions.length > 0) {
                     const divisions = headerInfo.divisions.map(d => formatDivisionWithGo(d)).join(' / ');
-                    doc.setFontSize(10);
+                    doc.setFontSize(9);
                     doc.setFont('helvetica', 'normal');
                     const maxWidth = pageWidth - margin * 2;
                     const divisionLines = doc.splitTextToSize(divisions, maxWidth);
                     const linesToDisplay = divisionLines.slice(0, 2);
                     doc.text(linesToDisplay, margin, yPos);
-                    yPos += (linesToDisplay.length * 12) + 15; // Space before image
+                    yPos += (linesToDisplay.length * 11) + 8;
                 } else {
-                    yPos += 15; // Space before image if no divisions
+                    yPos += 8;
                 }
             } else {
                 // Fallback: Add pattern title at the top (for non-Published states)
@@ -2504,7 +2500,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     .replace(/\.pdf$/i, '')
                     .replace(/_/g, ' ')
                     .trim();
-                
+
                 formattedTitle = formattedTitle
                     .split(' ')
                     .map(word => {
@@ -2521,14 +2517,19 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 yPos = margin + 30;
             }
 
-            // Add image centered on page
+            // Smart-crop: remove baked-in header/footer text from pattern image
+            // (the PDF already provides its own header info above)
+            const croppedBase64 = headerInfo ? await cropPatternImageSmart(base64) : base64;
+
+            // Image fills remaining space, reserve room for branding footer
+            const bottomReserve = 28;
             const imgMaxWidth = pageWidth - margin * 2;
-            const imgMaxHeight = pageHeight - yPos - 40; // Space for footer
+            const imgMaxHeight = pageHeight - yPos - bottomReserve;
 
             // Create image to get dimensions
             const img = new Image();
-            img.src = base64;
-            
+            img.src = croppedBase64;
+
             await new Promise((resolve) => {
                 img.onload = resolve;
                 img.onerror = resolve;
@@ -2537,7 +2538,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             let imgWidth = img.width || 500;
             let imgHeight = img.height || 700;
 
-            // Scale image to fit
+            // Scale image to fit — fill available space while preserving aspect ratio
             const scale = Math.min(imgMaxWidth / imgWidth, imgMaxHeight / imgHeight);
             imgWidth *= scale;
             imgHeight *= scale;
@@ -2545,8 +2546,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const x = (pageWidth - imgWidth) / 2;
             const y = yPos;
 
-            const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
-            doc.addImage(base64, imageType, x, y, imgWidth, imgHeight);
+            const imageType = croppedBase64.includes('image/png') ? 'PNG' : 'JPEG';
+            doc.addImage(croppedBase64, imageType, x, y, imgWidth, imgHeight);
+
+            // Branding — bottom-right on every page
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(150, 150, 150);
+            doc.text('equipatterns.com', pageWidth - margin, pageHeight - 14, { align: 'right' });
 
             return doc.output('blob');
         } catch (error) {
@@ -3362,7 +3369,57 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return [...judges];
     }, [projectData]);
     const uniqueJudges = [...new Set([...allJudgesFromPatterns, ...allJudgesFromProjectData])].filter(Boolean).sort();
-    
+
+    // Get unique associations from project disciplines and build association→judges mapping
+    const { uniqueAssociations, judgesByAssociation } = useMemo(() => {
+        const assocs = new Set();
+        const judgeMap = {}; // { assocId: Set<judgeName> }
+
+        // Collect associations from disciplines
+        (projectData.disciplines || []).forEach(d => {
+            const aid = d.association_id ||
+                (d.selectedAssociations ? Object.keys(d.selectedAssociations).find(k => d.selectedAssociations[k]) : null) ||
+                (d.associations ? Object.keys(d.associations).find(k => d.associations[k]) : null);
+            if (aid) assocs.add(aid.toUpperCase());
+        });
+        // Also from project-level associations
+        Object.keys(projectData.associations || {}).forEach(k => {
+            if (projectData.associations[k]) assocs.add(k.toUpperCase());
+        });
+
+        // Build judge→association mapping from associationJudges
+        Object.entries(projectData.associationJudges || {}).forEach(([assocId, assocData]) => {
+            const key = assocId.toUpperCase();
+            if (!judgeMap[key]) judgeMap[key] = new Set();
+            (assocData?.judges || []).forEach(j => {
+                if (j?.name) judgeMap[key].add(j.name.trim());
+            });
+        });
+        // From showDetails.judges (keyed by association)
+        Object.entries(projectData.showDetails?.judges || {}).forEach(([assocId, list]) => {
+            const key = assocId.toUpperCase();
+            if (!judgeMap[key]) judgeMap[key] = new Set();
+            (list || []).forEach(j => { if (j?.name) judgeMap[key].add(j.name.trim()); });
+        });
+
+        return {
+            uniqueAssociations: [...assocs].sort(),
+            judgesByAssociation: judgeMap,
+        };
+    }, [projectData]);
+
+    // When association filter changes, compute which judges are available
+    const filteredJudgeOptions = useMemo(() => {
+        if (filterAssociations.size === 0) return uniqueJudges;
+        const allowed = new Set();
+        filterAssociations.forEach(assocId => {
+            const judges = judgesByAssociation[assocId.toUpperCase()];
+            if (judges) judges.forEach(j => allowed.add(j));
+        });
+        // If no judges mapped for selected associations, show all (graceful fallback)
+        return allowed.size > 0 ? uniqueJudges.filter(j => allowed.has(j)) : uniqueJudges;
+    }, [filterAssociations, judgesByAssociation, uniqueJudges]);
+
     // Get folder items as patterns/scoresheets when folder is selected
     const folderItemsAsPatterns = useMemo(() => {
         if (selectedSidebarItem === 'folder' && selectedFolderId) {
@@ -3492,7 +3549,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         if (activeTab === 'patternBook' && activeSubTab === 'scoreSheets') {
             generateScoresheets();
         }
-    }, [filterDisciplines, filterDivisions, filterJudges, filterDates]);
+    }, [filterDisciplines, filterDivisions, filterJudges, filterDates, filterAssociations]);
 
     const fetchPatterns = async () => {
         setIsLoadingPatterns(true);
@@ -4339,20 +4396,42 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 associationsMap[a.abbreviation] = a;
             });
 
-            // Determine selected disciplines (empty = all)
-            const selectedDisciplines = filterDisciplines.size > 0
+            // Determine selected disciplines (empty = all), then filter by association
+            let selectedDisciplines = filterDisciplines.size > 0
                 ? disciplines.filter(d => filterDisciplines.has((d.name || '').trim()))
                 : disciplines;
+
+            // Apply association filter: only include disciplines belonging to selected associations
+            if (filterAssociations.size > 0) {
+                selectedDisciplines = selectedDisciplines.filter(d => {
+                    const aid = (d.association_id ||
+                        (d.selectedAssociations ? Object.keys(d.selectedAssociations).find(k => d.selectedAssociations[k]) : null) ||
+                        (d.associations ? Object.keys(d.associations).find(k => d.associations[k]) : null) || '').toUpperCase();
+                    return filterAssociations.has(aid);
+                });
+            }
 
             // Determine selected divisions (empty = all available)
             const selectedDivisionsList = filterDivisions.size > 0
                 ? [...filterDivisions]
                 : allDivisionNamesFromProjectData;
 
-            // Determine selected judges (empty = all available)
-            const selectedJudgesList = filterJudges.size > 0
-                ? [...filterJudges]
-                : allJudgesFromProjectData;
+            // Determine selected judges — scoped to selected associations when applicable
+            let selectedJudgesList;
+            if (filterJudges.size > 0) {
+                selectedJudgesList = [...filterJudges];
+            } else if (filterAssociations.size > 0) {
+                // No explicit judge filter, but association is selected:
+                // only use judges assigned to those associations
+                const assocJudges = new Set();
+                filterAssociations.forEach(assocId => {
+                    const judges = judgesByAssociation[assocId.toUpperCase()];
+                    if (judges) judges.forEach(j => assocJudges.add(j));
+                });
+                selectedJudgesList = assocJudges.size > 0 ? [...assocJudges] : allJudgesFromProjectData;
+            } else {
+                selectedJudgesList = allJudgesFromProjectData;
+            }
 
             // For each discipline, look up the base scoresheet image and cross-product
             for (const discipline of selectedDisciplines) {
@@ -4487,8 +4566,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     });
                 }
 
-                // Cross-product: division x judge (use [''] if no judges so scoresheets still generate)
-                const judgesList = selectedJudgesList.length > 0 ? selectedJudgesList : [''];
+                // Cross-product: division x judge
+                // Scope judges to this discipline's association so APHA judges don't
+                // appear on AQHA scoresheets and vice versa.
+                let disciplineJudges = selectedJudgesList;
+                if (associationId) {
+                    const assocJudgeSet = judgesByAssociation[associationId.toUpperCase()];
+                    if (assocJudgeSet && assocJudgeSet.size > 0) {
+                        // If the user explicitly picked judges, intersect with this association's judges
+                        // If no explicit judge filter, use only this association's judges
+                        disciplineJudges = filterJudges.size > 0
+                            ? selectedJudgesList.filter(j => assocJudgeSet.has(j))
+                            : [...assocJudgeSet];
+                    }
+                }
+                const judgesList = disciplineJudges.length > 0 ? disciplineJudges : [''];
                 for (const divisionName of matchingDivisions) {
                     for (const judgeName of judgesList) {
                         const uniqueKey = `${disciplineName}-${divisionName}-${judgeName}`;
@@ -4499,6 +4591,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             numericId: baseScoresheetData?.id || null,
                             disciplineName,
                             disciplineIndex: disciplines.indexOf(discipline),
+                            associationId: associationId?.toUpperCase() || '',
                             divisionName,
                             judgeName,
                             classDate: divisionDateMap[divisionName] || projectData.startDate || null,
@@ -5777,6 +5870,81 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </Popover>
                                         )}
 
+                                        {/* Association/Breed Filter - Show only for Score Sheets tab */}
+                                        {activeSubTab === 'scoreSheets' && uniqueAssociations.length > 1 && (
+                                            <Popover open={associationFilterOpen} onOpenChange={(open) => { setAssociationFilterOpen(open); if (!open) setAssociationSearch(''); }}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterAssociations.size === 0
+                                                                ? 'All Breeds'
+                                                                : filterAssociations.size === 1
+                                                                    ? Array.from(filterAssociations)[0]
+                                                                    : `${filterAssociations.size} Breeds`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Association / Breed</span>
+                                                        {filterAssociations.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => { setFilterAssociations(new Set()); setFilterJudges(new Set()); }}
+                                                            >
+                                                                Clear
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    {uniqueAssociations.length > 5 && (
+                                                        <div className="p-2 border-b">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search breeds..."
+                                                                value={associationSearch}
+                                                                onChange={(e) => setAssociationSearch(e.target.value)}
+                                                                className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {uniqueAssociations
+                                                                .filter(a => a.toLowerCase().includes(associationSearch.toLowerCase()))
+                                                                .map(assoc => (
+                                                                <div
+                                                                    key={assoc}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterAssociations(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(assoc)) {
+                                                                                newSet.delete(assoc);
+                                                                            } else {
+                                                                                newSet.add(assoc);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                        // Clear judge filter when association changes (judges will be re-filtered)
+                                                                        setFilterJudges(new Set());
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterAssociations.has(assoc)} />
+                                                                    <span className="text-sm">{assoc}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
+
                                         {/* Judge Filter - Show only for Score Sheets tab */}
                                         {activeSubTab === 'scoreSheets' && (
                                             <Popover open={judgeFilterOpen} onOpenChange={(open) => { setJudgeFilterOpen(open); if (!open) setJudgeSearch(''); }}>
@@ -5820,7 +5988,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         onWheel={(e) => e.stopPropagation()}
                                                     >
                                                         <div className="p-2 space-y-1">
-                                                            {uniqueJudges
+                                                            {filteredJudgeOptions
                                                                 .filter(judge => judge.toLowerCase().includes(judgeSearch.toLowerCase()))
                                                                 .map(judge => (
                                                                 <div
@@ -6682,13 +6850,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             <div className="text-sm text-muted-foreground space-y-0.5">
                                                                 <div>
                                                                     <span className="font-medium">Discipline:</span> {scoresheet.disciplineName}
+                                                                    {scoresheet.associationId && (
+                                                                        <span className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded">{scoresheet.associationId}</span>
+                                                                    )}
                                                                 </div>
                                                                 <div>
                                                                     <span className="font-medium">Division (Class):</span> {scoresheet.divisionName}
                                                                 </div>
-                                                                <div>
-                                                                    <span className="font-medium">Judge:</span> {scoresheet.judgeName}
-                                                                </div>
+                                                                {scoresheet.judgeName && (
+                                                                    <div>
+                                                                        <span className="font-medium">Judge:</span> {scoresheet.judgeName}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2 shrink-0">

@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
 import { Loader2, Download, Printer, Mail, Link2, Image as LucideImage, FileText, CheckSquare, Square, Send, ArrowLeft } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { fetchImageAsBase64, compressImage } from '@/lib/pdfHelpers';
+import { fetchImageAsBase64, compressImage, cropPatternImageSmart } from '@/lib/pdfHelpers';
 
 const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
     const { toast } = useToast();
@@ -290,10 +290,10 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
         const selectedScoreSheetsList = getSelectedScoreSheets();
 
         // Always build custom PDF to ensure both patterns AND scoresheets are included
-        const doc = new jsPDF('p', 'pt', 'a4');
+        const doc = new jsPDF('p', 'pt', 'letter');
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 40;
+        const margin = 36;
         let isFirstPage = true;
 
         // Crop bottom portion of an image (removes summary box from pattern images)
@@ -344,9 +344,9 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 // This keeps PDF under Postmark's 10MB attachment limit
                 let base64 = await compressImage(rawBase64, 1240, 1754, 0.85) || rawBase64;
 
-                // Crop bottom portion for pattern images (removes summary box) — skip for hub projects
+                // Smart-crop pattern images (removes baked-in header/footer) — skip for hub projects
                 if (shouldCrop && !isHubProject) {
-                    base64 = await cropImageBottom(base64);
+                    base64 = await cropPatternImageSmart(base64);
                 }
 
                 if (!isFirstPage) doc.addPage();
@@ -434,7 +434,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 });
 
                 const maxW = pageWidth - margin * 2;
-                const maxH = pageHeight - yPos - 25;
+                const maxH = pageHeight - yPos - 28;
                 const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
                 const w = img.width * ratio;
                 const h = img.height * ratio;
@@ -442,11 +442,11 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
 
                 doc.addImage(base64, imageType.toUpperCase(), x, yPos, w, h);
 
-                // Branding footer
+                // Branding footer — bottom-right
                 doc.setFontSize(7);
                 doc.setFont('helvetica', 'normal');
-                doc.setTextColor(140, 140, 140);
-                doc.text('equipatterns.com', pageWidth - margin, pageHeight - 10, { align: 'right' });
+                doc.setTextColor(150, 150, 150);
+                doc.text('equipatterns.com', pageWidth - margin, pageHeight - 14, { align: 'right' });
             } catch (err) {
                 console.warn('Failed to add image to PDF:', item.disciplineName, err);
             }

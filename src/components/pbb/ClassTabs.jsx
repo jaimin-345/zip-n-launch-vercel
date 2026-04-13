@@ -693,7 +693,9 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                         disabled={!hasSelectedDivisions || isScoresheetOnly}
                         className={cn(
                             activeTab === 'grouping' && "bg-primary text-primary-foreground",
-                            (!hasSelectedDivisions || isScoresheetOnly) && "opacity-50"
+                            (!hasSelectedDivisions || isScoresheetOnly) && "opacity-50",
+                            // Highlight grouping tab when dates are done but grouping isn't yet
+                            step2Complete && !step3Complete && !isScoresheetOnly && activeTab !== 'grouping' && "ring-2 ring-primary/40 ring-offset-1"
                         )}
                     >
                         3. Group Patterns
@@ -811,16 +813,23 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                             const isAQHAAmateur = assocId === 'AQHA' && group.group === 'Amateur';
                                             
                                             if (isAQHAAmateur) {
-                                                const column1Levels = ['Amateur', 'Amateur Select'];
-                                                const column2Levels = ['Amateur Rookie', 'Amateur Select Rookie (50+)', 'Amateur Level 1', 'Amateur Select Level 1'];
-                                                const column3Levels = ['Amateur Level 2', 'Amateur Select Level 2'];
-                                                const column4Levels = ['Amateur Level 3', 'Amateur Select Level 3'];
-                                                
+                                                // Support both DB naming conventions (old: "L1 Amateur", new: "Amateur Level 1")
+                                                const column1Levels = ['Amateur', 'Amateur Select', 'Select Amateur (50+)'];
+                                                const column2Levels = ['Amateur Rookie', 'Amateur Select Rookie (50+)', 'Amateur Level 1', 'Amateur Select Level 1', 'Rookie Amateur', 'L1 Amateur'];
+                                                const column3Levels = ['Amateur Level 2', 'Amateur Select Level 2', 'L2 Amateur'];
+                                                const column4Levels = ['Amateur Level 3', 'Amateur Select Level 3', 'L3 Amateur'];
+
+                                                // Collect all column levels for fallback detection
+                                                const allColumnLevels = new Set([...column1Levels, ...column2Levels, ...column3Levels, ...column4Levels]);
+
                                                 // Match exact level names
                                                 const col1 = group.levels.filter(level => column1Levels.includes(level));
                                                 const col2 = group.levels.filter(level => column2Levels.includes(level));
                                                 const col3 = group.levels.filter(level => column3Levels.includes(level));
                                                 const col4 = group.levels.filter(level => column4Levels.includes(level));
+
+                                                // Catch any levels not matched by the columns (e.g. Walk-Trot Amateur)
+                                                const unmatchedLevels = group.levels.filter(level => !allColumnLevels.has(level));
                                                 
                                                 return (
                                                     <div key={`${assocId}-${group.group}-${index}`} className="mt-1.5 pl-1.5">
@@ -875,10 +884,24 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
                                                                 })}
                                                             </div>
                                                         </div>
+                                                        {/* Fallback row for any levels not captured by the columns above */}
+                                                        {unmatchedLevels.length > 0 && (
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
+                                                                {unmatchedLevels.map(level => {
+                                                                    const key = `${group.group} - ${level}`;
+                                                                    return (
+                                                                        <div key={`${assocId}-${level}`} className="flex items-center space-x-2">
+                                                                            <Checkbox id={`div-${discForAssoc.id}-${assocId}-${key}`} checked={!!(discForAssoc.divisions && discForAssoc.divisions[assocId] && discForAssoc.divisions[assocId][key])} onCheckedChange={(c) => handleDivisionChange(discForAssoc.id, assocId, group.group, level, c, false)} />
+                                                                            <Label htmlFor={`div-${discForAssoc.id}-${assocId}-${key}`} className="font-normal text-xs">{level}</Label>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 );
                                             }
-                                            
+
                                             // Custom 4-column layout for AQHA Youth divisions
                                             const isAQHAYouth = assocId === 'AQHA' && group.group === 'Youth';
                                             

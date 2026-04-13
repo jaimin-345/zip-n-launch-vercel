@@ -190,7 +190,7 @@ export function drawGenericScoreSheetPage(doc, info) {
  * Used by the ZIP downloader.
  */
 export function createGenericScoreSheetPdf(info) {
-  const doc = new jsPDF('p', 'pt', 'a4');
+  const doc = new jsPDF('p', 'pt', 'letter');
   drawGenericScoreSheetPage(doc, info);
   return doc.output('blob');
 }

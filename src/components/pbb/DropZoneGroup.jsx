@@ -574,61 +574,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         return 'all';
     });
     
-    // State for Working Cow Horse scoresheets (AQHA only)
-    const [workingCowHorseScoresheets, setWorkingCowHorseScoresheets] = useState([]);
-    const [loadingScoresheets, setLoadingScoresheets] = useState(false);
-    
-    // Check if this is Working Cow Horse for AQHA
-    const isWorkingCowHorseAQHA = pbbDiscipline?.name === 'Working Cow Horse' && 
-        (pbbDiscipline?.association_id === 'AQHA' || 
-         (group.divisions?.length > 0 && group.divisions[0]?.assocId === 'AQHA'));
-
-    // Fetch Working Cow Horse scoresheets for AQHA (without pattern_id)
-    useEffect(() => {
-        const fetchWorkingCowHorseScoresheets = async () => {
-            if (!isWorkingCowHorseAQHA) {
-                setWorkingCowHorseScoresheets([]);
-                return;
-            }
-            
-            setLoadingScoresheets(true);
-            try {
-                const { data, error } = await supabase
-                    .from('tbl_scoresheet')
-                    .select('id, discipline, association_abbrev, image_url, storage_path')
-                    .eq('discipline', 'Working Cow Horse')
-                    .eq('association_abbrev', 'AQHA')
-                    .is('pattern_id', null);
-                
-                if (error) throw error;
-                
-                // Parse scoresheet names from storage_path to create display names
-                const scoresheetOptions = (data || []).map(ss => {
-                    let displayName = 'Scoresheet';
-                    const path = ss.storage_path || '';
-                    
-                    if (path.includes('_LTD_')) {
-                        displayName = 'Cow Work - Limited';
-                    } else if (path.includes('_BDBD_')) {
-                        displayName = 'Cow Work - Rookie';
-                    } else if (path.includes('CowWork')) {
-                        displayName = 'Cow Work - Open';
-                    }
-                    
-                    return { ...ss, displayName };
-                });
-                
-                setWorkingCowHorseScoresheets(scoresheetOptions);
-            } catch (err) {
-                console.error('Error fetching Working Cow Horse scoresheets:', err);
-                setWorkingCowHorseScoresheets([]);
-            } finally {
-                setLoadingScoresheets(false);
-            }
-        };
-        
-        fetchWorkingCowHorseScoresheets();
-    }, [isWorkingCowHorseAQHA]);
+    // Scoresheet selection is handled in the Pattern Selection step (Step 5)
 
     // Inject CSS to fix pattern select truncation on iOS/iPad
     useEffect(() => {
@@ -1177,12 +1123,13 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
         : group.name;
 
     return (
-        <div ref={setSortableNodeRef} style={style} className="p-4 border border-border rounded-lg bg-card shadow-sm">
+        <div ref={setSortableNodeRef} style={style} className="p-4 border-2 border-border rounded-xl bg-card shadow-sm transition-colors hover:border-primary/30">
             <div className="flex items-center justify-between mb-3 gap-3">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 shrink-0">
                         <GripVertical className="h-5 w-5 text-muted-foreground" />
                     </div>
+                    <Badge variant="outline" className="shrink-0 text-xs font-bold px-2 py-0.5">{index + 1}</Badge>
                     <div className="flex-1">
                         <Input
                             value={group.name}
@@ -1367,21 +1314,17 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                             {/* Hover Preview - Rendered via portal at body level */}
                             {hoveredPatternId && typeof document !== 'undefined' && createPortal(
                                 <div
-                                    className="fixed z-[9999] bg-background border rounded-lg shadow-lg p-4 w-[600px] max-w-[90vw] pointer-events-auto"
+                                    className="fixed z-[9999] bg-background border-2 border-primary/30 rounded-xl shadow-2xl p-5 w-[700px] max-w-[92vw] pointer-events-auto"
                                     style={hasUngroupedDivisions ? {
-                                        // Position to the left side when ungrouped divisions exist
-                                        // This prevents covering the dropdown on the right
                                         left: `${hoverPosition.x}px`,
                                         top: `${hoverPosition.y}px`,
                                         transform: 'translate(0, -50%)',
                                     } : {
-                                        // Center when no ungrouped divisions
                                         left: '50%',
                                         top: '50%',
                                         transform: 'translate(-50%, -50%)',
                                     }}
                                     onMouseEnter={() => {
-                                        // Keep preview visible when hovering over it
                                         if (hoveredPatternId) {
                                             setHoveredPatternId(hoveredPatternId);
                                         }
@@ -1391,24 +1334,23 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                     }}
                                 >
                                     {loadingHoveredImage ? (
-                                        <div className="flex items-center justify-center py-8">
+                                        <div className="flex items-center justify-center py-10">
                                             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         </div>
                                     ) : hoveredPatternImage ? (
                                         <div className="space-y-2">
-                                            <h4 className="font-medium text-sm">Pattern Preview</h4>
-                                            <div className="rounded-md overflow-hidden border bg-muted/20">
+                                            <h4 className="font-semibold text-sm">Pattern Preview</h4>
+                                            <div className="rounded-lg overflow-hidden border bg-white dark:bg-slate-50">
                                                 <img
                                                     src={hoveredPatternImage}
                                                     alt="Pattern Diagram"
-                                                    className="w-full h-auto object-contain max-h-[600px]"
-                                                    style={{ clipPath: 'inset(0 0 12% 0)' }}
+                                                    className="w-full h-auto object-contain max-h-[70vh]"
                                                     loading="lazy"
                                                 />
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="text-sm text-muted-foreground py-4">
+                                        <div className="text-sm text-muted-foreground py-6 text-center">
                                             No image available for this pattern.
                                         </div>
                                     )}
@@ -1441,77 +1383,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                         </div>
                     </div>
                     
-                    {/* Working Cow Horse Scoresheet Dropdown (AQHA only) — manual override for standalone Cow Work sheets */}
-                    {isWorkingCowHorseAQHA && workingCowHorseScoresheets.length > 0 && (
-                        <div className="mt-2">
-                            <Label className="text-xs text-muted-foreground mb-1 block">Select Cow Work Score Sheet</Label>
-                            <Select
-                                value={currentPatternSelection?.scoresheetId?.toString() || 'none'}
-                                onValueChange={(value) => {
-                                    if (value === 'none') {
-                                        setFormData(prev => {
-                                            const newSelections = { ...(prev.patternSelections || {}) };
-                                            if (newSelections[disciplineId]?.[group.id]) {
-                                                const updated = { ...newSelections[disciplineId][group.id] };
-                                                delete updated.scoresheetId;
-                                                delete updated.scoresheetData;
-                                                newSelections[disciplineId][group.id] = Object.keys(updated).length > 0 ? updated : null;
-                                            }
-                                            return { ...prev, patternSelections: newSelections };
-                                        });
-                                    } else {
-                                        const selectedScoresheet = workingCowHorseScoresheets.find(ss => String(ss.id) === value);
-                                        if (selectedScoresheet) {
-                                            // Merge with any existing auto-linked scoresheets (preserve array format)
-                                            setFormData(prev => {
-                                                const newSelections = { ...(prev.patternSelections || {}) };
-                                                if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
-                                                const existing = newSelections[disciplineId][group.id] || {};
-                                                const existingSheets = Array.isArray(existing.scoresheetData)
-                                                    ? existing.scoresheetData.filter(s => !s.storage_path?.toLowerCase().includes('cowwork') && !s.storage_path?.includes('_LTD_') && !s.storage_path?.includes('_BDBD_'))
-                                                    : [];
-                                                const newSheet = {
-                                                    id: selectedScoresheet.id,
-                                                    image_url: selectedScoresheet.image_url,
-                                                    displayName: selectedScoresheet.displayName,
-                                                    storage_path: selectedScoresheet.storage_path
-                                                };
-                                                newSelections[disciplineId][group.id] = {
-                                                    ...existing,
-                                                    scoresheetId: parseInt(value),
-                                                    scoresheetData: [...existingSheets, newSheet]
-                                                };
-                                                return { ...prev, patternSelections: newSelections };
-                                            });
-                                        }
-                                    }
-                                }}
-                            >
-                                <SelectTrigger className="h-9">
-                                    <SelectValue placeholder={loadingScoresheets ? "Loading..." : "Select Cow Work Score Sheet"}>
-                                        {(() => {
-                                            const ssData = currentPatternSelection?.scoresheetData;
-                                            if (!ssData) return 'Select Cow Work Score Sheet';
-                                            const sheets = Array.isArray(ssData) ? ssData : [ssData];
-                                            const cowWorkSheet = sheets.find(s => {
-                                                const p = s.storage_path || '';
-                                                return p.toLowerCase().includes('cowwork') || p.includes('_LTD_') || p.includes('_BDBD_');
-                                            });
-                                            return cowWorkSheet?.displayName || 'Select Cow Work Score Sheet';
-                                        })()}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Select Cow Work Score Sheet</SelectItem>
-                                    {workingCowHorseScoresheets.map(ss => (
-                                        <SelectItem key={ss.id} value={String(ss.id)}>
-                                            {ss.displayName}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
+                    {/* Scoresheet selection moved to Pattern Selection step (Step 5) */}
                     
                     {hasPattern && (
                         <div className="mt-2 flex items-center gap-2">
@@ -1526,21 +1398,20 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                             <Eye className="h-3 w-3" />
                                         </Button>
                                     </HoverCardTrigger>
-                                    <HoverCardContent className="w-96" align="start">
+                                    <HoverCardContent className="w-[420px]" align="start">
                                         <div className="space-y-3">
-                                            <h4 className="font-medium leading-none border-b pb-2">Pattern Details</h4>
-                                            
+                                            <h4 className="font-semibold leading-none border-b pb-2">Pattern Details</h4>
+
                                             {/* Pattern Image with Nested Hover for Larger View */}
                                             {patternImage && (
                                                 <div className="space-y-2">
                                                     <HoverCard openDelay={200} closeDelay={100}>
                                                         <HoverCardTrigger asChild>
-                                                            <div className="rounded-md overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary transition-colors">
+                                                            <div className="rounded-lg overflow-hidden border bg-white dark:bg-slate-50 cursor-pointer hover:border-primary transition-colors">
                                                                 <img
                                                                     src={patternImage}
                                                                     alt="Pattern Diagram"
-                                                                    className="w-full h-auto object-contain max-h-[300px]"
-                                                                    style={{ clipPath: 'inset(0 0 12% 0)' }}
+                                                                    className="w-full h-auto object-contain max-h-[400px]"
                                                                     loading="lazy"
                                                                 />
                                                             </div>
@@ -1565,8 +1436,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                                                     transform: `scale(${imageZoom})`,
                                                                                     transformOrigin: 'center',
                                                                                     maxWidth: '100%',
-                                                                                    height: 'auto',
-                                                                                    clipPath: 'inset(0 0 12% 0)'
+                                                                                    height: 'auto'
                                                                                 }}
                                                                             />
                                                                         </div>
@@ -1639,78 +1509,18 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                                                 )}
                                             </div>
 
-                                            {/* Score Sheet Preview(s) inside pattern hover card */}
-                                            {(() => {
-                                                const ssData = currentPatternSelection?.scoresheetData;
-                                                if (!ssData) return null;
-                                                const sheets = Array.isArray(ssData) ? ssData : (ssData.image_url ? [ssData] : []);
-                                                if (sheets.length === 0) return null;
-                                                return (
-                                                    <div className="space-y-2 border-t pt-2">
-                                                        <h4 className="font-medium text-sm text-emerald-700 dark:text-emerald-400">Score Sheets</h4>
-                                                        {sheets.map((sheet, idx) => (
-                                                            <div key={sheet.id || idx} className="space-y-1">
-                                                                <p className="text-xs font-medium text-muted-foreground">{sheet.displayName || `Score Sheet ${idx + 1}`}</p>
-                                                                <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                                    <img
-                                                                        src={sheet.image_url}
-                                                                        alt={sheet.displayName || 'Score Sheet'}
-                                                                        className="w-full h-auto object-contain max-h-[250px]"
-                                                                        loading="lazy"
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                );
-                                            })()}
+                                            {/* Scoresheet previews available in Pattern Selection step */}
                                         </div>
                                     </HoverCardContent>
                                 </HoverCard>
                             </Badge>
-                            {/* Auto-linked Scoresheet Badge(s) — supports array or single object */}
-                            {(() => {
-                                const ssData = currentPatternSelection?.scoresheetData;
-                                if (!ssData) return null;
-                                // Normalize: support both array and legacy single-object format
-                                const sheets = Array.isArray(ssData) ? ssData : (ssData.image_url ? [ssData] : []);
-                                if (sheets.length === 0) return null;
-                                return sheets.map((sheet, idx) => (
-                                    <Badge
-                                        key={sheet.id || idx}
-                                        variant="outline"
-                                        className="flex items-center gap-2 pr-1 h-7 border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-700"
-                                    >
-                                        {sheet.displayName || `Score Sheet ${idx + 1}`}
-                                        <HoverCard openDelay={100} closeDelay={100}>
-                                            <HoverCardTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/40 ml-1">
-                                                    <Eye className="h-3 w-3" />
-                                                </Button>
-                                            </HoverCardTrigger>
-                                            <HoverCardContent className="w-96" align="start">
-                                                <div className="space-y-2">
-                                                    <h4 className="font-medium leading-none border-b pb-2">{sheet.displayName || 'Score Sheet Preview'}</h4>
-                                                    <div className="rounded-md overflow-hidden border bg-muted/20">
-                                                        <img
-                                                            src={sheet.image_url}
-                                                            alt={sheet.displayName || 'Score Sheet'}
-                                                            className="w-full h-auto object-contain max-h-[400px]"
-                                                            loading="lazy"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </HoverCardContent>
-                                        </HoverCard>
-                                    </Badge>
-                                ));
-                            })()}
+                            {/* Scoresheet badges shown in Pattern Selection step */}
                         </div>
                     )}
                 </div>
             )}
 
-            <div ref={setNodeRef} className={cn('min-h-[80px] p-3 rounded-md bg-muted/30 transition-colors border-2 border-dashed border-border', { 'border-primary bg-primary/10': isOver })}>
+            <div ref={setNodeRef} className={cn('min-h-[80px] p-3 rounded-lg bg-muted/20 transition-colors border-2 border-dashed border-border/60', { 'border-primary bg-primary/10': isOver })}>
                 <SortableContext items={divisionsWithDetails.map(d => d.id)} strategy={verticalListSortingStrategy} id={group.id}>
                     <div className="space-y-2">
                         {divisionsWithDetails.map(div => (
@@ -1719,8 +1529,9 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     </div>
                 </SortableContext>
                 {group.divisions.length === 0 && (
-                    <div className="text-center text-sm text-muted-foreground py-6">
-                        Drop divisions here
+                    <div className="text-center text-sm text-muted-foreground py-8">
+                        <p className="font-medium">Drop divisions here</p>
+                        <p className="text-xs mt-1">Drag divisions from the ungrouped list into this group</p>
                     </div>
                 )}
             </div>

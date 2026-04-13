@@ -51,6 +51,96 @@ export const compressImage = (base64, maxWidth = 200, maxHeight = 200, quality =
     });
 };
 
+/**
+ * Smart-crop a pattern image (base64): removes baked-in header text at top
+ * and summary/legend at bottom, keeping only the diagram portion.
+ * Uses pixel scanning to find the largest blank gaps that separate the
+ * header and footer regions from the diagram.
+ * Falls back to a simple 3% bottom trim if scanning doesn't find clear gaps.
+ */
+export const cropPatternImageSmart = (base64) => {
+    return new Promise((resolve) => {
+        if (!base64) { resolve(base64); return; }
+        const img = new Image();
+        const timeout = setTimeout(() => { resolve(base64); }, 5000);
+        img.onload = () => {
+            clearTimeout(timeout);
+            try {
+                const w = img.width;
+                const h = img.height;
+                const scanCanvas = document.createElement('canvas');
+                scanCanvas.width = w;
+                scanCanvas.height = h;
+                const ctx = scanCanvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const pixels = ctx.getImageData(0, 0, w, h).data;
+
+                const DARK = 200;
+                const step = 2;
+                const minDark = Math.max(3, Math.floor(w / step * 0.005));
+                const rowDark = new Array(h).fill(0);
+                for (let y = 0; y < h; y++) {
+                    let cnt = 0;
+                    for (let x = 0; x < w; x += step) {
+                        const idx = (y * w + x) * 4;
+                        if ((pixels[idx] + pixels[idx + 1] + pixels[idx + 2]) / 3 < DARK) cnt++;
+                    }
+                    rowDark[y] = cnt;
+                }
+
+                let firstRow = 0, lastRow = h - 1;
+                for (let y = 0; y < h; y++) { if (rowDark[y] > minDark) { firstRow = y; break; } }
+                for (let y = h - 1; y >= 0; y--) { if (rowDark[y] > minDark) { lastRow = y; break; } }
+
+                const minGap = Math.floor(h * 0.02);
+                const gaps = [];
+                let gapStart = null;
+                for (let y = firstRow; y <= lastRow; y++) {
+                    const blank = rowDark[y] <= minDark;
+                    if (blank && gapStart === null) gapStart = y;
+                    else if (!blank && gapStart !== null) {
+                        const size = y - gapStart;
+                        if (size >= minGap) gaps.push({ start: gapStart, end: y, size, mid: (gapStart + y) / 2 / h });
+                        gapStart = null;
+                    }
+                }
+
+                const topGaps = gaps.filter(g => g.mid < 0.45).sort((a, b) => b.size - a.size);
+                const bottomGaps = gaps.filter(g => g.mid > 0.55).sort((a, b) => b.size - a.size);
+
+                let cropTop = topGaps[0] ? topGaps[0].end : firstRow;
+                let cropBottom = bottomGaps[0] ? bottomGaps[0].start : lastRow;
+                const pad = Math.floor(h * 0.008);
+                cropTop = Math.max(0, cropTop - pad);
+                cropBottom = Math.min(h, cropBottom + pad);
+                const cropH = cropBottom - cropTop;
+
+                if (cropH <= 0 || cropH >= h * 0.90) {
+                    // Fallback: simple 3% bottom trim
+                    const fbH = Math.floor(h * 0.97);
+                    const fbCanvas = document.createElement('canvas');
+                    fbCanvas.width = w; fbCanvas.height = fbH;
+                    fbCanvas.getContext('2d').drawImage(img, 0, 0, w, fbH, 0, 0, w, fbH);
+                    resolve(fbCanvas.toDataURL('image/png'));
+                    return;
+                }
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = w; outCanvas.height = cropH;
+                const oCtx = outCanvas.getContext('2d');
+                oCtx.fillStyle = '#FFFFFF';
+                oCtx.fillRect(0, 0, w, cropH);
+                oCtx.drawImage(img, 0, cropTop, w, cropH, 0, 0, w, cropH);
+                resolve(outCanvas.toDataURL('image/png'));
+            } catch (e) {
+                resolve(base64);
+            }
+        };
+        img.onerror = () => { clearTimeout(timeout); resolve(base64); };
+        img.src = base64;
+    });
+};
+
 export const fetchPatternAndScoresheetAssets = async (pbbData) => {
     const assetUrls = {
         patterns: {},

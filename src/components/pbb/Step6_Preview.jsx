@@ -1039,7 +1039,8 @@ export const Step6_Preview = ({ formData, setFormData, isEducationMode, stepNumb
             <div className="space-y-2">
               {allDisciplines.map((pbbDiscipline) => {
                 const originalDisciplineIndex = formData.disciplines.findIndex(d => d.id === pbbDiscipline.id);
-                const groups = pbbDiscipline.patternGroups || [];
+                // Only count groups that have divisions assigned (exclude empty placeholder groups)
+                const groups = (pbbDiscipline.patternGroups || []).filter(g => g.divisions && g.divisions.length > 0);
                 const groupCount = groups.length;
                 const isDisciplineExpanded = expandedDisciplines.has(pbbDiscipline.id);
                 

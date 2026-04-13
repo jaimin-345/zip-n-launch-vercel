@@ -16,16 +16,18 @@ const createPdfFromImage = async (imageUrl, title, judgeName = '') => {
         const base64 = await fetchImageAsBase64(imageUrl);
         if (!base64) return null;
 
-        const doc = new jsPDF('p', 'pt', 'a4');
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
+        const doc = new jsPDF('p', 'pt', 'letter');
+        const pageWidth = doc.internal.pageSize.getWidth();   // 612 pt
+        const pageHeight = doc.internal.pageSize.getHeight();  // 792 pt
         const margin = SCORESHEET_LAYOUT.margin;
 
         // Reserve space at top for judge overlay (only if judge provided)
         const topReserve = judgeName ? 22 : 0;
+        // Reserve space for branding footer
+        const bottomReserve = 24;
 
         const imgMaxWidth = pageWidth - margin * 2;
-        const imgMaxHeight = pageHeight - margin * 2 - topReserve;
+        const imgMaxHeight = pageHeight - margin - topReserve - bottomReserve;
 
         const img = new Image();
         img.src = base64;
@@ -43,7 +45,8 @@ const createPdfFromImage = async (imageUrl, title, judgeName = '') => {
         imgHeight *= scale;
 
         const x = (pageWidth - imgWidth) / 2;
-        const y = (pageHeight - imgHeight - topReserve) / 2 + topReserve;
+        // Position image closer to top, not vertically centered
+        const y = margin + topReserve + 4;
 
         if (judgeName) {
             doc.setFont('helvetica', 'bold');
@@ -54,6 +57,12 @@ const createPdfFromImage = async (imageUrl, title, judgeName = '') => {
 
         const imageType = base64.includes('image/png') ? 'PNG' : 'JPEG';
         doc.addImage(base64, imageType, x, y, imgWidth, imgHeight);
+
+        // Branding — bottom-right
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(150, 150, 150);
+        doc.text('equipatterns.com', pageWidth - margin, pageHeight - 14, { align: 'right' });
 
         return doc.output('blob');
     } catch (error) {

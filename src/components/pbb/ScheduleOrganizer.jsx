@@ -405,6 +405,9 @@ import React, { useState, useMemo } from 'react';
 
         const areAllSelected = divisionsWithData.length > 0 && selectedDivisions.length === divisionsWithData.length;
 
+        // Check if all divisions have at least a Go 1 date assigned
+        const allDatesAssigned = divisionsWithData.length > 0 && divisionsWithData.every(d => !!d.go1Date);
+
         const toggleSelectAll = (checked) => {
             if (checked) {
                 setSelectedDivisions(divisionsWithData.map(d => d.id));
@@ -561,6 +564,15 @@ import React, { useState, useMemo } from 'react';
                         </DndContext>
                     </div>
                 </div>
+                {/* Subtle prompt when all dates are assigned */}
+                {allDatesAssigned && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-md bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800 animate-in fade-in duration-300">
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        <p className="text-xs text-green-700 dark:text-green-300">
+                            All dates assigned. You can now proceed to <span className="font-semibold">Tab 3 — Group Patterns</span> to organize divisions into pattern groups.
+                        </p>
+                    </div>
+                )}
             </div>
         );
     };

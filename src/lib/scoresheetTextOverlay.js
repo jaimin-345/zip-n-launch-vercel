@@ -158,6 +158,111 @@ const refineFieldBox = (ctx, img, rawField, scaleX, scaleY) => {
 };
 
 /**
+ * Draw info label box at a fixed position over the SHOW/CLASS/DATE area
+ * of a scoresheet. Uses fixed proportional coordinates since these fields
+ * are consistently in the top-right corner of all scoresheet templates.
+ *
+ * Target: ~2.75" wide × ~1" tall on a standard 8.5×11" page.
+ */
+const drawInfoLabel = (ctx, canvasW, canvasH, data) => {
+  // Fixed position: top-right corner of scoresheet
+  // SHOW/CLASS/DATE fields occupy roughly x: 50-100%, y: 1-6% on most templates
+  const labelW = Math.round(canvasW * 0.33);      // ~2.8" on 8.5" page
+  const labelH = Math.round(canvasH * 0.105);     // ~1.15" on 11" page
+  const margin = Math.round(canvasW * 0.012);      // small margin from right edge
+  const labelX = canvasW - labelW - margin;
+  const labelY = Math.round(canvasH * 0.012);      // small margin from top
+  const borderW = Math.max(1, Math.round(canvasW * 0.0012));
+  const pad = Math.round(labelW * 0.04);
+
+  // Font sizes
+  const fontBrand = Math.max(10, Math.round(labelH * 0.10));
+  const fontTitle = Math.max(13, Math.round(labelH * 0.14));
+  const fontNormal = Math.max(11, Math.round(labelH * 0.12));
+  const fontSmall = Math.max(10, Math.round(labelH * 0.11));
+  const lineGap = Math.round(labelH * 0.045);
+  const maxTextW = labelW - pad * 2;
+
+  const truncate = (text) => {
+    if (!text) return '';
+    let t = text;
+    ctx.font = `bold ${fontTitle}px Arial, Helvetica, sans-serif`;
+    while (ctx.measureText(t).width > maxTextW && t.length > 3) t = t.slice(0, -2) + '…';
+    return t;
+  };
+
+  ctx.save();
+
+  // White background (slightly larger to cover underlying field labels)
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(labelX - pad, labelY - pad, labelW + pad * 2, labelH + pad * 2);
+
+  // Border
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = borderW;
+  ctx.strokeRect(labelX, labelY, labelW, labelH);
+
+  const centerX = labelX + labelW / 2;
+  let curY = labelY + Math.round(labelH * 0.08);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+
+  // Line 1: branding
+  ctx.font = `${fontBrand}px Arial, Helvetica, sans-serif`;
+  ctx.fillStyle = '#1a5276';
+  ctx.fillText('www.equipatterns.com', centerX, curY);
+  curY += fontBrand + lineGap * 2;
+
+  // Line 2: Show name (bold)
+  if (data.showName) {
+    ctx.font = `bold ${fontTitle}px Arial, Helvetica, sans-serif`;
+    ctx.fillStyle = '#000000';
+    ctx.fillText(truncate(data.showName), centerX, curY);
+    curY += fontTitle + lineGap;
+  }
+
+  // Line 3: Class / division
+  if (data.className) {
+    ctx.font = `${fontNormal}px Arial, Helvetica, sans-serif`;
+    ctx.fillStyle = '#000000';
+    let t = data.className;
+    while (ctx.measureText(t).width > maxTextW && t.length > 3) t = t.slice(0, -2) + '…';
+    ctx.fillText(t, centerX, curY);
+    curY += fontNormal + lineGap;
+  }
+
+  // Line 4: Date
+  if (data.date) {
+    ctx.font = `${fontSmall}px Arial, Helvetica, sans-serif`;
+    ctx.fillStyle = '#000000';
+    ctx.fillText(data.date, centerX, curY);
+    curY += fontSmall + lineGap * 2;
+  }
+
+  // Line 5: Judges Name ________
+  ctx.font = `${fontSmall}px Arial, Helvetica, sans-serif`;
+  ctx.fillStyle = '#000000';
+  const jLabel = 'Judges Name';
+  const jName = data.judgeName || '';
+  const jText = jName ? `${jLabel}  ${jName}` : jLabel;
+  ctx.fillText(jText, centerX, curY);
+  // Underline
+  const jLabelW = ctx.measureText(jLabel + '  ').width;
+  const jTextW = ctx.measureText(jText).width;
+  const ulStartX = centerX - jTextW / 2 + jLabelW;
+  const ulLen = jName ? (jTextW - jLabelW) : Math.round(maxTextW * 0.35);
+  const ulY = curY + fontSmall + Math.round(lineGap * 0.4);
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = Math.max(1, borderW * 0.6);
+  ctx.beginPath();
+  ctx.moveTo(ulStartX, ulY);
+  ctx.lineTo(ulStartX + ulLen, ulY);
+  ctx.stroke();
+
+  ctx.restore();
+};
+
+/**
  * Apply text overlays to a scoresheet image at detected field positions
  * @param {string} imageUrl - URL of the scoresheet image
  * @param {Object} overlayData - Data to overlay
@@ -249,10 +354,10 @@ export const applyTextOverlay = async (imageUrl, overlayData) => {
         drawFittedText(ctx, text, x, y, w, h);
       };
 
-      drawField(fields.show, overlayData.showName, 'show');
-      drawField(fields.class, overlayData.className, 'class');
-      drawField(fields.date, overlayData.date, 'date');
-      drawField(fields.judge, overlayData.judgeName, 'judge');
+      // Draw info label over the SHOW/CLASS/DATE area (top-right of scoresheet).
+      // Uses fixed proportional positioning — scoresheets consistently have
+      // these fields in the top-right ~35% of width, top ~3-15% of height.
+      drawInfoLabel(ctx, img.width, img.height, overlayData);
     } else {
       console.warn('No field positions detected, skipping text overlay');
     }
@@ -378,6 +483,103 @@ const drawFittedText = (ctx, text, x, y, fieldWidth, fieldHeight = 20) => {
 };
 
 /**
+ * Draw an info label (white box) in the top-right corner of a scoresheet canvas.
+ * Contains: branding URL, show name, class/division, date, judge name,
+ * and a placeholder area for a future QR code.
+ *
+ * @param {CanvasRenderingContext2D} ctx - Canvas context (image already drawn)
+ * @param {number} canvasWidth - Canvas width in px
+ * @param {number} canvasHeight - Canvas height in px
+ * @param {Object} data - Label content
+ * @param {string} [data.showName] - Show/project name
+ * @param {string} [data.className] - Class or division name
+ * @param {string} [data.date] - Date string
+ * @param {string} [data.judgeName] - Judge name
+ */
+export const drawScoresheetLabel = (ctx, canvasWidth, canvasHeight, data = {}) => {
+  // --- Configuration ---
+  // Label width/height scale relative to canvas so it looks right on any resolution.
+  // Target: ~220px wide on a 1700px-wide image ≈ 13% of width.
+  const LABEL_W = Math.round(canvasWidth * 0.20);
+  const LINE_H = Math.round(canvasHeight * 0.016);  // line height
+  const PAD_X = Math.round(LINE_H * 0.6);
+  const PAD_Y = Math.round(LINE_H * 0.5);
+  const MARGIN = Math.round(canvasWidth * 0.015);     // margin from edge
+  const FONT_SM = Math.max(10, Math.round(LINE_H * 0.72));
+  const FONT_MD = Math.max(11, Math.round(LINE_H * 0.82));
+  const FONT_BOLD = Math.max(12, Math.round(LINE_H * 0.92));
+
+  // QR placeholder size (square, bottom of label)
+  const QR_SIZE = Math.round(LABEL_W * 0.3);
+
+  // Calculate content lines
+  const lines = [];
+  lines.push({ text: 'equipatterns.com', size: FONT_SM, bold: false, color: '#666666' });
+  if (data.showName) lines.push({ text: data.showName, size: FONT_BOLD, bold: true, color: '#000000' });
+  if (data.className) lines.push({ text: data.className, size: FONT_MD, bold: false, color: '#000000' });
+  if (data.date) lines.push({ text: data.date, size: FONT_SM, bold: false, color: '#333333' });
+  if (data.judgeName) lines.push({ text: `Judge: ${data.judgeName}`, size: FONT_SM, bold: false, color: '#333333' });
+
+  // Calculate total label height
+  const textHeight = lines.length * LINE_H;
+  const qrSection = QR_SIZE + PAD_Y; // space for QR placeholder
+  const LABEL_H = PAD_Y * 2 + textHeight + qrSection;
+
+  // Position: top-right corner with margin
+  const labelX = canvasWidth - LABEL_W - MARGIN;
+  const labelY = MARGIN;
+
+  // --- Draw background ---
+  ctx.save();
+  ctx.fillStyle = '#FFFFFF';
+  ctx.globalAlpha = 0.95;
+  ctx.fillRect(labelX, labelY, LABEL_W, LABEL_H);
+  ctx.globalAlpha = 1.0;
+
+  // Border
+  ctx.strokeStyle = '#CCCCCC';
+  ctx.lineWidth = Math.max(1, Math.round(canvasWidth * 0.001));
+  ctx.strokeRect(labelX, labelY, LABEL_W, LABEL_H);
+
+  // --- Draw text lines ---
+  let curY = labelY + PAD_Y + LINE_H * 0.75; // baseline of first line
+
+  for (const line of lines) {
+    ctx.fillStyle = line.color;
+    ctx.font = `${line.bold ? 'bold ' : ''}${line.size}px Arial, Helvetica, sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+
+    // Truncate if text is too wide
+    let text = line.text;
+    const maxW = LABEL_W - PAD_X * 2;
+    while (ctx.measureText(text).width > maxW && text.length > 3) {
+      text = text.slice(0, -2) + '…';
+    }
+    ctx.fillText(text, labelX + PAD_X, curY);
+    curY += LINE_H;
+  }
+
+  // --- QR placeholder (dashed box) ---
+  const qrX = labelX + (LABEL_W - QR_SIZE) / 2;
+  const qrY = curY + PAD_Y * 0.5;
+  ctx.setLineDash([Math.max(2, Math.round(canvasWidth * 0.002)), Math.max(2, Math.round(canvasWidth * 0.002))]);
+  ctx.strokeStyle = '#BBBBBB';
+  ctx.lineWidth = Math.max(1, Math.round(canvasWidth * 0.0008));
+  ctx.strokeRect(qrX, qrY, QR_SIZE, QR_SIZE);
+  ctx.setLineDash([]);
+
+  // "QR" placeholder text
+  ctx.fillStyle = '#CCCCCC';
+  ctx.font = `${Math.round(FONT_SM * 0.85)}px Arial, Helvetica, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('QR', qrX + QR_SIZE / 2, qrY + QR_SIZE / 2);
+
+  ctx.restore();
+};
+
+/**
  * Batch detect field positions for multiple image URLs.
  * Deduplicates so the same image_url only triggers one AI call.
  * @param {string[]} imageUrls - Array of image URLs (may contain duplicates)
@@ -432,10 +634,8 @@ export const applyTextOverlayWithPositions = async (imageUrl, overlayData, field
         drawFittedText(ctx, text, refined.x, refined.yCenter, refined.width, refined.height);
       };
 
-      drawField(fields.show, overlayData.showName, 'show');
-      drawField(fields.class, overlayData.className, 'class');
-      drawField(fields.date, overlayData.date, 'date');
-      drawField(fields.judge, overlayData.judgeName, 'judge');
+      // Draw info label over the SHOW/CLASS/DATE area (top-right of scoresheet)
+      drawInfoLabel(ctx, img.width, img.height, overlayData);
     }
 
     return new Promise((resolve, reject) => {

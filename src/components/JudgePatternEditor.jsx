@@ -355,7 +355,8 @@ const JudgePatternEditor = ({ project, userEmail, onSave }) => {
     <div className="space-y-4">
       {assignedDisciplines.map(({ discipline, disciplineIndex }) => {
         const disciplineId = discipline.id;
-        const groups = discipline.patternGroups || [];
+        // Only count groups that have divisions assigned (exclude empty placeholder groups)
+        const groups = (discipline.patternGroups || []).filter(g => g.divisions && g.divisions.length > 0);
         const disciplinePatterns = patterns[disciplineId] || [];
         const isLoading = loadingPatterns[disciplineId];
         
