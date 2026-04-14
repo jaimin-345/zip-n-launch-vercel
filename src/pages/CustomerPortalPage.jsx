@@ -4409,18 +4409,56 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 associationsMap[a.abbreviation] = a;
             });
 
+            // Collect ALL associations a discipline belongs to (disciplines can be multi-association).
+            // NOTE: When a user adds a class, the builder may only record ONE association on the
+            // discipline (association_id / selectedAssociations), even though the show is affiliated
+            // with multiple (e.g. both APHA + AQHA). In that case the class is implicitly valid for
+            // every show-level association — so we treat the project-level associations as the
+            // authoritative fallback whenever the discipline has no explicit multi-assoc list.
+            const projectAssocIds = Object.keys(projectData.associations || {})
+                .filter(k => projectData.associations[k])
+                .map(k => String(k).toUpperCase());
+
+            const isValidAssocKey = (k) => {
+                const s = String(k || '').trim();
+                // Reject empty, pure-numeric indices, and obvious non-abbreviation junk
+                if (!s) return false;
+                if (/^\d+$/.test(s)) return false;
+                return true;
+            };
+            const getDisciplineAssocIds = (d) => {
+                const ids = new Set();
+                if (isValidAssocKey(d.association_id)) ids.add(String(d.association_id).toUpperCase());
+                if (d.selectedAssociations && typeof d.selectedAssociations === 'object') {
+                    Object.keys(d.selectedAssociations).forEach(k => {
+                        if (d.selectedAssociations[k] && isValidAssocKey(k)) ids.add(String(k).toUpperCase());
+                    });
+                }
+                if (d.associations && typeof d.associations === 'object' && !Array.isArray(d.associations)) {
+                    Object.keys(d.associations).forEach(k => {
+                        if (d.associations[k] && isValidAssocKey(k)) ids.add(String(k).toUpperCase());
+                    });
+                }
+                // If the discipline only has 0-1 explicit associations but the show is affiliated
+                // with multiple, expand to all show-level associations so dual-affiliation shows
+                // (APHA + AQHA) generate score sheets for every association the show supports.
+                if (ids.size <= 1 && projectAssocIds.length > 1) {
+                    projectAssocIds.forEach(a => ids.add(a));
+                }
+                return [...ids];
+            };
+
             // Determine selected disciplines (empty = all), then filter by association
             let selectedDisciplines = filterDisciplines.size > 0
                 ? disciplines.filter(d => filterDisciplines.has((d.name || '').trim()))
                 : disciplines;
 
-            // Apply association filter: only include disciplines belonging to selected associations
+            // Apply association filter: include disciplines that belong to ANY selected association
             if (filterAssociations.size > 0) {
                 selectedDisciplines = selectedDisciplines.filter(d => {
-                    const aid = (d.association_id ||
-                        (d.selectedAssociations ? Object.keys(d.selectedAssociations).find(k => d.selectedAssociations[k]) : null) ||
-                        (d.associations ? Object.keys(d.associations).find(k => d.associations[k]) : null) || '').toUpperCase();
-                    return filterAssociations.has(aid);
+                    const aids = getDisciplineAssocIds(d);
+                    if (aids.length === 0) return false;
+                    return aids.some(a => filterAssociations.has(a));
                 });
             }
 
@@ -4455,101 +4493,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 if (!hasExplicitScoresheet && !hasPatternSelections) continue;
 
                 const disciplineName = (discipline.name || 'Unknown Discipline').trim();
-                const associationId = discipline.association_id ||
-                    (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
-                    (discipline.associations ? Object.keys(discipline.associations).find(key => discipline.associations[key]) : null);
+                const disciplineAssocIds = getDisciplineAssocIds(discipline);
 
-                // Lookup base scoresheet: try pattern_id first, then fallback by association+discipline
-                let baseScoresheetData = null;
+                // Each class (discipline) may belong to multiple associations (e.g. APHA + AQHA).
+                // Generate score sheets independently per association so judges/score-sheets are
+                // scoped correctly (APHA judges → APHA sheets, AQHA judges → AQHA sheets).
+                let activeAssocIds = filterAssociations.size > 0
+                    ? disciplineAssocIds.filter(a => filterAssociations.has(a))
+                    : disciplineAssocIds;
+                if (activeAssocIds.length === 0) activeAssocIds = [null];
 
-                // Try to find pattern selection for this discipline to get pattern_id
-                let disciplineSelections = patternSelections[discipline.id];
-                if (!disciplineSelections) {
-                    const dIdx = disciplines.indexOf(discipline);
-                    disciplineSelections = patternSelections[dIdx]
-                        || patternSelections[`${dIdx}`]
-                        || patternSelections[discipline.name];
-                }
-                if (!disciplineSelections && disciplineName && associationId) {
-                    const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
-                    const matchingKey = Object.keys(patternSelections).find(key => {
-                        if (!isNaN(parseInt(key))) return false;
-                        return key.toLowerCase().includes(disciplineNameNormalized.toLowerCase()) &&
-                               key.toLowerCase().includes((associationId || '').toLowerCase());
-                    });
-                    if (matchingKey) disciplineSelections = patternSelections[matchingKey];
-                }
-
-                // Collect pattern IDs from all groups in this discipline
+                // Collect all divisions within this discipline's groups (shared across associations)
                 const groups = discipline.patternGroups || [];
-                let firstPatternId = null;
-                for (const group of groups) {
-                    const groupId = group.id || `pattern-group-${groups.indexOf(group)}`;
-                    const gIdx = groups.indexOf(group);
-                    let patternSelection = disciplineSelections?.[gIdx]
-                        || disciplineSelections?.[`${gIdx}`]
-                        || disciplineSelections?.[groupId]
-                        || disciplineSelections?.[group.id];
-                    if (!patternSelection && disciplineSelections && groupId) {
-                        const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
-                            return key === groupId || key.includes('pattern-group');
-                        });
-                        if (matchingGroupKey) patternSelection = disciplineSelections[matchingGroupKey];
-                    }
-                    if (patternSelection) {
-                        const patternId = typeof patternSelection === 'object'
-                            ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id)
-                            : patternSelection;
-                        if (patternId) {
-                            let numericId = null;
-                            if (typeof patternId === 'string' && patternId.includes('-')) {
-                                const match = patternId.match(/\d+/);
-                                if (match) numericId = parseInt(match[0]);
-                            } else if (!isNaN(parseInt(patternId))) {
-                                numericId = parseInt(patternId);
-                            }
-                            if (numericId) { firstPatternId = numericId; break; }
-                        }
-                    }
-                }
-
-                // Fetch base scoresheet by pattern_id
-                if (firstPatternId) {
-                    try {
-                        const { data: ssData } = await supabase
-                            .from('tbl_scoresheet')
-                            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
-                            .eq('pattern_id', firstPatternId)
-                            .limit(1)
-                            .maybeSingle();
-                        if (ssData) baseScoresheetData = ssData;
-                    } catch (err) {
-                        console.error('Error fetching scoresheet by pattern_id:', err);
-                    }
-                }
-
-                // Fallback: fetch by association abbreviation + discipline name
-                if (!baseScoresheetData) {
-                    const association = associationsMap[associationId];
-                    const abbrev = association?.abbreviation;
-                    if (abbrev && disciplineName) {
-                        try {
-                            const { data: ssData } = await supabase
-                                .from('tbl_scoresheet')
-                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
-                                .eq('association_abbrev', abbrev)
-                                .ilike('discipline', `%${disciplineName}%`)
-                                .limit(1)
-                                .maybeSingle();
-                            if (ssData) baseScoresheetData = ssData;
-                        } catch (err) {
-                            console.error(`Error fetching scoresheet for ${disciplineName}:`, err);
-                        }
-                    }
-                }
-
-                // Collect all divisions within this discipline's groups
-                // Also build division name → date mapping for classDate
                 const disciplineDivisions = [];
                 const divisionDateMap = {};
                 for (const group of groups) {
@@ -4566,52 +4521,154 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 }
                 const uniqueDisciplineDivisions = [...new Set(disciplineDivisions)];
 
-                // Intersect with user-selected divisions
                 let matchingDivisions = uniqueDisciplineDivisions.filter(d =>
                     selectedDivisionsList.some(sel => sel.toLowerCase() === d.toLowerCase())
                 );
-
-                // Apply date filter if active
                 if (filterDates.size > 0) {
                     matchingDivisions = matchingDivisions.filter(d => {
                         const divDate = divisionDateMap[d];
                         return divDate && filterDates.has(divDate);
                     });
                 }
+                if (matchingDivisions.length === 0) continue;
 
-                // Cross-product: division x judge
-                // Scope judges to this discipline's association so APHA judges don't
-                // appear on AQHA scoresheets and vice versa.
-                let disciplineJudges = selectedJudgesList;
-                if (associationId) {
-                    const assocJudgeSet = judgesByAssociation[associationId.toUpperCase()];
-                    if (assocJudgeSet && assocJudgeSet.size > 0) {
-                        // If the user explicitly picked judges, intersect with this association's judges
-                        // If no explicit judge filter, use only this association's judges
-                        disciplineJudges = filterJudges.size > 0
-                            ? selectedJudgesList.filter(j => assocJudgeSet.has(j))
-                            : [...assocJudgeSet];
+                // Iterate per association so each association gets its own score sheets & judges
+                for (const associationId of activeAssocIds) {
+                    let baseScoresheetData = null;
+
+                    // Try to find pattern selection keyed by discipline (fallback uses association name in key)
+                    let disciplineSelections = patternSelections[discipline.id];
+                    if (!disciplineSelections) {
+                        const dIdx = disciplines.indexOf(discipline);
+                        disciplineSelections = patternSelections[dIdx]
+                            || patternSelections[`${dIdx}`]
+                            || patternSelections[discipline.name];
                     }
-                }
-                const judgesList = disciplineJudges.length > 0 ? disciplineJudges : [''];
-                for (const divisionName of matchingDivisions) {
-                    for (const judgeName of judgesList) {
-                        const uniqueKey = `${disciplineName}-${divisionName}-${judgeName}`;
-                        result.push({
-                            ...(baseScoresheetData || {}),
-                            uniqueKey,
-                            id: baseScoresheetData?.id || `gen-${uniqueKey}`,
-                            numericId: baseScoresheetData?.id || null,
-                            disciplineName,
-                            disciplineIndex: disciplines.indexOf(discipline),
-                            associationId: associationId?.toUpperCase() || '',
-                            divisionName,
-                            judgeName,
-                            classDate: divisionDateMap[divisionName] || projectData.startDate || null,
-                            displayName: `${disciplineName} Scoresheet`,
-                            image_url: baseScoresheetData?.image_url || null,
-                            generatedAt: new Date().toISOString(),
+                    if (!disciplineSelections && disciplineName && associationId) {
+                        const disciplineNameNormalized = disciplineName.replace(/\s+/g, '-');
+                        const matchingKey = Object.keys(patternSelections).find(key => {
+                            if (!isNaN(parseInt(key))) return false;
+                            return key.toLowerCase().includes(disciplineNameNormalized.toLowerCase()) &&
+                                   key.toLowerCase().includes((associationId || '').toLowerCase());
                         });
+                        if (matchingKey) disciplineSelections = patternSelections[matchingKey];
+                    }
+
+                    let firstPatternId = null;
+                    for (const group of groups) {
+                        const groupId = group.id || `pattern-group-${groups.indexOf(group)}`;
+                        const gIdx = groups.indexOf(group);
+                        let patternSelection = disciplineSelections?.[gIdx]
+                            || disciplineSelections?.[`${gIdx}`]
+                            || disciplineSelections?.[groupId]
+                            || disciplineSelections?.[group.id];
+                        if (!patternSelection && disciplineSelections && groupId) {
+                            const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
+                                return key === groupId || key.includes('pattern-group');
+                            });
+                            if (matchingGroupKey) patternSelection = disciplineSelections[matchingGroupKey];
+                        }
+                        if (patternSelection) {
+                            const patternId = typeof patternSelection === 'object'
+                                ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id)
+                                : patternSelection;
+                            if (patternId) {
+                                let numericId = null;
+                                if (typeof patternId === 'string' && patternId.includes('-')) {
+                                    const match = patternId.match(/\d+/);
+                                    if (match) numericId = parseInt(match[0]);
+                                } else if (!isNaN(parseInt(patternId))) {
+                                    numericId = parseInt(patternId);
+                                }
+                                if (numericId) { firstPatternId = numericId; break; }
+                            }
+                        }
+                    }
+
+                    const association = associationId ? associationsMap[associationId] : null;
+                    const abbrev = association?.abbreviation || (associationId || '').toString();
+
+                    // Fetch base scoresheet by pattern_id AND association abbrev (so multi-assoc disciplines
+                    // pick the correct per-association sheet). Fall back to any pattern_id match, then to
+                    // association + discipline name.
+                    if (firstPatternId && abbrev) {
+                        try {
+                            const { data: ssData } = await supabase
+                                .from('tbl_scoresheet')
+                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                                .eq('pattern_id', firstPatternId)
+                                .eq('association_abbrev', abbrev)
+                                .limit(1)
+                                .maybeSingle();
+                            if (ssData) baseScoresheetData = ssData;
+                        } catch (err) {
+                            console.error('Error fetching scoresheet by pattern_id+abbrev:', err);
+                        }
+                    }
+                    if (!baseScoresheetData && firstPatternId) {
+                        try {
+                            const { data: ssData } = await supabase
+                                .from('tbl_scoresheet')
+                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                                .eq('pattern_id', firstPatternId)
+                                .limit(1)
+                                .maybeSingle();
+                            if (ssData) baseScoresheetData = ssData;
+                        } catch (err) {
+                            console.error('Error fetching scoresheet by pattern_id:', err);
+                        }
+                    }
+                    if (!baseScoresheetData && abbrev && disciplineName) {
+                        try {
+                            const { data: ssData } = await supabase
+                                .from('tbl_scoresheet')
+                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                                .eq('association_abbrev', abbrev)
+                                .ilike('discipline', `%${disciplineName}%`)
+                                .limit(1)
+                                .maybeSingle();
+                            if (ssData) baseScoresheetData = ssData;
+                        } catch (err) {
+                            console.error(`Error fetching scoresheet for ${disciplineName}:`, err);
+                        }
+                    }
+
+                    // Judges scoped to THIS association (APHA judges → APHA sheets, etc.)
+                    let disciplineJudges = selectedJudgesList;
+                    if (associationId) {
+                        const assocJudgeSet = judgesByAssociation[associationId.toUpperCase()];
+                        if (assocJudgeSet && assocJudgeSet.size > 0) {
+                            disciplineJudges = filterJudges.size > 0
+                                ? selectedJudgesList.filter(j => assocJudgeSet.has(j))
+                                : [...assocJudgeSet];
+                        } else if (filterAssociations.size > 0) {
+                            // Association is explicitly selected but no judges mapped → no sheets for this assoc
+                            disciplineJudges = [];
+                        }
+                    }
+                    const judgesList = disciplineJudges.length > 0 ? disciplineJudges : [''];
+
+                    for (const divisionName of matchingDivisions) {
+                        for (const judgeName of judgesList) {
+                            const assocKey = (associationId || '').toString().toUpperCase();
+                            const uniqueKey = `${assocKey}-${disciplineName}-${divisionName}-${judgeName}`;
+                            result.push({
+                                ...(baseScoresheetData || {}),
+                                uniqueKey,
+                                id: baseScoresheetData?.id ? `${baseScoresheetData.id}-${assocKey}-${divisionName}-${judgeName}` : `gen-${uniqueKey}`,
+                                numericId: baseScoresheetData?.id || null,
+                                disciplineName,
+                                disciplineIndex: disciplines.indexOf(discipline),
+                                associationId: assocKey,
+                                association_abbrev: baseScoresheetData?.association_abbrev || abbrev || assocKey,
+                                divisionName,
+                                judgeName,
+                                classDate: divisionDateMap[divisionName] || projectData.startDate || null,
+                                displayName: `${disciplineName} Scoresheet`,
+                                image_url: baseScoresheetData?.image_url || null,
+                                generatedAt: new Date().toISOString(),
+                            });
+                        }
                     }
                 }
             }
