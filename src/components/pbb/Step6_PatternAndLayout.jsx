@@ -122,13 +122,28 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData, scoresheetDat
             setLoading(true);
             setImageZoom(1);
             try {
+                // OP (user-uploaded Original Patterns) use a different data source:
+                // no tbl_maneuvers entry, image comes from patterns.preview_image_url.
+                if (typeof patternId === 'string' && patternId.startsWith('op:')) {
+                    const opUuid = patternId.slice(3);
+                    setPatternManeuvers([]);
+                    const { data: opRow, error: opErr } = await supabase
+                        .from('patterns')
+                        .select('preview_image_url')
+                        .eq('id', opUuid)
+                        .maybeSingle();
+                    if (opErr) console.error('Error fetching OP pattern image:', opErr);
+                    setPatternImage(opRow?.preview_image_url || null);
+                    return;
+                }
+
                 // Fetch maneuvers
                 const { data: maneuversData, error: maneuversError } = await supabase
                     .from('tbl_maneuvers')
                     .select('step_no, instruction')
                     .eq('pattern_id', patternId)
                     .order('step_no');
-                
+
                 if (maneuversError) throw maneuversError;
                 setPatternManeuvers(maneuversData || []);
 
@@ -138,7 +153,7 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData, scoresheetDat
                     .select('image_url')
                     .eq('pattern_id', patternId)
                     .maybeSingle();
-                
+
                 if (imageError) console.error('Error fetching pattern image:', imageError);
                 setPatternImage(imageData?.image_url || null);
 
@@ -509,8 +524,45 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       
       const { data, error } = await query;
       if (error) throw error;
-      
-      setDbPatterns(prev => ({ ...prev, [disciplineId]: data || [] }));
+
+      // Layer in approved user-uploaded Original Patterns (OP) alongside legacy tbl_patterns.
+      // OPs use string ids prefixed with "op:" so they never collide with integer legacy ids.
+      let opPatterns = [];
+      try {
+        let opQuery = supabase
+          .from('patterns')
+          .select('id, name, original_file_name, class_name, tags, preview_image_url, pattern_number, review_status, use_as_original')
+          .eq('use_as_original', true)
+          .eq('review_status', 'approved')
+          .contains('tags', ['OP']);
+
+        if (!isOpenShowDiscipline) {
+          opQuery = opQuery.ilike('class_name', discipline.name);
+        }
+
+        const { data: opData, error: opError } = await opQuery;
+        if (opError) {
+          console.warn('OP fetch failed (non-fatal):', opError.message);
+        } else if (Array.isArray(opData)) {
+          opPatterns = opData.map(p => ({
+            id: `op:${p.id}`,
+            pdf_file_name: p.original_file_name || p.name || 'Original Pattern',
+            maneuvers_range: null,
+            pattern_version: 'ALL',
+            discipline: p.class_name,
+            association_name: null,
+            // OP-specific fields consumed by hover/select handlers:
+            __op: true,
+            __opId: p.id,
+            __previewImageUrl: p.preview_image_url || null,
+            __patternNumber: p.pattern_number || null,
+          }));
+        }
+      } catch (opErr) {
+        console.warn('OP fetch threw (non-fatal):', opErr);
+      }
+
+      setDbPatterns(prev => ({ ...prev, [disciplineId]: [...(data || []), ...opPatterns] }));
     } catch (err) {
       console.error('Error fetching patterns:', err);
       setDbPatterns(prev => ({ ...prev, [disciplineId]: [] }));
@@ -535,12 +587,26 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
       }
       setLoadingHoveredImage(true);
       try {
+        // OP patterns: use preview_image_url already on the patterns row
+        // (no tbl_pattern_media entry).
+        if (typeof hoveredPatternId === 'string' && hoveredPatternId.startsWith('op:')) {
+          const opUuid = hoveredPatternId.slice(3);
+          const { data: opRow, error: opErr } = await supabase
+            .from('patterns')
+            .select('preview_image_url')
+            .eq('id', opUuid)
+            .maybeSingle();
+          if (opErr) console.error('Error fetching OP hovered image:', opErr);
+          setHoveredPatternImage(opRow?.preview_image_url || null);
+          return;
+        }
+
         const { data: imageData, error: imageError } = await supabase
           .from('tbl_pattern_media')
           .select('image_url')
           .eq('pattern_id', hoveredPatternId)
           .maybeSingle();
-        
+
         if (imageError) console.error('Error fetching hovered pattern image:', imageError);
         setHoveredPatternImage(imageData?.image_url || null);
       } catch (err) {
@@ -682,17 +748,56 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
     // Use provided maneuversRangeValue (string) or get from selected pattern's maneuvers_range
     const maneuversRange = maneuversRangeValue || selectedPattern?.maneuvers_range || '';
 
+    // OP patterns keep their string id ("op:<uuid>"); legacy ids stay numeric.
+    const isOp = typeof patternId === 'string' && patternId.startsWith('op:');
+    const storedPatternId = isOp ? patternId : parseInt(patternId);
+
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
       if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
       newSelections[disciplineId][groupId] = {
         maneuversRange, // Store as string to match Step 3 format
-        patternId: parseInt(patternId),
+        patternId: storedPatternId,
         patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-        version: selectedPattern?.pattern_version || 'ALL'
+        version: selectedPattern?.pattern_version || 'ALL',
+        isOriginalPattern: isOp,
+        patternNumber: selectedPattern?.__patternNumber || null,
       };
       return { ...prev, patternSelections: newSelections };
     });
+
+    // OP patterns carry their own pattern_files (score sheet / build sheet / etc.)
+    // rather than legacy tbl_scoresheet joins. Fetch and attach those.
+    if (isOp) {
+      try {
+        const opUuid = selectedPattern?.__opId;
+        if (opUuid) {
+          const { data: files, error: filesError } = await supabase
+            .from('pattern_files')
+            .select('id, file_type, file_name, file_url, file_path, sort_order')
+            .eq('pattern_id', opUuid)
+            .order('sort_order', { ascending: true });
+
+          if (filesError) {
+            console.warn('Failed to fetch pattern_files for OP:', filesError.message);
+          } else if (files?.length) {
+            setFormData(prev => {
+              const newSelections = { ...(prev.patternSelections || {}) };
+              if (newSelections[disciplineId]?.[groupId]) {
+                newSelections[disciplineId][groupId] = {
+                  ...newSelections[disciplineId][groupId],
+                  patternFiles: files,
+                };
+              }
+              return { ...prev, patternSelections: newSelections };
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching pattern_files for OP pattern:', err);
+      }
+      return; // skip legacy scoresheet auto-link for OP patterns
+    }
 
     // Auto-fetch linked scoresheet(s) for the selected pattern
     // Working Cow Horse may have multiple (Reining + Cow Work)
@@ -2032,6 +2137,10 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                         
                                                         if (associationNamesToFilter.length > 0) {
                                                             const filteredByAssoc = filtered.filter(pattern => {
+                                                                // OP (user-uploaded Original Patterns) are already matched by
+                                                                // discipline at query time and don't carry legacy association
+                                                                // names — always let them through the association filter.
+                                                                if (pattern.__op) return true;
                                                                 const patternAssocName = (pattern.association_name || '').trim();
                                                                 if (!patternAssocName) {
                                                                     // If pattern has no association name, exclude it (patterns should have association names)
@@ -2154,13 +2263,20 @@ export const Step6_PatternAndLayout = ({ formData, setFormData, associationsData
                                                             ? `Pattern ${patternNumber}`
                                                             : `Pattern ${p.id}`;
                                                         
+                                                        const isOpItem = !!p.__op;
+                                                        const opLabel = isOpItem
+                                                            ? (p.pdf_file_name?.replace(/\.pdf$/i, '') || displayLabel)
+                                                            : displayLabel;
                                                         return (
                                                             <SelectItem
                                                                 key={p.id}
                                                                 value={p.id.toString()}
                                                             >
                                                                 <div className="flex items-center gap-2 w-full">
-                                                                    <span className="whitespace-normal break-words">{displayLabel}</span>
+                                                                    <span className="whitespace-normal break-words">{opLabel}</span>
+                                                                    {isOpItem && (
+                                                                        <Badge variant="outline" className="text-xs flex-shrink-0 bg-amber-50 text-amber-700 border-amber-300">OP</Badge>
+                                                                    )}
                                                                     {version && version !== 'ALL' && (
                                                                         <Badge variant="outline" className="text-xs flex-shrink-0">{version}</Badge>
                                                                     )}

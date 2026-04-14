@@ -119,13 +119,41 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
 
           setLoading(true);
           try {
+              const pid = currentGroup?.selectedPatternId;
+
+              // OP (user-uploaded Original Patterns) live in the `patterns` table
+              // with uuid ids prefixed `op:`. Route to that source instead of
+              // legacy tbl_patterns / tbl_maneuvers / tbl_pattern_media.
+              if (typeof pid === 'string' && pid.startsWith('op:')) {
+                  const opUuid = pid.slice(3);
+                  const { data: opRow, error: opErr } = await supabase
+                      .from('patterns')
+                      .select('id, name, original_file_name, class_name, preview_image_url, pattern_number, verbiage, tags')
+                      .eq('id', opUuid)
+                      .maybeSingle();
+                  if (opErr) throw opErr;
+                  setPatternData(opRow ? {
+                      id: pid,
+                      pdf_file_name: opRow.original_file_name || opRow.name,
+                      discipline: opRow.class_name,
+                      pattern_number: opRow.pattern_number,
+                      verbiage: opRow.verbiage,
+                      tags: opRow.tags,
+                      __op: true,
+                  } : null);
+                  setManeuvers([]);
+                  setPatternMedia(opRow?.preview_image_url ? { image_url: opRow.preview_image_url } : null);
+                  setScoresheetData(null);
+                  return;
+              }
+
               // 1. Fetch Pattern Details
               const { data: pData, error: pError } = await supabase
                   .from('tbl_patterns')
                   .select('*')
-                  .eq('id', currentGroup?.selectedPatternId)
+                  .eq('id', pid)
                   .single();
-              
+
               if (pError) throw pError;
               setPatternData(pData);
 
@@ -133,7 +161,7 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
               const { data: mData, error: mError } = await supabase
                   .from('tbl_maneuvers')
                   .select('step_no, instruction')
-                  .eq('pattern_id', currentGroup?.selectedPatternId)
+                  .eq('pattern_id', pid)
                   .order('step_no');
 
               if (mError) throw mError;
@@ -143,7 +171,7 @@ const PatternPagePreview = ({ isOpen, onClose, discipline, associationsData }) =
               const { data: mediaData, error: mediaError } = await supabase
                   .from('tbl_pattern_media')
                   .select('*')
-                  .eq('pattern_id', currentGroup?.selectedPatternId)
+                  .eq('pattern_id', pid)
                   .maybeSingle(); // Use maybeSingle in case none exists for some
 
               if (!mediaError && mediaData) {

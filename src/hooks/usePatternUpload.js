@@ -24,6 +24,7 @@ import { useState, useMemo, useEffect } from 'react';
         const [agreedToTerms, setAgreedToTerms] = useState(false);
         const [stagedPdfs, setStagedPdfs] = useState([]);
         const [accessoryDocs, setAccessoryDocs] = useState([]);
+        const [useAsOriginal, setUseAsOriginal] = useState(null); // null | true | false — forces user to answer
 
         const isCustomClass = useMemo(() => classType === 'custom', [classType]);
 
@@ -39,6 +40,7 @@ import { useState, useMemo, useEffect } from 'react';
             setAgreedToTerms(false);
             setStagedPdfs([]);
             setAccessoryDocs([]);
+            setUseAsOriginal(null);
         };
 
         const handleFileDrop = async (levelId, file) => {
@@ -274,5 +276,7 @@ import { useState, useMemo, useEffect } from 'react';
             handleAddAccessoryDoc,
             handleRemoveAccessoryDoc,
             handleUpdateAccessoryDoc,
+            useAsOriginal,
+            setUseAsOriginal,
         };
     };

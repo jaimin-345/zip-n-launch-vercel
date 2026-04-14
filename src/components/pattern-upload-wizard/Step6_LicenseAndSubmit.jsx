@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { CardHeader, CardTitle, CardDescription, CardContent, Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import LicensingAgreement from '@/components/pattern-upload/LicensingAgreement';
 import SubmissionSummary from './SubmissionSummary';
 
@@ -35,6 +37,40 @@ export const Step6_LicenseAndSubmit = ({
           uploadSlots={uploadSlots}
           onGoToStep={onGoToStep}
         />
+
+        {/* Original Pattern Usage */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Original Pattern Usage</CardTitle>
+            <CardDescription>
+              Should the original uploaded pattern be available in <strong>Choose a Pattern</strong>?
+              Selecting <em>Yes</em> tags this submission as an Original Pattern (OP).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RadioGroup
+              value={formData.useAsOriginal === null ? '' : formData.useAsOriginal ? 'yes' : 'no'}
+              onValueChange={(v) => setFormData(prev => ({ ...prev, useAsOriginal: v === 'yes' }))}
+              className="flex gap-6"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="yes" id="wiz-use-original-yes" />
+                <Label htmlFor="wiz-use-original-yes" className="cursor-pointer">
+                  Yes — make available as Original Pattern
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="no" id="wiz-use-original-no" />
+                <Label htmlFor="wiz-use-original-no" className="cursor-pointer">
+                  No — generated version only
+                </Label>
+              </div>
+            </RadioGroup>
+            {formData.useAsOriginal === null && (
+              <p className="text-xs text-amber-600 mt-2">Please select an option before submitting.</p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* License Agreement */}
         <LicensingAgreement

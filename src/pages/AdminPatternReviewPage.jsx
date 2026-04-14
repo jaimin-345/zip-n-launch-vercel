@@ -24,7 +24,7 @@ import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal
 import { ConfirmationDialog } from '@/components/ConfirmationDialog';
 import { EmailSenderModal } from '@/components/admin/EmailSenderModal';
 import { ReviewEmailModal } from '@/components/admin/ReviewEmailModal';
-import { generateNextPatternNumber, assignPatternNumber, PATTERN_LEVELS, assignPatternDisplayName, updatePatternIdentifier } from '@/lib/patternNumbering';
+import { generateNextPatternNumber, assignPatternNumber, PATTERN_LEVELS, assignPatternDisplayName, updatePatternIdentifier, generateNextSharedPatternNumber, assignSharedPatternNumber } from '@/lib/patternNumbering';
 import { generateFinalFilePdf, uploadFinalFile } from '@/lib/finalFileGenerator';
 import PatternArtifactCard from '@/components/admin/PatternArtifactCard';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
@@ -346,6 +346,21 @@ const AdminPatternReviewPage = () => {
           await assignPatternNumber(patternId, number);
         } catch (e) {
           console.warn('Failed to assign pattern number:', e);
+        }
+        // Assign shared 4-digit sequential pattern_number (used across all linked files).
+        // Skip if one is already set (re-approval shouldn't renumber).
+        try {
+          const { data: existing } = await supabase
+            .from('patterns')
+            .select('pattern_number')
+            .eq('id', patternId)
+            .single();
+          if (!existing?.pattern_number) {
+            const sharedNumber = await generateNextSharedPatternNumber();
+            await assignSharedPatternNumber(patternId, sharedNumber);
+          }
+        } catch (e) {
+          console.warn('Failed to assign shared pattern_number:', e);
         }
         // Ensure display name is assigned (backfill for older patterns without one)
         try {
@@ -700,10 +715,31 @@ const AdminPatternReviewPage = () => {
 
     if (error) {
       toast({ title: `Bulk ${newStatus} failed`, description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: `Bulk ${newStatus} complete`, description: `${selectedPatternSets.length} set(s) updated.` });
-      fetchPatterns();
+      return;
     }
+
+    // On bulk approval, assign a shared sequential pattern_number to each
+    // newly-approved pattern (one at a time to keep the sequence monotonic).
+    if (newStatus === 'approved') {
+      for (const patternId of allPatternIds) {
+        try {
+          const { data: existing } = await supabase
+            .from('patterns')
+            .select('pattern_number')
+            .eq('id', patternId)
+            .single();
+          if (!existing?.pattern_number) {
+            const sharedNumber = await generateNextSharedPatternNumber();
+            await assignSharedPatternNumber(patternId, sharedNumber);
+          }
+        } catch (e) {
+          console.warn('Failed to assign shared pattern_number (bulk):', e);
+        }
+      }
+    }
+
+    toast({ title: `Bulk ${newStatus} complete`, description: `${selectedPatternSets.length} set(s) updated.` });
+    fetchPatterns();
   };
 
   const toggleExpanded = (setKey) => {

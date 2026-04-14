@@ -88,8 +88,19 @@ export const submitPatternSet = async (formData, user) => {
     });
   }
 
+  // Phase 1/2: OP flag + tags. pattern_number is intentionally NOT set here —
+  // it's assigned sequentially on admin approval (AdminPatternReviewPage).
+  const useAsOriginal = !!formData.useAsOriginal;
+  const tags = [];
+  if (useAsOriginal) tags.push('OP');
+  if (uploadedPatterns.length > 1) tags.push('Multi');
+
   // 2. Insert pattern records
-  const dbPatterns = uploadedPatterns.map(({ originalId, ...rest }) => rest);
+  const dbPatterns = uploadedPatterns.map(({ originalId, ...rest }) => ({
+    ...rest,
+    use_as_original: useAsOriginal,
+    tags,
+  }));
   const { data: insertedPatterns, error: dbError } = await supabase
     .from('patterns')
     .insert(dbPatterns)
@@ -103,6 +114,21 @@ export const submitPatternSet = async (formData, user) => {
     const original = uploadedPatterns.find(p => p.file_path === dbPattern.file_path);
     if (original) idMap[original.originalId] = dbPattern.id;
   });
+
+  // Phase 1: mirror each uploaded pattern PDF into pattern_files. Accessory docs
+  // are mirrored further below in step 8.
+  const patternFileRows = insertedPatterns.map(dbPattern => ({
+    pattern_id: dbPattern.id,
+    file_type: 'pattern',
+    file_name: dbPattern.name,
+    file_url: dbPattern.file_url,
+    file_path: dbPattern.file_path,
+    sort_order: 0,
+  }));
+  if (patternFileRows.length > 0) {
+    const { error: pfError } = await supabase.from('pattern_files').insert(patternFileRows);
+    if (pfError) console.warn('pattern_files insert error:', pfError.message);
+  }
 
   // 3. Insert pattern_associations
   const associationInserts = insertedPatterns.flatMap(dbPattern => {
@@ -249,6 +275,13 @@ export const submitPatternSet = async (formData, user) => {
 
     const { data: { publicUrl } } = supabase.storage.from('pattern_files').getPublicUrl(docPath);
 
+    const fileTypeMap = {
+      score_sheet: 'score_sheet',
+      build_sheet: 'build_sheet',
+      equipment: 'equipment',
+    };
+    const mappedType = fileTypeMap[doc.type] || 'accessory';
+
     for (const dbPatternId of linkedDbIds) {
       await supabase.from('pattern_accessory_documents').insert({
         pattern_id: dbPatternId,
@@ -256,6 +289,15 @@ export const submitPatternSet = async (formData, user) => {
         file_name: doc.file.name,
         file_url: publicUrl,
         file_path: docPath,
+      });
+      // Mirror into pattern_files (unified multi-file view).
+      await supabase.from('pattern_files').insert({
+        pattern_id: dbPatternId,
+        file_type: mappedType,
+        file_name: doc.file.name,
+        file_url: publicUrl,
+        file_path: docPath,
+        sort_order: 1,
       });
     }
   }

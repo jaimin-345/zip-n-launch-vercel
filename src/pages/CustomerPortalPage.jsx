@@ -1711,8 +1711,21 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
     
     // Extract people data
     const getPeopleData = () => {
-        const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
-        const admin = projectData.secondAdmin || projectData.officials?.find(o => o.role === 'admin')?.name || 'Not set';
+        // adminOwner is sometimes a string, sometimes an object { adminName, ownerName, ... }
+        // depending on which builder step wrote it. Normalize to a string.
+        const ownerRaw = projectData.adminOwner;
+        const ownerFromObject = ownerRaw && typeof ownerRaw === 'object'
+            ? (ownerRaw.ownerName || ownerRaw.adminName || '')
+            : '';
+        const owner = (typeof ownerRaw === 'string' ? ownerRaw : ownerFromObject)
+            || profile?.full_name || user?.email || 'Not set';
+
+        const secondAdminRaw = projectData.secondAdmin;
+        const adminFromObject = secondAdminRaw && typeof secondAdminRaw === 'object'
+            ? (secondAdminRaw.adminName || secondAdminRaw.name || '')
+            : '';
+        const admin = (typeof secondAdminRaw === 'string' ? secondAdminRaw : adminFromObject)
+            || projectData.officials?.find(o => o.role === 'admin')?.name || 'Not set';
         
         // Count judges from associationJudges + showDetails.judges + patternSelections
         const judgeNames = new Set();
@@ -4625,10 +4638,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
 
     // Get people data
     const getPeopleData = () => {
-        const owner = projectData.adminOwner || profile?.full_name || user?.email || 'Not set';
-        
+        // adminOwner / secondAdmin can be a string or an object like
+        // { adminName, ownerName, adminEmail, ... }. Normalize to string.
+        const ownerRaw = projectData.adminOwner;
+        const ownerFromObject = ownerRaw && typeof ownerRaw === 'object'
+            ? (ownerRaw.ownerName || ownerRaw.adminName || '')
+            : '';
+        const owner = (typeof ownerRaw === 'string' ? ownerRaw : ownerFromObject)
+            || profile?.full_name || user?.email || 'Not set';
+
         // Get admin - check secondAdmin or officials with admin role
-        let admin = projectData.secondAdmin || 'Not set';
+        const secondAdminRaw = projectData.secondAdmin;
+        const adminFromObject = secondAdminRaw && typeof secondAdminRaw === 'object'
+            ? (secondAdminRaw.adminName || secondAdminRaw.name || '')
+            : '';
+        let admin = (typeof secondAdminRaw === 'string' ? secondAdminRaw : adminFromObject) || 'Not set';
         if (admin === 'Not set') {
             const adminOfficial = projectData.officials?.find(o => o.role === 'admin');
             admin = adminOfficial?.name || 'Not set';

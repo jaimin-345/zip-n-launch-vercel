@@ -16,7 +16,9 @@ import { supabase } from '@/lib/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 import PatternPreviewModal from '@/components/pattern-upload/PatternPreviewModal';
 import AccessoryDocumentUploader from '@/components/pattern-upload/AccessoryDocumentUploader';
+import PatternUploadPreviewStep from '@/components/pattern-upload/PatternUploadPreviewStep';
 import { assignPatternDisplayName } from '@/lib/patternNumbering';
+import { pdfjs } from 'react-pdf';
 
 const PatternUploadPage = () => {
     const { toast } = useToast();
@@ -49,7 +51,11 @@ const PatternUploadPage = () => {
         handleAddAccessoryDoc,
         handleRemoveAccessoryDoc,
         handleUpdateAccessoryDoc,
+        useAsOriginal,
+        setUseAsOriginal,
     } = usePatternUpload();
+
+    const [step, setStep] = useState('edit'); // 'edit' | 'preview'
 
     const [hoveredPattern, setHoveredPattern] = useState(null);
     const [previewingPattern, setPreviewingPattern] = useState(null);
@@ -113,6 +119,10 @@ const PatternUploadPage = () => {
             toast({ title: 'Terms Not Accepted', description: 'You must agree to the terms and conditions.', variant: 'destructive' });
             return;
         }
+        if (useAsOriginal === null) {
+            toast({ title: 'Answer Required', description: 'Please confirm whether the original pattern should appear in Choose a Pattern.', variant: 'destructive' });
+            return;
+        }
         
         const uploadedPatternCount = Object.keys(patterns).filter(key => patterns[key]).length;
         if (uploadedPatternCount === 0) {
@@ -152,6 +162,7 @@ const PatternUploadPage = () => {
                     hierarchy_order: hierarchyOrder.findIndex(h => h.id === p.id),
                     associations: Object.keys(selectedAssociations),
                     divisions: patternDivisions[p.id] || {},
+                    rawFile: p.file,
                 };
             }).filter(p => p);
 
@@ -162,6 +173,12 @@ const PatternUploadPage = () => {
                 setIsSubmitting(false);
                 return;
             }
+
+            // pattern_number is intentionally not assigned at upload.
+            // It's assigned sequentially on admin approval (see AdminPatternReviewPage).
+            const tags = [];
+            if (useAsOriginal) tags.push('OP');
+            if (uploadedPatternsData.length > 1) tags.push('Multi');
 
             const dbPatterns = uploadedPatternsData.map(p => ({
                 name: p.name,
@@ -174,6 +191,8 @@ const PatternUploadPage = () => {
                 is_custom: p.is_custom,
                 review_status: p.review_status,
                 hierarchy_order: p.hierarchy_order,
+                use_as_original: !!useAsOriginal,
+                tags,
             }));
 
             const { data: insertedPatterns, error: dbError } = await supabase
@@ -238,7 +257,55 @@ const PatternUploadPage = () => {
                 if (divError) throw new Error(`Division link error: ${divError.message}`);
             }
 
-            const accessoryDocUploads = accessoryDocs.flatMap(doc => 
+            // Render page 1 of each uploaded PDF as a PNG preview so the admin
+            // Pattern column has something to show before any manual extraction.
+            // This is a raw first-page render, not the cleaned diagram crop the
+            // wizard produces — admin can still replace it via the edit dialog.
+            for (const dbPattern of insertedPatterns) {
+                const original = uploadedPatternsData.find(p => p.file_path === dbPattern.file_path);
+                if (!original?.rawFile) continue;
+                try {
+                    const buf = await original.rawFile.arrayBuffer();
+                    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buf) }).promise;
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+                    if (!blob) continue;
+
+                    const imgPath = `${user.id}/pattern_images/${uuidv4()}.png`;
+                    const { error: upErr } = await supabase.storage
+                        .from('pattern_files')
+                        .upload(imgPath, blob, { contentType: 'image/png' });
+                    if (upErr) { console.warn('Preview upload failed:', upErr.message); continue; }
+
+                    const { data: { publicUrl } } = supabase.storage.from('pattern_files').getPublicUrl(imgPath);
+                    await supabase.from('patterns').update({ preview_image_url: publicUrl }).eq('id', dbPattern.id);
+                } catch (err) {
+                    console.warn('Pattern preview render failed:', err);
+                }
+            }
+
+            // Record each uploaded pattern PDF as a pattern_files row (Task 4).
+            // Accessory docs below are also inserted into pattern_files for a unified
+            // multi-file view, in addition to the legacy pattern_accessory_documents table.
+            const patternFileRows = insertedPatterns.map(dbPattern => ({
+                pattern_id: dbPattern.id,
+                file_type: 'pattern',
+                file_name: dbPattern.original_file_name || dbPattern.name,
+                file_url: dbPattern.file_url,
+                file_path: dbPattern.file_path,
+                sort_order: 0,
+            }));
+            if (patternFileRows.length > 0) {
+                const { error: pfError } = await supabase.from('pattern_files').insert(patternFileRows);
+                if (pfError) throw new Error(`Pattern files error: ${pfError.message}`);
+            }
+
+            const accessoryDocUploads = accessoryDocs.flatMap(doc =>
                 doc.linkedPatternIds.map(originalPatternId => ({
                     doc,
                     dbPatternId: originalIdToDbIdMap[originalPatternId]
@@ -264,10 +331,28 @@ const PatternUploadPage = () => {
                     file_url: publicUrl,
                     file_path: filePath,
                 });
+
+                // Also mirror into pattern_files so Choose-a-Pattern can pull all
+                // linked files uniformly. Map legacy doc.type → pattern_files.file_type.
+                const fileTypeMap = {
+                    score_sheet: 'score_sheet',
+                    build_sheet: 'build_sheet',
+                    equipment: 'equipment',
+                };
+                const mappedType = fileTypeMap[doc.type] || 'accessory';
+                await supabase.from('pattern_files').insert({
+                    pattern_id: dbPatternId,
+                    file_type: mappedType,
+                    file_name: doc.file.name,
+                    file_url: publicUrl,
+                    file_path: filePath,
+                    sort_order: 1,
+                });
             }
 
             toast({ title: 'Success!', description: 'Your pattern set has been submitted for review.' });
             resetForm();
+            setStep('edit');
 
         } catch (error) {
             toast({ title: 'Submission Failed', description: error.message, variant: 'destructive' });
@@ -295,6 +380,19 @@ const PatternUploadPage = () => {
                             </CardDescription>
                         </CardHeader>
 
+                        {step === 'preview' ? (
+                            <PatternUploadPreviewStep
+                                patternSetName={patternSetName}
+                                patterns={patterns}
+                                hierarchyOrder={hierarchyOrder}
+                                useAsOriginal={useAsOriginal}
+                                setUseAsOriginal={setUseAsOriginal}
+                                onBack={() => setStep('edit')}
+                                onSubmit={handleSubmit}
+                                isSubmitting={isSubmitting}
+                                agreedToTerms={agreedToTerms}
+                            />
+                        ) : (
                         <div className="space-y-8">
                             <PatternDetails
                                 patternSetName={patternSetName}
@@ -346,15 +444,17 @@ const PatternUploadPage = () => {
                             />
 
                             <div>
-                              <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting || !user || !agreedToTerms || !hasPatterns}>
-                                  {isSubmitting ? (
-                                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Submitting...</>
-                                  ) : (
-                                    <><CheckCircle className="mr-2 h-5 w-5" /> Submit Patterns</>
-                                  )}
+                              <Button
+                                size="lg"
+                                className="w-full"
+                                onClick={() => setStep('preview')}
+                                disabled={!user || !agreedToTerms || !hasPatterns}
+                              >
+                                <CheckCircle className="mr-2 h-5 w-5" /> Preview &amp; Continue
                               </Button>
                             </div>
                         </div>
+                        )}
                     </motion.div>
                 </main>
 

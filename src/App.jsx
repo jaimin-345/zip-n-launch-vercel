@@ -26,7 +26,6 @@ import AITrainingManualPage from '@/pages/AITrainingManualPage';
 import SponsorshipIntelligencePage from '@/pages/SponsorshipIntelligencePage';
 import AssetLibraryPage from '@/pages/AssetLibraryPage';
 import CustomPatternSetPage from '@/pages/CustomPatternSetPage';
-import PatternUploadPage from '@/pages/PatternUploadPage';
 import PatternUploadWizardPage from '@/pages/PatternUploadWizardPage';
 import ScoreSheetGeneratorPage from '@/pages/ScoreSheetGeneratorPage';
 import AIScoreSheetManagerPage from '@/pages/AIScoreSheetManagerPage';
@@ -260,7 +259,6 @@ function App() {
                   <Route path="/upload-patterns" element={<PatternUploadLandingPage />} />
                   <Route path="/upload-patterns/new" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/edit/:projectId" element={<MembershipRoute><PatternUploadWizardPage /></MembershipRoute>} />
-                  <Route path="/upload-patterns/legacy" element={<MembershipRoute><PatternUploadPage /></MembershipRoute>} />
                   <Route path="/upload-patterns/extractor" element={<AdminRoute><AdminPatternExtractorPage /></AdminRoute>} />
                   <Route path="/score-sheet-generator" element={<ScoreSheetGeneratorPage />} />
                 </Routes>

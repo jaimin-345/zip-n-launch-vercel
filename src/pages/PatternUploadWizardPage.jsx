@@ -140,6 +140,14 @@ const PatternUploadWizardPage = () => {
       toast({ title: 'No Patterns', description: 'Please upload at least one pattern.', variant: 'destructive' });
       return;
     }
+    if (formData.useAsOriginal === null || formData.useAsOriginal === undefined) {
+      toast({
+        title: 'Answer Required',
+        description: 'Please confirm whether the original pattern should appear in Choose a Pattern.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {

@@ -201,6 +201,41 @@ export async function assignPatternNumber(patternId, patternNumber) {
 }
 
 /**
+ * Generate the next global sequential pattern_number (e.g., "0014").
+ * Counts only numeric 4-digit pattern_numbers already assigned.
+ * Not transactionally safe — concurrent admins approving simultaneously
+ * could produce duplicates. For current scale that's acceptable.
+ */
+export async function generateNextSharedPatternNumber() {
+  const { data, error } = await supabase
+    .from('patterns')
+    .select('pattern_number')
+    .not('pattern_number', 'is', null);
+
+  if (error) {
+    throw new Error(`Failed to read existing pattern_numbers: ${error.message}`);
+  }
+
+  let max = 0;
+  for (const row of data || []) {
+    const n = parseInt(row.pattern_number, 10);
+    if (!isNaN(n) && n > max) max = n;
+  }
+  return String(max + 1).padStart(4, '0');
+}
+
+/**
+ * Assign the shared pattern_number (used across all linked pattern_files).
+ */
+export async function assignSharedPatternNumber(patternId, number) {
+  const { error } = await supabase
+    .from('patterns')
+    .update({ pattern_number: number })
+    .eq('id', patternId);
+  return { error };
+}
+
+/**
  * Get the public-facing name for a pattern.
  * Prefers display_name, falls back to name.
  */

@@ -34,13 +34,27 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
             setLoading(true);
             setImageZoom(1);
             try {
+                // OP (user-uploaded Original Patterns): skip legacy tables.
+                if (typeof patternId === 'string' && patternId.startsWith('op:')) {
+                    const opUuid = patternId.slice(3);
+                    setPatternManeuvers([]);
+                    const { data: opRow, error: opErr } = await supabase
+                        .from('patterns')
+                        .select('preview_image_url')
+                        .eq('id', opUuid)
+                        .maybeSingle();
+                    if (opErr) console.error('Error fetching OP pattern image:', opErr);
+                    setPatternImage(opRow?.preview_image_url || null);
+                    return;
+                }
+
                 // Fetch maneuvers
                 const { data: maneuversData, error: maneuversError } = await supabase
                     .from('tbl_maneuvers')
                     .select('step_no, instruction')
                     .eq('pattern_id', patternId)
                     .order('step_no');
-                
+
                 if (maneuversError) throw maneuversError;
                 setPatternManeuvers(maneuversData || []);
 
@@ -50,7 +64,7 @@ const PatternBadgeWithHover = ({ patternId, displayText, formData }) => {
                     .select('image_url')
                     .eq('pattern_id', patternId)
                     .maybeSingle();
-                
+
                 if (imageError) console.error('Error fetching pattern image:', imageError);
                 setPatternImage(imageData?.image_url || null);
 

@@ -49,6 +49,7 @@ const initialFormData = {
   // Step 6: License & Submit
   agreedToTerms: false,
   submissionNotes: '',
+  useAsOriginal: null, // null | true | false — user must explicitly answer before submit
 };
 
 export const usePatternUploadWizard = (projectId) => {

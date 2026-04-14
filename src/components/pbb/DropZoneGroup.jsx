@@ -933,13 +933,27 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
       // Reset zoom when pattern changes
       setImageZoom(1);
             try {
+                // OP patterns live in `patterns` table, not legacy tbl_*.
+                if (typeof currentPatternId === 'string' && currentPatternId.startsWith('op:')) {
+                    const opUuid = currentPatternId.slice(3);
+                    setPatternManeuvers([]);
+                    const { data: opRow, error: opErr } = await supabase
+                        .from('patterns')
+                        .select('preview_image_url')
+                        .eq('id', opUuid)
+                        .maybeSingle();
+                    if (opErr) console.error('Error fetching OP pattern image:', opErr);
+                    setPatternImage(opRow?.preview_image_url || null);
+                    return;
+                }
+
                 // Fetch maneuvers
                 const { data: maneuversData, error: maneuversError } = await supabase
                     .from('tbl_maneuvers')
                     .select('step_no, instruction')
                     .eq('pattern_id', currentPatternId)
                     .order('step_no');
-                
+
                 if (maneuversError) throw maneuversError;
                 setPatternManeuvers(maneuversData || []);
 
@@ -949,7 +963,7 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
                     .select('image_url')
                     .eq('pattern_id', currentPatternId)
                     .maybeSingle();
-                
+
                 if (imageError) console.error('Error fetching pattern image:', imageError);
                 setPatternImage(imageData?.image_url || null);
 
@@ -971,12 +985,24 @@ const DropZoneGroup = ({ group, index, pbbDiscipline, handleGroupFieldChange, ha
             }
             setLoadingHoveredImage(true);
             try {
+                if (typeof hoveredPatternId === 'string' && hoveredPatternId.startsWith('op:')) {
+                    const opUuid = hoveredPatternId.slice(3);
+                    const { data: opRow, error: opErr } = await supabase
+                        .from('patterns')
+                        .select('preview_image_url')
+                        .eq('id', opUuid)
+                        .maybeSingle();
+                    if (opErr) console.error('Error fetching OP hovered image:', opErr);
+                    setHoveredPatternImage(opRow?.preview_image_url || null);
+                    return;
+                }
+
                 const { data: imageData, error: imageError } = await supabase
                     .from('tbl_pattern_media')
                     .select('image_url')
                     .eq('pattern_id', hoveredPatternId)
                     .maybeSingle();
-                
+
                 if (imageError) console.error('Error fetching hovered pattern image:', imageError);
                 setHoveredPatternImage(imageData?.image_url || null);
             } catch (err) {
