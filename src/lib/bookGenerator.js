@@ -37,7 +37,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         if (logoBase64) {
             try {
                 const imgType = logoBase64.substring(logoBase64.indexOf('/') + 1, logoBase64.indexOf(';'));
-                doc.addImage(logoBase64, imgType.toUpperCase(), margin, margin / 2 + 1, logoSize, logoSize);
+                let drawW = logoSize, drawH = logoSize, dx = margin, dy = margin / 2 + 1;
+                try {
+                    const props = doc.getImageProperties(logoBase64);
+                    const ratio = Math.min(logoSize / props.width, logoSize / props.height);
+                    drawW = props.width * ratio;
+                    drawH = props.height * ratio;
+                    dx = margin + (logoSize - drawW) / 2;
+                    dy = margin / 2 + 1 + (logoSize - drawH) / 2;
+                } catch (_) {}
+                doc.addImage(logoBase64, imgType.toUpperCase(), dx, dy, drawW, drawH);
             } catch (e) { /* ignore logo errors */ }
         }
         doc.setFontSize(10);
@@ -110,6 +119,23 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.addImage(base64, imageType.toUpperCase(), x, y, width, height);
         } catch (e) {
             console.error("Failed to add image", e);
+        }
+    };
+
+    // Place an image inside a centered box, preserving its aspect ratio.
+    // Used for logos so they never stretch or distort.
+    const addContainedImage = async (base64, boxX, boxY, boxW, boxH) => {
+        if (!base64) return;
+        try {
+            const props = doc.getImageProperties(base64);
+            const ratio = Math.min(boxW / props.width, boxH / props.height);
+            const drawW = props.width * ratio;
+            const drawH = props.height * ratio;
+            const x = boxX + (boxW - drawW) / 2;
+            const y = boxY + (boxH - drawH) / 2;
+            await addImageToPage(base64, x, y, drawW, drawH);
+        } catch (e) {
+            await addImageToPage(base64, boxX, boxY, boxW, boxH);
         }
     };
 
@@ -314,11 +340,16 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         coverImageBase64 = await fetchImageAsBase64(pbbData.marketing.coverImage.fileUrl);
     }
     
-    // Load show logo (for cover page and header)
+    // Load show logo (for cover page and header). Prefer explicit showLogoUrl,
+    // otherwise fall back to the first uploaded "Show Logos" file from Step 6.
     let showLogoCoverBase64 = null;
     let showLogoHeaderBase64 = null;
-    if (pbbData.showLogoUrl) {
-        const rawLogo = await fetchImageAsBase64(pbbData.showLogoUrl);
+    const uploadedShowLogo = (pbbData.generalMarketing || []).find(
+        f => f && (f.fileUrl || f.url) && /\.(png|jpe?g|gif|webp|svg)$/i.test(f.fileName || f.customName || f.fileUrl || '')
+    );
+    const showLogoSource = pbbData.showLogoUrl || uploadedShowLogo?.fileUrl || uploadedShowLogo?.url || null;
+    if (showLogoSource) {
+        const rawLogo = await fetchImageAsBase64(showLogoSource);
         if (rawLogo) {
             showLogoCoverBase64 = await compressImage(rawLogo, 200, 200, 0.8);
             showLogoHeaderBase64 = await compressImage(rawLogo, 80, 80, 0.7);
@@ -532,6 +563,39 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     }
 
 
+    // Helper: render a single horizontal row of sponsor logos along the
+    // bottom of the cover page, above the social-media icon strip. Keeps
+    // each logo's aspect ratio and scales the row to fit the page width.
+    // Band origin set by whichever cover layout runs; defaults keep a sensible
+    // bottom-of-page band if the layout code didn't set them.
+    let sponsorBandTop = pageHeight - margin - 200;
+    let sponsorBandHeight = 200;
+
+    const drawCoverSponsorRow = async () => {
+        if (!sponsorLogosBase64 || sponsorLogosBase64.length === 0) return;
+
+        const labelY = sponsorBandTop + 18;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(80, 80, 80);
+        doc.text('SPONSORS', pageWidth / 2, labelY, { align: 'center' });
+
+        const logosTop = labelY + 14;
+        const logosBottom = sponsorBandTop + sponsorBandHeight - 10;
+        const bandRowH = Math.max(60, logosBottom - logosTop);
+        const bandRowW = pageWidth - margin * 2 - 40;
+
+        const count = sponsorLogosBase64.length;
+        const gap = 16;
+        const cellW = Math.min(140, (bandRowW - gap * (count - 1)) / count);
+        const totalW = cellW * count + gap * (count - 1);
+        let x = (pageWidth - totalW) / 2;
+        for (const logo of sponsorLogosBase64) {
+            await addContainedImage(logo, x, logosTop, cellW, bandRowH);
+            x += cellW + gap;
+        }
+    };
+
     // --- Cover Page ---
     if (skipCoverAndToc) {
         // Hub mode: no cover page, no TOC, no pattern list — jump straight to patterns
@@ -550,65 +614,85 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         doc.setLineWidth(3);
         doc.rect(margin + 5, margin + 5, pageWidth - (margin * 2) - 10, pageHeight - (margin * 2) - 10, 'S');
         
-        // Title Section
-        const centerY = pageHeight / 2;
-        const logoOffset = showLogoCoverBase64 ? 50 : 0;
+        // --- Three equal horizontal bands: logo | title | sponsors ---
+        const innerTop = margin + 20;
+        const innerBottom = pageHeight - margin - 20;
+        const bandH = (innerBottom - innerTop) / 3;
+        const band1Top = innerTop;                 // Show logo
+        const band2Top = innerTop + bandH;         // Title + meta
+        const band3Top = innerTop + bandH * 2;     // Sponsors
 
-        // Show Logo (centered above title)
+        // BAND 1: Show Logo (centered in band)
         if (showLogoCoverBase64) {
-            const logoSize = 80;
-            await addImageToPage(showLogoCoverBase64, (pageWidth - logoSize) / 2, centerY - 80 - logoSize - 10, logoSize, logoSize);
+            const logoBoxW = Math.min(pageWidth - margin * 2 - 40, 360);
+            const logoBoxH = bandH - 30;
+            await addContainedImage(
+                showLogoCoverBase64,
+                (pageWidth - logoBoxW) / 2,
+                band1Top + 15,
+                logoBoxW,
+                logoBoxH
+            );
         }
 
+        // BAND 2: Title + Date + Venue + Associations (vertically centered)
         doc.setTextColor(0, 0, 0);
         const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
-        // Auto-fit the title so long show names (e.g. "California Paint Horse
-        // Association APHA-AQHA-Open Show") don't overflow or overlap the date.
         const titleFit = fitTextLines(showTitle, {
             maxWidth: pageWidth - 140,
             maxLines: 3,
-            startSize: 50,
+            startSize: 44,
             minSize: 22,
             font: 'times',
             style: 'bold',
         });
+        const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
+        const hasDates = pbbData.startDate && pbbData.endDate;
+        const blockH =
+            titleFit.lines.length * titleFit.size * 1.15 +
+            24 + // decorative line gap
+            (hasDates ? 28 : 0) +
+            (pbbData.venueAddress ? 22 : 0) +
+            (associations.length > 0 ? 24 : 0);
+        let cursorY = band2Top + (bandH - blockH) / 2 + titleFit.size;
+
         doc.setFont('times', 'bold');
         doc.setFontSize(titleFit.size);
-        const titleTopY = centerY - 80 + logoOffset;
-        doc.text(titleFit.lines, pageWidth / 2, titleTopY, { align: 'center' });
-        const titleBottomY = titleTopY + (titleFit.lines.length - 1) * titleFit.size * 1.15;
+        doc.text(titleFit.lines, pageWidth / 2, cursorY, { align: 'center' });
+        cursorY += (titleFit.lines.length - 1) * titleFit.size * 1.15 + 20;
 
-        // Decorative Line — placed just below the (possibly wrapped) title.
-        const lineY = titleBottomY + 28;
+        // Decorative line
         doc.setLineWidth(1);
-        doc.line(pageWidth / 2 - 100, lineY, pageWidth / 2 + 100, lineY);
+        doc.line(pageWidth / 2 - 100, cursorY, pageWidth / 2 + 100, cursorY);
+        cursorY += 24;
 
-        // Date & Location — positioned relative to the decorative line so
-        // they never collide with a wrapped title.
         doc.setFont('times', 'italic');
-        doc.setFontSize(24);
-
-        let infoY = lineY + 34;
-        if (pbbData.startDate && pbbData.endDate) {
+        doc.setFontSize(20);
+        if (hasDates) {
             const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-            doc.text(dateText, pageWidth / 2, infoY, { align: 'center' });
-            infoY += 34;
+            doc.text(dateText, pageWidth / 2, cursorY, { align: 'center' });
+            cursorY += 24;
         }
 
         if (pbbData.venueAddress) {
-            doc.setFontSize(18);
-            doc.setFont('times', 'normal');
-            doc.text(pbbData.venueAddress, pageWidth / 2, infoY, { align: 'center', maxWidth: pageWidth - 120 });
-        }
-        
-        // Associations at bottom
-        const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
-        if (associations.length > 0) {
             doc.setFontSize(14);
+            doc.setFont('times', 'normal');
+            doc.text(pbbData.venueAddress, pageWidth / 2, cursorY, { align: 'center', maxWidth: pageWidth - 120 });
+            cursorY += 22;
+        }
+
+        if (associations.length > 0) {
+            doc.setFontSize(13);
             doc.setFont('times', 'bold');
             const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
-            doc.text(assocText, pageWidth / 2, pageHeight - margin - 55, { align: 'center' });
+            doc.text(assocText, pageWidth / 2, cursorY, { align: 'center' });
         }
+
+        // Expose band 3 origin to the sponsor helper via closure variable
+        sponsorBandTop = band3Top;
+        sponsorBandHeight = bandH;
+        // Sponsor logos row at bottom of cover (Layout B)
+        await drawCoverSponsorRow();
         // Social media icons
         drawSocialIcons(pageHeight - margin - 20);
     } else if (pbbData.coverPageOption !== 'none') {
@@ -625,57 +709,77 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             doc.setLineWidth(3);
             doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2), 'S');
             
-            const logoOffsetA = showLogoCoverBase64 ? 50 : 0;
+            // Three equal bands (Layout A): logo | title | sponsors
+            const innerTopA = margin + 20;
+            const innerBottomA = pageHeight - margin - 20;
+            const bandHA = (innerBottomA - innerTopA) / 3;
+            const band1TopA = innerTopA;
+            const band2TopA = innerTopA + bandHA;
+            const band3TopA = innerTopA + bandHA * 2;
 
-            // Show Logo (centered above title)
             if (showLogoCoverBase64) {
-                const logoSize = 80;
-                await addImageToPage(showLogoCoverBase64, (pageWidth - logoSize) / 2, pageHeight / 2 - 100 - logoSize - 10, logoSize, logoSize);
+                const logoBoxWA = Math.min(pageWidth - margin * 2 - 40, 360);
+                const logoBoxHA = bandHA - 30;
+                await addContainedImage(
+                    showLogoCoverBase64,
+                    (pageWidth - logoBoxWA) / 2,
+                    band1TopA + 15,
+                    logoBoxWA,
+                    logoBoxHA
+                );
             }
 
-            // Title — auto-fit so long show names don't overlap the metadata
+            // BAND 2: Title + meta, vertically centered
             doc.setTextColor(0, 0, 0);
             const showTitle = (pbbData.showName || 'Pattern Book').toUpperCase();
             const titleFitA = fitTextLines(showTitle, {
                 maxWidth: pageWidth - 100,
                 maxLines: 3,
-                startSize: 42,
+                startSize: 40,
                 minSize: 20,
                 font: 'helvetica',
                 style: 'bold',
             });
+            const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
+            const hasDatesA = pbbData.startDate && pbbData.endDate;
+            const blockHA =
+                titleFitA.lines.length * titleFitA.size * 1.15 +
+                (associations.length > 0 ? 28 : 0) +
+                (hasDatesA ? 22 : 0) +
+                (pbbData.venueAddress ? 20 : 0);
+            let cursorYA = band2TopA + (bandHA - blockHA) / 2 + titleFitA.size;
+
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(titleFitA.size);
-            const titleTopYA = pageHeight / 2 - 100 + logoOffsetA;
-            doc.text(titleFitA.lines, pageWidth / 2, titleTopYA, { align: 'center' });
-            const titleBottomYA = titleTopYA + (titleFitA.lines.length - 1) * titleFitA.size * 1.15;
-            // Lay out each metadata row below the wrapped title so nothing collides.
-            let metaY = titleBottomYA + 40;
+            doc.text(titleFitA.lines, pageWidth / 2, cursorYA, { align: 'center' });
+            cursorYA += (titleFitA.lines.length - 1) * titleFitA.size * 1.15 + 28;
 
-            // Associations
-            const associations = Array.isArray(pbbData.associations) ? pbbData.associations : [];
             if (associations.length > 0) {
-                doc.setFontSize(20);
+                doc.setFontSize(16);
                 doc.setFont('helvetica', 'normal');
                 const assocText = associations.map(a => formatAssociationName(a.id)).join(' • ');
-                doc.text(assocText, pageWidth / 2, metaY, { align: 'center', maxWidth: pageWidth - 100 });
-                metaY += 36;
+                doc.text(assocText, pageWidth / 2, cursorYA, { align: 'center', maxWidth: pageWidth - 100 });
+                cursorYA += 22;
             }
 
-            // Dates
-            doc.setFontSize(16);
+            doc.setFontSize(14);
             doc.setFont('helvetica', 'normal');
-            if (pbbData.startDate && pbbData.endDate) {
+            if (hasDatesA) {
                 const dateText = `${format(parseLocalDate(pbbData.startDate), 'MMMM d')} – ${format(parseLocalDate(pbbData.endDate), 'd, yyyy')}`;
-                doc.text(dateText, pageWidth / 2, metaY, { align: 'center' });
-                metaY += 28;
+                doc.text(dateText, pageWidth / 2, cursorYA, { align: 'center' });
+                cursorYA += 20;
             }
 
-            // Venue
             if (pbbData.venueAddress) {
-                doc.setFontSize(14);
-                doc.text(pbbData.venueAddress, pageWidth / 2, metaY, { align: 'center', maxWidth: pageWidth - 120 });
+                doc.setFontSize(12);
+                doc.text(pbbData.venueAddress, pageWidth / 2, cursorYA, { align: 'center', maxWidth: pageWidth - 120 });
             }
+
+            sponsorBandTop = band3TopA;
+            sponsorBandHeight = bandHA;
+
+            // Sponsor logos row at bottom of cover (Layout A)
+            await drawCoverSponsorRow();
 
             // Social media icons
             drawSocialIcons(pageHeight - margin - 20);
@@ -686,29 +790,10 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     // --- Table of Contents ---
     if (!skipCoverAndToc) {
     addNewPage();
-
-    if (selectedLayout === 'layout-b') {
-        // LAYOUT B: Specific TOC Style
-
-        // Header
-        doc.setFont('times', 'bold');
-        doc.setFontSize(16);
-        doc.setTextColor(0, 0, 0);
-        doc.text('TABLE OF CONTENTS', margin, margin + 20);
-
-        // Underline header
-        doc.setLineWidth(1);
-        doc.line(margin, margin + 25, pageWidth - margin, margin + 25);
-
-        // Note: Actual TOC entries are filled at the end of the function
-
-    } else {
-        // LAYOUT A: Default TOC Style
-        // Header is added in the finalize step to include Show Name
-    }
+    // Header is added in the finalize step to include Show Name.
 
     // --- Pattern List (Layout B Only) ---
-    if (selectedLayout === 'layout-b') {
+    if (false && selectedLayout === 'layout-b') {
         addNewPage();
         
         // Header
@@ -1442,36 +1527,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         }
     }
 
-    // --- Sponsor Page ---
-    if(!skipCoverAndToc && sponsorLogosBase64.length > 0) {
-        addNewPage();
-        doc.setTextColor(40, 40, 40);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(20);
-        doc.text('Thank You to Our Sponsors!', pageWidth / 2, yPos, { align: 'center' });
-        yPos += 40;
-        
-        const logoSize = 100;
-        const logosPerRow = 3;
-        const xStart = (pageWidth - (logosPerRow * logoSize + (logosPerRow - 1) * 30)) / 2;
-        let currentX = xStart;
-        
-        for (let index = 0; index < sponsorLogosBase64.length; index++) {
-            const logoBase64 = sponsorLogosBase64[index];
-            if(index > 0 && index % logosPerRow === 0) {
-                yPos += logoSize + 30;
-                currentX = xStart;
-            }
-            if (yPos > pageHeight - logoSize - margin) {
-                addNewPage();
-                yPos = margin + 30;
-                currentX = xStart;
-            }
-            
-            await addImageToPage(logoBase64, currentX, yPos, logoSize, logoSize);
-            currentX += logoSize + 30;
-        }
-    }
+    // Sponsor logos are rendered on the cover page's bottom band — no
+    // separate "Thank You to Our Sponsors!" page.
 
     // --- Finalize: Generate TOC with correct page numbers ---
     if (skipCoverAndToc) {
@@ -1483,7 +1540,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         const finalPageCount = doc.internal.getNumberOfPages();
         for (let i = 1; i <= finalPageCount; i++) {
             doc.setPage(i);
-            addPageHeader(pbbData.showName || 'Pattern', null, showLogoHeaderBase64);
+            addPageHeader(pbbData.showName || 'Pattern');
             addPageFooter(i);
         }
         return doc.output('datauristring');
@@ -1497,42 +1554,25 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
 
     const tocStartPage = 2;
     let tocPagesNeeded = 1; // Start with 1 page for TOC
-    
-    if (selectedLayout === 'layout-b') {
-        // LAYOUT B: Calculate TOC pages needed
-        const tocByDiscipline = {};
-        toc.forEach(item => {
-            const disciplineName = item.title.split(' - ')[0];
-            if (!tocByDiscipline[disciplineName]) {
-                tocByDiscipline[disciplineName] = { startPage: item.page, endPage: item.page };
-            } else {
-                tocByDiscipline[disciplineName].endPage = Math.max(tocByDiscipline[disciplineName].endPage, item.page);
-            }
-        });
-        
-        // Estimate lines needed for TOC
-        const disciplineCount = Object.keys(tocByDiscipline).length;
-        const linesPerPage = Math.floor((pageHeight - margin * 2 - 50) / 15);
-        tocPagesNeeded = Math.ceil(disciplineCount / linesPerPage);
-        
-    } else {
-        // LAYOUT A: Calculate TOC pages needed
+
+    // Unified TOC layout (Layout A structure) — Layout B uses the same flow,
+    // only switching to an italic font family.
+    {
         const tocByDate = {};
         toc.forEach(item => {
             if (!item.date) return;
             if (!tocByDate[item.date]) tocByDate[item.date] = [];
             tocByDate[item.date].push(item);
         });
-        
-        // Estimate space needed: header (80) + each date section (header 30 + table rows ~25 each + spacing 25)
-        let estimatedHeight = 80; // Title
+
+        let estimatedHeight = 80;
         Object.keys(tocByDate).forEach(dateStr => {
-            estimatedHeight += 30; // Date header
-            estimatedHeight += 30; // Table header
-            estimatedHeight += tocByDate[dateStr].length * 25; // Table rows
-            estimatedHeight += 25; // Spacing
+            estimatedHeight += 30;
+            estimatedHeight += 30;
+            estimatedHeight += tocByDate[dateStr].length * 25;
+            estimatedHeight += 25;
         });
-        
+
         const availableHeightPerPage = pageHeight - margin * 2;
         tocPagesNeeded = Math.ceil(estimatedHeight / availableHeightPerPage);
     }
@@ -1559,78 +1599,12 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     // Now render the TOC
     doc.setPage(tocStartPage);
     
-    if (selectedLayout === 'layout-b') {
-        // LAYOUT B: Specific TOC Population
-        yPos = margin + 50;
-        let tocCurrentPage = tocStartPage;
-        
-        // Group by discipline for Layout B style
-        const tocByDiscipline = {};
-        toc.forEach(item => {
-            // Extract discipline name from title (format: "Discipline - Divisions")
-            const disciplineName = item.title.split(' - ')[0];
-            if (!tocByDiscipline[disciplineName]) {
-                tocByDiscipline[disciplineName] = {
-                    startPage: item.page,
-                    endPage: item.page
-                };
-            } else {
-                // Update end page
-                tocByDiscipline[disciplineName].endPage = Math.max(tocByDiscipline[disciplineName].endPage, item.page);
-            }
-        });
-        
-        doc.setFont('times', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
-        
-        // Sort disciplines by startPage (Sequential)
-        const sortedDisciplines = Object.keys(tocByDiscipline).sort((a, b) => {
-            return tocByDiscipline[a].startPage - tocByDiscipline[b].startPage;
-        });
-        
-        for (const discipline of sortedDisciplines) {
-            if (yPos > pageHeight - margin) {
-                // Move to the next pre-inserted TOC page (never addPage here)
-                if (tocCurrentPage < tocStartPage + tocPagesNeeded - 1) {
-                    tocCurrentPage++;
-                    doc.setPage(tocCurrentPage);
-                    yPos = margin + 30;
-                }
-            }
-            
-            const range = tocByDiscipline[discipline];
-            const pageText = range.startPage === range.endPage 
-                ? range.startPage.toString() 
-                : `${range.startPage}-${range.endPage}`;
-            
-            // Draw discipline name
-            doc.text(discipline, margin, yPos);
-            
-            // Draw page number aligned right
-            doc.text(pageText, pageWidth - margin, yPos, { align: 'right' });
-            
-            // Draw dotted leader
-            const nameWidth = doc.getTextWidth(discipline);
-            const pageNumberWidth = doc.getTextWidth(pageText);
-            const leaderStart = margin + nameWidth + 5;
-            const leaderEnd = pageWidth - margin - pageNumberWidth - 5;
-            
-            if (leaderEnd > leaderStart) {
-                doc.setFont('times', 'normal');
-                let currentX = leaderStart;
-                while (currentX < leaderEnd) {
-                    doc.text('.', currentX, yPos);
-                    currentX += 3;
-                }
-                doc.setFont('times', 'bold'); // Reset to bold for next line
-            }
-            
-            yPos += 15;
-        }
-        
-    } else {
-        // LAYOUT A: Default TOC Population (Existing Logic)
+    {
+        // Unified TOC Population (Layout A structure).
+        // Layout B switches to an italic font family; everything else is identical.
+        const tocFontFamily = selectedLayout === 'layout-b' ? 'times' : 'helvetica';
+        const tocHeaderStyle = selectedLayout === 'layout-b' ? 'bolditalic' : 'bold';
+        const tocRowStyle = selectedLayout === 'layout-b' ? 'italic' : 'normal';
         yPos = margin + 30;
         doc.setTextColor(40, 40, 40);
         // Auto-fit the TOC header so long show names don't get cut off on
@@ -1642,10 +1616,10 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
             maxLines: 2,
             startSize: 20,
             minSize: 12,
-            font: 'helvetica',
-            style: 'bold',
+            font: tocFontFamily,
+            style: tocHeaderStyle,
         });
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(tocFontFamily, tocHeaderStyle);
         doc.setFontSize(tocTitleFit.size);
         doc.text(tocTitleFit.lines, pageWidth / 2, yPos, { align: 'center' });
         yPos += 30 + (tocTitleFit.lines.length - 1) * (tocTitleFit.size + 4);
@@ -1673,7 +1647,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 }
             }
             
-            doc.setFont('helvetica', 'bold');
+            doc.setFont(tocFontFamily, tocHeaderStyle);
             doc.setFontSize(14);
             doc.setTextColor(60, 60, 60);
             const dateFormatted = format(parseLocalDate(dateStr), 'EEEE, MMMM d, yyyy');
@@ -1690,8 +1664,8 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 head: hasAnyClassNumbers ? [['#', 'Class', 'Pg']] : [['Class', 'Pg']],
                 body: tableData,
                 theme: 'grid',
-                styles: { fontSize: 10, cellPadding: 5, lineColor: [200, 200, 200], lineWidth: 0.5 },
-                headStyles: { fontStyle: 'bold', fillColor: [52, 73, 94], textColor: [255, 255, 255] },
+                styles: { fontSize: 10, cellPadding: 5, lineColor: [200, 200, 200], lineWidth: 0.5, font: tocFontFamily, fontStyle: tocRowStyle },
+                headStyles: { font: tocFontFamily, fontStyle: tocHeaderStyle, fillColor: [52, 73, 94], textColor: [255, 255, 255] },
                 columnStyles: hasAnyClassNumbers
                     ? { 0: { cellWidth: 60 }, 2: { cellWidth: 40, halign: 'center' } }
                     : { 1: { cellWidth: 40, halign: 'center' } },
@@ -1713,7 +1687,7 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         doc.setPage(i);
         if (i === 1) continue; // Skip cover page
         const pageNum = i - 1; // TOC becomes page 1, first pattern page becomes page 2, etc.
-        addPageHeader(pbbData.showName || 'Pattern Book', null, showLogoHeaderBase64);
+        addPageHeader(pbbData.showName || 'Pattern Book');
         addPageFooter(pageNum);
     }
 

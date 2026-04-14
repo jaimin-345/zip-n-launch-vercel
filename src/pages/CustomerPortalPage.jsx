@@ -4634,36 +4634,50 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             admin = adminOfficial?.name || 'Not set';
         }
         
-        // Collect judges from associationJudges
+        // Collect judges from every source the PBB may have stored them in.
         const judgesList = [];
+        const addJudge = (value) => {
+            if (!value) return;
+            const name = typeof value === 'string' ? value : (value.name || value.email);
+            if (!name) return;
+            const key = String(name).trim().toLowerCase();
+            if (!key) return;
+            if (!judgesList.some(j => j.toLowerCase() === key)) judgesList.push(String(name).trim());
+        };
+
+        // 1. associationJudges { [assocId]: { judges: [...] } } or { [assocId]: [...] }
         Object.values(projectData.associationJudges || {}).forEach(assocData => {
             const judges = assocData?.judges || (Array.isArray(assocData) ? assocData : []);
-            if (Array.isArray(judges)) {
-                judges.forEach(judge => {
-                    if (typeof judge === 'string') {
-                        judgesList.push(judge);
-                    } else if (judge?.name) {
-                        judgesList.push(judge.name);
-                    } else if (judge?.email) {
-                        judgesList.push(judge.email);
-                    }
-                });
-            }
+            if (Array.isArray(judges)) judges.forEach(addJudge);
         });
-        
-        // Also collect judges from officials
+
+        // 2. officials with role === 'judge'
         const officials = projectData.officials || [];
-        const judgeOfficials = officials.filter(o => o.role === 'judge');
-        judgeOfficials.forEach(judge => {
-            if (judge.name && !judgesList.includes(judge.name)) {
-                judgesList.push(judge.name);
-            } else if (judge.email && !judgesList.includes(judge.email)) {
-                judgesList.push(judge.email);
-            }
+        officials.filter(o => o.role === 'judge').forEach(addJudge);
+
+        // 3. showDetails.judges — Number-of-Judges UI (Step 4)
+        const showDetailsJudges = projectData.showDetails?.judges || {};
+        Object.values(showDetailsJudges).forEach(entry => {
+            if (Array.isArray(entry)) entry.forEach(addJudge);
+            else addJudge(entry);
         });
-        
+
+        // 4. groupJudges[discIndex][groupIndex]
+        Object.values(projectData.groupJudges || {}).forEach(group => {
+            if (typeof group === 'object' && group) Object.values(group).forEach(addJudge);
+            else addJudge(group);
+        });
+
+        // 5. patternSelections[disc][group].judgeName (per-group overrides)
+        Object.values(projectData.patternSelections || {}).forEach(disc => {
+            if (!disc || typeof disc !== 'object') return;
+            Object.values(disc).forEach(sel => {
+                if (sel && sel.judgeName) addJudge(sel.judgeName);
+            });
+        });
+
         const judgesCount = judgesList.length;
-        
+
         // Count staff (excluding judges and admins)
         const staffCount = officials.filter(o => o.role !== 'judge' && o.role !== 'admin').length;
         
@@ -6981,7 +6995,87 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                     </div>
                                 )}
                                 
-                                {(activeSubTab === 'accessory' || activeSubTab === 'complete') && (
+                                {activeSubTab === 'accessory' && (
+                                    (() => {
+                                        const accessoryDocs = [
+                                            ...(projectData.showDocuments || []),
+                                            ...(projectData.generalMarketing || []),
+                                            ...(projectData.lessonPlans || []),
+                                        ].filter(d => d && (d.fileUrl || d.url));
+                                        if (accessoryDocs.length === 0) {
+                                            return (
+                                                <div className="text-center py-12 text-muted-foreground">
+                                                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                                                    <p className="text-lg font-medium mb-2">No Accessory Documents</p>
+                                                    <p className="text-sm">Upload show schedules, bills, or related documents in the Pattern Book Builder (Step 6).</p>
+                                                </div>
+                                            );
+                                        }
+                                        const handleShare = async (doc) => {
+                                            const url = doc.fileUrl || doc.url;
+                                            const title = doc.customName || doc.fileName || 'Accessory Document';
+                                            try {
+                                                if (navigator.share) {
+                                                    await navigator.share({ title, url });
+                                                } else {
+                                                    await navigator.clipboard.writeText(url);
+                                                    toast({ title: 'Link copied', description: 'Document URL copied to clipboard.' });
+                                                }
+                                            } catch (e) {
+                                                if (e?.name !== 'AbortError') {
+                                                    toast({ variant: 'destructive', title: 'Share failed', description: e?.message || 'Unable to share document.' });
+                                                }
+                                            }
+                                        };
+                                        const handlePrint = (doc) => {
+                                            const url = doc.fileUrl || doc.url;
+                                            const w = window.open(url, '_blank');
+                                            if (w) {
+                                                w.addEventListener('load', () => { try { w.focus(); w.print(); } catch (_) {} });
+                                            }
+                                        };
+                                        return (
+                                            <TooltipProvider>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {accessoryDocs.map((doc, idx) => {
+                                                    const url = doc.fileUrl || doc.url;
+                                                    const name = doc.customName || doc.fileName || `Document ${idx + 1}`;
+                                                    return (
+                                                        <div key={(doc.filePath || url) + idx} className="flex items-center justify-between p-3 border rounded-md bg-card">
+                                                            <div className="flex items-center gap-3 overflow-hidden">
+                                                                <FileText className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                                                                <div className="overflow-hidden">
+                                                                    <p className="text-sm font-medium truncate">{name}</p>
+                                                                    {doc.tags?.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                                            {doc.tags.map(t => <Badge key={t} variant="outline" className="text-xs">#{t}</Badge>)}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                                                <Tooltip><TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => window.open(url, '_blank', 'noopener')}><Eye className="h-4 w-4" /></Button>
+                                                                </TooltipTrigger><TooltipContent>View</TooltipContent></Tooltip>
+                                                                <Tooltip><TooltipTrigger asChild>
+                                                                    <a href={url} download={name}><Button variant="ghost" size="icon"><Download className="h-4 w-4" /></Button></a>
+                                                                </TooltipTrigger><TooltipContent>Download</TooltipContent></Tooltip>
+                                                                <Tooltip><TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => handleShare(doc)}><Share2 className="h-4 w-4" /></Button>
+                                                                </TooltipTrigger><TooltipContent>Share</TooltipContent></Tooltip>
+                                                                <Tooltip><TooltipTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" onClick={() => handlePrint(doc)}><Printer className="h-4 w-4" /></Button>
+                                                                </TooltipTrigger><TooltipContent>Print</TooltipContent></Tooltip>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            </TooltipProvider>
+                                        );
+                                    })()
+                                )}
+                                {activeSubTab === 'complete' && (
                                     <div className="text-center py-12 text-muted-foreground">
                                         Coming soon
                                     </div>
