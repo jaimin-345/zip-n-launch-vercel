@@ -387,13 +387,9 @@ export const usePatternBookBuilder = (projectId) => {
           });
 
         if (insertError) {
-          console.log('Staff notification insert result:', person.email, insertError?.message || 'OK');
-        } else {
-          console.log('Staff notification created for:', person.email);
+          console.warn('Staff notification insert failed:', person.email, insertError.message);
         }
       }
-
-      console.log('Staff notifications processed:', toNotify.map(n => n.email));
     } catch (error) {
       console.error('Error creating staff notifications:', error);
     }

@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { cn, parseLocalDate } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { supabase } from '@/lib/supabaseClient';
+import { getPatternSelectionForAssoc, writePatternSelectionForAssoc, forEachPatternSelection, detectShowAssociations } from '@/lib/patternSelectionHelpers';
 
 // Pattern Sets with version categories (ALL = universal, GR/NOV = Green/Novice simplified)
 const PATTERN_SETS = [
@@ -76,32 +77,60 @@ const detectGroupType = (divisions) => {
   const [loadingPatterns, setLoadingPatterns] = useState({});
   const [maneuversRangeMap, setManeuversRangeMap] = useState({});
 
-  // Helper to get pattern selection - checks both ID-based (Step 3) and index-based keys
-  const getPatternSelection = (disciplineId, groupId, disciplineIndex, groupIndex) => {
-    const selections = formData.patternSelections || {};
-    // First check ID-based key (from Step 3)
-    if (selections[disciplineId]?.[groupId]) {
-      return selections[disciplineId][groupId];
+  // Assoc abbrevs the show actually uses — drives multi-breed picker grouping.
+  const showAssocAbbrevs = React.useMemo(() => detectShowAssociations(formData), [formData]);
+
+  // Resolve the assoc abbreviation for a discipline (uppercase) or null.
+  const getDisciplineAssocAbbrev = (discipline) => {
+    if (!discipline) return null;
+    const raw = discipline.association_id
+      || (discipline.selectedAssociations
+          ? Object.keys(discipline.selectedAssociations).find(k => discipline.selectedAssociations[k])
+          : null);
+    if (!raw) return null;
+    // association_id is already an abbreviation-ish string in project data; upper-case it.
+    const s = String(raw).trim();
+    if (!s) return null;
+    // If it happens to be a numeric id, resolve through associationsData.
+    if (/^\d+$/.test(s)) {
+      const assoc = associationsData?.find(a => String(a.id) === s);
+      return assoc?.abbreviation ? String(assoc.abbreviation).toUpperCase() : null;
     }
-    // Fallback to index-based key (legacy)
-    return selections[disciplineIndex]?.[groupIndex] || null;
+    return s.toUpperCase();
   };
 
-  // Helper to set pattern selection using ID-based keys
-  const setPatternSelection = (disciplineId, groupId, selection) => {
+  // Helper to get pattern selection - checks both ID-based (Step 3) and index-based keys
+  const getPatternSelection = (disciplineId, groupId, disciplineIndex, groupIndex, assocAbbrev) => {
+    const selections = formData.patternSelections || {};
+    // First check ID-based key (from Step 3)
+    const idBased = selections[disciplineId];
+    if (idBased) {
+      const v = getPatternSelectionForAssoc(idBased, groupId, assocAbbrev);
+      if (v) return v;
+    }
+    // Fallback to index-based key (legacy)
+    const idxBased = selections[disciplineIndex];
+    if (idxBased) {
+      return getPatternSelectionForAssoc(idxBased, groupIndex, assocAbbrev);
+    }
+    return null;
+  };
+
+  // Helper to set pattern selection using ID-based keys (scoped to association)
+  const setPatternSelection = (disciplineId, groupId, selection, assocAbbrev) => {
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
-      if (!newSelections[disciplineId]) newSelections[disciplineId] = {};
-      newSelections[disciplineId][groupId] = selection;
+      const discSel = newSelections[disciplineId] || {};
+      newSelections[disciplineId] = writePatternSelectionForAssoc(discSel, groupId, assocAbbrev, selection);
       return { ...prev, patternSelections: newSelections };
     });
   };
 
-  const handlePatternSelection = (disciplineIndex, groupIndex, patternId) => {
+  const handlePatternSelection = (disciplineIndex, groupIndex, patternId, assocAbbrev) => {
     setFormData(prev => {
       const newSelections = { ...(prev.patternSelections || {}) };
-      if (!newSelections[disciplineIndex]) newSelections[disciplineIndex] = {};
-      newSelections[disciplineIndex][groupIndex] = patternId;
+      const discSel = newSelections[disciplineIndex] || {};
+      newSelections[disciplineIndex] = writePatternSelectionForAssoc(discSel, groupIndex, assocAbbrev, patternId);
       return { ...prev, patternSelections: newSelections };
     });
   };
@@ -151,8 +180,7 @@ const detectGroupType = (divisions) => {
     
     Object.keys(patternSelections).forEach(disciplineId => {
       const disciplineSelections = patternSelections[disciplineId] || {};
-      Object.keys(disciplineSelections).forEach(groupId => {
-        const selection = disciplineSelections[groupId];
+      forEachPatternSelection(disciplineSelections, (groupId, _abbrev, selection) => {
         if (selection?.maneuversRange) {
           newManeuversMap[`${disciplineId}-${groupId}`] = selection.maneuversRange;
         }
@@ -172,6 +200,42 @@ const detectGroupType = (divisions) => {
       fetchPatternsForDiscipline(discipline.id, discipline.name, associationName);
     });
   }, [formData.disciplines]);
+
+  // Auto-select the only matching pattern when a discipline resolves to a
+  // single association AND exactly one DB pattern exists for the group's
+  // maneuvers range. Never overwrites an existing user selection.
+  useEffect(() => {
+    const disciplines = (formData.disciplines || []).filter(d => d.pattern);
+    disciplines.forEach((discipline) => {
+      const abbrev = getDisciplineAssocAbbrev(discipline);
+      if (!abbrev) return;
+      const dbPatterns = dbPatternsMap[discipline.id];
+      if (!Array.isArray(dbPatterns) || dbPatterns.length === 0) return;
+      const disciplineIndex = (formData.disciplines || []).findIndex(d => d.id === discipline.id);
+      (discipline.patternGroups || []).forEach((group, groupIndex) => {
+        const existing = getPatternSelection(discipline.id, group.id, disciplineIndex, groupIndex, abbrev);
+        if (existing?.patternId) return; // don't overwrite
+        const range = existing?.maneuversRange || maneuversRangeMap[`${discipline.id}-${group.id}`];
+        const candidates = range
+          ? dbPatterns.filter(p => p.maneuvers_range === range)
+          : dbPatterns;
+        if (candidates.length !== 1) return;
+        const p = candidates[0];
+        const patternAbbrev = p.association_name
+          ? String(p.association_name).trim().toUpperCase()
+          : abbrev;
+        setPatternSelection(discipline.id, group.id, {
+          maneuversRange: p.maneuvers_range || range || null,
+          patternId: p.id,
+          patternName: p.pdf_file_name?.trim() || `Pattern ${p.id}`,
+          version: p.pattern_version || 'ALL',
+          association_abbrev: patternAbbrev,
+          association_name: p.association_name || null,
+        }, patternAbbrev);
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbPatternsMap, formData.disciplines]);
 
   const handleDueDateChange = (disciplineIndex, groupIndex, date) => {
     setFormData(prev => {
@@ -211,6 +275,7 @@ const detectGroupType = (divisions) => {
     setFormData(prev => {
       const newDisciplines = [...(prev.disciplines || [])];
       const discipline = newDisciplines[disciplineIndex];
+      const deletedGroupId = discipline?.patternGroups?.[groupIndex]?.id;
       
       if (discipline && discipline.patternGroups) {
         const deletedGroup = discipline.patternGroups[groupIndex];
@@ -228,6 +293,10 @@ const detectGroupType = (divisions) => {
         
         if (newPatternSelections[disciplineIndex]) {
           delete newPatternSelections[disciplineIndex][groupIndex];
+        }
+        if (discipline?.id && newPatternSelections[discipline.id]) {
+          if (deletedGroupId) delete newPatternSelections[discipline.id][deletedGroupId];
+          delete newPatternSelections[discipline.id][groupIndex];
         }
         if (newGroupDueDates[disciplineIndex]) {
           delete newGroupDueDates[disciplineIndex][groupIndex];
@@ -270,8 +339,9 @@ const detectGroupType = (divisions) => {
         const groups = pbbDiscipline.patternGroups || [];
         if (groups.length === 0) return false;
         
+        const abbrev = getDisciplineAssocAbbrev(pbbDiscipline);
         return groups.every((group, groupIndex) => {
-          const selection = getPatternSelection(pbbDiscipline.id, group.id, disciplineIndex, groupIndex);
+          const selection = getPatternSelection(pbbDiscipline.id, group.id, disciplineIndex, groupIndex, abbrev);
           // Check if selection has both maneuversRange and patternId (new format from Step 3)
           // OR setNumber and version (legacy format)
           return (selection?.maneuversRange && selection?.patternId) || (selection?.setNumber && selection?.version);
@@ -432,8 +502,9 @@ const detectGroupType = (divisions) => {
                     const originalDisciplineIndex = (formData.disciplines || []).findIndex(fd => fd.id === pbbDiscipline.id);
                     const isComplete = isDisciplineComplete(pbbDiscipline, originalDisciplineIndex);
                     // Count patterns using ID-based keys (from Step 3) or index-based (legacy)
+                    const pbbAbbrev = getDisciplineAssocAbbrev(pbbDiscipline);
                     const patternCount = (pbbDiscipline.patternGroups || []).filter((group, gIdx) => {
-                      const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx);
+                      const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx, pbbAbbrev);
                       return selection?.patternId || selection?.patternName || selection?.setNumber;
                     }).length;
                     
@@ -501,6 +572,7 @@ const detectGroupType = (divisions) => {
                     
                     // Get unique maneuvers ranges from database patterns
                     const availableManeuversRanges = [...new Set(disciplineDbPatterns.filter(p => p.maneuvers_range).map(p => p.maneuvers_range))];
+                    const pbbAbbrev = getDisciplineAssocAbbrev(pbbDiscipline);
                     
                     return (
                     <AccordionItem 
@@ -518,7 +590,7 @@ const detectGroupType = (divisions) => {
                             {/* Show all group pattern selections from Step 3 data */}
                             {(() => {
                               const groupSelections = (pbbDiscipline.patternGroups || []).map((group, gIdx) => {
-                                const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx);
+                                const selection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, gIdx, pbbAbbrev);
                                 if (!selection?.patternId && !selection?.patternName) return null;
                                 
                                 const patternName = selection.patternName || '';
@@ -571,10 +643,19 @@ const detectGroupType = (divisions) => {
                       <AccordionContent className="px-4 pb-4">
                       <div className="space-y-6">
                         {(pbbDiscipline.patternGroups || []).map((group, groupIndex) => {
-                          const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex);
+                          const currentSelection = getPatternSelection(pbbDiscipline.id, group.id, originalDisciplineIndex, groupIndex, pbbAbbrev);
                           const selectedManeuversRange = currentSelection?.maneuversRange || maneuversRangeMap[`${pbbDiscipline.id}-${group.id}`] || '';
-                          const filteredPatterns = selectedManeuversRange 
-                            ? disciplineDbPatterns.filter(p => p.maneuvers_range === selectedManeuversRange)
+                          const filteredPatterns = selectedManeuversRange
+                            ? disciplineDbPatterns.filter(p => {
+                                if (p.maneuvers_range !== selectedManeuversRange) return false;
+                                // Prevent mixing: when the group resolves to a specific
+                                // association, hide patterns belonging to other associations.
+                                if (pbbAbbrev && p.association_name) {
+                                  const pAbbrev = String(p.association_name).trim().toUpperCase();
+                                  if (pAbbrev !== pbbAbbrev) return false;
+                                }
+                                return true;
+                              })
                             : [];
                           
                           return (
@@ -664,7 +745,7 @@ const detectGroupType = (divisions) => {
                                           patternId: null,
                                           patternName: null,
                                           version: null
-                                        });
+                                        }, pbbAbbrev);
                                       }}
                                     >
                                       <SelectTrigger className="mt-1">
@@ -699,16 +780,23 @@ const detectGroupType = (divisions) => {
                                   {/* Step 2: Select Pattern - Database driven */}
                                   <div>
                                     <Label className="text-xs text-muted-foreground">2. Select Pattern</Label>
-                                    <Select 
+                                    <Select
                                       value={currentSelection?.patternId?.toString() || ''}
-                                      onValueChange={(patterId) => {
-                                        const selectedPattern = filteredPatterns.find(p => p.id.toString() === patternId);
+                                      onValueChange={(selectedId) => {
+                                        const selectedPattern = filteredPatterns.find(p => p.id.toString() === selectedId);
+                                        // Prefer the pattern row's own association (e.g. APHA-specific
+                                        // pattern row) for the key; fall back to the discipline abbrev.
+                                        const patternAbbrev = selectedPattern?.association_name
+                                          ? String(selectedPattern.association_name).trim().toUpperCase()
+                                          : pbbAbbrev;
                                         setPatternSelection(pbbDiscipline.id, group.id, {
                                           maneuversRange: selectedManeuversRange,
-                                          patternId: parseInt(patternId),
-                                          patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${patternId}`,
-                                          version: selectedPattern?.pattern_version || 'ALL'
-                                        });
+                                          patternId: parseInt(selectedId),
+                                          patternName: selectedPattern?.pdf_file_name?.trim() || `Pattern ${selectedId}`,
+                                          version: selectedPattern?.pattern_version || 'ALL',
+                                          association_abbrev: patternAbbrev,
+                                          association_name: selectedPattern?.association_name || null,
+                                        }, patternAbbrev);
                                       }}
                                       disabled={!selectedManeuversRange}
                                     >
@@ -717,7 +805,33 @@ const detectGroupType = (divisions) => {
                                       </SelectTrigger>
                                       <SelectContent>
                                         {filteredPatterns.length > 0 ? (
-                                          filteredPatterns.map(pattern => (
+                                          (showAssocAbbrevs.length > 1 ? (() => {
+                                            const byAssoc = {};
+                                            filteredPatterns.forEach(p => {
+                                              const key = p.association_name
+                                                ? String(p.association_name).trim().toUpperCase()
+                                                : (pbbAbbrev || 'OTHER');
+                                              if (!byAssoc[key]) byAssoc[key] = [];
+                                              byAssoc[key].push(p);
+                                            });
+                                            return Object.keys(byAssoc).sort().map(assocKey => (
+                                              <SelectGroup key={assocKey}>
+                                                <SelectLabel>{assocKey}</SelectLabel>
+                                                {byAssoc[assocKey].map(pattern => (
+                                                  <SelectItem key={pattern.id} value={pattern.id.toString()}>
+                                                    <div className="flex items-center gap-2">
+                                                      <span>{pattern.pdf_file_name || `Pattern ${pattern.id}`}</span>
+                                                      {pattern.pattern_version && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                          {pattern.pattern_version}
+                                                        </Badge>
+                                                      )}
+                                                    </div>
+                                                  </SelectItem>
+                                                ))}
+                                              </SelectGroup>
+                                            ));
+                                          })() : filteredPatterns.map(pattern => (
                                             <SelectItem key={pattern.id} value={pattern.id.toString()}>
                                               <div className="flex items-center gap-2">
                                                 <span>{pattern.pdf_file_name || `Pattern ${pattern.id}`}</span>
@@ -728,7 +842,7 @@ const detectGroupType = (divisions) => {
                                                 )}
                                               </div>
                                             </SelectItem>
-                                          ))
+                                          )))
                                         ) : (
                                           // Fallback to static version options
                                           PATTERN_VERSIONS.map(version => (

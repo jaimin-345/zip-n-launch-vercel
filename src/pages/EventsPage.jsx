@@ -1168,27 +1168,21 @@ const EventPatternBookDialogContent = ({ project, profile, user, associationsDat
                 // Then get pattern details from tbl_patterns
                 const { data: patternData, error: patDetailError } = await supabase
                     .from('tbl_patterns')
-                    .select('id, pdf_file_name, pattern_version, discipline, association_id, url, image_url, pdf_url')
+                    .select('id, pdf_file_name, pattern_version, discipline, association_name')
                     .in('id', Array.from(numericPatternIds));
-                
+
                 if (!patDetailError && patternData) {
                     patternData.forEach(p => {
                         if (patternDetailsMap[p.id]) {
                             patternDetailsMap[p.id] = {
                                 ...patternDetailsMap[p.id],
                                 ...p,
-                                // Keep image_url from media if available, otherwise use from patterns
-                                image_url: patternDetailsMap[p.id].image_url || p.image_url,
-                                pdf_url: patternDetailsMap[p.id].pdf_url || p.pdf_url || p.url || p.image_url,
-                                download_url: patternDetailsMap[p.id].download_url || p.pdf_url || p.url || p.image_url
+                                image_url: patternDetailsMap[p.id].image_url,
+                                pdf_url: patternDetailsMap[p.id].pdf_url,
+                                download_url: patternDetailsMap[p.id].download_url
                             };
                         } else {
-                            patternDetailsMap[p.id] = {
-                                ...p,
-                                image_url: p.image_url,
-                                pdf_url: p.pdf_url || p.url || p.image_url,
-                                download_url: p.pdf_url || p.url || p.image_url
-                            };
+                            patternDetailsMap[p.id] = { ...p };
                         }
                     });
                 }
@@ -1200,7 +1194,7 @@ const EventPatternBookDialogContent = ({ project, profile, user, associationsDat
                 if (missingData.length > 0) {
                     const { data: additionalMedia } = await supabase
                         .from('tbl_pattern_media')
-                        .select('pattern_id, pdf_url, file_url, image_url')
+                        .select('pattern_id, file_url, image_url')
                         .in('pattern_id', missingData);
                     
                     if (additionalMedia) {
@@ -1212,10 +1206,10 @@ const EventPatternBookDialogContent = ({ project, profile, user, associationsDat
                                 patternDetailsMap[pm.pattern_id].image_url = pm.image_url;
                             }
                             if (!patternDetailsMap[pm.pattern_id].pdf_url) {
-                                patternDetailsMap[pm.pattern_id].pdf_url = pm.pdf_url || pm.file_url || pm.image_url;
+                                patternDetailsMap[pm.pattern_id].pdf_url = pm.file_url || pm.image_url;
                             }
                             if (!patternDetailsMap[pm.pattern_id].download_url) {
-                                patternDetailsMap[pm.pattern_id].download_url = pm.pdf_url || pm.file_url || pm.image_url;
+                                patternDetailsMap[pm.pattern_id].download_url = pm.file_url || pm.image_url;
                             }
                         });
                     }

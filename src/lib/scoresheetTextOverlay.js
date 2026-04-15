@@ -660,8 +660,18 @@ export const getOverlayDataFromContext = (project, scoresheet) => {
   // Get show name
   const showName = project?.project_name || projectData.showName || '';
   
-  // Get class/group name
-  const className = scoresheet?.groupName || scoresheet?.disciplineName || '';
+  // Get class/group name — include the actual pattern number so the overlay
+  // reflects the row the user clicked (e.g. "Western Riding – Pattern 0002 – Open Amateur Youth").
+  const baseDiscipline = scoresheet?.disciplineName || '';
+  const baseGroup = scoresheet?.groupName || '';
+  const patternNumber = scoresheet?.patternNumber || null;
+  const classParts = [];
+  if (baseDiscipline) classParts.push(baseDiscipline);
+  if (patternNumber) classParts.push(`Pattern ${patternNumber}`);
+  if (baseGroup && baseGroup !== baseDiscipline) classParts.push(baseGroup);
+  const className = classParts.length > 0
+    ? classParts.join(' \u2013 ')
+    : (baseGroup || baseDiscipline || '');
   
   // Get date - prioritize per-class date from scoresheet, then divisionDates lookup, then show start date
   let date = '';

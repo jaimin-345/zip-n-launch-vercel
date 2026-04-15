@@ -104,7 +104,7 @@ const PatternPortalDetailDialog = ({ open, onOpenChange, project }) => {
                 const ids = Array.from(patternIds);
                 const [mediaRes, detailRes] = await Promise.all([
                     supabase.from('tbl_pattern_media').select('pattern_id, image_url').in('pattern_id', ids),
-                    supabase.from('tbl_patterns').select('id, pdf_file_name, pattern_version, discipline, association_id').in('id', ids)
+                    supabase.from('tbl_patterns').select('id, pdf_file_name, pattern_version, discipline, association_name').in('id', ids)
                 ]);
                 (mediaRes.data || []).forEach(pm => { if (!patternImageMap[pm.pattern_id]) patternImageMap[pm.pattern_id] = pm.image_url; });
                 (detailRes.data || []).forEach(p => { patternDetailsMap[p.id] = p; });

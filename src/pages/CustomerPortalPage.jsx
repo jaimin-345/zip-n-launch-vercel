@@ -58,6 +58,7 @@ import { jsPDF } from 'jspdf';
 import ResultsTab from '@/components/customer-portal/ResultsTab';
 import PatternPortalDetailDialog from '@/components/customer-portal/PatternPortalDetailDialog';
 import PatternBookDownloadDialog from '@/components/PatternBookDownloadDialog';
+import { getPatternSelectionForAssoc, isAssocKeyedEntry, forEachPatternSelection, getForcedAssocForDivision, detectShowAssociations } from '@/lib/patternSelectionHelpers';
 import { SendPatternEmailDialog } from '@/components/pattern-hub/SendPatternEmailDialog';
 
 const accessPhaseLabels = {
@@ -313,7 +314,9 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
         // Get judges from patternSelections (assigned at discipline level in Step 5)
         Object.entries(formData.patternSelections || {}).forEach(([discId, disciplineSels]) => {
             if (disciplineSels && typeof disciplineSels === 'object') {
-                Object.values(disciplineSels).forEach(sel => {
+                const flat = [];
+                forEachPatternSelection(disciplineSels, (_g, _a, v) => flat.push(v));
+                flat.forEach(sel => {
                     if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
                         const name = sel.judgeName.trim();
                         if (!seenJudgeNames.has(name.toLowerCase())) {
@@ -450,11 +453,16 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
             for (const discipline of disciplines) {
                 const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name];
                 if (!disciplineSelections) continue;
-                
+                const disciplineAssocAbbrev = (() => {
+                    const a = associationsMap[discipline.association_id];
+                    return a?.abbreviation ? String(a.abbreviation).toUpperCase() : (discipline.association_id ? String(discipline.association_id).toUpperCase() : null);
+                })();
+
                 const groups = discipline.patternGroups || [];
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
-                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
+                    let patternSelection = getPatternSelectionForAssoc(disciplineSelections, group.id, disciplineAssocAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, groupIndex, disciplineAssocAbbrev);
                     if (!patternSelection) continue;
                     
                     // Get pattern ID
@@ -576,23 +584,28 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
             
             // Collect all pattern IDs
             const patternIds = new Set();
+            // Flatten a potentially assoc-keyed entry into an array of selections.
+            const flattenEntry = (entry) => {
+                if (!entry) return [];
+                if (isAssocKeyedEntry(entry)) return Object.values(entry);
+                return [entry];
+            };
             for (const discipline of disciplines) {
                 const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name] || patternSelections[discipline.index];
                 if (!disciplineSelections) continue;
-                
+
                 const groups = discipline.patternGroups || [];
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
-                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
-                    if (!patternSelection) continue;
-                    
-                    // Get pattern ID
-                    const patternId = typeof patternSelection === 'object' 
-                        ? (patternSelection.patternId || patternSelection.id) 
-                        : patternSelection;
-                    
-                    if (patternId && !isNaN(parseInt(patternId))) {
-                        patternIds.add(parseInt(patternId));
+                    const entries = flattenEntry(disciplineSelections[group.id]).concat(flattenEntry(disciplineSelections[groupIndex]));
+                    for (const patternSelection of entries) {
+                        if (!patternSelection) continue;
+                        const patternId = typeof patternSelection === 'object'
+                            ? (patternSelection.patternId || patternSelection.id)
+                            : patternSelection;
+                        if (patternId && !isNaN(parseInt(patternId))) {
+                            patternIds.add(parseInt(patternId));
+                        }
                     }
                 }
             }
@@ -619,7 +632,7 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
             if (patternIds.size > 0) {
                 const { data: patternData, error: patDetailError } = await supabase
                     .from('tbl_patterns')
-                    .select('id, pdf_file_name, pattern_version, discipline, association_id')
+                    .select('id, pdf_file_name, pattern_version, discipline, association_name')
                     .in('id', Array.from(patternIds));
                 
                 if (!patDetailError && patternData) {
@@ -633,11 +646,15 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
             for (const discipline of disciplines) {
                 const disciplineSelections = patternSelections[discipline.id] || patternSelections[discipline.name] || patternSelections[discipline.index];
                 if (!disciplineSelections) continue;
-                
+                const disciplineAbbrev = discipline.association_id
+                    ? String(discipline.association_id).toUpperCase()
+                    : null;
+
                 const groups = discipline.patternGroups || [];
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
-                    const patternSelection = disciplineSelections[group.id] || disciplineSelections[groupIndex];
+                    const patternSelection = getPatternSelectionForAssoc(disciplineSelections, group.id, disciplineAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, groupIndex, disciplineAbbrev);
                     if (!patternSelection) continue;
                     
                     // Get pattern ID
@@ -818,13 +835,18 @@ const PatternFolderItem = ({ project, onRefresh, currentUserName, isPastPatternP
                             const divisions = Array.isArray(group.divisions) ? group.divisions : [];
                             
                             // Get pattern selection for this group
-                            const disciplinePatternSelections = patternSelections[disciplineId] || 
-                                                               patternSelections[discipline.name] || 
+                            const disciplinePatternSelections = patternSelections[disciplineId] ||
+                                                               patternSelections[discipline.name] ||
                                                                patternSelections[disciplineIndex] ||
                                                                patternSelections[String(disciplineIndex)];
-                            const patternSelection = disciplinePatternSelections?.[group.id] || 
-                                                    disciplinePatternSelections?.[groupIndex] ||
-                                                    disciplinePatternSelections?.[String(groupIndex)];
+                            const judgeCardDiscAbbrev = discipline.association_id
+                                ? String(discipline.association_id).toUpperCase()
+                                : null;
+                            const patternSelection = disciplinePatternSelections
+                                ? (getPatternSelectionForAssoc(disciplinePatternSelections, group.id, judgeCardDiscAbbrev)
+                                    || getPatternSelectionForAssoc(disciplinePatternSelections, groupIndex, judgeCardDiscAbbrev)
+                                    || getPatternSelectionForAssoc(disciplinePatternSelections, String(groupIndex), judgeCardDiscAbbrev))
+                                : null;
                             const patternId = typeof patternSelection === 'object' && patternSelection !== null
                                 ? (patternSelection.patternId || patternSelection.id) 
                                 : patternSelection;
@@ -1740,7 +1762,7 @@ const ActivePatternBookCard = ({ project, onRefresh, profile, user }) => {
         // From patternSelections (judges assigned at discipline level in Step 5)
         Object.values(projectData.patternSelections || {}).forEach(disciplineSels => {
             if (disciplineSels && typeof disciplineSels === 'object') {
-                Object.values(disciplineSels).forEach(sel => {
+                forEachPatternSelection(disciplineSels, (_g, _a, sel) => {
                     if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
                         judgeNames.add(sel.judgeName.trim());
                     }
@@ -2163,6 +2185,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [generatedScoresheets, setGeneratedScoresheets] = useState([]);
     const [isGeneratingScoresheets, setIsGeneratingScoresheets] = useState(false);
     const [selectedScoresheetIds, setSelectedScoresheetIds] = useState(new Set());
+    const [selectedPatternIds, setSelectedPatternIds] = useState(new Set());
     const [scoresheetSortBy, setScoresheetSortBy] = useState('division');
     const [bulkDownloadProgress, setBulkDownloadProgress] = useState(null);
 
@@ -2348,13 +2371,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     };
     
     // Helper function to find discipline and group for a pattern
-    const findPatternDisciplineAndGroup = (patternId) => {
+    const findPatternDisciplineAndGroup = (patternId, expectedAssociationId = null) => {
         const disciplines = projectData.disciplines || [];
         const patternSelections = projectData.patternSelections || {};
-        
+
         // Try to find by numeric ID
         const numericId = typeof patternId === 'number' ? patternId : parseInt(patternId);
         if (isNaN(numericId)) return null;
+        const matches = [];
         
         for (let disciplineIndex = 0; disciplineIndex < disciplines.length; disciplineIndex++) {
             const discipline = disciplines[disciplineIndex];
@@ -2397,7 +2421,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     || disciplineSelections[groupId]
                     || disciplineSelections[group.id]
                     || (Array.isArray(disciplineSelections) ? disciplineSelections[groupIndex] : null);
-                
+
                 // If not found, try to find by group ID pattern
                 if (!patternSelection && groupId) {
                     const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
@@ -2407,43 +2431,67 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         patternSelection = disciplineSelections[matchingGroupKey];
                     }
                 }
-                
+
                 if (!patternSelection) continue;
-                
-                // Get pattern ID from selection
-                let selectedPatternId = null;
-                if (typeof patternSelection === 'object' && patternSelection !== null) {
-                    selectedPatternId = patternSelection.patternId || patternSelection.id || patternSelection.pattern_id;
-                } else {
-                    selectedPatternId = patternSelection;
-                }
-                
-                // Extract numeric ID if possible
-                let selectedNumericId = null;
-                if (selectedPatternId) {
-                    if (typeof selectedPatternId === 'string' && selectedPatternId.includes('-')) {
-                        const match = selectedPatternId.match(/\d+/);
-                        if (match) {
-                            selectedNumericId = parseInt(match[0]);
-                        }
-                    } else if (!isNaN(parseInt(selectedPatternId))) {
-                        selectedNumericId = parseInt(selectedPatternId);
-                    } else if (typeof selectedPatternId === 'number') {
-                        selectedNumericId = selectedPatternId;
+
+                // Resolve assoc-keyed entry: try expected assoc first, else discipline abbrev,
+                // else any assoc value (so every APHA/AQHA variant gets matched).
+                const unwrapCandidates = [];
+                if (isAssocKeyedEntry(patternSelection)) {
+                    const tryAbbrevs = [];
+                    if (expectedAssociationId) tryAbbrevs.push(String(expectedAssociationId).toUpperCase());
+                    if (associationId) tryAbbrevs.push(String(associationId).toUpperCase());
+                    for (const a of tryAbbrevs) {
+                        if (patternSelection[a]) { unwrapCandidates.push(patternSelection[a]); }
                     }
+                    if (unwrapCandidates.length === 0) {
+                        Object.values(patternSelection).forEach(v => unwrapCandidates.push(v));
+                    }
+                } else {
+                    unwrapCandidates.push(patternSelection);
                 }
-                
+
+              for (const ps of unwrapCandidates) {
+                patternSelection = ps;
+                if (!patternSelection) continue;
+
+                // Get pattern ID from selection — prefer numeric patternId over string forms
+                let selectedNumericId = null;
+                if (typeof patternSelection === 'object' && patternSelection !== null) {
+                    const numCandidate = patternSelection.patternId ?? patternSelection.pattern_id ?? patternSelection.id;
+                    if (typeof numCandidate === 'number') {
+                        selectedNumericId = numCandidate;
+                    } else if (typeof numCandidate === 'string' && /^\d+$/.test(numCandidate)) {
+                        selectedNumericId = parseInt(numCandidate);
+                    } else if (typeof numCandidate === 'string') {
+                        const m = numCandidate.match(/\d+/);
+                        if (m) selectedNumericId = parseInt(m[0]);
+                    }
+                } else if (typeof patternSelection === 'number') {
+                    selectedNumericId = patternSelection;
+                } else if (typeof patternSelection === 'string' && /^\d+$/.test(patternSelection)) {
+                    selectedNumericId = parseInt(patternSelection);
+                }
+
                 if (selectedNumericId === numericId) {
-                    return { discipline, group };
+                    matches.push({ discipline, group });
                 }
+              }
             }
         }
-        
-        return null;
+
+        if (matches.length === 0) return null;
+        // Disambiguate by expected association when provided (breed-based mapping)
+        if (expectedAssociationId && matches.length > 1) {
+            const norm = String(expectedAssociationId).toLowerCase();
+            const exact = matches.find(m => String(m.discipline.association_id || '').toLowerCase() === norm);
+            if (exact) return exact;
+        }
+        return matches[0];
     };
     
     // Helper function to create PDF from image with full header (for Published/Approved/Locked states)
-    const createPdfWithFullHeader = async (imageUrl, patternTitle, headerInfo) => {
+    const createPdfWithFullHeader = async (imageUrl, patternTitle, headerInfo, maneuvers = []) => {
         try {
             const base64 = await fetchImageAsBase64(imageUrl);
             if (!base64) return null;
@@ -2484,11 +2532,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 doc.text(headerInfo.associationName.toUpperCase(), margin, yPos);
                 yPos += 14;
 
-                // Discipline name and competition date
+                // Discipline name, pattern number, and competition date
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
                 const dateStr = headerInfo.competitionDate ? format(parseLocalDate(headerInfo.competitionDate), 'MM-dd-yyyy') : '';
-                const disciplineText = `${headerInfo.disciplineName.toUpperCase()}${dateStr ? ` - ${dateStr}` : ''}`;
+                const patternNumSegment = headerInfo.patternNumber ? ` - PATTERN ${headerInfo.patternNumber}` : '';
+                const disciplineText = `${headerInfo.disciplineName.toUpperCase()}${patternNumSegment}${dateStr ? ` - ${dateStr}` : ''}`;
                 const disciplineMaxWidth = pageWidth - margin * 2;
                 const disciplineLines = doc.splitTextToSize(disciplineText, disciplineMaxWidth);
                 doc.text(disciplineLines, margin, yPos);
@@ -2562,11 +2611,59 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const imageType = croppedBase64.includes('image/png') ? 'PNG' : 'JPEG';
             doc.addImage(croppedBase64, imageType, x, y, imgWidth, imgHeight);
 
+            // Identification label below the diagram — e.g. "Western Riding – Pattern 0002"
+            const idDiscipline = headerInfo?.disciplineName || (patternTitle || '').replace(/\.pdf$/i, '').trim();
+            const idNumber = headerInfo?.patternNumber || null;
+            if (idDiscipline || idNumber) {
+                const idLabel = idNumber
+                    ? `${idDiscipline} \u2013 Pattern ${idNumber}`
+                    : `${idDiscipline}`;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                const labelY = Math.min(y + imgHeight + 14, pageHeight - bottomReserve);
+                doc.text(idLabel, pageWidth / 2, labelY, { align: 'center' });
+            }
+
+            // Pattern language / maneuvers — render on a new page if we have them
+            if (Array.isArray(maneuvers) && maneuvers.length > 0) {
+                doc.addPage();
+                let py = margin;
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                const langTitle = idNumber
+                    ? `${idDiscipline} \u2013 Pattern ${idNumber} \u2013 Pattern Language`
+                    : 'Pattern Language';
+                doc.text(langTitle, pageWidth / 2, py, { align: 'center' });
+                py += 18;
+
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                const textWidth = pageWidth - margin * 2;
+                const sorted = [...maneuvers].sort((a, b) => (a.step_no || 0) - (b.step_no || 0));
+                for (const m of sorted) {
+                    const stepLabel = m.step_no != null ? `${m.step_no}.` : '\u2022';
+                    const line = `${stepLabel} ${m.instruction || ''}`.trim();
+                    const wrapped = doc.splitTextToSize(line, textWidth);
+                    if (py + wrapped.length * 12 > pageHeight - bottomReserve) {
+                        doc.addPage();
+                        py = margin;
+                    }
+                    doc.text(wrapped, margin, py);
+                    py += wrapped.length * 12 + 4;
+                }
+            }
+
             // Branding — bottom-right on every page
-            doc.setFontSize(7);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(150, 150, 150);
-            doc.text('equipatterns.com', pageWidth - margin, pageHeight - 14, { align: 'right' });
+            const totalPages = doc.internal.getNumberOfPages();
+            for (let p = 1; p <= totalPages; p++) {
+                doc.setPage(p);
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(150, 150, 150);
+                doc.text('equipatterns.com', pageWidth - margin, pageHeight - 14, { align: 'right' });
+            }
 
             return doc.output('blob');
         } catch (error) {
@@ -2697,13 +2794,40 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 ? `${format(parseLocalDate(projectData.startDate), 'MM-dd-yyyy')} - ${format(parseLocalDate(projectData.endDate), 'MM-dd-yyyy')}`
                 : (projectData.startDate ? format(parseLocalDate(projectData.startDate), 'MM-dd-yyyy') : '');
             
+            // Extract 4-digit pattern number for header label (e.g. "Pattern 0002")
+            const patternNumberLabel = (() => {
+                const source = patternDataFromDb?.pdf_file_name || pattern.patternName || pattern.name || '';
+                const m4 = source.match(/(\d{4})(?!.*\d)/);
+                if (m4) return m4[1];
+                const mAny = source.match(/(\d+)(?!.*\d)/);
+                if (mAny) return mAny[1].padStart(4, '0');
+                if (numericPatternId) return String(numericPatternId).padStart(4, '0');
+                return null;
+            })();
+
             // Get association ID - try from pattern, discipline, or project
-            let assocId = pattern.associationId || 
+            let assocId = pattern.associationId ||
                          Object.keys(projectData.associations || {})[0];
             
             if (numericPatternId) {
-                // Try to find discipline and group for this pattern from project data
-                const patternContext = findPatternDisciplineAndGroup(numericPatternId);
+                // Prefer the exact row context (disciplineIndex + groupIndex) so we don't
+                // cross-match when two associations (e.g. APHA + AQHA) selected the same pattern ID.
+                let patternContext = null;
+                const disciplinesArr = projectData.disciplines || [];
+                if (
+                    typeof pattern.disciplineIndex === 'number' &&
+                    typeof pattern.groupIndex === 'number' &&
+                    disciplinesArr[pattern.disciplineIndex]
+                ) {
+                    const exactDiscipline = disciplinesArr[pattern.disciplineIndex];
+                    const exactGroup = (exactDiscipline.patternGroups || [])[pattern.groupIndex];
+                    if (exactGroup) {
+                        patternContext = { discipline: exactDiscipline, group: exactGroup };
+                    }
+                }
+                if (!patternContext) {
+                    patternContext = findPatternDisciplineAndGroup(numericPatternId, pattern.associationId);
+                }
                 console.log('Pattern context found:', patternContext, 'for pattern ID:', numericPatternId);
                 
                 if (patternContext) {
@@ -2749,6 +2873,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         disciplineName: discipline.name || '',
                         competitionDate: competitionDate,
                         divisions: divisions,
+                        patternNumber: patternNumberLabel,
                         classGrouping: group.name || `Group ${(discipline.patternGroups || []).indexOf(group) + 1}`
                     };
                     console.log('Header info created from pattern context:', headerInfo);
@@ -2777,6 +2902,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         disciplineName: pattern.disciplineName || pattern.discipline || '',
                         competitionDate: projectData.startDate,
                         divisions: divisions,
+                        patternNumber: patternNumberLabel,
                         classGrouping: pattern.groupName || (pattern.groupIndex !== undefined ? `Group ${pattern.groupIndex + 1}` : '')
                     };
                     console.log('Header info (from pattern object):', headerInfo);
@@ -2806,13 +2932,29 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     disciplineName: pattern.disciplineName || pattern.discipline || '',
                     competitionDate: projectData.startDate,
                     divisions: divisions,
+                    patternNumber: patternNumberLabel,
                     classGrouping: pattern.groupName || (pattern.groupIndex !== undefined ? `Group ${pattern.groupIndex + 1}` : '')
                 };
                 console.log('Header info (no numeric ID, from pattern object):', headerInfo);
             }
             
+            // Fetch maneuvers (pattern language) from DB so the PDF can render them
+            let maneuvers = [];
+            if (numericPatternId) {
+                const { data: maneuverRows, error: maneuverErr } = await supabase
+                    .from('tbl_maneuvers')
+                    .select('step_no, instruction')
+                    .eq('pattern_id', numericPatternId)
+                    .order('step_no');
+                if (maneuverErr) {
+                    console.warn('Failed to load maneuvers for pattern', numericPatternId, maneuverErr);
+                } else {
+                    maneuvers = maneuverRows || [];
+                }
+            }
+
             // Create PDF with full header if in Published state, otherwise with simple title
-            const pdfBlob = await createPdfWithFullHeader(imageUrl, patternTitle, headerInfo);
+            const pdfBlob = await createPdfWithFullHeader(imageUrl, patternTitle, headerInfo, maneuvers);
             
             if (!pdfBlob) {
                 throw new Error('Failed to create PDF');
@@ -2870,15 +3012,16 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     if (typeof scoresheet.id === 'number') {
                         numericId = scoresheet.id;
                     } else if (typeof scoresheet.id === 'string') {
-                        // Handle string IDs like "scoresheet-0-1-Western Riding"
-                        if (scoresheet.id.startsWith('scoresheet-')) {
-                            // Try to extract numeric ID if present
-                            const match = scoresheet.id.match(/\d+/);
-                            if (match) {
-                                numericId = parseInt(match[0]);
-                            }
-                        } else if (!isNaN(parseInt(scoresheet.id))) {
+                        if (/^\d+$/.test(scoresheet.id)) {
                             numericId = parseInt(scoresheet.id);
+                        } else {
+                            // String IDs like "scoresheet-0-1-Western Riding": prefer the
+                            // last 1-6 digit run (the real scoresheet ID), not the first.
+                            const matches = scoresheet.id.match(/\d+/g);
+                            if (matches && matches.length > 0) {
+                                const real = [...matches].reverse().find(m => m.length <= 6) || matches[0];
+                                numericId = parseInt(real);
+                            }
                         }
                     }
                     
@@ -2965,9 +3108,17 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             // Final fallback to show start date only (not range)
                             if (!date) date = projectDataLocal.startDate || '';
                         }
+                        // Include the actual pattern number so generated scoresheets
+                        // also reflect the row's pattern (e.g. "Pattern 0002 – Open Amateur").
+                        const pn = scoresheet.patternNumber
+                            ? String(scoresheet.patternNumber).padStart(4, '0')
+                            : null;
+                        const classLabel = pn
+                            ? `${scoresheet.disciplineName || ''} \u2013 Pattern ${pn} \u2013 ${scoresheet.divisionName}`.trim()
+                            : scoresheet.divisionName;
                         overlayData = {
                             showName: project?.project_name || projectDataLocal.showName || '',
-                            className: scoresheet.divisionName,
+                            className: classLabel,
                             date,
                             judgeName: scoresheet.judgeName,
                         };
@@ -3164,9 +3315,15 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 }
                                 if (!date) date = projectDataLocal.startDate || '';
                             }
+                            const pn = scoresheet.patternNumber
+                                ? String(scoresheet.patternNumber).padStart(4, '0')
+                                : null;
+                            const classLabel = pn
+                                ? `${scoresheet.disciplineName || ''} \u2013 Pattern ${pn} \u2013 ${scoresheet.divisionName}`.trim()
+                                : scoresheet.divisionName;
                             overlayData = {
                                 showName: project?.project_name || projectDataLocal.showName || '',
-                                className: scoresheet.divisionName,
+                                className: classLabel,
                                 date,
                                 judgeName: scoresheet.judgeName,
                             };
@@ -3265,17 +3422,65 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
     };
 
-    // Bulk move selected scoresheets to folder
+    // Bulk move selected scoresheets to folder (batched to avoid stale-state overwrites)
     const handleBulkMoveToFolder = async (folderId) => {
         const selected = displayedScoresheets.filter(s => selectedScoresheetIds.has(s.uniqueKey));
-        if (selected.length === 0) return;
-
-        for (const scoresheet of selected) {
-            handleAddToFolder(scoresheet.uniqueKey, 'scoresheet', folderId, scoresheet);
-        }
-
-        toast({ title: `Moved ${selected.length} scoresheet(s) to folder` });
+        if (selected.length === 0 || !folderId) return;
+        await bulkMoveItemsToFolder(
+            selected.map(s => ({ id: s.uniqueKey, type: 'scoresheet', data: s })),
+            folderId
+        );
         setSelectedScoresheetIds(new Set());
+    };
+
+    const handleBulkMovePatternsToFolder = async (folderId) => {
+        const selected = filteredPatterns.filter((p, i) => {
+            const key = p.uniqueKey || p.id || p.numericId || `pattern-${i}`;
+            return selectedPatternIds.has(key);
+        });
+        if (selected.length === 0 || !folderId) return;
+        await bulkMoveItemsToFolder(
+            selected.map((p, i) => ({
+                id: p.id || p.numericId || p.uniqueKey || `pattern-${i}`,
+                type: 'pattern',
+                data: p,
+            })),
+            folderId
+        );
+        setSelectedPatternIds(new Set());
+    };
+
+    // Single-pass move that updates every target folder once, then persists.
+    // Item is removed from any other folder it belongs to (move, not copy).
+    const bulkMoveItemsToFolder = async (items, folderId) => {
+        const targetFolder = folders.find(f => f.id === folderId);
+        if (!targetFolder) return;
+
+        const updatedFolders = folders.map(folder => {
+            if (folder.id === folderId) {
+                const existingKeys = new Set((folder.items || []).map(it => `${it.type}:${it.id}`));
+                const additions = items
+                    .filter(it => !existingKeys.has(`${it.type}:${it.id}`))
+                    .map(it => ({
+                        id: it.id,
+                        type: it.type,
+                        data: it.data,
+                        storedAt: new Date().toISOString(),
+                    }));
+                return { ...folder, items: [...(folder.items || []), ...additions] };
+            }
+            // Remove items from any other folder so move semantics are honored
+            const moveKeys = new Set(items.map(it => `${it.type}:${it.id}`));
+            const filtered = (folder.items || []).filter(it => !moveKeys.has(`${it.type}:${it.id}`));
+            return filtered.length === (folder.items || []).length ? folder : { ...folder, items: filtered };
+        });
+
+        setFolders(updatedFolders);
+        await saveFoldersToProject(updatedFolders);
+        toast({
+            title: 'Moved to folder',
+            description: `Moved ${items.length} item${items.length === 1 ? '' : 's'} to "${targetFolder.name}"`,
+        });
     };
 
     // Discipline options from project_data.disciplines (source of truth)
@@ -3372,7 +3577,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         // From patternSelections (judges assigned at discipline/group level in Step 5)
         Object.values(projectData.patternSelections || {}).forEach(disciplineSels => {
             if (disciplineSels && typeof disciplineSels === 'object') {
-                Object.values(disciplineSels).forEach(sel => {
+                forEachPatternSelection(disciplineSels, (_g, _a, sel) => {
                     if (sel?.type === 'judgeAssigned' && sel?.judgeName?.trim()) {
                         judges.add(sel.judgeName.trim());
                     }
@@ -3532,11 +3737,20 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return 0;
     });
     
-    // Display scoresheets: use generated list (already filtered at generation time), with sorting
+    // Display scoresheets: use generated list (already filtered at generation time), with sorting.
+    // Also defensively filter by filterAssociations so stale rows from a previous generation
+    // don't leak through while a regeneration is in flight.
     const displayedScoresheets = useMemo(() => {
-        const list = selectedSidebarItem === 'folder' && selectedFolderId
+        const base = selectedSidebarItem === 'folder' && selectedFolderId
             ? folderItemsAsScoresheets
             : generatedScoresheets;
+
+        const list = filterAssociations.size > 0
+            ? base.filter(s => {
+                const abbrev = String(s.association_abbrev || s.associationId || '').toUpperCase();
+                return filterAssociations.has(abbrev);
+            })
+            : base;
 
         return [...list].sort((a, b) => {
             if (scoresheetSortBy === 'division') return (a.divisionName || '').localeCompare(b.divisionName || '');
@@ -3545,7 +3759,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             if (scoresheetSortBy === 'name') return (a.displayName || '').localeCompare(b.displayName || '');
             return 0;
         });
-    }, [generatedScoresheets, folderItemsAsScoresheets, selectedSidebarItem, selectedFolderId, scoresheetSortBy]);
+    }, [generatedScoresheets, folderItemsAsScoresheets, selectedSidebarItem, selectedFolderId, scoresheetSortBy, filterAssociations]);
     
     // Fetch data when dialog opens or tabs change
     useEffect(() => {
@@ -3581,30 +3795,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             Object.keys(patternSelections).forEach(disciplineKey => {
                 const disciplineSelections = patternSelections[disciplineKey];
                 if (!disciplineSelections || typeof disciplineSelections !== 'object') return;
-                
-                // Iterate through all groups in this discipline selection
-                Object.keys(disciplineSelections).forEach(groupKey => {
-                    const patternSelection = disciplineSelections[groupKey];
+
+                // Iterate through all groups (and assoc-scoped entries) in this discipline selection
+                forEachPatternSelection(disciplineSelections, (_groupKey, _abbrev, patternSelection) => {
                     if (!patternSelection) return;
-                    
-                    const patternId = typeof patternSelection === 'object' 
-                        ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id) 
+
+                    const patternId = typeof patternSelection === 'object'
+                        ? (patternSelection.patternId ?? patternSelection.pattern_id ?? patternSelection.id)
                         : patternSelection;
-                    
-                    // Try to extract numeric ID
-                    if (patternId) {
-                        if (typeof patternId === 'string' && patternId.includes('-')) {
-                            const match = patternId.match(/\d+/);
-                            if (match) {
-                                numericPatternIds.add(parseInt(match[0]));
-                            }
-                        } else if (!isNaN(parseInt(patternId))) {
+
+                    // Extract numeric ID — same rules as the build-pass below
+                    if (typeof patternId === 'number') {
+                        numericPatternIds.add(patternId);
+                    } else if (typeof patternId === 'string') {
+                        if (/^\d+$/.test(patternId)) {
                             numericPatternIds.add(parseInt(patternId));
+                        } else {
+                            const m = patternId.match(/\d+/g);
+                            if (m) {
+                                const real = m.find(x => x.length <= 6) || m[0];
+                                numericPatternIds.add(parseInt(real));
+                            }
                         }
                     }
                 });
             });
-            
+
             // Also try the old structure (by index/id/name) for backward compatibility
             for (let disciplineIndex = 0; disciplineIndex < disciplines.length; disciplineIndex++) {
                 const discipline = disciplines[disciplineIndex];
@@ -3635,27 +3851,28 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const group = groups[groupIndex];
                     const groupId = group.id || `pattern-group-${groupIndex}`;
                     
-                    let patternSelection = disciplineSelections[groupIndex]
-                        || disciplineSelections[`${groupIndex}`]
-                        || disciplineSelections[groupId]
-                        || disciplineSelections[group.id];
-                    
+                    const discAbbrev = associationId ? String(associationId).toUpperCase() : null;
+                    let patternSelection = getPatternSelectionForAssoc(disciplineSelections, groupIndex, discAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, `${groupIndex}`, discAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, groupId, discAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, group.id, discAbbrev);
+
                     // Try to find by group ID pattern
                     if (!patternSelection && groupId) {
                         const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
                             return key === groupId || key.includes('pattern-group') || key === `group-${groupIndex}`;
                         });
                         if (matchingGroupKey) {
-                            patternSelection = disciplineSelections[matchingGroupKey];
+                            patternSelection = getPatternSelectionForAssoc(disciplineSelections, matchingGroupKey, discAbbrev);
                         }
                     }
-                    
+
                     if (!patternSelection) continue;
-                    
-                    const patternId = typeof patternSelection === 'object' 
-                        ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id) 
+
+                    const patternId = typeof patternSelection === 'object'
+                        ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id)
                         : patternSelection;
-                    
+
                     // Try to extract numeric ID
                     if (patternId) {
                         if (typeof patternId === 'string' && patternId.includes('-')) {
@@ -3676,15 +3893,15 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 // First try to get from tbl_pattern_media for images and PDF URLs
                 const { data: patternMediaData } = await supabase
                     .from('tbl_pattern_media')
-                    .select('pattern_id, image_url, pdf_url, file_url')
+                    .select('pattern_id, image_url, file_url')
                     .in('pattern_id', Array.from(numericPatternIds));
-                
+
                 if (patternMediaData) {
                     patternMediaData.forEach(pm => {
                         patternDetailsMap[pm.pattern_id] = {
                             image_url: pm.image_url,
-                            pdf_url: pm.pdf_url || pm.file_url || pm.image_url,
-                            download_url: pm.pdf_url || pm.file_url || pm.image_url
+                            pdf_url: pm.file_url || pm.image_url,
+                            download_url: pm.file_url || pm.image_url
                         };
                     });
                 }
@@ -3692,7 +3909,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 // Then get pattern details from tbl_patterns
                 const { data: patternData, error: patDetailError } = await supabase
                     .from('tbl_patterns')
-                    .select('id, pdf_file_name, pattern_version, discipline, association_id, url, image_url, pdf_url')
+                    .select('id, pdf_file_name, pattern_version, discipline, association_name')
                     .in('id', Array.from(numericPatternIds));
                 
                 if (!patDetailError && patternData) {
@@ -3701,18 +3918,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             patternDetailsMap[p.id] = {
                                 ...patternDetailsMap[p.id],
                                 ...p,
-                                // Keep image_url from media if available, otherwise use from patterns
-                                image_url: patternDetailsMap[p.id].image_url || p.image_url,
-                                pdf_url: patternDetailsMap[p.id].pdf_url || p.pdf_url || p.url || p.image_url,
-                                download_url: patternDetailsMap[p.id].download_url || p.pdf_url || p.url || p.image_url
+                                image_url: patternDetailsMap[p.id].image_url,
+                                pdf_url: patternDetailsMap[p.id].pdf_url,
+                                download_url: patternDetailsMap[p.id].download_url
                             };
                         } else {
-                            patternDetailsMap[p.id] = {
-                                ...p,
-                                image_url: p.image_url,
-                                pdf_url: p.pdf_url || p.url || p.image_url,
-                                download_url: p.pdf_url || p.url || p.image_url
-                            };
+                            patternDetailsMap[p.id] = { ...p };
                         }
                     });
                 }
@@ -3724,7 +3935,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 if (missingData.length > 0) {
                     const { data: additionalMedia } = await supabase
                         .from('tbl_pattern_media')
-                        .select('pattern_id, pdf_url, file_url, image_url')
+                        .select('pattern_id, file_url, image_url')
                         .in('pattern_id', missingData);
                     
                     if (additionalMedia) {
@@ -3736,10 +3947,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 patternDetailsMap[pm.pattern_id].image_url = pm.image_url;
                             }
                             if (!patternDetailsMap[pm.pattern_id].pdf_url) {
-                                patternDetailsMap[pm.pattern_id].pdf_url = pm.pdf_url || pm.file_url || pm.image_url;
+                                patternDetailsMap[pm.pattern_id].pdf_url = pm.file_url || pm.image_url;
                             }
                             if (!patternDetailsMap[pm.pattern_id].download_url) {
-                                patternDetailsMap[pm.pattern_id].download_url = pm.pdf_url || pm.file_url || pm.image_url;
+                                patternDetailsMap[pm.pattern_id].download_url = pm.file_url || pm.image_url;
                             }
                         });
                     }
@@ -3805,11 +4016,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const groupName = groups.length > 1 ? (group.name || `Group ${groupIndex + 1}`) : '';
                     const groupId = group.id || `pattern-group-${groupIndex}`;
 
-                    // Try multiple ways to find pattern selection
-                    let patternSelection = disciplineSelections[groupIndex]
-                        || disciplineSelections[`${groupIndex}`]
-                        || disciplineSelections[groupId]
-                        || disciplineSelections[group.id]
+                    const buildDiscAbbrev = associationId ? String(associationId).toUpperCase() : null;
+                    // Try multiple ways to find pattern selection (assoc-aware)
+                    let patternSelection = getPatternSelectionForAssoc(disciplineSelections, groupIndex, buildDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, `${groupIndex}`, buildDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, groupId, buildDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, group.id, buildDiscAbbrev)
                         || (Array.isArray(disciplineSelections) ? disciplineSelections[groupIndex] : null);
 
                     // If not found, try to find by group ID pattern (e.g., "pattern-group-1767684453160")
@@ -3819,41 +4031,51 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         });
 
                         if (matchingGroupKey) {
-                            patternSelection = disciplineSelections[matchingGroupKey];
+                            patternSelection = getPatternSelectionForAssoc(disciplineSelections, matchingGroupKey, buildDiscAbbrev);
                         }
                     }
 
                     // Single-group fallback: use first available selection
                     if (!patternSelection && groups.length === 1) {
                         const firstKey = Object.keys(disciplineSelections)[0];
-                        if (firstKey) patternSelection = disciplineSelections[firstKey];
+                        if (firstKey) patternSelection = getPatternSelectionForAssoc(disciplineSelections, firstKey, buildDiscAbbrev);
                     }
-                    
+
                     if (!patternSelection) {
                         continue;
                     }
-                    
-                    
-                    // Get pattern ID - could be numeric or string
-                    let patternId = typeof patternSelection === 'object' 
-                        ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id) 
+
+
+                    // Get pattern ID - prefer the explicit numeric patternId / pattern_id field.
+                    // String IDs like "pattern-2-1767684438175" embed timestamps that the old
+                    // regex would mis-parse, causing pattern #2 to be replaced by pattern #1, etc.
+                    let patternId = typeof patternSelection === 'object'
+                        ? (patternSelection.patternId ?? patternSelection.pattern_id ?? patternSelection.id)
                         : patternSelection;
-                    
+
                     // Get version from patternSelection if available
-                    const patternVersion = typeof patternSelection === 'object' 
+                    const patternVersion = typeof patternSelection === 'object'
                         ? (patternSelection.version || patternSelection.patternVersion || patternSelection.pattern_version || 'ALL')
                         : 'ALL';
-                    
-                    // Extract numeric ID if possible
+
+                    // Extract numeric ID. Trust numeric values directly; only regex-parse
+                    // string IDs as a last resort (and use the LAST digit run, which the
+                    // upload pipeline appends as the real pattern_id).
                     let numericPatternId = null;
-                    if (patternId) {
-                        if (typeof patternId === 'string' && patternId.includes('-')) {
-                            const match = patternId.match(/\d+/);
-                            if (match) {
-                                numericPatternId = parseInt(match[0]);
-                            }
-                        } else if (!isNaN(parseInt(patternId))) {
+                    if (typeof patternId === 'number') {
+                        numericPatternId = patternId;
+                    } else if (typeof patternId === 'string') {
+                        if (/^\d+$/.test(patternId)) {
                             numericPatternId = parseInt(patternId);
+                        } else if (typeof patternSelection === 'object' && typeof patternSelection.patternId === 'number') {
+                            numericPatternId = patternSelection.patternId;
+                        } else {
+                            const matches = patternId.match(/\d+/g);
+                            if (matches && matches.length > 0) {
+                                // Prefer a 1–6 digit run (real pattern ids), skip 10+ digit timestamps
+                                const real = matches.find(m => m.length <= 6) || matches[0];
+                                numericPatternId = parseInt(real);
+                            }
                         }
                     }
                     
@@ -3958,6 +4180,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             patternVersion: patternVersion || patternDetail?.pattern_version || 'ALL',
                             version: patternVersion, // Store version from patternSelection
                             associationId: patternDetail?.association_id || discipline.association_id,
+                            association_name: patternDetail?.association_name || null,
                             groupName: groupName,
                             groupId: group.id,
                             groupIndex: groupIndex,
@@ -4052,53 +4275,59 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 if (!disciplineSelections) continue;
                 
                 const groups = discipline.patternGroups || [];
+                const ssDiscAbbrev = associationId ? String(associationId).toUpperCase() : null;
                 for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
                     const group = groups[groupIndex];
                     const groupId = group.id || `pattern-group-${groupIndex}`;
-                    
-                    // Try multiple ways to find pattern selection
-                    let patternSelection = disciplineSelections[groupIndex]
-                        || disciplineSelections[`${groupIndex}`]
-                        || disciplineSelections[groupId]
-                        || disciplineSelections[group.id];
-                    
+
+                    // Try multiple ways to find pattern selection (assoc-aware)
+                    let patternSelection = getPatternSelectionForAssoc(disciplineSelections, groupIndex, ssDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, `${groupIndex}`, ssDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, groupId, ssDiscAbbrev)
+                        || getPatternSelectionForAssoc(disciplineSelections, group.id, ssDiscAbbrev);
+
                     // If not found, try to find by group ID pattern
                     if (!patternSelection && groupId) {
                         const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
                             return key === groupId || key.includes('pattern-group');
                         });
                         if (matchingGroupKey) {
-                            patternSelection = disciplineSelections[matchingGroupKey];
+                            patternSelection = getPatternSelectionForAssoc(disciplineSelections, matchingGroupKey, ssDiscAbbrev);
                         }
                     }
-                    
+
                     if (!patternSelection) continue;
-                    
-                    const patternId = typeof patternSelection === 'object' 
-                        ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id) 
+
+                    const patternId = typeof patternSelection === 'object'
+                        ? (patternSelection.patternId ?? patternSelection.pattern_id ?? patternSelection.id)
                         : patternSelection;
-                    
-                    // Extract numeric pattern ID
+
+                    // Extract numeric pattern ID — prefer numeric, avoid timestamp digits
                     let numericPatternId = null;
-                    if (patternId) {
-                        if (typeof patternId === 'string' && patternId.includes('-')) {
-                            const match = patternId.match(/\d+/);
-                            if (match) {
-                                numericPatternId = parseInt(match[0]);
-                            }
-                        } else if (!isNaN(parseInt(patternId))) {
+                    if (typeof patternId === 'number') {
+                        numericPatternId = patternId;
+                    } else if (typeof patternId === 'string') {
+                        if (/^\d+$/.test(patternId)) {
                             numericPatternId = parseInt(patternId);
+                        } else {
+                            const matches = patternId.match(/\d+/g);
+                            if (matches && matches.length > 0) {
+                                const real = matches.find(m => m.length <= 6) || matches[0];
+                                numericPatternId = parseInt(real);
+                            }
                         }
                     }
-                    
+
                     if (numericPatternId) {
                         selectedPatternIds.push(numericPatternId);
-                        patternIdToDisciplineMap[numericPatternId] = {
+                        // Key by pattern + discipline+group so APHA/AQHA don't collide
+                        const mapKey = `${numericPatternId}__${disciplineIndex}__${groupIndex}`;
+                        patternIdToDisciplineMap[mapKey] = {
                             disciplineIndex,
                             disciplineName,
                             groupIndex,
                             groupName: groups[groupIndex]?.name || `Group ${groupIndex + 1}`,
-                            association_id: discipline.association_id,
+                            association_id: associationId,
                             discipline: discipline
                         };
                     }
@@ -4107,57 +4336,62 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             
             const uniquePatternIds = [...new Set(selectedPatternIds)].filter(id => !isNaN(id) && isFinite(id));
             
-            // Step 2: Fetch scoresheets by pattern_id (same as Step6_Preview)
-            const scoresheetMap = {};
-            
+            // Step 2: Fetch scoresheets by pattern_id, indexed by (pattern_id, association)
+            // so an APHA + AQHA pair sharing the same pattern_id don't overwrite each other.
+            const scoresheetMap = {}; // key: `${pattern_id}__${association_abbrev}` (lowercase)
+            const scoresheetByPattern = {}; // fallback: pattern_id -> first scoresheet seen
+
+            const ssKey = (pid, abbrev) => `${pid}__${String(abbrev || '').toLowerCase()}`;
+
             if (uniquePatternIds.length > 0) {
                 try {
-                    // Fetch scoresheets by pattern_id (same as Step6_Preview)
                     const { data: scoresheetData, error: scoresheetError } = await supabase
                         .from('tbl_scoresheet')
                         .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
                         .in('pattern_id', uniquePatternIds);
-                    
+
                     if (scoresheetError) {
                         console.error('Error fetching scoresheets by pattern_id:', scoresheetError);
                     }
-                    
+
                     if (scoresheetData && scoresheetData.length > 0) {
                         scoresheetData.forEach(s => {
                             if (s.pattern_id) {
-                                scoresheetMap[s.pattern_id] = s;
+                                scoresheetMap[ssKey(s.pattern_id, s.association_abbrev)] = s;
+                                if (!scoresheetByPattern[s.pattern_id]) {
+                                    scoresheetByPattern[s.pattern_id] = s;
+                                }
                             }
                         });
                     }
-                    
-                    // Fallback: If pattern_id query returned empty, try by association_abbrev and discipline
-                    const missingPatternIds = uniquePatternIds.filter(id => !scoresheetMap[id]);
-                    
-                    if (missingPatternIds.length > 0 && associationsData.length > 0) {
-                        for (const patternId of missingPatternIds) {
-                            const disciplineInfo = patternIdToDisciplineMap[patternId];
-                            if (disciplineInfo) {
-                                const association = associationsMap[disciplineInfo.association_id];
-                                const associationAbbrev = association?.abbreviation;
-                                
-                                if (associationAbbrev && disciplineInfo.disciplineName) {
-                                    try {
-                                        const { data: fallbackData, error: fallbackError } = await supabase
-                                            .from('tbl_scoresheet')
-                                            .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
-                                            .eq('association_abbrev', associationAbbrev)
-                                            .eq('discipline', disciplineInfo.disciplineName)
-                                            .limit(1)
-                                            .maybeSingle();
-                                        
-                                        if (!fallbackError && fallbackData) {
-                                            scoresheetMap[patternId] = fallbackData;
-                                        }
-                                    } catch (fallbackErr) {
-                                        console.error(`Error fetching fallback scoresheet for pattern ${patternId}:`, fallbackErr);
-                                    }
+
+                    // Fallback: For every (pattern, discipline, association) tuple that has no
+                    // matching scoresheet yet, query by association_abbrev + discipline.
+                    for (const mapKey of Object.keys(patternIdToDisciplineMap)) {
+                        const disciplineInfo = patternIdToDisciplineMap[mapKey];
+                        const patternId = parseInt(mapKey.split('__')[0]);
+                        const association = associationsMap[disciplineInfo.association_id];
+                        const associationAbbrev = association?.abbreviation || disciplineInfo.association_id;
+                        if (!associationAbbrev) continue;
+                        const key = ssKey(patternId, associationAbbrev);
+                        if (scoresheetMap[key]) continue;
+
+                        try {
+                            const { data: fallbackData } = await supabase
+                                .from('tbl_scoresheet')
+                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
+                                .eq('association_abbrev', associationAbbrev)
+                                .eq('discipline', disciplineInfo.disciplineName)
+                                .limit(1)
+                                .maybeSingle();
+                            if (fallbackData) {
+                                scoresheetMap[key] = fallbackData;
+                                if (!scoresheetByPattern[patternId]) {
+                                    scoresheetByPattern[patternId] = fallbackData;
                                 }
                             }
+                        } catch (fallbackErr) {
+                            console.error(`Error fetching fallback scoresheet for pattern ${patternId} / ${associationAbbrev}:`, fallbackErr);
                         }
                     }
                 } catch (err) {
@@ -4249,11 +4483,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         if (allShowJudges.length > 0) judgeNames = allShowJudges;
                     }
 
+                    const buildSSAbbrev = associationId ? String(associationId).toUpperCase() : null;
                     // Get pattern selection to find pattern ID - try multiple matching strategies
-                    let patternSelection = disciplineSelections?.[groupIndex]
-                        || disciplineSelections?.[`${groupIndex}`]
-                        || disciplineSelections?.[groupId]
-                        || disciplineSelections?.[group.id];
+                    let patternSelection = disciplineSelections
+                        ? (getPatternSelectionForAssoc(disciplineSelections, groupIndex, buildSSAbbrev)
+                            || getPatternSelectionForAssoc(disciplineSelections, `${groupIndex}`, buildSSAbbrev)
+                            || getPatternSelectionForAssoc(disciplineSelections, groupId, buildSSAbbrev)
+                            || getPatternSelectionForAssoc(disciplineSelections, group.id, buildSSAbbrev))
+                        : null;
 
                     // If not found, try to find by group ID pattern
                     if (!patternSelection && disciplineSelections && groupId) {
@@ -4261,40 +4498,60 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             return key === groupId || key.includes('pattern-group');
                         });
                         if (matchingGroupKey) {
-                            patternSelection = disciplineSelections[matchingGroupKey];
+                            patternSelection = getPatternSelectionForAssoc(disciplineSelections, matchingGroupKey, buildSSAbbrev);
                         }
                     }
 
                     // Single-group fallback
                     if (!patternSelection && groups.length === 1 && disciplineSelections) {
                         const firstKey = Object.keys(disciplineSelections)[0];
-                        if (firstKey) patternSelection = disciplineSelections[firstKey];
+                        if (firstKey) patternSelection = getPatternSelectionForAssoc(disciplineSelections, firstKey, buildSSAbbrev);
                     }
 
                     let scoresheetData = null;
                     let numericPatternId = null;
-                    
-                    // Try to get pattern ID from selection
+
+                    // Try to get pattern ID from selection — same numeric-preferred logic as patterns
                     if (patternSelection) {
-                        const patternId = typeof patternSelection === 'object' 
-                            ? (patternSelection.patternId || patternSelection.id || patternSelection.pattern_id) 
+                        const patternId = typeof patternSelection === 'object'
+                            ? (patternSelection.patternId ?? patternSelection.pattern_id ?? patternSelection.id)
                             : patternSelection;
-                        
-                        if (patternId) {
-                            if (typeof patternId === 'string' && patternId.includes('-')) {
-                                const match = patternId.match(/\d+/);
-                                if (match) {
-                                    numericPatternId = parseInt(match[0]);
-                                }
-                            } else if (!isNaN(parseInt(patternId))) {
+
+                        if (typeof patternId === 'number') {
+                            numericPatternId = patternId;
+                        } else if (typeof patternId === 'string') {
+                            if (/^\d+$/.test(patternId)) {
                                 numericPatternId = parseInt(patternId);
+                            } else {
+                                const matches = patternId.match(/\d+/g);
+                                if (matches && matches.length > 0) {
+                                    const real = matches.find(m => m.length <= 6) || matches[0];
+                                    numericPatternId = parseInt(real);
+                                }
                             }
                         }
                     }
-                    
-                    // Get scoresheet from map using pattern_id
-                    if (numericPatternId && scoresheetMap[numericPatternId]) {
-                        scoresheetData = scoresheetMap[numericPatternId];
+
+                    // Get scoresheet using breed-aware key. Prefer the pattern's own stored
+                    // association (patternSelection.association_abbrev) over the discipline's
+                    // association — the pattern row is the source of truth.
+                    if (numericPatternId) {
+                        const patternOwnAbbrev = (typeof patternSelection === 'object' && patternSelection)
+                            ? (patternSelection.association_abbrev
+                                || patternSelection.associationAbbrev
+                                || patternSelection.association_name
+                                || patternSelection.associationName)
+                            : null;
+                        const expectedAssoc = patternOwnAbbrev
+                            || associationsMap[associationId]?.abbreviation
+                            || associationId;
+                        const key = `${numericPatternId}__${String(expectedAssoc || '').toLowerCase()}`;
+                        if (scoresheetMap[key]) {
+                            scoresheetData = scoresheetMap[key];
+                        }
+                        // NOTE: removed the `scoresheetByPattern[numericPatternId]` fallback —
+                        // it was silently returning another association's scoresheet when the
+                        // exact (pattern + assoc) key missed. Leave unresolved instead.
                     }
                     
                     // Fallback: Try to get from patternSelection.scoresheetData
@@ -4311,14 +4568,16 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         
                         if (association?.abbreviation && disciplineName) {
                             try {
+                                // Exact-match association_abbrev AND discipline so APHA results
+                                // never bleed into AQHA rows (and vice versa).
                                 const { data: scoresheet } = await supabase
                                     .from('tbl_scoresheet')
                                     .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
                                     .eq('association_abbrev', association.abbreviation)
-                                    .ilike('discipline', `%${disciplineName}%`)
+                                    .eq('discipline', disciplineName)
                                     .limit(1)
                                     .maybeSingle();
-                                
+
                                 if (scoresheet) {
                                     scoresheetData = scoresheet;
                                 }
@@ -4357,6 +4616,15 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const finalJudgeNames = selectionJudge ? [selectionJudge] : judgeNames;
 
                     if (!processedScoresheets.has(uniqueKey)) {
+                        const expectedAbbrev = associationsMap[associationId]?.abbreviation || associationId || null;
+                        // Compute the actual pattern number this row represents (4-digit padded),
+                        // pulled from patternSelection (so APHA Pattern 0002 stays 0002, etc.)
+                        const selectionPatternNumber = (typeof patternSelection === 'object' && patternSelection?.patternNumber)
+                            ? String(patternSelection.patternNumber)
+                            : null;
+                        const patternNumberLabel = selectionPatternNumber
+                            ? selectionPatternNumber.padStart(4, '0')
+                            : (numericPatternId ? String(numericPatternId).padStart(4, '0') : null);
                         scoresheetsList.push({
                             ...(scoresheetData || {}),
                             uniqueKey,
@@ -4365,6 +4633,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             disciplineIndex: disciplineIndex,
                             groupName: groupName,
                             groupIndex: groupIndex,
+                            associationId: associationId,
+                            associationAbbrev: expectedAbbrev,
+                            patternNumber: patternNumberLabel,
+                            patternId: numericPatternId,
                             displayName: scoresheetName,
                             divisions: extractedDivisions,
                             divisionNames: extractedDivisions.map(d => {
@@ -4398,6 +4670,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             const disciplines = projectData.disciplines || [];
             const patternSelections = projectData.patternSelections || {};
             const result = [];
+            const validationErrors = [];
 
             // Fetch associations data
             const { data: assocData } = await supabase
@@ -4503,37 +4776,52 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     : disciplineAssocIds;
                 if (activeAssocIds.length === 0) activeAssocIds = [null];
 
-                // Collect all divisions within this discipline's groups (shared across associations)
                 const groups = discipline.patternGroups || [];
-                const disciplineDivisions = [];
-                const divisionDateMap = {};
-                for (const group of groups) {
-                    (group.divisions || []).forEach(div => {
-                        const divName = typeof div === 'string' ? div : div?.name || div?.divisionName || div?.division || div?.title || '';
-                        const divId = typeof div === 'string' ? div : div?.id;
-                        if (divName.trim()) {
-                            disciplineDivisions.push(divName.trim());
-                            if (divId && discipline.divisionDates?.[divId]) {
-                                divisionDateMap[divName.trim()] = discipline.divisionDates[divId];
-                            }
-                        }
-                    });
-                }
-                const uniqueDisciplineDivisions = [...new Set(disciplineDivisions)];
 
-                let matchingDivisions = uniqueDisciplineDivisions.filter(d =>
-                    selectedDivisionsList.some(sel => sel.toLowerCase() === d.toLowerCase())
-                );
-                if (filterDates.size > 0) {
-                    matchingDivisions = matchingDivisions.filter(d => {
-                        const divDate = divisionDateMap[d];
-                        return divDate && filterDates.has(divDate);
-                    });
-                }
-                if (matchingDivisions.length === 0) continue;
+                // Forced-association rule is evaluated per-division below, not per-discipline,
+                // so a Level 1 group doesn't contaminate sibling groups (Amateur, Select, etc.).
+                const iterationAssocIds = activeAssocIds;
 
                 // Iterate per association so each association gets its own score sheets & judges
-                for (const associationId of activeAssocIds) {
+                for (const associationId of iterationAssocIds) {
+                    const assocNormForDiv = associationId ? String(associationId).toUpperCase() : null;
+
+                    // Collect divisions scoped to THIS association. A division in the pattern
+                    // group may carry its own assocId / association_id; if it matches the
+                    // current iteration's association (or has no assoc tag — treat as shared),
+                    // include it. Without this, APHA-only divisions would bleed into AQHA rows.
+                    const disciplineDivisions = [];
+                    const divisionDateMap = {};
+                    for (const group of groups) {
+                        (group.divisions || []).forEach(div => {
+                            const divName = typeof div === 'string' ? div : div?.name || div?.divisionName || div?.division || div?.title || '';
+                            const divId = typeof div === 'string' ? div : div?.id;
+                            const divAssoc = typeof div === 'object' && div
+                                ? (div.assocId || div.association_id || div.association || '')
+                                : '';
+                            const divAssocNorm = divAssoc ? String(divAssoc).toUpperCase() : '';
+                            if (assocNormForDiv && divAssocNorm && divAssocNorm !== assocNormForDiv) return;
+                            if (divName.trim()) {
+                                disciplineDivisions.push(divName.trim());
+                                if (divId && discipline.divisionDates?.[divId]) {
+                                    divisionDateMap[divName.trim()] = discipline.divisionDates[divId];
+                                }
+                            }
+                        });
+                    }
+                    const uniqueDisciplineDivisions = [...new Set(disciplineDivisions)];
+
+                    let matchingDivisions = uniqueDisciplineDivisions.filter(d =>
+                        selectedDivisionsList.some(sel => sel.toLowerCase() === d.toLowerCase())
+                    );
+                    if (filterDates.size > 0) {
+                        matchingDivisions = matchingDivisions.filter(d => {
+                            const divDate = divisionDateMap[d];
+                            return divDate && filterDates.has(divDate);
+                        });
+                    }
+                    if (matchingDivisions.length === 0) continue;
+
                     let baseScoresheetData = null;
 
                     // Try to find pattern selection keyed by discipline (fallback uses association name in key)
@@ -4555,18 +4843,21 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     }
 
                     let firstPatternId = null;
+                    let firstPatternSelection = null;
                     for (const group of groups) {
                         const groupId = group.id || `pattern-group-${groups.indexOf(group)}`;
                         const gIdx = groups.indexOf(group);
-                        let patternSelection = disciplineSelections?.[gIdx]
-                            || disciplineSelections?.[`${gIdx}`]
-                            || disciplineSelections?.[groupId]
-                            || disciplineSelections?.[group.id];
+                        let patternSelection = disciplineSelections
+                            ? (getPatternSelectionForAssoc(disciplineSelections, gIdx, assocNormForDiv)
+                                || getPatternSelectionForAssoc(disciplineSelections, `${gIdx}`, assocNormForDiv)
+                                || getPatternSelectionForAssoc(disciplineSelections, groupId, assocNormForDiv)
+                                || getPatternSelectionForAssoc(disciplineSelections, group.id, assocNormForDiv))
+                            : null;
                         if (!patternSelection && disciplineSelections && groupId) {
                             const matchingGroupKey = Object.keys(disciplineSelections).find(key => {
                                 return key === groupId || key.includes('pattern-group');
                             });
-                            if (matchingGroupKey) patternSelection = disciplineSelections[matchingGroupKey];
+                            if (matchingGroupKey) patternSelection = getPatternSelectionForAssoc(disciplineSelections, matchingGroupKey, assocNormForDiv);
                         }
                         if (patternSelection) {
                             const patternId = typeof patternSelection === 'object'
@@ -4580,17 +4871,34 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 } else if (!isNaN(parseInt(patternId))) {
                                     numericId = parseInt(patternId);
                                 }
-                                if (numericId) { firstPatternId = numericId; break; }
+                                if (numericId) {
+                                    firstPatternId = numericId;
+                                    firstPatternSelection = patternSelection;
+                                    break;
+                                }
                             }
                         }
                     }
 
                     const association = associationId ? associationsMap[associationId] : null;
-                    const abbrev = association?.abbreviation || (associationId || '').toString();
+                    // Source-of-truth for scoresheet lookup: the pattern's own stored
+                    // association, falling back to the iteration's association. Never
+                    // overwritten later by the discipline/class association.
+                    const patternOwnAbbrev = (() => {
+                        if (!firstPatternSelection || typeof firstPatternSelection !== 'object') return null;
+                        const raw = firstPatternSelection.association_abbrev
+                            || firstPatternSelection.associationAbbrev
+                            || firstPatternSelection.association_name
+                            || firstPatternSelection.associationName;
+                        return raw ? String(raw).trim().toUpperCase() : null;
+                    })();
+                    const abbrev = patternOwnAbbrev
+                        || association?.abbreviation
+                        || (associationId || '').toString();
 
-                    // Fetch base scoresheet by pattern_id AND association abbrev (so multi-assoc disciplines
-                    // pick the correct per-association sheet). Fall back to any pattern_id match, then to
-                    // association + discipline name.
+                    // Fetch base scoresheet STRICTLY by association abbrev. The previous
+                    // pattern_id-only fallback was the "AQHA class → APHA sheet" bug —
+                    // removed. If no exact match, leave it unresolved and warn.
                     if (firstPatternId && abbrev) {
                         try {
                             const { data: ssData } = await supabase
@@ -4603,19 +4911,6 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             if (ssData) baseScoresheetData = ssData;
                         } catch (err) {
                             console.error('Error fetching scoresheet by pattern_id+abbrev:', err);
-                        }
-                    }
-                    if (!baseScoresheetData && firstPatternId) {
-                        try {
-                            const { data: ssData } = await supabase
-                                .from('tbl_scoresheet')
-                                .select('id, pattern_id, image_url, storage_path, discipline, file_name, association_abbrev, city_state')
-                                .eq('pattern_id', firstPatternId)
-                                .limit(1)
-                                .maybeSingle();
-                            if (ssData) baseScoresheetData = ssData;
-                        } catch (err) {
-                            console.error('Error fetching scoresheet by pattern_id:', err);
                         }
                     }
                     if (!baseScoresheetData && abbrev && disciplineName) {
@@ -4631,6 +4926,25 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         } catch (err) {
                             console.error(`Error fetching scoresheet for ${disciplineName}:`, err);
                         }
+                    }
+
+                    // Pre-PDF validation: pattern.association must equal scoresheet.association.
+                    // On mismatch skip this association's rows and record the error.
+                    if (baseScoresheetData && patternOwnAbbrev) {
+                        const ssAbbrev = String(baseScoresheetData.association_abbrev || '').toUpperCase();
+                        if (ssAbbrev && ssAbbrev !== patternOwnAbbrev) {
+                            console.warn(`Association mismatch: pattern ${firstPatternId} is ${patternOwnAbbrev} but scoresheet is ${ssAbbrev} — skipping ${disciplineName}`);
+                            validationErrors.push({
+                                disciplineName,
+                                patternId: firstPatternId,
+                                patternAssoc: patternOwnAbbrev,
+                                scoresheetAssoc: ssAbbrev,
+                            });
+                            continue;
+                        }
+                    }
+                    if (!baseScoresheetData && firstPatternId) {
+                        console.warn(`No scoresheet found for pattern ${firstPatternId} in association ${abbrev} — leaving row unresolved`);
                     }
 
                     // Judges scoped to THIS association (APHA judges → APHA sheets, etc.)
@@ -4649,6 +4963,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const judgesList = disciplineJudges.length > 0 ? disciplineJudges : [''];
 
                     for (const divisionName of matchingDivisions) {
+                        const forcedForDivision = getForcedAssocForDivision(divisionName);
+                        if (forcedForDivision && assocNormForDiv && forcedForDivision !== assocNormForDiv) {
+                            continue;
+                        }
+                        if (forcedForDivision && filterAssociations.size > 0 && !filterAssociations.has(forcedForDivision)) {
+                            continue;
+                        }
                         for (const judgeName of judgesList) {
                             const assocKey = (associationId || '').toString().toUpperCase();
                             const uniqueKey = `${assocKey}-${disciplineName}-${divisionName}-${judgeName}`;
@@ -4681,6 +5002,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     ? `${new Set(result.map(r => r.divisionName)).size} division(s) x ${new Set(result.map(r => r.judgeName)).size} judge(s)`
                     : 'No matching combinations found. Check your filter selections.'
             });
+
+            if (validationErrors.length > 0) {
+                toast({
+                    title: `${validationErrors.length} row(s) skipped: association mismatch`,
+                    description: validationErrors.slice(0, 3).map(v => `${v.disciplineName}: pattern ${v.patternAssoc} vs sheet ${v.scoresheetAssoc}`).join('; '),
+                    variant: 'destructive',
+                });
+            }
         } catch (error) {
             console.error('Error generating scoresheets:', error);
             toast({
@@ -4752,7 +5081,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         // 5. patternSelections[disc][group].judgeName (per-group overrides)
         Object.values(projectData.patternSelections || {}).forEach(disc => {
             if (!disc || typeof disc !== 'object') return;
-            Object.values(disc).forEach(sel => {
+            forEachPatternSelection(disc, (_g, _a, sel) => {
                 if (sel && sel.judgeName) addJudge(sel.judgeName);
             });
         });
@@ -6628,11 +6957,79 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2 overflow-y-auto pr-2 flex-1">
-                                                    {filteredPatterns.map((pattern, index) => (
+                                                    {/* Bulk selection toolbar */}
+                                                    <div className="flex items-center justify-between bg-muted/30 p-2 rounded-md mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <Checkbox
+                                                                id="select-all-patterns"
+                                                                checked={selectedPatternIds.size === filteredPatterns.length && filteredPatterns.length > 0}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedPatternIds(new Set(filteredPatterns.map((p, i) => p.uniqueKey || p.id || p.numericId || `pattern-${i}`)));
+                                                                    } else {
+                                                                        setSelectedPatternIds(new Set());
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <Label htmlFor="select-all-patterns" className="text-xs font-normal cursor-pointer">
+                                                                {selectedPatternIds.size > 0 ? `${selectedPatternIds.size} selected` : 'Select All'}
+                                                            </Label>
+                                                            {selectedPatternIds.size > 0 && (
+                                                                <div className="flex items-center gap-2 ml-2">
+                                                                    {folders.length > 0 && (
+                                                                        <DropdownMenu>
+                                                                            <DropdownMenuTrigger asChild>
+                                                                                <Button variant="outline" size="sm" className="h-7 text-xs">
+                                                                                    <Folder className="h-3.5 w-3.5 mr-1.5" />
+                                                                                    Move to Folder
+                                                                                </Button>
+                                                                            </DropdownMenuTrigger>
+                                                                            <DropdownMenuContent>
+                                                                                {folders.map(folder => (
+                                                                                    <DropdownMenuItem key={folder.id} onClick={() => handleBulkMovePatternsToFolder(folder.id)}>
+                                                                                        <Folder className="h-4 w-4 mr-2" />
+                                                                                        {folder.name}
+                                                                                    </DropdownMenuItem>
+                                                                                ))}
+                                                                            </DropdownMenuContent>
+                                                                        </DropdownMenu>
+                                                                    )}
+                                                                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedPatternIds(new Set())}>
+                                                                        Clear
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {(() => {
+                                                        const showAssocAbbrevs = detectShowAssociations(projectData);
+                                                        const multiBreed = showAssocAbbrevs.length > 1;
+                                                        const getPatternAssocKey = (p) => {
+                                                            const raw = p?.association_name || p?.associationName || p?.association_abbrev || p?.associationAbbrev || p?.associationId;
+                                                            if (!raw) return 'OTHER';
+                                                            const upper = String(raw).toUpperCase();
+                                                            if (upper.includes('PAINT')) return 'APHA';
+                                                            if (upper.includes('QUARTER')) return 'AQHA';
+                                                            return upper;
+                                                        };
+                                                        const renderRow = (pattern, index) => {
+                                                        const selKey = pattern.uniqueKey || pattern.id || pattern.numericId || `pattern-${index}`;
+                                                        return (
                                                         <div
                                                             key={pattern.uniqueKey || pattern.id || index}
                                                             className="flex items-center gap-4 p-3 border rounded hover:bg-muted/50"
                                                         >
+                                                        <Checkbox
+                                                            checked={selectedPatternIds.has(selKey)}
+                                                            onCheckedChange={(checked) => {
+                                                                setSelectedPatternIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (checked) next.add(selKey);
+                                                                    else next.delete(selKey);
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                        />
                                                         {/* Pattern Image or Icon - Similar to Step 3 */}
                                                         {pattern.image_url ? (
                                                             <div className="w-16 h-16 rounded-md overflow-hidden border bg-muted/20 shrink-0 flex items-center justify-center">
@@ -6680,34 +7077,18 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             
                                                                             let patternNumStr = null;
                                                                             
-                                                                            // Try to extract last 4 digits from patternName
-                                                                            if (pattern.patternName) {
-                                                                                const match = pattern.patternName.match(/(\d{4})$/);
-                                                                                if (match) {
-                                                                                    patternNumStr = match[1]; // Keep as string to preserve leading zeros
-                                                                                }
-                                                                                // If no 4 digits, try any digits at the end
-                                                                                else {
-                                                                                    const matchAny = pattern.patternName.match(/(\d+)$/);
-                                                                                    if (matchAny) {
-                                                                                        patternNumStr = matchAny[1].padStart(4, '0');
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                            // Try to extract from name
-                                                                            else if (pattern.name) {
-                                                                                const match = pattern.name.match(/(\d{4})$/);
-                                                                                if (match) {
-                                                                                    patternNumStr = match[1];
-                                                                                }
-                                                                                // If no 4 digits, try any digits at the end
-                                                                                else {
-                                                                                    const matchAny = pattern.name.match(/(\d+)$/);
-                                                                                    if (matchAny) {
-                                                                                        patternNumStr = matchAny[1].padStart(4, '0');
-                                                                                    }
-                                                                                }
-                                                                            }
+                                                                            // Extract the last 4-digit run from patternName / name.
+                                                                            // Names like "WesternRiding0002.Gr_N" end with a variant
+                                                                            // suffix, so we can't anchor to end-of-string.
+                                                                            const extractPatternNum = (s) => {
+                                                                                if (!s) return null;
+                                                                                const all = s.match(/\d{4}/g);
+                                                                                if (all && all.length) return all[all.length - 1];
+                                                                                const any = s.match(/\d+/g);
+                                                                                if (any && any.length) return any[any.length - 1].padStart(4, '0');
+                                                                                return null;
+                                                                            };
+                                                                            patternNumStr = extractPatternNum(pattern.patternName) || extractPatternNum(pattern.name);
                                                                             
                                                                             // If we found a pattern number string, return it
                                                                             if (patternNumStr) {
@@ -6822,7 +7203,24 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             </DropdownMenu>
                                                         </div>
                                                     </div>
-                                                    ))}
+                                                        );
+                                                        };
+                                                        if (!multiBreed) {
+                                                            return filteredPatterns.map((p, i) => renderRow(p, i));
+                                                        }
+                                                        const groups = {};
+                                                        filteredPatterns.forEach((p, i) => {
+                                                            const k = getPatternAssocKey(p);
+                                                            if (!groups[k]) groups[k] = [];
+                                                            groups[k].push({ p, i });
+                                                        });
+                                                        return Object.keys(groups).sort().map(assocKey => (
+                                                            <div key={`assoc-${assocKey}`} className="space-y-2">
+                                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1 pt-2">{assocKey}</div>
+                                                                {groups[assocKey].map(({ p, i }) => renderRow(p, i))}
+                                                            </div>
+                                                        ));
+                                                    })()}
                                                     {filteredPatterns.length === 0 && !isLoadingPatterns && (
                                                         <div className="text-center py-12 text-muted-foreground">
                                                             {patterns.length === 0 ? 'No patterns found' : 'No patterns match the selected filters'}

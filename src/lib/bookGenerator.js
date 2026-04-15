@@ -76,6 +76,40 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
         yPos = margin + 30;
     };
 
+    // Render a "Pattern Language" page listing numbered maneuver steps.
+    // Mirrors the style used by createPdfWithFullHeader in CustomerPortalPage.
+    const renderPatternLanguagePage = (maneuvers, titleBits = {}) => {
+        if (!Array.isArray(maneuvers) || maneuvers.length === 0) return;
+        doc.addPage();
+        let py = margin + 20;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        const { discipline, patternNumber } = titleBits;
+        const langTitle = patternNumber
+            ? `${discipline || 'Pattern'} \u2013 Pattern ${patternNumber} \u2013 Pattern Language`
+            : 'Pattern Language';
+        doc.text(langTitle, pageWidth / 2, py, { align: 'center' });
+        py += 18;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const textWidth = pageWidth - margin * 2;
+        const bottomReserve = 30;
+        const sorted = [...maneuvers].sort((a, b) => (a.step_no || 0) - (b.step_no || 0));
+        for (const m of sorted) {
+            const stepLabel = m.step_no != null ? `${m.step_no}.` : '\u2022';
+            const line = `${stepLabel} ${m.instruction || ''}`.trim();
+            const wrapped = doc.splitTextToSize(line, textWidth);
+            if (py + wrapped.length * 12 > pageHeight - bottomReserve) {
+                doc.addPage();
+                py = margin + 20;
+            }
+            doc.text(wrapped, margin, py);
+            py += wrapped.length * 12 + 4;
+        }
+    };
+
     // Helper function to remove first word, "Pro", and "Non-Pro" from division names
     const removeFirstWord = (name) => {
         if (!name) return name;
@@ -361,6 +395,9 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     
     // Fetch real pattern images from database
     const patternImagesMap = new Map();
+    // pattern_id -> sorted array of { step_no, instruction } for the
+    // "Pattern Language" page rendered after each pattern image.
+    const patternManeuversMap = new Map();
     // Map of pattern_id -> association_name (e.g. "AQHA", "APHA") used to label
     // the correct breed/association per class when generating pattern pages.
     const patternAssociationMap = new Map();
@@ -419,6 +456,25 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 }
             } catch (e) {
                 console.error('Error fetching pattern associations:', e);
+            }
+
+            // Fetch pattern maneuvers (step_no + instruction) for the language page.
+            try {
+                const { data: manRows } = await supabase
+                    .from('tbl_maneuvers')
+                    .select('pattern_id, step_no, instruction')
+                    .in('pattern_id', Array.from(patternIds))
+                    .order('step_no');
+                if (manRows) {
+                    manRows.forEach(r => {
+                        if (!r?.pattern_id) return;
+                        const arr = patternManeuversMap.get(r.pattern_id) || [];
+                        arr.push({ step_no: r.step_no, instruction: r.instruction });
+                        patternManeuversMap.set(r.pattern_id, arr);
+                    });
+                }
+            } catch (e) {
+                console.error('Error fetching pattern maneuvers:', e);
             }
 
             // First, try to fetch from tbl_pattern_media (priority)
@@ -1219,6 +1275,14 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                 yPos = placeholderY + 40;
             }
 
+            // Append "Pattern Language" page (does not duplicate the image page).
+            if (numericPatternId && patternManeuversMap.has(numericPatternId)) {
+                renderPatternLanguagePage(patternManeuversMap.get(numericPatternId), {
+                    discipline: discipline.name,
+                    patternNumber: extractPatternNumber(patternSelection?.patternName),
+                });
+            }
+
             } // end else (real pattern)
             } // end if (includePattern) for layout-a
 
@@ -1466,6 +1530,14 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
                     doc.setTextColor(150, 150, 150);
                     doc.text('Pattern Coming Soon', pageWidth / 2, placeholderY, { align: 'center', maxWidth: pageWidth - margin * 2 });
                     yPos = placeholderY + 40;
+                }
+
+                // Append "Pattern Language" page (layout-b).
+                if (numericPatternId && patternManeuversMap.has(numericPatternId)) {
+                    renderPatternLanguagePage(patternManeuversMap.get(numericPatternId), {
+                        discipline: discipline.name,
+                        patternNumber: extractPatternNumber(patternSelection?.patternName),
+                    });
                 }
 
                 } // end else (real pattern)
