@@ -2186,7 +2186,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isGeneratingScoresheets, setIsGeneratingScoresheets] = useState(false);
     const [selectedScoresheetIds, setSelectedScoresheetIds] = useState(new Set());
     const [selectedPatternIds, setSelectedPatternIds] = useState(new Set());
-    const [scoresheetSortBy, setScoresheetSortBy] = useState('division');
+    const [scoresheetSortBy, setScoresheetSortBy] = useState('association');
     const [bulkDownloadProgress, setBulkDownloadProgress] = useState(null);
 
     const [previewItem, setPreviewItem] = useState(null); // For pattern/scoresheet preview modal
@@ -2832,11 +2832,20 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                 
                 if (patternContext) {
                     const { discipline, group } = patternContext;
-                    
-                    // Get association name from discipline
-                    assocId = discipline.association_id || 
-                              (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null) ||
-                              assocId;
+
+                    // Use the pattern's resolved associationId (derived from groupName) as the
+                    // source of truth. Only fall back to discipline.association_id if not available.
+                    // This prevents "APHA GREEN NOVICE WR" patterns from getting an AQHA header
+                    // in dual-affiliated shows.
+                    if (!assocId) {
+                        assocId = discipline.association_id ||
+                                  (discipline.selectedAssociations ? Object.keys(discipline.selectedAssociations).find(key => discipline.selectedAssociations[key]) : null);
+                    }
+                    // Also check the group name for an association prefix (e.g., "APHA GREEN NOVICE WR")
+                    const gName = (group.name || '').toUpperCase();
+                    const knownAssocs = Object.keys(projectData.associations || {}).map(k => k.toUpperCase()).filter(Boolean);
+                    const groupAssoc = knownAssocs.find(a => gName.startsWith(a + ' ') || gName === a);
+                    if (groupAssoc) assocId = groupAssoc;
                     const associationName = formatAssociationName(assocId);
                     
                     // Get competition date - same logic as Pattern Book
@@ -2863,9 +2872,16 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         competitionDate = projectData.groupDueDates?.[discIndex]?.[groupIndex] || projectData.startDate;
                     }
                     
-                    // Get divisions from group
-                    const divisions = group.divisions || [];
-                    
+                    // Get divisions from group, filtered to match the resolved association
+                    const allGroupDivisions = group.divisions || [];
+                    const divisions = assocId ? allGroupDivisions.filter(div => {
+                        if (typeof div === 'string') return true; // Can't filter strings, keep all
+                        const divAssoc = (div.assocId || div.association_id || div.association || '').toString().toUpperCase();
+                        // Keep division if it has no association tag (shared) or matches current association
+                        if (!divAssoc) return true;
+                        return divAssoc === assocId.toUpperCase();
+                    }) : allGroupDivisions;
+
                     headerInfo = {
                         showName: showName,
                         showDates: showDates,
@@ -3483,14 +3499,37 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         });
     };
 
-    // Discipline options from project_data.disciplines (source of truth)
-    const disciplineOptions = [...new Set((projectData.disciplines || []).map(d => (d?.name || '').trim()))]
-        .filter(Boolean)
-        .sort();
+    // Helper: get all association IDs for a discipline
+    const getDisciplineAssocIdsLocal = (d) => {
+        const ids = new Set();
+        const projectAssocIds = Object.keys(projectData.associations || {})
+            .filter(k => projectData.associations[k])
+            .map(k => String(k).toUpperCase());
+        const isValidKey = (k) => { const s = String(k || '').trim(); return s && !/^\d+$/.test(s); };
+        if (isValidKey(d.association_id)) ids.add(String(d.association_id).toUpperCase());
+        if (d.selectedAssociations && typeof d.selectedAssociations === 'object') {
+            Object.keys(d.selectedAssociations).forEach(k => { if (d.selectedAssociations[k] && isValidKey(k)) ids.add(String(k).toUpperCase()); });
+        }
+        if (d.associations && typeof d.associations === 'object' && !Array.isArray(d.associations)) {
+            Object.keys(d.associations).forEach(k => { if (d.associations[k] && isValidKey(k)) ids.add(String(k).toUpperCase()); });
+        }
+        if (ids.size <= 1 && projectAssocIds.length > 1) {
+            projectAssocIds.forEach(a => ids.add(a));
+        }
+        return [...ids];
+    };
 
-    // Get unique classes (group names) from patterns
-    const allClassesFromPatterns = [...new Set(patterns.map(p => p.groupName))];
-    const uniqueClasses = [...new Set([...allClassesFromPatterns])].filter(Boolean).sort();
+    // Discipline options filtered by selected associations
+    const disciplineOptions = useMemo(() => {
+        let disciplines = (projectData.disciplines || []);
+        if (filterAssociations.size > 0) {
+            disciplines = disciplines.filter(d => {
+                const aids = getDisciplineAssocIdsLocal(d);
+                return aids.some(a => filterAssociations.has(a));
+            });
+        }
+        return [...new Set(disciplines.map(d => (d?.name || '').trim()))].filter(Boolean).sort();
+    }, [projectData, filterAssociations]);
 
     // Get unique division names from patterns AND project data disciplines
     const allDivisionNamesFromPatterns = patterns.flatMap(p => {
@@ -3502,21 +3541,115 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         }
         return [];
     });
-    // Derive all available divisions from project data (for scoresheet generation controls)
+    // Extract a displayable division name from a division object or string
+    const extractDivisionName = (div) => {
+        if (typeof div === 'string') return div;
+        // Try standard name fields first
+        const name = div?.name || div?.divisionName || div?.division || div?.title || '';
+        if (name.trim()) return name.trim();
+        // Fallback: extract from ID (custom divisions may have id like "custom-All Breed Open Horse")
+        if (typeof div?.id === 'string') {
+            const cleaned = div.id.replace(/^custom-/i, '').trim();
+            if (cleaned) return cleaned;
+        }
+        return '';
+    };
+
+    // Derive all available divisions from project data with association tagging
     const allDivisionNamesFromProjectData = useMemo(() => {
         const divs = new Set();
         (projectData.disciplines || []).forEach(discipline => {
             (discipline.patternGroups || []).forEach(group => {
                 (group.divisions || []).forEach(div => {
-                    const name = typeof div === 'string' ? div
-                        : div?.name || div?.divisionName || div?.division || div?.title || '';
-                    if (name.trim()) divs.add(name.trim());
+                    const name = extractDivisionName(div);
+                    if (name) divs.add(name);
                 });
             });
         });
         return [...divs];
     }, [projectData]);
-    const uniqueDivisions = [...new Set([...allDivisionNamesFromPatterns, ...allDivisionNamesFromProjectData])].filter(Boolean).sort();
+
+    // Normalize a division name to prevent duplicates like "Open Green Horse" vs "Green Horse"
+    const normalizeDivisionName = (name) => {
+        if (!name) return '';
+        let cleaned = name.trim();
+        // Remove leading "Open " prefix when a more specific name follows (e.g., "Open Green Horse" → "Green Horse")
+        // But keep standalone "Open" or compound names like "Open All Ages"
+        if (/^Open\s+/i.test(cleaned) && !/^Open\s+(All\s+)/i.test(cleaned) && cleaned.split(/\s+/).length > 2) {
+            const withoutOpen = cleaned.replace(/^Open\s+/i, '').trim();
+            // Only strip if the remainder is a known division name
+            if (allDivisionNamesFromProjectData.some(d => d.toLowerCase() === withoutOpen.toLowerCase())) {
+                cleaned = withoutOpen;
+            }
+        }
+        return cleaned;
+    };
+
+    // Build divisions grouped by association for the dropdown
+    const { uniqueDivisions, divisionsByAssociation } = useMemo(() => {
+        const assocDivMap = {}; // { ASSOC: Set<divName> }
+        const allDivs = new Set();
+
+        (projectData.disciplines || []).forEach(discipline => {
+            const assocIds = getDisciplineAssocIdsLocal(discipline);
+            (discipline.patternGroups || []).forEach(group => {
+                (group.divisions || []).forEach(div => {
+                    const rawName = extractDivisionName(div);
+                    const divAssoc = typeof div === 'object' && div
+                        ? (div.assocId || div.association_id || div.association || '')
+                        : '';
+                    const name = normalizeDivisionName(rawName);
+                    if (!name) return;
+
+                    // Tag this division with its association(s)
+                    const divAssocNorm = divAssoc ? String(divAssoc).toUpperCase() : '';
+                    const targetAssocs = divAssocNorm ? [divAssocNorm] : assocIds;
+                    targetAssocs.forEach(a => {
+                        if (!assocDivMap[a]) assocDivMap[a] = new Set();
+                        assocDivMap[a].add(name);
+                    });
+                    allDivs.add(name);
+                });
+            });
+        });
+
+        // Also add pattern-sourced divisions
+        allDivisionNamesFromPatterns.forEach(d => {
+            const normalized = normalizeDivisionName(d);
+            if (normalized) allDivs.add(normalized);
+        });
+
+        // Filter by selected associations
+        let filteredDivs;
+        if (filterAssociations.size > 0) {
+            filteredDivs = new Set();
+            filterAssociations.forEach(assocId => {
+                const divs = assocDivMap[assocId];
+                if (divs) divs.forEach(d => filteredDivs.add(d));
+            });
+        } else {
+            filteredDivs = allDivs;
+        }
+
+        // Deduplicate: if both "Open Green Horse" and "Green Horse" exist, keep only "Green Horse"
+        const finalDivs = [...filteredDivs].sort();
+        const deduped = [];
+        const lowerSet = new Set(finalDivs.map(d => d.toLowerCase()));
+        for (const div of finalDivs) {
+            const withOpen = `Open ${div}`;
+            // Skip if this is the "Open X" variant and the shorter "X" also exists
+            if (/^Open\s+/i.test(div)) {
+                const shorter = div.replace(/^Open\s+/i, '').trim();
+                if (lowerSet.has(shorter.toLowerCase())) continue;
+            }
+            deduped.push(div);
+        }
+
+        return {
+            uniqueDivisions: deduped,
+            divisionsByAssociation: assocDivMap,
+        };
+    }, [projectData, filterAssociations, allDivisionNamesFromPatterns, allDivisionNamesFromProjectData]);
 
     // Get unique dates from divisionDates and show date range
     const uniqueDates = useMemo(() => {
@@ -3699,7 +3832,32 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         } else if (selectedSidebarItem === 'assignedToMe') {
             // TODO: Implement assigned to me filter
         }
-        
+
+        // Association filter - strict: match against the pattern's resolved associationId
+        // For dual-affiliated shows, each pattern group has a specific association derived from its groupName
+        if (filterAssociations.size > 0) {
+            const patternAssocId = String(pattern.associationId || '').toUpperCase();
+            const patternGroupName = String(pattern.groupName || '').toUpperCase();
+
+            // First try: exact match on the resolved associationId
+            let matched = filterAssociations.has(patternAssocId);
+
+            // Second try: check if groupName starts with a selected association abbreviation
+            if (!matched && patternGroupName) {
+                matched = Array.from(filterAssociations).some(sel => {
+                    const s = sel.toUpperCase();
+                    return patternGroupName.startsWith(s + ' ') || patternGroupName === s;
+                });
+            }
+
+            // Fallback for patterns without a groupName: check if any of the discipline's associations match
+            if (!matched && !patternGroupName) {
+                const allAssocIds = (pattern.associationIds || []).map(a => String(a).toUpperCase());
+                matched = allAssocIds.some(a => filterAssociations.has(a));
+            }
+
+            if (!matched) return false;
+        }
         // Multi-select discipline filter
         if (filterDisciplines.size > 0) {
             const patternDiscipline = (pattern.discipline || '').trim();
@@ -3738,28 +3896,46 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     });
     
     // Display scoresheets: use generated list (already filtered at generation time), with sorting.
-    // Also defensively filter by filterAssociations so stale rows from a previous generation
+    // Defensively filter by all active filters so stale rows from a previous generation
     // don't leak through while a regeneration is in flight.
     const displayedScoresheets = useMemo(() => {
         const base = selectedSidebarItem === 'folder' && selectedFolderId
             ? folderItemsAsScoresheets
             : generatedScoresheets;
 
-        const list = filterAssociations.size > 0
-            ? base.filter(s => {
+        const list = base.filter(s => {
+            // Association filter
+            if (filterAssociations.size > 0) {
                 const abbrev = String(s.association_abbrev || s.associationId || '').toUpperCase();
-                return filterAssociations.has(abbrev);
-            })
-            : base;
+                if (!filterAssociations.has(abbrev)) return false;
+            }
+            // Discipline filter
+            if (filterDisciplines.size > 0) {
+                if (!filterDisciplines.has((s.disciplineName || '').trim())) return false;
+            }
+            // Division filter
+            if (filterDivisions.size > 0) {
+                if (!Array.from(filterDivisions).some(sel => sel.toLowerCase() === (s.divisionName || '').toLowerCase())) return false;
+            }
+            // Judge filter
+            if (filterJudges.size > 0) {
+                if (!filterJudges.has((s.judgeName || '').trim())) return false;
+            }
+            return true;
+        });
 
         return [...list].sort((a, b) => {
+            if (scoresheetSortBy === 'association') {
+                const cmp = (a.associationId || '').localeCompare(b.associationId || '');
+                return cmp !== 0 ? cmp : (a.divisionName || '').localeCompare(b.divisionName || '');
+            }
             if (scoresheetSortBy === 'division') return (a.divisionName || '').localeCompare(b.divisionName || '');
             if (scoresheetSortBy === 'judge') return (a.judgeName || '').localeCompare(b.judgeName || '');
             if (scoresheetSortBy === 'discipline') return (a.disciplineName || '').localeCompare(b.disciplineName || '');
             if (scoresheetSortBy === 'name') return (a.displayName || '').localeCompare(b.displayName || '');
             return 0;
         });
-    }, [generatedScoresheets, folderItemsAsScoresheets, selectedSidebarItem, selectedFolderId, scoresheetSortBy, filterAssociations]);
+    }, [generatedScoresheets, folderItemsAsScoresheets, selectedSidebarItem, selectedFolderId, scoresheetSortBy, filterAssociations, filterDisciplines, filterDivisions, filterJudges]);
     
     // Fetch data when dialog opens or tabs change
     useEffect(() => {
@@ -4090,16 +4266,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     // Extract divisions for this group
                     const divisions = Array.isArray(group.divisions) ? group.divisions : [];
                     const extractedDivisions = divisions.map(div => {
-                        if (typeof div === 'string') {
-                            return { name: div, association: '' };
-                        } else if (div && typeof div === 'object') {
-                            return {
-                                name: div.name || div.divisionName || div.division || div.title || '',
-                                association: div.association || div.assocName || (div.association_id ? div.association_id : '')
-                            };
-                        } else {
-                            return { name: String(div || ''), association: '' };
-                        }
+                        const name = extractDivisionName(div);
+                        const association = (typeof div === 'object' && div)
+                            ? (div.association || div.assocName || div.association_id || '')
+                            : '';
+                        return { name, association };
                     }).filter(div => div.name && div.name.trim() !== '');
                     
                     // Get pattern name - prioritize patternSelection.patternName, then database, then fallback
@@ -4179,8 +4350,19 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             patternName: patternDisplayName, // Clean pattern name (without discipline suffix)
                             patternVersion: patternVersion || patternDetail?.pattern_version || 'ALL',
                             version: patternVersion, // Store version from patternSelection
-                            associationId: patternDetail?.association_id || discipline.association_id,
+                            associationId: (() => {
+                                // Derive association from groupName if it starts with a known abbreviation
+                                // e.g., "APHA GREEN NOVICE WR" → APHA, "AQHA WR" → AQHA
+                                const allAssocIds = getDisciplineAssocIdsLocal(discipline);
+                                if (groupName && allAssocIds.length > 0) {
+                                    const gn = groupName.toUpperCase();
+                                    const matchedAssoc = allAssocIds.find(a => gn.startsWith(a + ' ') || gn === a);
+                                    if (matchedAssoc) return matchedAssoc;
+                                }
+                                return buildDiscAbbrev || patternDetail?.association_id || discipline.association_id;
+                            })(),
                             association_name: patternDetail?.association_name || null,
+                            associationIds: getDisciplineAssocIdsLocal(discipline),
                             groupName: groupName,
                             groupId: group.id,
                             groupIndex: groupIndex,
@@ -4794,7 +4976,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const divisionDateMap = {};
                     for (const group of groups) {
                         (group.divisions || []).forEach(div => {
-                            const divName = typeof div === 'string' ? div : div?.name || div?.divisionName || div?.division || div?.title || '';
+                            const divName = extractDivisionName(div);
                             const divId = typeof div === 'string' ? div : div?.id;
                             const divAssoc = typeof div === 'object' && div
                                 ? (div.assocId || div.association_id || div.association || '')
@@ -6152,14 +6334,91 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {/* Filters and Actions - Hide when viewing folder */}
                                 {selectedSidebarItem !== 'folder' && (
                                     <div className="flex items-center gap-4 mb-4 flex-wrap">
-                                        {/* Discipline Filter - Show for Patterns and Score Sheets tabs */}
+                                        {/* 1. Association Filter (FIRST) - Show for Patterns and Score Sheets tabs */}
+                                        {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && uniqueAssociations.length > 0 && (
+                                            <Popover open={associationFilterOpen} onOpenChange={(open) => { setAssociationFilterOpen(open); if (!open) setAssociationSearch(''); }}>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-44 justify-between">
+                                                        <span className="truncate">
+                                                            {filterAssociations.size === 0
+                                                                ? 'Associations'
+                                                                : filterAssociations.size === 1
+                                                                    ? Array.from(filterAssociations)[0]
+                                                                    : `${filterAssociations.size} Selected`}
+                                                        </span>
+                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
+                                                    <div className="p-2 border-b flex items-center justify-between">
+                                                        <span className="text-sm font-medium">Association</span>
+                                                        {filterAssociations.size > 0 && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-6 px-2 text-xs"
+                                                                onClick={() => { setFilterAssociations(new Set()); setFilterDisciplines(new Set()); setFilterDivisions(new Set()); setFilterJudges(new Set()); }}
+                                                            >
+                                                                Clear
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    {uniqueAssociations.length > 5 && (
+                                                        <div className="p-2 border-b">
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Search associations..."
+                                                                value={associationSearch}
+                                                                onChange={(e) => setAssociationSearch(e.target.value)}
+                                                                className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    <div
+                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        onWheel={(e) => e.stopPropagation()}
+                                                    >
+                                                        <div className="p-2 space-y-1">
+                                                            {uniqueAssociations
+                                                                .filter(a => a.toLowerCase().includes(associationSearch.toLowerCase()))
+                                                                .map(assoc => (
+                                                                <div
+                                                                    key={assoc}
+                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    onClick={() => {
+                                                                        setFilterAssociations(prev => {
+                                                                            const newSet = new Set(prev);
+                                                                            if (newSet.has(assoc)) {
+                                                                                newSet.delete(assoc);
+                                                                            } else {
+                                                                                newSet.add(assoc);
+                                                                            }
+                                                                            return newSet;
+                                                                        });
+                                                                        // Clear downstream filters when association changes
+                                                                        setFilterDisciplines(new Set());
+                                                                        setFilterDivisions(new Set());
+                                                                        setFilterJudges(new Set());
+                                                                    }}
+                                                                >
+                                                                    <Checkbox checked={filterAssociations.has(assoc)} />
+                                                                    <span className="text-sm">{assoc}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
+
+                                        {/* 2. Discipline Filter - Show for Patterns and Score Sheets tabs */}
                                         {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
                                             <Popover open={disciplineFilterOpen} onOpenChange={(open) => { setDisciplineFilterOpen(open); if (!open) setDisciplineSearch(''); }}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="outline" className="w-44 justify-between">
                                                         <span className="truncate">
                                                             {filterDisciplines.size === 0
-                                                                ? 'All Disciplines'
+                                                                ? 'Disciplines'
                                                                 : filterDisciplines.size === 1
                                                                     ? Array.from(filterDisciplines)[0]
                                                                     : `${filterDisciplines.size} Selected`}
@@ -6223,14 +6482,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </Popover>
                                         )}
 
-                                        {/* Division Filter - Show for Patterns and Score Sheets tabs */}
+                                        {/* 3. Division Filter - Show for Patterns and Score Sheets tabs, grouped by association */}
                                         {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
                                             <Popover open={divisionFilterOpen} onOpenChange={(open) => { setDivisionFilterOpen(open); if (!open) setDivisionSearch(''); }}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="outline" className="w-44 justify-between">
                                                         <span className="truncate">
                                                             {filterDivisions.size === 0
-                                                                ? 'All Divisions'
+                                                                ? 'Divisions'
                                                                 : filterDivisions.size === 1
                                                                     ? Array.from(filterDivisions)[0]
                                                                     : `${filterDivisions.size} Selected`}
@@ -6238,7 +6497,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-56 p-0 bg-background border" align="start">
+                                                <PopoverContent className="w-64 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
                                                     <div className="p-2 border-b flex items-center justify-between">
                                                         <span className="text-sm font-medium">Divisions</span>
                                                         {filterDivisions.size > 0 && (
@@ -6262,121 +6521,96 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         />
                                                     </div>
                                                     <div
-                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
+                                                        className="max-h-[300px] overflow-y-auto overscroll-contain"
                                                         onWheel={(e) => e.stopPropagation()}
                                                     >
-                                                        <div className="p-2 space-y-1">
-                                                            {uniqueDivisions
-                                                                .filter(divisionName => divisionName.toLowerCase().includes(divisionSearch.toLowerCase()))
-                                                                .map(divisionName => (
+                                                        {/* Group divisions by association when multiple associations exist */}
+                                                        {uniqueAssociations.length > 1 ? (
+                                                            <div className="p-2 space-y-2">
+                                                                {/* Select All */}
                                                                 <div
-                                                                    key={divisionName}
-                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                    className="flex items-center space-x-2 p-1 rounded hover:bg-muted cursor-pointer border-b pb-2"
                                                                     onClick={() => {
-                                                                        setFilterDivisions(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            if (newSet.has(divisionName)) {
-                                                                                newSet.delete(divisionName);
-                                                                            } else {
-                                                                                newSet.add(divisionName);
-                                                                            }
-                                                                            return newSet;
-                                                                        });
+                                                                        if (filterDivisions.size === uniqueDivisions.length) {
+                                                                            setFilterDivisions(new Set());
+                                                                        } else {
+                                                                            setFilterDivisions(new Set(uniqueDivisions));
+                                                                        }
                                                                     }}
                                                                 >
-                                                                    <Checkbox checked={filterDivisions.has(divisionName)} />
-                                                                    <span className="text-sm">{divisionName}</span>
+                                                                    <Checkbox checked={filterDivisions.size === uniqueDivisions.length && uniqueDivisions.length > 0} />
+                                                                    <span className="text-sm font-medium">Select All</span>
                                                                 </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </PopoverContent>
-                                            </Popover>
-                                        )}
-
-                                        {/* Association/Breed Filter - Show only for Score Sheets tab */}
-                                        {activeSubTab === 'scoreSheets' && uniqueAssociations.length > 1 && (
-                                            <Popover open={associationFilterOpen} onOpenChange={(open) => { setAssociationFilterOpen(open); if (!open) setAssociationSearch(''); }}>
-                                                <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
-                                                        <span className="truncate">
-                                                            {filterAssociations.size === 0
-                                                                ? 'All Breeds'
-                                                                : filterAssociations.size === 1
-                                                                    ? Array.from(filterAssociations)[0]
-                                                                    : `${filterAssociations.size} Breeds`}
-                                                        </span>
-                                                        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-56 p-0 bg-popover text-popover-foreground border border-border z-50" align="start">
-                                                    <div className="p-2 border-b flex items-center justify-between">
-                                                        <span className="text-sm font-medium">Association / Breed</span>
-                                                        {filterAssociations.size > 0 && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-6 px-2 text-xs"
-                                                                onClick={() => { setFilterAssociations(new Set()); setFilterJudges(new Set()); }}
-                                                            >
-                                                                Clear
-                                                            </Button>
+                                                                {uniqueAssociations.map(assocId => {
+                                                                    const assocDivs = (divisionsByAssociation[assocId] ? [...divisionsByAssociation[assocId]] : [])
+                                                                        .filter(d => uniqueDivisions.includes(d))
+                                                                        .filter(d => d.toLowerCase().includes(divisionSearch.toLowerCase()))
+                                                                        .sort();
+                                                                    if (assocDivs.length === 0) return null;
+                                                                    return (
+                                                                        <div key={assocId}>
+                                                                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-2 py-1 bg-muted/50 rounded">
+                                                                                {assocId}
+                                                                            </div>
+                                                                            <div className="space-y-0.5 mt-1">
+                                                                                {assocDivs.map(divisionName => (
+                                                                                    <div
+                                                                                        key={`${assocId}-${divisionName}`}
+                                                                                        className="flex items-center space-x-2 p-1.5 pl-4 rounded hover:bg-muted cursor-pointer"
+                                                                                        onClick={() => {
+                                                                                            setFilterDivisions(prev => {
+                                                                                                const newSet = new Set(prev);
+                                                                                                if (newSet.has(divisionName)) newSet.delete(divisionName);
+                                                                                                else newSet.add(divisionName);
+                                                                                                return newSet;
+                                                                                            });
+                                                                                        }}
+                                                                                    >
+                                                                                        <Checkbox checked={filterDivisions.has(divisionName)} />
+                                                                                        <span className="text-sm">{divisionName}</span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="p-2 space-y-1">
+                                                                {uniqueDivisions
+                                                                    .filter(divisionName => divisionName.toLowerCase().includes(divisionSearch.toLowerCase()))
+                                                                    .map(divisionName => (
+                                                                    <div
+                                                                        key={divisionName}
+                                                                        className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                                                                        onClick={() => {
+                                                                            setFilterDivisions(prev => {
+                                                                                const newSet = new Set(prev);
+                                                                                if (newSet.has(divisionName)) newSet.delete(divisionName);
+                                                                                else newSet.add(divisionName);
+                                                                                return newSet;
+                                                                            });
+                                                                        }}
+                                                                    >
+                                                                        <Checkbox checked={filterDivisions.has(divisionName)} />
+                                                                        <span className="text-sm">{divisionName}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    {uniqueAssociations.length > 5 && (
-                                                        <div className="p-2 border-b">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Search breeds..."
-                                                                value={associationSearch}
-                                                                onChange={(e) => setAssociationSearch(e.target.value)}
-                                                                className="w-full px-2 py-1 text-sm border rounded outline-none focus:ring-1 focus:ring-primary"
-                                                            />
-                                                        </div>
-                                                    )}
-                                                    <div
-                                                        className="max-h-[240px] overflow-y-auto overscroll-contain"
-                                                        onWheel={(e) => e.stopPropagation()}
-                                                    >
-                                                        <div className="p-2 space-y-1">
-                                                            {uniqueAssociations
-                                                                .filter(a => a.toLowerCase().includes(associationSearch.toLowerCase()))
-                                                                .map(assoc => (
-                                                                <div
-                                                                    key={assoc}
-                                                                    className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
-                                                                    onClick={() => {
-                                                                        setFilterAssociations(prev => {
-                                                                            const newSet = new Set(prev);
-                                                                            if (newSet.has(assoc)) {
-                                                                                newSet.delete(assoc);
-                                                                            } else {
-                                                                                newSet.add(assoc);
-                                                                            }
-                                                                            return newSet;
-                                                                        });
-                                                                        // Clear judge filter when association changes (judges will be re-filtered)
-                                                                        setFilterJudges(new Set());
-                                                                    }}
-                                                                >
-                                                                    <Checkbox checked={filterAssociations.has(assoc)} />
-                                                                    <span className="text-sm">{assoc}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
                                                 </PopoverContent>
                                             </Popover>
                                         )}
 
-                                        {/* Judge Filter - Show only for Score Sheets tab */}
+                                        {/* 4. Judge Filter - Show for Score Sheets tab */}
                                         {activeSubTab === 'scoreSheets' && (
                                             <Popover open={judgeFilterOpen} onOpenChange={(open) => { setJudgeFilterOpen(open); if (!open) setJudgeSearch(''); }}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="outline" className="w-44 justify-between">
                                                         <span className="truncate">
                                                             {filterJudges.size === 0
-                                                                ? 'All Judges'
+                                                                ? 'Judges'
                                                                 : filterJudges.size === 1
                                                                     ? Array.from(filterJudges)[0]
                                                                     : `${filterJudges.size} Selected`}
@@ -6440,14 +6674,14 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </Popover>
                                         )}
 
-                                        {/* Date Filter - Show for Patterns and Score Sheets tabs */}
-                                        {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && uniqueDates.length > 0 && (
+                                        {/* 5. Date Filter - Show for Patterns tab only */}
+                                        {activeSubTab === 'patterns' && uniqueDates.length > 0 && (
                                             <Popover open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="outline" className="w-44 justify-between">
                                                         <span className="truncate">
                                                             {filterDates.size === 0
-                                                                ? 'All Dates'
+                                                                ? 'Dates'
                                                                 : filterDates.size === 1
                                                                     ? format(parseLocalDate(Array.from(filterDates)[0]), 'EEE, MMM d')
                                                                     : `${filterDates.size} Dates`}
@@ -7052,20 +7286,16 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                         )}
                                                         <div className="flex-1 min-w-0">
                                                             <div className="font-medium truncate">{pattern.discipline || pattern.disciplineName || 'Pattern'}</div>
-                                                            <div className="text-sm text-muted-foreground space-y-1 mt-1">
-                                                                {pattern.groupName && (
-                                                                    <div>
-                                                                        <span className="font-medium">Class:</span> {pattern.groupName}
-                                                                    </div>
-                                                                )}
+                                                            <div className="text-sm text-muted-foreground space-y-0.5">
+                                                                <div>
+                                                                    <span className="font-medium">Discipline:</span> {pattern.discipline || pattern.disciplineName}
+                                                                    {pattern.associationId && (
+                                                                        <span className="ml-2 text-xs bg-muted px-1.5 py-0.5 rounded">{String(pattern.associationId).toUpperCase()}</span>
+                                                                    )}
+                                                                </div>
                                                                 {pattern.divisionNames && (
                                                                     <div>
-                                                                        <span className="font-medium">Divisions:</span> <span className="text-xs">({pattern.divisionNames})</span>
-                                                                    </div>
-                                                                )}
-                                                                {pattern.judgeNames && (
-                                                                    <div>
-                                                                        <span className="font-medium">Judges:</span> {pattern.judgeNames}
+                                                                        <span className="font-medium">Division:</span> ({pattern.divisionNames})
                                                                     </div>
                                                                 )}
                                                                 <div>
@@ -7309,9 +7539,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                             <SelectValue placeholder="Sort by" />
                                                         </SelectTrigger>
                                                         <SelectContent>
+                                                            <SelectItem value="association">By Association</SelectItem>
                                                             <SelectItem value="division">By Division</SelectItem>
-                                                            <SelectItem value="judge">By Judge</SelectItem>
                                                             <SelectItem value="discipline">By Discipline</SelectItem>
+                                                            <SelectItem value="judge">By Judge</SelectItem>
                                                             <SelectItem value="name">By Name</SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -7348,7 +7579,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                                                     )}
                                                                 </div>
                                                                 <div>
-                                                                    <span className="font-medium">Division (Class):</span> {scoresheet.divisionName}
+                                                                    <span className="font-medium">Division:</span> {scoresheet.divisionName}
                                                                 </div>
                                                                 {scoresheet.judgeName && (
                                                                     <div>
@@ -7667,13 +7898,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 {previewType === 'pattern' ? (
                                     <>
                                         <div><span className="font-medium">Discipline:</span> {previewItem.discipline}</div>
-                                        {previewItem.groupName && <div><span className="font-medium">Class:</span> {previewItem.groupName}</div>}
+                                        {previewItem.groupName && <div><span className="font-medium">Discipline:</span> {previewItem.groupName}</div>}
                                         {previewItem.divisionNames && <div><span className="font-medium">Divisions:</span> {previewItem.divisionNames}</div>}
                                     </>
                                 ) : (
                                     <>
                                         <div><span className="font-medium">Discipline:</span> {previewItem.disciplineName || previewItem.discipline}</div>
-                                        {previewItem.groupName && <div><span className="font-medium">Class:</span> {previewItem.groupName}</div>}
+                                        {previewItem.groupName && <div><span className="font-medium">Discipline:</span> {previewItem.groupName}</div>}
                                         {previewItem.divisionNames && <div><span className="font-medium">Divisions:</span> {previewItem.divisionNames}</div>}
                                     </>
                                 )}
