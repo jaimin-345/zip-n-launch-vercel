@@ -6333,12 +6333,12 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                 
                                 {/* Filters and Actions - Hide when viewing folder */}
                                 {selectedSidebarItem !== 'folder' && (
-                                    <div className="flex items-center gap-4 mb-4 flex-wrap">
+                                    <div className="flex items-center gap-2 mb-4 flex-wrap">
                                         {/* 1. Association Filter (FIRST) - Show for Patterns and Score Sheets tabs */}
                                         {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && uniqueAssociations.length > 0 && (
                                             <Popover open={associationFilterOpen} onOpenChange={(open) => { setAssociationFilterOpen(open); if (!open) setAssociationSearch(''); }}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
+                                                    <Button variant="outline" className="w-36 justify-between">
                                                         <span className="truncate">
                                                             {filterAssociations.size === 0
                                                                 ? 'Associations'
@@ -6415,7 +6415,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
                                             <Popover open={disciplineFilterOpen} onOpenChange={(open) => { setDisciplineFilterOpen(open); if (!open) setDisciplineSearch(''); }}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
+                                                    <Button variant="outline" className="w-36 justify-between">
                                                         <span className="truncate">
                                                             {filterDisciplines.size === 0
                                                                 ? 'Disciplines'
@@ -6486,7 +6486,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         {(activeSubTab === 'patterns' || activeSubTab === 'scoreSheets') && (
                                             <Popover open={divisionFilterOpen} onOpenChange={(open) => { setDivisionFilterOpen(open); if (!open) setDivisionSearch(''); }}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
+                                                    <Button variant="outline" className="w-36 justify-between">
                                                         <span className="truncate">
                                                             {filterDivisions.size === 0
                                                                 ? 'Divisions'
@@ -6607,7 +6607,7 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                         {activeSubTab === 'scoreSheets' && (
                                             <Popover open={judgeFilterOpen} onOpenChange={(open) => { setJudgeFilterOpen(open); if (!open) setJudgeSearch(''); }}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
+                                                    <Button variant="outline" className="w-36 justify-between">
                                                         <span className="truncate">
                                                             {filterJudges.size === 0
                                                                 ? 'Judges'
@@ -6674,11 +6674,11 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                                             </Popover>
                                         )}
 
-                                        {/* 5. Date Filter - Show for Patterns tab only */}
-                                        {activeSubTab === 'patterns' && uniqueDates.length > 0 && (
+                                        {/* 5. Date Filter - Show for Score Sheets tab only */}
+                                        {activeSubTab === 'scoreSheets' && uniqueDates.length > 0 && (
                                             <Popover open={dateFilterOpen} onOpenChange={setDateFilterOpen}>
                                                 <PopoverTrigger asChild>
-                                                    <Button variant="outline" className="w-44 justify-between">
+                                                    <Button variant="outline" className="w-36 justify-between">
                                                         <span className="truncate">
                                                             {filterDates.size === 0
                                                                 ? 'Dates'
