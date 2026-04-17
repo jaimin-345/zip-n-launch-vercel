@@ -3542,15 +3542,30 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
         return [];
     });
     // Extract a displayable division name from a division object or string
+    // Simplify division names by removing the division-group prefix.
+    // Division names are stored as "{Group} - {Level}" (e.g., "Amateur - Amateur (19 & Over)",
+    // "Amateur - Novice Amateur", "Youth - Youth 18 & Under").
+    // The group prefix is redundant in display — the level conveys the full meaning.
+    // Result: "Amateur (19 & Over)", "Novice Amateur", "Youth 18 & Under".
+    const simplifyDivisionName = (name) => {
+        if (!name) return '';
+        const idx = name.indexOf(' - ');
+        if (idx === -1) return name;
+        const level = name.slice(idx + 3).trim();
+        // Use the level part if it's not empty
+        if (level) return level;
+        return name;
+    };
+
     const extractDivisionName = (div) => {
-        if (typeof div === 'string') return div;
+        if (typeof div === 'string') return simplifyDivisionName(div);
         // Try standard name fields first
         const name = div?.name || div?.divisionName || div?.division || div?.title || '';
-        if (name.trim()) return name.trim();
+        if (name.trim()) return simplifyDivisionName(name.trim());
         // Fallback: extract from ID (custom divisions may have id like "custom-All Breed Open Horse")
         if (typeof div?.id === 'string') {
             const cleaned = div.id.replace(/^custom-/i, '').trim();
-            if (cleaned) return cleaned;
+            if (cleaned) return simplifyDivisionName(cleaned);
         }
         return '';
     };
@@ -4368,13 +4383,27 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             groupIndex: groupIndex,
                             classDate, // Per-class competition date
                             divisions: extractedDivisions,
-                            divisionNames: extractedDivisions.map(d => {
-                                // Remove category prefix (e.g., "Open - ", "Amateur - ", "Youth - ")
-                                const name = d.name || '';
-                                const parts = name.split(' - ');
-                                // If there's a " - ", take everything after it; otherwise keep original
-                                return parts.length > 1 ? parts.slice(1).join(' - ') : name;
-                            }).join(', '),
+                            divisionNames: (() => {
+                                // Determine the pattern's association for filtering
+                                const patAssoc = (() => {
+                                    const allAssocIds = getDisciplineAssocIdsLocal(discipline);
+                                    if (groupName && allAssocIds.length > 0) {
+                                        const gn = groupName.toUpperCase();
+                                        const m = allAssocIds.find(a => gn.startsWith(a + ' ') || gn === a);
+                                        if (m) return m;
+                                    }
+                                    return buildDiscAbbrev || patternDetail?.association_id || discipline.association_id || '';
+                                })();
+                                const patAssocUpper = String(patAssoc).toUpperCase();
+                                return [...new Set(extractedDivisions.map(d => {
+                                    const name = d.name || '';
+                                    // Skip divisions that belong to a different association
+                                    const forced = getForcedAssocForDivision(name);
+                                    if (forced && patAssocUpper && forced !== patAssocUpper) return null;
+                                    const parts = name.split(' - ');
+                                    return parts.length > 1 ? parts.slice(1).join(' - ') : name;
+                                }).filter(Boolean))].join(', ');
+                            })(),
                             judges: judgeNames,
                             judgeNames: judgeNames.join(', '),
                             image_url: patternDetail?.image_url || null, // Pattern image for display
@@ -4798,7 +4827,13 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                     const finalJudgeNames = selectionJudge ? [selectionJudge] : judgeNames;
 
                     if (!processedScoresheets.has(uniqueKey)) {
-                        const expectedAbbrev = associationsMap[associationId]?.abbreviation || associationId || null;
+                        // Check if divisions have a forced association (e.g., Amateur → AQHA)
+                        let resolvedAssocId = associationId;
+                        for (const d of extractedDivisions) {
+                            const forced = getForcedAssocForDivision(d.name);
+                            if (forced) { resolvedAssocId = forced; break; }
+                        }
+                        const expectedAbbrev = associationsMap[resolvedAssocId]?.abbreviation || resolvedAssocId || null;
                         // Compute the actual pattern number this row represents (4-digit padded),
                         // pulled from patternSelection (so APHA Pattern 0002 stays 0002, etc.)
                         const selectionPatternNumber = (typeof patternSelection === 'object' && patternSelection?.patternNumber)
@@ -4815,17 +4850,23 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                             disciplineIndex: disciplineIndex,
                             groupName: groupName,
                             groupIndex: groupIndex,
-                            associationId: associationId,
+                            associationId: resolvedAssocId,
                             associationAbbrev: expectedAbbrev,
                             patternNumber: patternNumberLabel,
                             patternId: numericPatternId,
                             displayName: scoresheetName,
                             divisions: extractedDivisions,
-                            divisionNames: extractedDivisions.map(d => {
-                                const name = d.name || '';
-                                const parts = name.split(' - ');
-                                return parts.length > 1 ? parts.slice(1).join(' - ') : name;
-                            }).join(', '),
+                            divisionNames: (() => {
+                                const assocUpper = String(resolvedAssocId || '').toUpperCase();
+                                return [...new Set(extractedDivisions.map(d => {
+                                    const name = d.name || '';
+                                    // Skip divisions forced to a different association
+                                    const forced = getForcedAssocForDivision(name);
+                                    if (forced && assocUpper && forced !== assocUpper) return null;
+                                    const parts = name.split(' - ');
+                                    return parts.length > 1 ? parts.slice(1).join(' - ') : name;
+                                }).filter(Boolean))].join(', ');
+                            })(),
                             judges: finalJudgeNames,
                             judgeNames: finalJudgeNames.join(', '),
                             judgeName: finalJudgeNames.join(', '),

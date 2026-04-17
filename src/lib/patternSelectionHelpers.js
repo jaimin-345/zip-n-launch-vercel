@@ -93,12 +93,16 @@ export const writePatternSelectionForAssoc = (disciplineSelections, groupKey, as
 // are always AQHA-governed regardless of how the class was tagged upstream:
 //   - "Level 1" (any casing)
 //   - "Open All Ages" / "Open All Aged"
+//   - "Amateur" divisions (Amateur belongs to AQHA, not APHA)
 // Returns the forced abbreviation (uppercase) or null when no rule matches.
 export const getForcedAssocForDivision = (divisionName) => {
   if (!divisionName) return null;
   const s = String(divisionName).toLowerCase();
   if (/\b(level\s*1|level\s*one|l1)\b/.test(s)) return 'AQHA';
   if (/\bopen\s+(all\s+)?(age[sd]?|l1)\b/.test(s)) return 'AQHA';
+  // Amateur divisions belong to AQHA in dual-affiliated shows.
+  // Excludes APHA-specific divisions like "Novice Amateur" and "Green Horse".
+  if (/\bamateur\b/i.test(s) && !/\bnovice\b/i.test(s) && !/\bgreen\b/i.test(s)) return 'AQHA';
   return null;
 };
 
