@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { parseLocalDate } from '@/lib/utils';
 import patternDiagram from '@/assets/pattern-diagram-sample.png';
 import { drawGenericScoreSheetPage, SCORESHEET_LAYOUT } from './genericScoreSheet';
+import { generateCustomLayoutPdf } from './customLayoutRenderer';
 
 export const generatePatternBookPdf = async (pbbData, options = {}) => {
     console.log('Generating PDF for', pbbData);
@@ -16,6 +17,12 @@ export const generatePatternBookPdf = async (pbbData, options = {}) => {
     // Get selected layout (default to 'layout-a' if not specified)
     const selectedLayout = pbbData.layoutSelection || 'layout-a';
     console.log('Selected layout:', selectedLayout);
+
+    // Layout C (Custom Pattern Book) uses a separate page/slot engine that
+    // renders from a user-configured layout instead of iterating disciplines.
+    if (selectedLayout === 'layout-c') {
+        return generateCustomLayoutPdf(pbbData);
+    }
 
     // Feature flag: class number display (set to false to hide auto-generated numbers)
     const showClassNumbers = pbbData.showClassNumbers || false;

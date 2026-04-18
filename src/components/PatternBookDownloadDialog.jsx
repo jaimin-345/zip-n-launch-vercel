@@ -1,9 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { generatePatternBookPdf } from '@/lib/bookGenerator';
-import { Loader2, Eye, Download } from 'lucide-react';
+import { Loader2, Eye, Download, Sparkles, ExternalLink } from 'lucide-react';
+import CustomLayoutBuilder from '@/components/pbb/CustomLayoutBuilder';
+import { format } from 'date-fns';
 
 /**
  * Convert a data URI string to a Blob.
@@ -25,7 +28,16 @@ const PDF_CACHE_MAX = 20;
 function getCacheKey(project, layout) {
     const id = project?.id || 'anon';
     const updated = project?.updated_at || project?.project_data?.updated_at || '0';
-    return `${id}::${updated}::${layout}`;
+    // Layout C varies by the latest published snapshot — include its publishedAt
+    // so a fresh publish busts the cache even if the project's updated_at hasn't
+    // persisted yet.
+    let layoutTag = layout;
+    if (layout === 'layout-c') {
+        const versions = project?.project_data?.customLayoutVersions || [];
+        const latest = versions[versions.length - 1];
+        if (latest) layoutTag = `layout-c::${latest.versionLabel}::${latest.publishedAt || ''}`;
+    }
+    return `${id}::${updated}::${layoutTag}`;
 }
 
 function putCache(key, blob) {
@@ -66,10 +78,15 @@ function triggerForceDownload(blob, filename) {
  *  - open: boolean
  *  - onOpenChange: (open: boolean) => void
  *  - project: { id, project_name, project_data }
+ *  - setFormData: optional setter used by Layout C's builder to persist layout
+ *    changes back onto the parent's formData. When omitted, Layout C only
+ *    offers View/Download of the latest published version.
  */
-const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
+const PatternBookDownloadDialog = ({ open, onOpenChange, project, setFormData }) => {
     const { toast } = useToast();
-    const [generatingAction, setGeneratingAction] = useState(null); // 'view-a' | 'download-a' | 'view-b' | 'download-b' | null
+    const navigate = useNavigate();
+    const [generatingAction, setGeneratingAction] = useState(null); // 'view-a' | 'download-a' | 'view-b' | 'download-b' | 'view-c' | 'download-c' | null
+    const [builderOpen, setBuilderOpen] = useState(false);
     // URL of the generated PDF currently being previewed inline inside the
     // dialog. When set, the dialog shows an embedded iframe instead of the
     // layout buttons so the user never leaves the page.
@@ -98,17 +115,58 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
         }
     }, [open]);
 
-    const buildPbbData = useCallback((layout) => ({
-        ...project?.project_data,
-        id: project?.id,
-        layoutSelection: layout,
-        // Pattern Book PDF must NOT include score sheets
-        downloadIncludes: { scoresheet: false },
-    }), [project]);
+    // Pick the latest published snapshot for Layout C so view/download can be
+    // performed without opening the builder.
+    const latestCustomVersion = useCallback(() => {
+        const versions = project?.project_data?.customLayoutVersions || [];
+        if (versions.length === 0) return null;
+        return versions[versions.length - 1];
+    }, [project]);
+
+    const buildPbbData = useCallback((layout) => {
+        const base = {
+            ...project?.project_data,
+            id: project?.id,
+            layoutSelection: layout,
+            // Pattern Book PDF must NOT include score sheets
+            downloadIncludes: { scoresheet: false },
+        };
+        if (layout === 'layout-c') {
+            const latest = latestCustomVersion();
+            if (latest) {
+                base.customLayout = latest.snapshot;
+                base.customLayoutVersion = latest.versionLabel;
+                base.customLayoutPublishedAt = latest.publishedAt;
+            } else {
+                // No published version — render the current draft (or fall back
+                // to an auto-populated layout inside the renderer) so users can
+                // always preview/download Layout C.
+                base.customLayoutVersion = base.customLayout ? 'Draft' : 'Auto';
+                base.customLayoutPublishedAt = new Date().toISOString();
+            }
+        }
+        return base;
+    }, [project, latestCustomVersion]);
+
+    const layoutActionKey = (layout) => {
+        if (layout === 'layout-a') return 'a';
+        if (layout === 'layout-b') return 'b';
+        return 'c';
+    };
+
+    const layoutFileLabel = (layout) => {
+        if (layout === 'layout-a') return 'A';
+        if (layout === 'layout-b') return 'B';
+        return 'C';
+    };
 
     const handleView = useCallback(async (layout) => {
-        const actionKey = `view-${layout === 'layout-a' ? 'a' : 'b'}`;
-        const layoutLabel = layout === 'layout-a' ? 'A - By Date' : 'B - By Discipline';
+        const actionKey = `view-${layoutActionKey(layout)}`;
+        const layoutLabel = layout === 'layout-a'
+            ? 'A - By Date'
+            : layout === 'layout-b'
+                ? 'B - By Discipline'
+                : 'C - Custom Pattern Book';
         try {
             setGeneratingAction(actionKey);
             const blob = await getOrGenerateBlob(project, layout, buildPbbData);
@@ -142,7 +200,7 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
 
     const handleDownloadCurrentPreview = useCallback(() => {
         if (!previewBlob || !previewLayout) return;
-        const layoutLabel = previewLayout === 'layout-a' ? 'A' : 'B';
+        const layoutLabel = layoutFileLabel(previewLayout);
         const filename = `${project?.project_name || 'Pattern-Book'}_Layout-${layoutLabel}.pdf`;
         triggerForceDownload(previewBlob, filename);
         toast({
@@ -152,8 +210,8 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
     }, [previewBlob, previewLayout, project, toast]);
 
     const handleDownload = useCallback(async (layout) => {
-        const actionKey = `download-${layout === 'layout-a' ? 'a' : 'b'}`;
-        const layoutLabel = layout === 'layout-a' ? 'A' : 'B';
+        const actionKey = `download-${layoutActionKey(layout)}`;
+        const layoutLabel = layoutFileLabel(layout);
         try {
             setGeneratingAction(actionKey);
             const blob = await getOrGenerateBlob(project, layout, buildPbbData);
@@ -179,7 +237,7 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
     }, [buildPbbData, project, toast]);
 
     const renderLayoutSection = (layout, label, color, description) => {
-        const layoutKey = layout === 'layout-a' ? 'a' : 'b';
+        const layoutKey = layoutActionKey(layout);
         const viewKey = `view-${layoutKey}`;
         const downloadKey = `download-${layoutKey}`;
 
@@ -228,6 +286,123 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
                         )}
                     </Button>
                 </div>
+            </div>
+        );
+    };
+
+    const goToBuilderInEditor = () => {
+        if (!project?.id) {
+            toast({
+                title: 'Cannot navigate',
+                description: 'Project ID not available.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        // Close the dialog first so React Router navigation isn't blocked by
+        // the modal's focus trap.
+        if (typeof onOpenChange === 'function') onOpenChange(false);
+        navigate(`/pattern-book-builder/${project.id}?step=8`);
+    };
+
+    const renderLayoutCSection = () => {
+        const latest = latestCustomVersion();
+        const hasBuilder = typeof setFormData === 'function';
+        const hasDraftLayout = (project?.project_data?.customLayout?.pages?.length || 0) > 0;
+        const viewKey = 'view-c';
+        const downloadKey = 'download-c';
+
+        // Source-of-truth label for the status strip and button text.
+        let sourceLabel = 'Auto-generated';
+        let sourceNote = 'No custom layout yet — will auto-populate all patterns, one per page.';
+        if (latest) {
+            sourceLabel = latest.versionLabel;
+            sourceNote = latest.publishedAt
+                ? `Published ${format(new Date(latest.publishedAt), 'MMM d, yyyy • h:mm a')}`
+                : 'Latest published version';
+        } else if (hasDraftLayout) {
+            sourceLabel = 'Draft';
+            sourceNote = 'Unpublished draft — visible here, but not an official version until you publish.';
+        }
+
+        const viewLabel = latest ? 'View Latest' : hasDraftLayout ? 'View Draft' : 'Preview';
+        const downloadLabel = latest ? 'Download Latest' : hasDraftLayout ? 'Download Draft' : 'Download';
+
+        return (
+            <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+                    <h3 className="font-semibold text-lg">Layout C - Custom Pattern Book</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                    Drag-and-drop builder with mixed page sizes, logo, and versioning.
+                </p>
+                <div className="text-xs text-muted-foreground bg-muted/40 rounded px-2 py-1">
+                    Source: <span className="font-semibold">{sourceLabel}</span> — {sourceNote}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                    {hasBuilder && (
+                        <Button
+                            onClick={() => setBuilderOpen(true)}
+                            className="flex-1 min-w-[150px]"
+                            variant="default"
+                            disabled={isGenerating}
+                        >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            {latest || hasDraftLayout ? 'Edit Layout' : 'Open Builder'}
+                        </Button>
+                    )}
+                    <Button
+                        onClick={() => handleView('layout-c')}
+                        className="flex-1 min-w-[150px]"
+                        variant={hasBuilder ? 'outline' : 'default'}
+                        disabled={isGenerating}
+                    >
+                        {generatingAction === viewKey ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                            </>
+                        ) : (
+                            <>
+                                <Eye className="h-4 w-4 mr-2" />
+                                {viewLabel}
+                            </>
+                        )}
+                    </Button>
+                    <Button
+                        onClick={() => handleDownload('layout-c')}
+                        className="flex-1 min-w-[150px]"
+                        variant="outline"
+                        disabled={isGenerating}
+                    >
+                        {generatingAction === downloadKey ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="h-4 w-4 mr-2" />
+                                {downloadLabel}
+                            </>
+                        )}
+                    </Button>
+                </div>
+                {!hasBuilder && (
+                    <div className="pt-1">
+                        <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-primary"
+                            onClick={goToBuilderInEditor}
+                            disabled={!project?.id}
+                        >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            {latest || hasDraftLayout ? 'Edit in Pattern Book Builder' : 'Go to Pattern Book Builder to create a layout'}
+                        </Button>
+                    </div>
+                )}
             </div>
         );
     };
@@ -288,10 +463,19 @@ const PatternBookDownloadDialog = ({ open, onOpenChange, project }) => {
                                 'bg-green-500',
                                 'Patterns organized by discipline with traditional, professional styling.'
                             )}
+                            {renderLayoutCSection()}
                         </div>
                     </>
                 )}
             </DialogContent>
+            {typeof setFormData === 'function' && (
+                <CustomLayoutBuilder
+                    open={builderOpen}
+                    onOpenChange={setBuilderOpen}
+                    formData={project?.project_data || {}}
+                    setFormData={setFormData}
+                />
+            )}
         </Dialog>
     );
 };

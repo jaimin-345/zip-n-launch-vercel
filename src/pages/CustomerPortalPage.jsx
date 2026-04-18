@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -2197,6 +2197,10 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
     const [viewDownloadDialogOpen, setViewDownloadDialogOpen] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    // Local mirror of project.project_data so Layout C's builder can mutate it
+    // through setFormData. Every update is persisted to Supabase immediately
+    // (there's no "Save Draft" button in the Customer Portal dialog).
+    const [localProjectData, setLocalProjectData] = useState(() => project.project_data || {});
     
     // Folder management state
     const [folders, setFolders] = useState(() => {
@@ -2223,6 +2227,48 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
     
     const projectData = project.project_data || {};
     const { toast } = useToast();
+
+    // Keep the local project_data mirror in sync when parent refreshes the project
+    useEffect(() => {
+        setLocalProjectData(project.project_data || {});
+    }, [project.project_data]);
+
+    // setFormData-compatible handler for Layout C builder. Auto-persists each
+    // mutation to Supabase so the customer portal doesn't need a separate
+    // "Save Draft" step.
+    const handleDialogFormDataChange = useCallback(
+        (updater) => {
+            setLocalProjectData((prev) => {
+                const next = typeof updater === 'function' ? updater(prev) : updater;
+                // Fire-and-forget DB persist. Errors surface via toast.
+                supabase
+                    .from('projects')
+                    .update({ project_data: next })
+                    .eq('id', project.id)
+                    .then(({ error }) => {
+                        if (error) {
+                            console.error('Error persisting project_data:', error);
+                            toast({
+                                title: 'Save failed',
+                                description: error.message || 'Could not save changes.',
+                                variant: 'destructive',
+                            });
+                        } else if (onRefresh) {
+                            // Refresh the parent so subsequent opens see the latest data
+                            onRefresh();
+                        }
+                    });
+                return next;
+            });
+        },
+        [project.id, toast, onRefresh]
+    );
+
+    // Project shape fed to the dialog — uses the local, possibly-ahead-of-DB mirror
+    const dialogProject = useMemo(
+        () => ({ ...project, project_data: localProjectData }),
+        [project, localProjectData]
+    );
     
     // Handle status change
     const handleStatusChange = async (newStatus) => {
@@ -5944,9 +5990,9 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
                         <FileText className="h-6 w-6 text-primary" />
                         <h2 className="text-2xl font-bold">{project.project_name || 'Untitled Project'}</h2>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <Select 
-                            value={displayStatus} 
+                    <div className="flex items-center gap-4 mr-10">
+                        <Select
+                            value={displayStatus}
                             onValueChange={handleStatusChange}
                             disabled={isUpdatingStatus}
                         >
@@ -7996,7 +8042,8 @@ const PatternBookDialogContent = ({ project, profile, user, associationsData, on
             <PatternBookDownloadDialog
                 open={viewDownloadDialogOpen}
                 onOpenChange={setViewDownloadDialogOpen}
-                project={project}
+                project={dialogProject}
+                setFormData={handleDialogFormDataChange}
             />
             
             {/* Rename Folder Dialog */}

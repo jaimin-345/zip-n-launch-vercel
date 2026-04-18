@@ -722,7 +722,7 @@ const ProjectInfoCard = ({ formData, user }) => {
 };
 
 // --- Action Panel (Center Panel) ---
-const ActionPanel = ({ currentStatus, onStatusChange, isSaving, savingAction, isReadOnly, formData }) => {
+const ActionPanel = ({ currentStatus, onStatusChange, isSaving, savingAction, isReadOnly, formData, setFormData }) => {
   const isFinalized = currentStatus === 'Final';
   const isLocked = currentStatus === 'Locked' || isFinalized;
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -819,6 +819,7 @@ const ActionPanel = ({ currentStatus, onStatusChange, isSaving, savingAction, is
         open={showExportDialog}
         onOpenChange={setShowExportDialog}
         project={projectForDialog}
+        setFormData={isReadOnly ? undefined : setFormData}
       />
     </div>
   );
@@ -1282,6 +1283,7 @@ export const Step_CloseOutAndDelegate = ({ formData, setFormData, stepNumber = 8
                             savingAction={savingAction}
                             isReadOnly={isReadOnly}
                             formData={formData}
+                            setFormData={setFormData}
                         />
                     </div>
 
